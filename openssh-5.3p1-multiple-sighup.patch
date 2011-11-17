@@ -1,0 +1,11 @@
+--- openssh-5.3p1/sshd.c	2009-12-08 02:39:48 +0000
++++ openssh-5.3p1/sshd.c	2010-01-05 14:21:39 +0000
+@@ -306,6 +306,7 @@ static void
+ sighup_restart(void)
+ {
+ 	logit("Received SIGHUP; restarting.");
++	signal(SIGHUP, SIG_IGN); /* will be restored after exec */
+ 	close_listen_socks();
+ 	close_startup_pipes();
+ 	alarm(0);  /* alarm timer persists across exec */
+

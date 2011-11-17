@@ -1,0 +1,68 @@
+diff -up openssh-5.3p1/sftp-server.8.sftp-umask openssh-5.3p1/sftp-server.8
+--- openssh-5.3p1/sftp-server.8.sftp-umask	2009-06-21 09:52:28.000000000 +0200
++++ openssh-5.3p1/sftp-server.8	2011-03-15 20:33:09.006854831 +0100
+@@ -32,6 +32,7 @@
+ .Nm sftp-server
+ .Op Fl f Ar log_facility
+ .Op Fl l Ar log_level
++.Op Fl u Ar umask
+ .Sh DESCRIPTION
+ .Nm
+ is a program that speaks the server side of SFTP protocol
+@@ -71,6 +72,11 @@ performs on behalf of the client.
+ DEBUG and DEBUG1 are equivalent.
+ DEBUG2 and DEBUG3 each specify higher levels of debugging output.
+ The default is ERROR.
++.It Fl u Ar umask
++Sets an explicit
++.Xr umask 2
++to be applied to newly-created files and directories, instead of the
++user's default mask.
+ .El
+ .Pp
+ For logging to work,
+diff -up openssh-5.3p1/sftp-server.c.sftp-umask openssh-5.3p1/sftp-server.c
+--- openssh-5.3p1/sftp-server.c.sftp-umask	2009-08-28 02:43:13.000000000 +0200
++++ openssh-5.3p1/sftp-server.c	2011-03-15 20:35:52.733979858 +0100
+@@ -1322,7 +1322,8 @@ sftp_server_usage(void)
+ 	extern char *__progname;
+ 
+ 	fprintf(stderr,
+-	    "usage: %s [-he] [-l log_level] [-f log_facility]\n", __progname);
++	    "usage: %s [-he] [-l log_level] [-f log_facility] [-u umask]\n",
++	    __progname);
+ 	exit(1);
+ }
+ 
+@@ -1334,6 +1335,7 @@ sftp_server_main(int argc, char **argv, 
+ 	ssize_t len, olen, set_size;
+ 	SyslogFacility log_facility = SYSLOG_FACILITY_AUTH;
+ 	char *cp, buf[4*4096];
++	long mask;
+ 
+ 	extern char *optarg;
+ 	extern char *__progname;
+@@ -1341,7 +1343,7 @@ sftp_server_main(int argc, char **argv, 
+ 	__progname = ssh_get_progname(argv[0]);
+ 	log_init(__progname, log_level, log_facility, log_stderr);
+ 
+-	while (!skipargs && (ch = getopt(argc, argv, "f:l:che")) != -1) {
++	while (!skipargs && (ch = getopt(argc, argv, "f:l:u:che")) != -1) {
+ 		switch (ch) {
+ 		case 'c':
+ 			/*
+@@ -1363,6 +1365,14 @@ sftp_server_main(int argc, char **argv, 
+ 			if (log_facility == SYSLOG_FACILITY_NOT_SET)
+ 				error("Invalid log facility \"%s\"", optarg);
+ 			break;
++		case 'u':
++			errno = 0;
++			mask = strtol(optarg, &cp, 8);
++			if (mask < 0 || mask > 0777 || *cp != '\0' ||
++			    cp == optarg || (mask == 0 && errno != 0))
++				fatal("Invalid umask \"%s\"", optarg);
++			(void)umask((mode_t)mask);
++			break;
+ 		case 'h':
+ 		default:
+ 			sftp_server_usage();
