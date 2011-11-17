@@ -1,0 +1,121 @@
+diff -up openssh-4.3p2/servconf.c.forced openssh-4.3p2/servconf.c
+--- openssh-4.3p2/servconf.c.forced	2010-10-13 12:27:24.000000000 +0200
++++ openssh-4.3p2/servconf.c	2010-10-13 12:27:24.000000000 +0200
+@@ -107,6 +107,7 @@ initialize_server_options(ServerOptions 
+ 
+ 	/* Needs to be accessable in many places */
+ 	use_privsep = -1;
++	options->adm_forced_command = NULL;
+ }
+ 
+ void
+@@ -279,6 +280,7 @@ typedef enum {
+ 	sHostbasedUsesNameFromPacketOnly, sClientAliveInterval,
+ 	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
+ 	sGssAuthentication, sGssCleanupCreds, sAcceptEnv, sPermitTunnel,
++	sForceCommand,
+ 	sUsePrivilegeSeparation,
+ 	sShowPatchLevel, sChrootDirectory,
+ 	sDeprecated, sUnsupported
+@@ -385,6 +387,7 @@ static struct {
+ 	{ "acceptenv", sAcceptEnv },
+ 	{ "permittunnel", sPermitTunnel },
+  	{ "chrootdirectory", sChrootDirectory },
++	{ "forcecommand", sForceCommand },
+ 	{ NULL, sBadOption }
+ };
+ 
+@@ -445,6 +448,8 @@ add_one_listen_addr(ServerOptions *optio
+ 	options->listen_addrs = aitop;
+ }
+ 
++#define WHITESPACE " \t\r\n"
++
+ int
+ process_server_config_line(ServerOptions *options, char *line,
+     const char *filename, int linenum)
+@@ -1023,6 +1028,15 @@ parse_flag:
+ 			*charptr = xstrdup(arg);
+ 		break;
+ 
++	case sForceCommand:
++		if (cp == NULL)
++			fatal("%.200s line %d: Missing argument.", filename,
++			    linenum);
++		len = strspn(cp, WHITESPACE);
++		if (options->adm_forced_command == NULL)
++			options->adm_forced_command = xstrdup(cp + len);
++		return 0;
++
+ 	case sDeprecated:
+ 		logit("%s line %d: Deprecated option %s",
+ 		    filename, linenum, arg);
+diff -up openssh-4.3p2/servconf.h.forced openssh-4.3p2/servconf.h
+--- openssh-4.3p2/servconf.h.forced	2010-10-13 12:27:24.000000000 +0200
++++ openssh-4.3p2/servconf.h	2010-10-13 12:27:24.000000000 +0200
+@@ -139,6 +139,8 @@ typedef struct {
+ 	char   *authorized_keys_file;	/* File containing public keys */
+ 	char   *authorized_keys_file2;
+ 
++	char   *adm_forced_command;
++
+ 	int	use_pam;		/* Enable auth via PAM */
+ 
+ 	int	permit_tun;
+diff -up openssh-4.3p2/session.c.forced openssh-4.3p2/session.c
+--- openssh-4.3p2/session.c.forced	2010-10-13 12:27:24.000000000 +0200
++++ openssh-4.3p2/session.c	2010-10-13 12:27:24.000000000 +0200
+@@ -653,10 +653,14 @@ do_pre_login(Session *s)
+ void
+ do_exec(Session *s, const char *command)
+ {
+-	if (forced_command) {
++	if (options.adm_forced_command) {
++		original_command = command;
++		command = options.adm_forced_command;
++		debug("Forced command (config) '%.900s'", command);
++	} else if (forced_command) {
+ 		original_command = command;
+ 		command = forced_command;
+-		debug("Forced command '%.900s'", command);
++		debug("Forced command (key option) '%.900s'", command);
+ 	}
+ 
+ #ifdef SSH_AUDIT_EVENTS
+diff -up openssh-4.3p2/sshd.8.forced openssh-4.3p2/sshd.8
+--- openssh-4.3p2/sshd.8.forced	2006-02-01 12:05:43.000000000 +0100
++++ openssh-4.3p2/sshd.8	2010-10-13 12:27:24.000000000 +0200
+@@ -435,6 +435,14 @@ No spaces are permitted, except within d
+ The following option specifications are supported (note
+ that option keywords are case-insensitive):
+ .Bl -tag -width Ds
++.It Cm command="command"
++Specifies that the command is executed whenever this key is used for
++authentication.
++The command supplied by the user (if any) is ignored.
++Also note that this command may be superseded by either a
++.Xr sshd_config 5
++.Cm ForceCommand
++directive.
+ .It Cm from="pattern-list"
+ Specifies that in addition to public key authentication, the canonical name
+ of the remote host must be present in the comma-separated list of
+diff -up openssh-4.3p2/sshd_config.5.forced openssh-4.3p2/sshd_config.5
+--- openssh-4.3p2/sshd_config.5.forced	2010-10-13 12:34:04.000000000 +0200
++++ openssh-4.3p2/sshd_config.5	2010-10-13 12:34:37.000000000 +0200
+@@ -299,6 +299,15 @@ Specifying a command of
+ will force the use of an in-process sftp server that requires no support
+ files when used with
+ .Cm ChrootDirectory .
++.It Cm ForceCommand
++Forces the execution of the command specified by
++.Cm ForceCommand ,
++ignoring any command supplied by the client.
++The command is invoked by using the user's login shell with the -c option.
++This applies to shell, command, or subsystem execution.
++The command originally supplied by the client is available in the
++.Ev SSH_ORIGINAL_COMMAND
++environment variable.
+ .It Cm GatewayPorts
+ Specifies whether remote hosts are allowed to connect to ports
+ forwarded for the client.

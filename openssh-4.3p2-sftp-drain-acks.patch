@@ -1,0 +1,68 @@
+diff -up openssh-4.3p2/sftp-client.c.drain-acks openssh-4.3p2/sftp-client.c
+--- openssh-4.3p2/sftp-client.c.drain-acks	2006-01-02 13:40:51.000000000 +0100
++++ openssh-4.3p2/sftp-client.c	2008-01-15 11:18:29.000000000 +0100
+@@ -974,7 +974,8 @@ int
+ do_upload(struct sftp_conn *conn, char *local_path, char *remote_path,
+     int pflag)
+ {
+-	int local_fd, status;
++	int local_fd;
++	int status = SSH2_FX_OK;
+ 	u_int handle_len, id, type;
+ 	u_int64_t offset;
+ 	char *handle, *data;
+@@ -1056,7 +1057,7 @@ do_upload(struct sftp_conn *conn, char *
+ 		 * Simulate an EOF on interrupt, allowing ACKs from the
+ 		 * server to drain.
+ 		 */
+-		if (interrupted)
++		if (interrupted || status != SSH2_FX_OK)
+ 			len = 0;
+ 		else do
+ 			len = read(local_fd, data, conn->transfer_buflen);
+@@ -1113,15 +1114,6 @@ do_upload(struct sftp_conn *conn, char *
+ 				fatal("Can't find request for ID %u", r_id);
+ 			TAILQ_REMOVE(&acks, ack, tq);
+ 
+-			if (status != SSH2_FX_OK) {
+-				error("Couldn't write to remote file \"%s\": %s",
+-				    remote_path, fx2txt(status));
+-				do_close(conn, handle, handle_len);
+-				close(local_fd);
+-				xfree(data);
+-				xfree(ack);
+-				goto done;
+-			}
+ 			debug3("In write loop, ack for %u %u bytes at %llu",
+ 			    ack->id, ack->len, (unsigned long long)ack->offset);
+ 			++ackid;
+@@ -1133,21 +1125,25 @@ do_upload(struct sftp_conn *conn, char *
+ 		stop_progress_meter();
+ 	xfree(data);
+ 
++	if (status != SSH2_FX_OK) {
++		error("Couldn't write to remote file \"%s\": %s",
++		    remote_path, fx2txt(status));
++		status = -1;
++	}
++
+ 	if (close(local_fd) == -1) {
+ 		error("Couldn't close local file \"%s\": %s", local_path,
+ 		    strerror(errno));
+-		do_close(conn, handle, handle_len);
+ 		status = -1;
+-		goto done;
+ 	}
+ 
+ 	/* Override umask and utimes if asked */
+ 	if (pflag)
+ 		do_fsetstat(conn, handle, handle_len, &a);
+ 
+-	status = do_close(conn, handle, handle_len);
++	if (do_close(conn, handle, handle_len) != SSH2_FX_OK)
++		status = -1;
+ 
+-done:
+ 	xfree(handle);
+ 	buffer_free(&msg);
+ 	return(status);

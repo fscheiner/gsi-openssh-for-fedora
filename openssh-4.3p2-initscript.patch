@@ -1,0 +1,29 @@
+--- openssh-4.3p2/contrib/redhat/sshd.init.initscript	2006-11-10 11:07:53.000000000 +0100
++++ openssh-4.3p2/contrib/redhat/sshd.init	2006-11-10 11:08:25.000000000 +0100
+@@ -29,6 +29,8 @@
+ DSA_KEY=/etc/ssh/ssh_host_dsa_key
+ PID_FILE=/var/run/sshd.pid
+ 
++runlevel=$(set -- $(runlevel); eval "echo \$$#" )
++
+ do_rsa1_keygen() {
+ 	if [ ! -s $RSA1_KEY ]; then
+ 		echo -n $"Generating SSH1 RSA host key: "
+@@ -116,11 +118,16 @@
+ {
+ 	echo -n $"Stopping $prog: "
+ 	if [ -n "`pidfileofproc $SSHD`" ] ; then
+-	    killproc $SSHD -TERM
++	    killproc $SSHD
+ 	else
+ 	    failure $"Stopping $prog"
+ 	fi
+ 	RETVAL=$?
++	# if we are in halt or reboot runlevel kill all running sessions
++	# so the TCP connections are closed cleanly
++	if [ "x$runlevel" = x0 -o "x$runlevel" = x6 ] ; then
++	    killall $prog 2>/dev/null
++	fi
+ 	[ "$RETVAL" = 0 ] && rm -f /var/lock/subsys/sshd
+ 	echo
+ }

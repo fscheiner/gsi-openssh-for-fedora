@@ -1,0 +1,67 @@
+--- openssh-4.3p2/gss-genr.c.no-spnego	2006-09-27 11:40:35.000000000 +0200
++++ openssh-4.3p2/gss-genr.c	2006-09-27 11:47:28.000000000 +0200
+@@ -285,4 +285,34 @@
+ 	return (ssh_gssapi_acquire_cred(*ctx));
+ }
+ 
++int
++ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host)
++{
++	gss_buffer_desc token = GSS_C_EMPTY_BUFFER;
++	OM_uint32 major, minor;
++	gss_OID_desc spnego_oid = {6, (void *)"\x2B\x06\x01\x05\x05\x02"};
++
++	/* RFC 4462 says we MUST NOT do SPNEGO */
++	if (oid->length == spnego_oid.length && 
++	    (memcmp(oid->elements, spnego_oid.elements, oid->length) == 0))
++		return 0;
++
++	ssh_gssapi_build_ctx(ctx);
++	ssh_gssapi_set_oid(*ctx, oid);
++	major = ssh_gssapi_import_name(*ctx, host);
++	if (!GSS_ERROR(major)) {
++		major = ssh_gssapi_init_ctx(*ctx, 0, GSS_C_NO_BUFFER, &token, 
++		    NULL);
++		gss_release_buffer(&minor, &token);
++		if ((*ctx)->context != GSS_C_NO_CONTEXT)
++			gss_delete_sec_context(&minor, &(*ctx)->context,
++			    GSS_C_NO_BUFFER);
++	}
++
++	if (GSS_ERROR(major)) 
++		ssh_gssapi_delete_ctx(ctx);
++
++	return (!GSS_ERROR(major));
++}
++
+ #endif /* GSSAPI */
+--- openssh-4.3p2/sshconnect2.c.no-spnego	2005-11-05 05:07:33.000000000 +0100
++++ openssh-4.3p2/sshconnect2.c	2006-09-27 11:40:35.000000000 +0200
+@@ -494,15 +494,10 @@
+ 
+ 	/* Check to see if the mechanism is usable before we offer it */
+ 	while (mech < gss_supported->count && !ok) {
+-		if (gssctxt)
+-			ssh_gssapi_delete_ctx(&gssctxt);
+-		ssh_gssapi_build_ctx(&gssctxt);
+-		ssh_gssapi_set_oid(gssctxt, &gss_supported->elements[mech]);
+-
+ 		/* My DER encoding requires length<128 */
+ 		if (gss_supported->elements[mech].length < 128 &&
+-		    !GSS_ERROR(ssh_gssapi_import_name(gssctxt,
+-		    authctxt->host))) {
++		    ssh_gssapi_check_mechanism(&gssctxt, 
++		    &gss_supported->elements[mech], authctxt->host)) {
+ 			ok = 1; /* Mechanism works */
+ 		} else {
+ 			mech++;
+--- openssh-4.3p2/ssh-gss.h.no-spnego	2004-06-22 04:56:02.000000000 +0200
++++ openssh-4.3p2/ssh-gss.h	2006-09-27 11:40:35.000000000 +0200
+@@ -120,6 +120,7 @@
+ OM_uint32 ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
+ OM_uint32 ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
+ void ssh_gssapi_buildmic(Buffer *, const char *, const char *, const char *);
++int ssh_gssapi_check_mechanism(Gssctxt **, gss_OID, const char *);
+ 
+ /* In the server */
+ int ssh_gssapi_userok(char *name);

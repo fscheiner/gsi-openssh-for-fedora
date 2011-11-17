@@ -1,0 +1,13 @@
+--- session.c.orig	2009-10-21 17:22:37.000000000 +0200
++++ session.c	2009-10-21 17:23:41.000000000 +0200
+@@ -507,6 +507,10 @@
+ 	 */
+ 	if (compat20) {
+ 		session_set_fds(s, inout[1], inout[1], s->is_subsystem ? -1 : err[1]);
++		/* close err[1] to not leak the socket if this inside a subsystem */
++		if (s->is_subsystem) {
++			close(err[1]);
++		}
+ 	} else {
+ 		server_loop(pid, inout[1], inout[1], err[1]);
+ 		/* server_loop has closed inout[1] and err[1]. */

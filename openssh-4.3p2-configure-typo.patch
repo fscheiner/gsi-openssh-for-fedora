@@ -1,0 +1,10 @@
+--- openssh-4.3p2/configure.ac.typo	2006-07-17 13:29:27.000000000 +0200
++++ openssh-4.3p2/configure.ac	2006-07-17 13:29:45.000000000 +0200
+@@ -1608,6 +1608,7 @@
+ 			AC_MSG_RESULT(no)
+ 			AC_DEFINE(BROKEN_GETADDRINFO)
+ 		],
++		[
+ 			AC_MSG_RESULT(cross-compiling, assuming no)
+ 		]
+ 	)

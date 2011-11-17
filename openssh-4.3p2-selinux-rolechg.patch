@@ -1,0 +1,256 @@
+--- openssh-4.3p2/selinux.c.rolechg	2007-04-03 11:01:05.000000000 +0200
++++ openssh-4.3p2/selinux.c	2007-04-03 16:09:49.000000000 +0200
+@@ -41,15 +41,15 @@
+ 	}
+ 	if (selinux_trans_to_raw_context(default_context, &default_raw) < 0) {
+ 		error("Error translating default context.");
+-		goto out;
++		default_raw = NULL;
+ 	}
+ 	if (selinux_trans_to_raw_context(selected_context, &selected_raw) < 0) {
+ 		error("Error translating selected context.");
+-		goto out;
++		selected_raw = NULL;
+ 	}
+ 	if (asprintf(&msg, "sshd: default-context=%s selected-context=%s",
+-		     default_context ? default_raw : "?",
+-		     selected_context ? selected_raw : "?") < 0) {
++		     default_raw ? default_raw : (default_context ? default_context : "?"),
++		     selected_raw ? selected_raw : (selected_context ? selected_context : "?")) < 0) {
+ 		error("Error allocating memory.");
+ 		goto out;
+ 	}
+@@ -74,6 +74,7 @@
+ 	int retval;
+ 	unsigned int bit = CONTEXT__CONTAINS;
+ 
++	debug("mls_range_allowed: src:%s dst:%s", src, dst);
+ 	retval = security_compute_av(src, dst, SECCLASS_CONTEXT, bit, &avd);
+ 	if (retval || ((bit & avd.allowed) != bit))
+ 		return 0;
+@@ -82,16 +83,81 @@
+ }
+ 
+ static int get_user_context(const char *user, const char *role, const char *level,
+-	security_context_t *context) {
+-	if (role != NULL && role[0]) 
+-		return get_default_context_with_rolelevel(user, role, level, NULL, context);
+-	else
+-		return get_default_context_with_level(user, level, NULL, context);
++			    security_context_t *context) {
++	if (level == NULL || level[0] == '\0' ||
++	    get_default_context_with_level(user, level, NULL, context) != 0) {
++	        /* User may have requested a level completely outside of his 
++	           allowed range. We get a context just for auditing as the
++	           range check below will certainly fail for default context. */
++		if (get_default_context(user, NULL, context) != 0) {
++			*context = NULL;
++			return -1;
++		}
++	}
++	if (role != NULL && role[0]) {
++		context_t con;
++		char *type=NULL;
++		if (get_default_type(role, &type) != 0) {
++			error("get_default_type: failed to get default type for '%s'",
++				role);
++			goto out;
++		}
++		con = context_new(*context);
++		if (!con) {
++			goto out;
++		}
++		context_role_set(con, role);
++		context_type_set(con, type);
++		freecon(*context);
++		*context = strdup(context_str(con));
++		context_free(con);
++		if (!*context) 
++			return -1;
++	}
++	if (level != NULL && level[0]) {
++		/* verify that the requested range is obtained */
++		context_t con;
++		security_context_t obtained_raw;
++		security_context_t requested_raw;
++		con = context_new(*context);
++		if (!con) {
++			goto out;
++		}
++		context_range_set(con, level);
++		if (selinux_trans_to_raw_context(*context, &obtained_raw) < 0) {
++			context_free(con);
++			goto out;
++		}
++		if (selinux_trans_to_raw_context(context_str(con), &requested_raw) < 0) {
++			freecon(obtained_raw);
++			context_free(con);
++			goto out;
++		}
++
++		debug("get_user_context: obtained context '%s' requested context '%s'",
++			obtained_raw, requested_raw);
++		if (strcmp(obtained_raw, requested_raw)) {
++			/* set the context to the real requested one but fail */
++			freecon(requested_raw);
++			freecon(obtained_raw);
++			freecon(*context);
++			*context = strdup(context_str(con));
++			context_free(con);
++			return -1;
++		}
++		freecon(requested_raw);
++		freecon(obtained_raw);
++		context_free(con);
++	}
++	return 0;
++      out:
++        freecon(*context);
++        *context = NULL;
++        return -1;
+ }
+ 
+-static const security_context_t selinux_get_user_context(const char *name) {
+-	security_context_t user_context=NULL;
+-	security_context_t default_context=NULL;
++static int selinux_get_user_context(const char *name,
++	security_context_t *default_context, security_context_t *user_context) {
+ 	char *seuser=NULL;
+ 	char *role=NULL;
+ 	int ret=-1;
+@@ -99,6 +165,8 @@
+ 	const char *rlevel=NULL;
+ 	context_t con=NULL;
+ 
++	*default_context = NULL;
++	*user_context = NULL;
+ 	if (the_authctxt) {
+ 		if (the_authctxt->role != NULL) {
+ 			char *slash;
+@@ -113,7 +181,7 @@
+ 	ret = getseuserbyname(name, &seuser, &dlevel);
+ 	
+ 	if (ret >= 0) {
+-		ret = get_user_context(seuser, role, dlevel, &default_context);
++		ret = get_default_context_with_level(seuser, dlevel, NULL, default_context);
+ 	}
+ 	
+ 	if (ret >= 0) {
+@@ -121,42 +189,45 @@
+ 		if (inetd_flag && !rexeced_flag) {
+ 			security_context_t sshd_context=NULL;
+ 
+-			if (getcon(&sshd_context) < 0)
++			if (getcon_raw(&sshd_context) < 0)
+ 				fatal("failed to allocate security context");
+ 
+ 			con = context_new(sshd_context);
+ 			rlevel = context_range_get(con);
+ 			freecon(sshd_context);
+-
++			if (rlevel !=NULL && dlevel != NULL && strcmp(rlevel, dlevel) == 0)
++			    /* we actually don't change level */
++			    rlevel = NULL;
++			
+ 			debug("selinux_get_user_context: current connection level '%s'", rlevel);
+ 		}
+ 		
+-		if (rlevel != NULL && rlevel[0]) {
+-			ret = get_user_context(seuser, role, rlevel, &user_context);
++		if ((rlevel != NULL && rlevel[0]) || (role != NULL && role[0])) {
++			ret = get_user_context(seuser, role, rlevel, user_context);
+ 		
+-			if (ret >= 0) {
+-				if (mls_range_allowed(default_context, user_context)) {
+-					send_audit_message(1, default_context, user_context);
++			if (ret >= 0 && rlevel != NULL && rlevel[0]) {
++				security_context_t default_level_context = *default_context;
++				if (role != NULL && role[0]) {
++					if (get_user_context(seuser, role, dlevel, &default_level_context) < 0)
++						default_level_context = *default_context;
++				}
++				/* verify that the requested range is contained in the user range */
++				if (mls_range_allowed(default_level_context, *user_context)) {
+ 					logit("permit MLS level %s (user range %s)", rlevel, dlevel);
+ 				} else {
+-					send_audit_message(0, default_context, user_context);
+-					if (security_getenforce() > 0) 
+-						fatal("deny MLS level %s (user range %s)", rlevel, dlevel);
+-					else 
+-						error("deny MLS level %s (user range %s). Continuing in permissive mode", rlevel, dlevel);
++					ret = -1;
++					error("deny MLS level %s (user range %s)", rlevel, dlevel);
+ 				}
++				if (default_level_context != *default_context)
++					freecon(default_level_context);
+ 			}
+-			freecon(default_context);
+ 		} else {
+-			user_context = default_context;
++			*user_context = *default_context;
+ 		}
+ 	}
+ 
+ 	if ( ret < 0 ) {
+-		if (security_getenforce() > 0) 
+-			fatal("Failed to get default security context for %s.", name);
+-		else 
+-			error("Failed to get default security context for %s. Continuing in permissive mode", name);
++		error("Failed to get default security context for %s.", name);
+ 	}
+ 	
+ 	if (con)
+@@ -164,7 +235,7 @@
+ 	free(role);
+ 	free(seuser);
+ 	free(dlevel);
+-	return user_context;
++	return ret;
+ }
+ 
+ void setup_selinux_pty(const char *name, const char *tty) {
+@@ -201,18 +272,37 @@
+ }
+ 
+ void setup_selinux_exec_context(char *name) {
+-
+ 	if (is_selinux_enabled() > 0) {
+-		security_context_t user_context=selinux_get_user_context(name);
+-		if (setexeccon(user_context)) {
+-			if (security_getenforce() > 0) 
+-				fatal("Failed to set exec security context %s for %s.", user_context, name);
++		int ret = 0;
++		security_context_t default_context = NULL;
++		security_context_t user_context = NULL;
++		ret = selinux_get_user_context(name, &default_context, &user_context);
++		if (ret >= 0) {
++			ret = setexeccon(user_context);
++			if (ret < 0) {
++				error("Failed to set exec security context %s for %s.", user_context, name);
++			}
++		}
++		if (user_context == NULL) {
++			user_context = default_context;
++		}
++		if (ret < 0 || user_context != default_context) {
++			/* audit just the case when user changed a role or there was
++			   a failure */
++			send_audit_message(ret >= 0, default_context, user_context);
++		}
++		if (ret < 0) {
++			if (security_getenforce() > 0)
++				fatal("SELinux failure. Aborting connection.");
+ 			else 
+-				error("Failed to set exec security context %s for %s. Continuing in permissive mode", user_context, name);
++				error("SELinux failure. Continuing in permissive mode.");
+ 		}
+-		if (user_context) {
++		if (user_context && user_context != default_context) {
+ 			freecon(user_context);
+ 		}
++		if (default_context) {
++			freecon(default_context);
++		}
+ 	}
+ }
+ 

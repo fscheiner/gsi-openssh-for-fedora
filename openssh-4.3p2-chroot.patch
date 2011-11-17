@@ -1,0 +1,547 @@
+diff -urN openssh-4.3p1.orig/servconf.c openssh-4.3p1/servconf.c
+--- openssh-4.3p1.orig/servconf.c	2005-12-13 09:33:20.000000000 +0100
++++ openssh-4.3p1/servconf.c	2009-03-26 01:55:24.000000000 +0100
+@@ -103,6 +103,7 @@
+ 	options->authorized_keys_file2 = NULL;
+ 	options->num_accept_env = 0;
+ 	options->permit_tun = -1;
++	options->chroot_directory = NULL;
+ 
+ 	/* Needs to be accessable in many places */
+ 	use_privsep = -1;
+@@ -279,7 +280,7 @@
+ 	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
+ 	sGssAuthentication, sGssCleanupCreds, sAcceptEnv, sPermitTunnel,
+ 	sUsePrivilegeSeparation,
+-	sShowPatchLevel,
++	sShowPatchLevel, sChrootDirectory,
+ 	sDeprecated, sUnsupported
+ } ServerOpCodes;
+ 
+@@ -383,6 +384,7 @@
+ 	{ "useprivilegeseparation", sUsePrivilegeSeparation},
+ 	{ "acceptenv", sAcceptEnv },
+ 	{ "permittunnel", sPermitTunnel },
++ 	{ "chrootdirectory", sChrootDirectory },
+ 	{ NULL, sBadOption }
+ };
+ 
+@@ -1010,6 +1012,17 @@
+ 			*intptr = value;
+ 		break;
+ 
++	case sChrootDirectory:
++		charptr = &options->chroot_directory;
++
++		arg = strdelim(&cp);
++		if (!arg || *arg == '\0')
++			fatal("%s line %d: missing file name.",
++			    filename, linenum);
++		if (*charptr == NULL)
++			*charptr = xstrdup(arg);
++		break;
++
+ 	case sDeprecated:
+ 		logit("%s line %d: Deprecated option %s",
+ 		    filename, linenum, arg);
+diff -urN openssh-4.3p1.orig/servconf.h openssh-4.3p1/servconf.h
+--- openssh-4.3p1.orig/servconf.h	2005-12-13 09:29:03.000000000 +0100
++++ openssh-4.3p1/servconf.h	2009-03-26 01:50:26.000000000 +0100
+@@ -37,6 +37,9 @@
+ 
+ #define DEFAULT_AUTH_FAIL_MAX	6	/* Default for MaxAuthTries */
+ 
++/* Magic name for internal sftp-server */
++#define INTERNAL_SFTP_NAME	"internal-sftp"
++
+ typedef struct {
+ 	u_int num_ports;
+ 	u_int ports_from_cmdline;
+@@ -139,6 +142,8 @@
+ 	int	use_pam;		/* Enable auth via PAM */
+ 
+ 	int	permit_tun;
++
++	char   *chroot_directory;
+ }       ServerOptions;
+ 
+ void	 initialize_server_options(ServerOptions *);
+ void	 initialize_server_options(ServerOptions *);
+diff -urN openssh-4.3p1.orig/session.c openssh-4.3p1/session.c
+--- openssh-4.3p1.orig/session.c	2005-12-24 04:59:12.000000000 +0100
++++ openssh-4.3p1/session.c	2009-03-26 02:10:21.000000000 +0100
+@@ -55,9 +55,11 @@
+ #include "sshlogin.h"
+ #include "serverloop.h"
+ #include "canohost.h"
++#include "misc.h"
+ #include "session.h"
+ #include "kex.h"
+ #include "monitor_wrap.h"
++#include "sftp.h"
+ 
+ #include "selinux.h"
+ 
+@@ -106,9 +108,13 @@
+ const char *original_command = NULL;
+ 
+ /* data */
+-#define MAX_SESSIONS 10
++#define MAX_SESSIONS 20
+ Session	sessions[MAX_SESSIONS];
+ 
++#define SUBSYSTEM_NONE		0
++#define SUBSYSTEM_EXT		1
++#define SUBSYSTEM_INT_SFTP	2
++
+ #ifdef HAVE_LOGIN_CAP
+ login_cap_t *lc;
+ #endif
+@@ -1236,10 +1242,67 @@
+ 	}
+ }
+ 
++/*
++ * Chroot into a directory after checking it for safety: all path components
++ * must be root-owned directories with strict permissions.
++ */
++static void
++safely_chroot(const char *path)
++{
++	const char *cp;
++	char component[MAXPATHLEN];
++	struct stat st;
++
++	if (*path != '/')
++		fatal("chroot path does not begin at root");
++	if (strlen(path) >= sizeof(component))
++		fatal("chroot path too long");
++
++	/*
++	 * Descend the path, checking that each component is a
++	 * root-owned directory with strict permissions.
++	 */
++	for (cp = path; cp != NULL;) {
++		if ((cp = strchr(cp, '/')) == NULL)
++			strlcpy(component, path, sizeof(component));
++		else {
++			cp++;
++			memcpy(component, path, cp - path);
++			component[cp - path] = '\0';
++		}
++	
++		debug3("%s: checking '%s'", __func__, component);
++
++		if (stat(component, &st) != 0)
++			fatal("%s: stat(\"%s\"): %s", __func__,
++			    component, strerror(errno));
++		if (st.st_uid != 0 || (st.st_mode & 022) != 0)
++			fatal("bad ownership or modes for chroot "
++			    "directory %s\"%s\"", 
++			    cp == NULL ? "" : "component ", component);
++		if (!S_ISDIR(st.st_mode))
++			fatal("chroot path %s\"%s\" is not a directory",
++			    cp == NULL ? "" : "component ", component);
++
++	}
++
++	if (chdir(path) == -1)
++		fatal("Unable to chdir to chroot path \"%s\": "
++		    "%s", path, strerror(errno));
++	if (chroot(path) == -1)
++		fatal("chroot(\"%s\"): %s", path, strerror(errno));
++	if (chdir("/") == -1)
++		fatal("%s: chdir(/) after chroot: %s",
++		    __func__, strerror(errno));
++	verbose("Changed root directory to \"%s\"", path);
++}
++
+ /* Set login name, uid, gid, and groups. */
+ void
+ do_setusercontext(struct passwd *pw)
+ {
++	char *chroot_path, *tmp;
++
+ #ifndef HAVE_CYGWIN
+ 	if (getuid() == 0 || geteuid() == 0)
+ #endif /* HAVE_CYGWIN */
+@@ -1303,6 +1367,18 @@
+ 			exit(1);
+ 		}
+ #endif /* HAVE_LIBIAF  && !BROKEN_LIBIAF */
++
++		if (options.chroot_directory != NULL &&
++		    strcasecmp(options.chroot_directory, "none") != 0) {
++                        tmp = tilde_expand_filename(options.chroot_directory,
++			    pw->pw_uid);
++			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
++			    "u", pw->pw_name, (char *)NULL);
++			safely_chroot(chroot_path);
++			free(tmp);
++			free(chroot_path);
++		}
++
+ 		/* Permanently switch to the desired uid. */
+ 		permanently_set_uid(pw);
+ #endif
+@@ -1397,14 +1473,16 @@
+  * environment, closing extra file descriptors, setting the user and group
+  * ids, and executing the command or shell.
+  */
++#define ARGV_MAX 10
+ void
+ do_child(Session *s, const char *command)
+ {
+ 	extern char **environ;
+ 	char **env;
+-	char *argv[10];
++	char *argv[ARGV_MAX];
+ 	const char *shell, *shell0, *hostname = NULL;
+ 	struct passwd *pw = s->pw;
++	int r = 0;
+ 
+ 	/* remove hostkey from the child's memory */
+ 	destroy_sensitive_data();
+@@ -1520,12 +1598,16 @@
+ 
+ 	/* Change current directory to the user's home directory. */
+ 	if (chdir(pw->pw_dir) < 0) {
+-		fprintf(stderr, "Could not chdir to home directory %s: %s\n",
+-		    pw->pw_dir, strerror(errno));
++		/* Suppress missing homedir warning for chroot case */
+ #ifdef HAVE_LOGIN_CAP
+-		if (login_getcapbool(lc, "requirehome", 0))
+-			exit(1);
++		r = login_getcapbool(lc, "requirehome", 0);
+ #endif
++		if (r || options.chroot_directory == NULL)
++			fprintf(stderr, "Could not chdir to home "
++			    "directory %s: %s\n", pw->pw_dir,
++			    strerror(errno));
++		if (r)
++			exit(1);
+ 	}
+ 
+ 	if (!options.use_login)
+@@ -1534,6 +1616,22 @@
+ 	/* restore SIGPIPE for child */
+ 	signal(SIGPIPE,  SIG_DFL);
+ 
++	if (s->is_subsystem == SUBSYSTEM_INT_SFTP) {
++		extern int optind, optreset;
++		int i;
++		char *p, *args;
++
++		setproctitle("%s@internal-sftp-server", s->pw->pw_name);
++		args = strdup(command ? command : "sftp-server");
++		for (i = 0, (p = strtok(args, " ")); p; (p = strtok(NULL, " ")))
++			if (i < ARGV_MAX - 1)
++				argv[i++] = p;
++		argv[i] = NULL;
++		optind = optreset = 1;
++		__progname = argv[0];
++		exit(sftp_server_main(i, argv, s->pw));
++	}
++
+ 	if (options.use_login) {
+ 		launch_login(pw, hostname);
+ 		/* NEVERREACHED */
+@@ -1806,13 +1904,16 @@
+ 		if (strcmp(subsys, options.subsystem_name[i]) == 0) {
+ 			prog = options.subsystem_command[i];
+ 			cmd = options.subsystem_args[i];
+-			if (stat(prog, &st) < 0) {
++			if (!strcmp(INTERNAL_SFTP_NAME, prog)) {
++				s->is_subsystem = SUBSYSTEM_INT_SFTP;
++			} else if (stat(prog, &st) < 0) {
+ 				error("subsystem: cannot stat %s: %s", prog,
+ 				    strerror(errno));
+ 				break;
++			} else {
++				s->is_subsystem = SUBSYSTEM_EXT;
+ 			}
+ 			debug("subsystem: exec() %s", cmd);
+-			s->is_subsystem = 1;
+ 			do_exec(s, cmd);
+ 			success = 1;
+ 			break;
+diff -urN openssh-4.3p1.orig/sshd_config openssh-4.3p1/sshd_config
+--- openssh-4.3p1.orig/sshd_config	2005-12-13 09:29:03.000000000 +0100
++++ openssh-4.3p1/sshd_config	2009-03-26 01:37:12.000000000 +0100
+@@ -97,6 +97,7 @@
+ #PidFile /var/run/sshd.pid
+ #MaxStartups 10
+ #PermitTunnel no
++#ChrootDirectory none
+ 
+ # no default banner path
+ #Banner /some/path
+diff -urN openssh-4.3p1.orig/sshd_config.0 openssh-4.3p1/sshd_config.0
+--- openssh-4.3p1.orig/sshd_config.0	2006-02-01 12:33:53.000000000 +0100
++++ openssh-4.3p1/sshd_config.0	2009-03-26 01:36:09.000000000 +0100
+@@ -79,6 +79,28 @@
+              All authentication styles from login.conf(5) are supported.  The
+              default is ``yes''.
+ 
++     ChrootDirectory
++             Specifies a path to chroot(2) to after authentication.  This
++             path, and all its components, must be root-owned directories that
++             are not writable by any other user or group.
++
++             The path may contain the following tokens that are expanded at
++             runtime once the connecting user has been authenticated: %% is
++             replaced by a literal '%', %h is replaced by the home directory
++             of the user being authenticated, and %u is replaced by the user-
++             name of that user.
++
++             The ChrootDirectory must contain the necessary files and directo-
++             ries to support the users' session.  For an interactive session
++             this requires at least a shell, typically sh(1), and basic /dev
++             nodes such as null(4), zero(4), stdin(4), stdout(4), stderr(4),
++             arandom(4) and tty(4) devices.  For file transfer sessions using
++             ``sftp'', no additional configuration of the environment is nec-
++             essary if the in-process sftp server is used (see Subsystem for
++             details).
++
++             The default is not to chroot(2).
++
+      Ciphers
+              Specifies the ciphers allowed for protocol version 2.  Multiple
+              ciphers must be comma-separated.  The supported ciphers are
+@@ -369,10 +391,17 @@
+      Subsystem
+              Configures an external subsystem (e.g., file transfer daemon).
+              Arguments should be a subsystem name and a command to execute up-
+-             on subsystem request.  The command sftp-server(8) implements the
+-             ``sftp'' file transfer subsystem.  By default no subsystems are
+-             defined.  Note that this option applies to protocol version 2 on-
+-             ly.
++             on subsystem request.
++ 
++             The command sftp-server(8) implements the ``sftp'' file transfer
++             subsystem.
++ 
++             Alternately the name ``internal-sftp'' implements an in-process
++             ``sftp'' server.  This may simplify configurations using
++             ChrootDirectory to force a different filesystem root on clients.
++
++             By default no subsystems are defined. Note that this option ap-
++             plies to protocol version 2 only.
+ 
+      SyslogFacility
+              Gives the facility code that is used when logging messages from
+diff -urN openssh-4.3p1.orig/sshd_config.5 openssh-4.3p1/sshd_config.5
+--- openssh-4.3p1.orig/sshd_config.5	2006-01-03 08:47:31.000000000 +0100
++++ openssh-4.3p1/sshd_config.5	2009-03-26 01:36:09.000000000 +0100
+@@ -157,6 +157,49 @@
+ are supported.
+ The default is
+ .Dq yes .
++.It Cm ChrootDirectory
++Specifies a path to
++.Xr chroot 2
++to after authentication.
++This path, and all its components, must be root-owned directories that are
++not writable by any other user or group.
++.Pp
++The path may contain the following tokens that are expanded at runtime once
++the connecting user has been authenticated: %% is replaced by a literal '%',
++%h is replaced by the home directory of the user being authenticated, and
++%u is replaced by the username of that user.
++.Pp
++The
++.Cm ChrootDirectory
++must contain the necessary files and directories to support the
++users' session.
++For an interactive session this requires at least a shell, typically
++.Xr sh 1 ,
++and basic
++.Pa /dev
++nodes such as
++.Xr null 4 ,
++.Xr zero 4 ,
++.Xr stdin 4 ,
++.Xr stdout 4 ,
++.Xr stderr 4 ,
++.Xr arandom 4
++and
++.Xr tty 4
++devices.
++For file transfer sessions using
++.Dq sftp ,
++no additional configuration of the environment is necessary if the
++in-process sftp server is used (see
++.Dq internal-sftp
++will force the use of an in-process sftp server that requires no support
++files when used with
++.Cm ChrootDirectory .
++.Cm Subsystem
++for details).
++.Pp
++The default is not to
++.Xr chroot 2 .
+ .It Cm Ciphers
+ Specifies the ciphers allowed for protocol version 2.
+ Multiple ciphers must be comma-separated.
+@@ -251,6 +294,11 @@
+ If the pattern takes the form USER@HOST then USER and HOST
+ are separately checked, restricting logins to particular
+ users from particular hosts.
++Specifying a command of
++.Dq internal-sftp
++will force the use of an in-process sftp server that requires no support
++files when used with
++.Cm ChrootDirectory .
+ .It Cm GatewayPorts
+ Specifies whether remote hosts are allowed to connect to ports
+ forwarded for the client.
+@@ -618,11 +666,22 @@
+ Configures an external subsystem (e.g., file transfer daemon).
+ Arguments should be a subsystem name and a command (with optional arguments)
+ to execute upon subsystem request.
++.Pp
+ The command
+ .Xr sftp-server 8
+ implements the
+ .Dq sftp
+ file transfer subsystem.
++.Pp
++Alternately the name
++.Dq internal-sftp
++implements an in-process
++.Dq sftp
++server.
++This may simplify configurations using
++.Cm ChrootDirectory
++to force a different filesystem root on clients.
++.Pp
+ By default no subsystems are defined.
+ Note that this option applies to protocol version 2 only.
+ .It Cm SyslogFacility
+diff -urN openssh-4.3p1.orig/sftp.h openssh-4.3p1/sftp.h
+--- openssh-4.3p1.orig/sftp.h	2005-12-13 09:33:20.000000000 +0100
++++ openssh-4.3p1/sftp.h	2009-03-26 01:55:24.000000000 +0100
+@@ -90,3 +90,7 @@
+ #define SSH2_FX_CONNECTION_LOST		7
+ #define SSH2_FX_OP_UNSUPPORTED		8
+ #define SSH2_FX_MAX			8
++
++struct passwd;
++
++int	sftp_server_main(int, char **, struct passwd *);
+diff -urN openssh-4.3p1.orig/sftp-server.c openssh-4.3p1/sftp-server.c
+--- openssh-4.3p1.orig/sftp-server.c	2005-12-13 09:33:20.000000000 +0100
++++ openssh-4.3p1/sftp-server.c	2009-03-26 01:55:24.000000000 +0100
+@@ -1195,7 +1195,7 @@
+ }
+ 
+ int
+-main(int argc, char **argv)
++sftp_server_main(int argc, char **argv, struct passwd *user_pw)
+ {
+ 	fd_set *rset, *wset;
+ 	int in, out, max, ch, skipargs = 0, log_stderr = 0;
+@@ -1206,9 +1206,6 @@
+ 	extern char *optarg;
+ 	extern char *__progname;
+ 
+-	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
+-	sanitise_stdfd();
+-
+ 	__progname = ssh_get_progname(argv[0]);
+ 	log_init(__progname, log_level, log_facility, log_stderr);
+ 
+@@ -1253,15 +1250,11 @@
+ 	} else
+ 		client_addr = xstrdup("UNKNOWN");
+ 
+-	if ((pw = getpwuid(getuid())) == NULL)
+-		fatal("No user found for uid %lu", (u_long)getuid());
+-	pw = pwcopy(pw);
++	pw = pwcopy(user_pw);
+ 
+ 	logit("session opened for local user %s from [%s]",
+ 	    pw->pw_name, client_addr);
+ 
+-	handle_init();
+-
+ 	in = dup(STDIN_FILENO);
+ 	out = dup(STDOUT_FILENO);
+ 
+diff -urN openssh-4.7p1/sftp-server-main.c openssh-4.9p1/sftp-server-main.c
+--- openssh-4.7p1/sftp-server-main.c	1970-01-01 01:00:00.000000000 +0100
++++ openssh-4.9p1/sftp-server-main.c	2008-03-27 00:45:49.000000000 +0100
+@@ -0,0 +1,50 @@
++/* $OpenBSD: sftp-server-main.c,v 1.3 2008/03/26 23:44:41 djm Exp $ */
++/*
++ * Copyright (c) 2008 Markus Friedl.  All rights reserved.
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
++#include "includes.h"
++
++#include <sys/types.h>
++#include <pwd.h>
++#include <stdarg.h>
++#include <stdio.h>
++#include <unistd.h>
++
++#include "log.h"
++#include "sftp.h"
++#include "misc.h"
++
++void
++cleanup_exit(int i)
++{
++	sftp_server_cleanup_exit(i);
++}
++
++int
++main(int argc, char **argv)
++{
++	struct passwd *user_pw;
++
++	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
++	sanitise_stdfd();
++
++	if ((user_pw = getpwuid(getuid())) == NULL) {
++		fprintf(stderr, "No user found for uid %lu", (u_long)getuid());
++		return 1;
++	}
++
++	return (sftp_server_main(argc, argv, user_pw));
++}
+diff -urN openssh-4.3p1.orig/Makefile.in openssh-4.3p1/Makefile.in
+--- openssh-4.3p1.orig/Makefile.in	2005-12-13 09:33:20.000000000 +0100
++++ openssh-4.3p1/Makefile.in	2009-03-26 01:55:24.000000000 +0100
+@@ -88,7 +88,7 @@
+ 	auth-krb5.o \
+ 	auth2-gss.o gss-serv.o gss-serv-krb5.o \
+ 	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
+-	audit.o audit-bsm.o
++ 	audit.o audit-bsm.o sftp-server.o sftp-common.o
+ 
+ MANPAGES	= scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-rand-helper.8.out ssh-keysign.8.out sshd_config.5.out ssh_config.5.out
+ MANPAGES_IN	= scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-rand-helper.8 ssh-keysign.8 sshd_config.5 ssh_config.5
+@@ -158,8 +158,8 @@
+ ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o
+ 	$(LD) -o $@ ssh-keyscan.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(LIBS)
+ 
+-sftp-server$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-common.o sftp-server.o
+-	$(LD) -o $@ sftp-server.o sftp-common.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
++sftp-server$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-common.o sftp-server.o sftp-server-main.o
++	$(LD) -o $@ sftp-server.o sftp-common.o sftp-server-main.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
+ 
+ sftp$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-client.o sftp-common.o sftp-glob.o progressmeter.o
+ 	$(LD) -o $@ progressmeter.o sftp.o sftp-client.o sftp-common.o sftp-glob.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS) $(LIBEDIT)

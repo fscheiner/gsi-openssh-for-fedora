@@ -1,0 +1,17 @@
+--- scp.orig	2007-12-22 20:37:27.000000000 +0100
++++ scp.1	2007-12-22 20:36:42.000000000 +0100
+@@ -60,6 +60,14 @@
+ that the file is to be copied to/from that host.
+ Copies between two remote hosts are permitted.
+ .Pp
++When copying a source file to a target file which already exists,
++.Nm 
++will replace the contents of the target file (keeping the inode).
++.Pp
++If the target file does not yet exist, an empty file with the target
++file name is created, then filled with the source file contents.
++No attempt is made at "near-atomic" transfer using temporary files.
++.Pp
+ The options are as follows:
+ .Bl -tag -width Ds
+ .It Fl 1

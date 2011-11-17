@@ -1,0 +1,360 @@
+diff -up openssh-4.3p2/cipher.c.cbc openssh-4.3p2/cipher.c
+--- openssh-4.3p2/cipher.c.cbc	2010-12-15 11:37:24.000000000 +0100
++++ openssh-4.3p2/cipher.c	2010-12-15 11:37:26.000000000 +0100
+@@ -61,47 +61,48 @@ struct Cipher {
+ 	u_int	block_size;
+ 	u_int	key_len;
+ 	u_int	discard_len;
++	u_int	cbc_mode;
+ 	const EVP_CIPHER	*(*evptype)(void);
+ } ciphers[] = {
+-	{ "none",		SSH_CIPHER_NONE, 8, 0, 0, EVP_enc_null },
+-	{ "des",		SSH_CIPHER_DES, 8, 8, 0, EVP_des_cbc },
+-	{ "3des",		SSH_CIPHER_3DES, 8, 16, 0, evp_ssh1_3des },
+-	{ "blowfish",		SSH_CIPHER_BLOWFISH, 8, 32, 0, evp_ssh1_bf },
+-
+-	{ "3des-cbc",		SSH_CIPHER_SSH2, 8, 24, 0, EVP_des_ede3_cbc },
+-	{ "blowfish-cbc",	SSH_CIPHER_SSH2, 8, 16, 0, EVP_bf_cbc },
+-	{ "cast128-cbc",	SSH_CIPHER_SSH2, 8, 16, 0, EVP_cast5_cbc },
+-	{ "arcfour",		SSH_CIPHER_SSH2, 8, 16, 0, EVP_rc4 },
+-	{ "arcfour128",		SSH_CIPHER_SSH2, 8, 16, 1536, EVP_rc4 },
+-	{ "arcfour256",		SSH_CIPHER_SSH2, 8, 32, 1536, EVP_rc4 },
+-	{ "aes128-cbc",		SSH_CIPHER_SSH2, 16, 16, 0, EVP_aes_128_cbc },
+-	{ "aes192-cbc",		SSH_CIPHER_SSH2, 16, 24, 0, EVP_aes_192_cbc },
+-	{ "aes256-cbc",		SSH_CIPHER_SSH2, 16, 32, 0, EVP_aes_256_cbc },
++	{ "none",		SSH_CIPHER_NONE, 8, 0, 0, 0, EVP_enc_null },
++	{ "des",		SSH_CIPHER_DES, 8, 8, 0, 1, EVP_des_cbc },
++	{ "3des",		SSH_CIPHER_3DES, 8, 16, 0, 1, evp_ssh1_3des },
++	{ "blowfish",		SSH_CIPHER_BLOWFISH, 8, 32, 0, 1, evp_ssh1_bf },
++
++	{ "3des-cbc",		SSH_CIPHER_SSH2, 8, 24, 0, 1, EVP_des_ede3_cbc },
++	{ "blowfish-cbc",	SSH_CIPHER_SSH2, 8, 16, 0, 1, EVP_bf_cbc },
++	{ "cast128-cbc",	SSH_CIPHER_SSH2, 8, 16, 0, 1, EVP_cast5_cbc },
++	{ "arcfour",		SSH_CIPHER_SSH2, 8, 16, 0, 0, EVP_rc4 },
++	{ "arcfour128",		SSH_CIPHER_SSH2, 8, 16, 1536, 0, EVP_rc4 },
++	{ "arcfour256",		SSH_CIPHER_SSH2, 8, 32, 1536, 0, EVP_rc4 },
++	{ "aes128-cbc",		SSH_CIPHER_SSH2, 16, 16, 0, 1, EVP_aes_128_cbc },
++	{ "aes192-cbc",		SSH_CIPHER_SSH2, 16, 24, 0, 1, EVP_aes_192_cbc },
++	{ "aes256-cbc",		SSH_CIPHER_SSH2, 16, 32, 0, 1, EVP_aes_256_cbc },
+ 	{ "rijndael-cbc@lysator.liu.se",
+-				SSH_CIPHER_SSH2, 16, 32, 0, EVP_aes_256_cbc },
+-	{ "aes128-ctr",		SSH_CIPHER_SSH2, 16, 16, 0, evp_aes_128_ctr },
+-	{ "aes192-ctr",		SSH_CIPHER_SSH2, 16, 24, 0, evp_aes_128_ctr },
+-	{ "aes256-ctr",		SSH_CIPHER_SSH2, 16, 32, 0, evp_aes_128_ctr },
++				SSH_CIPHER_SSH2, 16, 32, 0, 1, EVP_aes_256_cbc },
++	{ "aes128-ctr",		SSH_CIPHER_SSH2, 16, 16, 0, 0, evp_aes_128_ctr },
++	{ "aes192-ctr",		SSH_CIPHER_SSH2, 16, 24, 0, 0, evp_aes_128_ctr },
++	{ "aes256-ctr",		SSH_CIPHER_SSH2, 16, 32, 0, 0, evp_aes_128_ctr },
+ #ifdef USE_CIPHER_ACSS
+-	{ "acss@openssh.org",	SSH_CIPHER_SSH2, 16, 5, 0, EVP_acss },
++	{ "acss@openssh.org",	SSH_CIPHER_SSH2, 16, 5, 0, 0, EVP_acss },
+ #endif
+-	{ NULL,			SSH_CIPHER_INVALID, 0, 0, 0, NULL }
++	{ NULL,			SSH_CIPHER_INVALID, 0, 0, 0, 0, NULL }
+ };
+ 
+ struct Cipher fips_ciphers[] = {
+-	{ "none",		SSH_CIPHER_NONE, 8, 0, 0, EVP_enc_null },
+-	{ "3des",		SSH_CIPHER_3DES, 8, 16, 0, evp_ssh1_3des },
++	{ "none",		SSH_CIPHER_NONE, 8, 0, 0, 0, EVP_enc_null },
++	{ "3des",		SSH_CIPHER_3DES, 8, 16, 0, 1, evp_ssh1_3des },
+ 
+-	{ "3des-cbc",		SSH_CIPHER_SSH2, 8, 24, 0, EVP_des_ede3_cbc },
+-	{ "aes128-cbc",		SSH_CIPHER_SSH2, 16, 16, 0, EVP_aes_128_cbc },
+-	{ "aes192-cbc",		SSH_CIPHER_SSH2, 16, 24, 0, EVP_aes_192_cbc },
+-	{ "aes256-cbc",		SSH_CIPHER_SSH2, 16, 32, 0, EVP_aes_256_cbc },
++	{ "3des-cbc",		SSH_CIPHER_SSH2, 8, 24, 0, 1, EVP_des_ede3_cbc },
++	{ "aes128-cbc",		SSH_CIPHER_SSH2, 16, 16, 0, 1, EVP_aes_128_cbc },
++	{ "aes192-cbc",		SSH_CIPHER_SSH2, 16, 24, 0, 1, EVP_aes_192_cbc },
++	{ "aes256-cbc",		SSH_CIPHER_SSH2, 16, 32, 0, 1, EVP_aes_256_cbc },
+ 	{ "rijndael-cbc@lysator.liu.se",
+-				SSH_CIPHER_SSH2, 16, 32, 0, EVP_aes_256_cbc },
+-	{ "aes128-ctr",		SSH_CIPHER_SSH2, 16, 16, 0, evp_aes_128_ctr },
+-	{ "aes192-ctr",		SSH_CIPHER_SSH2, 16, 24, 0, evp_aes_128_ctr },
+-	{ "aes256-ctr",		SSH_CIPHER_SSH2, 16, 32, 0, evp_aes_128_ctr },
+-	{ NULL,			SSH_CIPHER_INVALID, 0, 0, 0, NULL }
++				SSH_CIPHER_SSH2, 16, 32, 0, 1, EVP_aes_256_cbc },
++	{ "aes128-ctr",		SSH_CIPHER_SSH2, 16, 16, 0, 0, evp_aes_128_ctr },
++	{ "aes192-ctr",		SSH_CIPHER_SSH2, 16, 24, 0, 0, evp_aes_128_ctr },
++	{ "aes256-ctr",		SSH_CIPHER_SSH2, 16, 32, 0, 0, evp_aes_128_ctr },
++	{ NULL,			SSH_CIPHER_INVALID, 0, 0, 0, 0, NULL }
+ };
+ 
+ /*--*/
+@@ -125,6 +126,12 @@ cipher_get_number(const Cipher *c)
+ }
+ 
+ u_int
++cipher_is_cbc(const Cipher *c)
++{
++	return (c->cbc_mode);
++}
++
++u_int
+ cipher_mask_ssh1(int client)
+ {
+ 	u_int mask = 0;
+diff -up openssh-4.3p2/cipher.h.cbc openssh-4.3p2/cipher.h
+--- openssh-4.3p2/cipher.h.cbc	2010-12-15 11:37:24.000000000 +0100
++++ openssh-4.3p2/cipher.h	2010-12-15 11:37:26.000000000 +0100
+@@ -81,6 +81,7 @@ void	 cipher_cleanup(CipherContext *);
+ int	 cipher_set_key_string(CipherContext *, Cipher *, const char *, int);
+ u_int	 cipher_blocksize(const Cipher *);
+ u_int	 cipher_keylen(const Cipher *);
++u_int	 cipher_is_cbc(const Cipher *);
+ 
+ u_int	 cipher_get_number(const Cipher *);
+ void	 cipher_get_keyiv(CipherContext *, u_char *, u_int);
+diff -up openssh-4.3p2/myproposal.h.cbc openssh-4.3p2/myproposal.h
+--- openssh-4.3p2/myproposal.h.cbc	2010-12-15 11:37:24.000000000 +0100
++++ openssh-4.3p2/myproposal.h	2010-12-15 11:37:26.000000000 +0100
+@@ -27,11 +27,12 @@
+ 	"diffie-hellman-group14-sha1," \
+ 	"diffie-hellman-group1-sha1"
+ #define	KEX_DEFAULT_PK_ALG	"ssh-rsa,ssh-dss"
++
+ #define	KEX_DEFAULT_ENCRYPT \
++	"aes128-ctr,aes192-ctr,aes256-ctr," \
++	"arcfour256,arcfour128," \
+ 	"aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc," \
+-	"arcfour128,arcfour256,arcfour," \
+-	"aes192-cbc,aes256-cbc,rijndael-cbc@lysator.liu.se," \
+-	"aes128-ctr,aes192-ctr,aes256-ctr"
++	"aes192-cbc,aes256-cbc,arcfour,rijndael-cbc@lysator.liu.se"
+ #define	KEX_DEFAULT_MAC \
+ 	"hmac-md5,hmac-sha1,hmac-ripemd160," \
+ 	"hmac-ripemd160@openssh.com," \
+diff -up openssh-4.3p2/packet.c.cbc openssh-4.3p2/packet.c
+--- openssh-4.3p2/packet.c.cbc	2010-12-15 11:37:22.000000000 +0100
++++ openssh-4.3p2/packet.c	2010-12-15 11:37:26.000000000 +0100
+@@ -70,6 +70,8 @@ RCSID("$OpenBSD: packet.c,v 1.120 2005/1
+ #define DBG(x)
+ #endif
+ 
++#define PACKET_MAX_SIZE (256 * 1024)
++
+ /*
+  * This variable contains the file descriptors used for communicating with
+  * the other side.  connection_in is used for reading; connection_out for
+@@ -122,6 +124,8 @@ static int server_side = 0;
+ /* Set to true if we are authenticated. */
+ static int after_authentication = 0;
+ 
++int client_alive_timeouts = 0;
++
+ /* Session key information for Encryption and MAC */
+ Newkeys *newkeys[MODE_MAX];
+ static struct packet_state {
+@@ -140,6 +144,10 @@ static u_int ssh1_keylen;
+ /* roundup current message to extra_pad bytes */
+ static u_char extra_pad = 0;
+ 
++/* XXX discard incoming data after MAC error */
++static u_int packet_discard = 0;
++static Mac *packet_discard_mac = NULL;
++
+ struct packet {
+ 	TAILQ_ENTRY(packet) next;
+ 	u_char type;
+@@ -175,6 +183,36 @@ packet_set_connection(int fd_in, int fd_
+ 	}
+ }
+ 
++static void
++packet_stop_discard(void)
++{
++	if (packet_discard_mac) {
++		char buf[1024];
++		
++		memset(buf, 'a', sizeof(buf));
++		while (buffer_len(&incoming_packet) < PACKET_MAX_SIZE)
++			buffer_append(&incoming_packet, buf, sizeof(buf));
++		(void) mac_compute(packet_discard_mac,
++		    p_read.seqnr,
++		    buffer_ptr(&incoming_packet),
++		    PACKET_MAX_SIZE);
++	}
++	logit("Finished discarding for %.200s", get_remote_ipaddr());
++	cleanup_exit(255);
++}
++
++static void
++packet_start_discard(Enc *enc, Mac *mac, u_int packet_length, u_int discard)
++{
++	if (enc == NULL || !cipher_is_cbc(enc->cipher))
++		packet_disconnect("Packet corrupt");
++	if (packet_length != PACKET_MAX_SIZE && mac && mac->enabled)
++		packet_discard_mac = mac;
++	if (buffer_len(&input) >= discard)
++		packet_stop_discard();
++	packet_discard = discard - buffer_len(&input);
++}
++
+ /* Returns 1 if remote host is connected via socket, 0 if not. */
+ 
+ int
+@@ -1046,6 +1084,9 @@ packet_read_poll2(u_int32_t *seqnr_p)
+ 	Mac *mac   = NULL;
+ 	Comp *comp = NULL;
+ 
++	if (packet_discard)
++		return SSH_MSG_NONE;
++
+ 	if (newkeys[MODE_IN] != NULL) {
+ 		enc  = &newkeys[MODE_IN]->enc;
+ 		mac  = &newkeys[MODE_IN]->mac;
+@@ -1067,11 +1108,14 @@ packet_read_poll2(u_int32_t *seqnr_p)
+ 		    block_size);
+ 		cp = buffer_ptr(&incoming_packet);
+ 		packet_length = GET_32BIT(cp);
+-		if (packet_length < 1 + 4 || packet_length > 256 * 1024) {
++		if (packet_length < 1 + 4 || packet_length > PACKET_MAX_SIZE) {
+ #ifdef PACKET_DEBUG
+ 			buffer_dump(&incoming_packet);
+ #endif
+-			packet_disconnect("Bad packet length %u.", packet_length);
++			logit("Bad packet length %u.", packet_length);
++			packet_start_discard(enc, mac, packet_length,
++			    PACKET_MAX_SIZE);
++			return SSH_MSG_NONE;
+ 		}
+ 		DBG(debug("input: packet len %u", packet_length+4));
+ 		buffer_consume(&input, block_size);
+@@ -1080,9 +1124,13 @@ packet_read_poll2(u_int32_t *seqnr_p)
+ 	need = 4 + packet_length - block_size;
+ 	DBG(debug("partial packet %d, need %d, maclen %d", block_size,
+ 	    need, maclen));
+-	if (need % block_size != 0)
+-		fatal("padding error: need %d block %d mod %d",
++	if (need % block_size != 0) {
++		logit("padding error: need %d block %d mod %d",
+ 		    need, block_size, need % block_size);
++		packet_start_discard(enc, mac, packet_length,
++		    PACKET_MAX_SIZE - block_size);
++		return SSH_MSG_NONE;
++	}
+ 	/*
+ 	 * check if the entire packet has been received and
+ 	 * decrypt into incoming_packet
+@@ -1104,11 +1152,19 @@ packet_read_poll2(u_int32_t *seqnr_p)
+ 		macbuf = mac_compute(mac, p_read.seqnr,
+ 		    buffer_ptr(&incoming_packet),
+ 		    buffer_len(&incoming_packet));
+-		if (memcmp(macbuf, buffer_ptr(&input), mac->mac_len) != 0)
+-			packet_disconnect("Corrupted MAC on input.");
++		if (memcmp(macbuf, buffer_ptr(&input), mac->mac_len) != 0) {
++			logit("Corrupted MAC on input.");
++			if (need > PACKET_MAX_SIZE)
++				fatal("internal error need %d", need);
++			packet_start_discard(enc, mac, packet_length,
++			    PACKET_MAX_SIZE - need);
++			return SSH_MSG_NONE;
++		}
++				
+ 		DBG(debug("MAC #%d ok", p_read.seqnr));
+ 		buffer_consume(&input, mac->mac_len);
+ 	}
++	/* XXX now it's safe to use fatal/packet_disconnect */
+ 	if (seqnr_p != NULL)
+ 		*seqnr_p = p_read.seqnr;
+ 	if (++p_read.seqnr == 0)
+@@ -1240,6 +1296,13 @@ packet_read_poll(void)
+ void
+ packet_process_incoming(const char *buf, u_int len)
+ {
++	if (packet_discard) {
++		client_alive_timeouts = 0; /* ?? */
++		if (len >= packet_discard)
++			packet_stop_discard();
++		packet_discard -= len;
++		return;
++	}
+ 	buffer_append(&input, buf, len);
+ }
+ 
+diff -up openssh-4.3p2/packet.h.cbc openssh-4.3p2/packet.h
+--- openssh-4.3p2/packet.h.cbc	2005-07-26 13:54:56.000000000 +0200
++++ openssh-4.3p2/packet.h	2010-12-15 11:37:26.000000000 +0100
+@@ -84,6 +84,7 @@ void	 tty_make_modes(int, struct termios
+ void	 tty_parse_modes(int, int *);
+ 
+ extern u_int max_packet_size;
++extern int client_alive_timeouts;
+ int	 packet_set_maxsize(u_int);
+ #define  packet_get_maxsize() max_packet_size
+ 
+diff -up openssh-4.3p2/serverloop.c.cbc openssh-4.3p2/serverloop.c
+--- openssh-4.3p2/serverloop.c.cbc	2010-12-15 11:37:26.000000000 +0100
++++ openssh-4.3p2/serverloop.c	2010-12-15 11:37:26.000000000 +0100
+@@ -82,7 +82,6 @@ static int connection_in;	/* Connection 
+ static int connection_out;	/* Connection to client (output). */
+ static int connection_closed = 0;	/* Connection to client closed. */
+ static u_int buffer_high;	/* "Soft" max buffer size. */
+-static int client_alive_timeouts = 0;
+ 
+ /*
+  * This SIGCHLD kludge is used to detect when the child exits.  The server
+diff -up openssh-4.3p2/ssh_config.0.cbc openssh-4.3p2/ssh_config.0
+--- openssh-4.3p2/ssh_config.0.cbc	2006-02-11 01:07:39.000000000 +0100
++++ openssh-4.3p2/ssh_config.0	2010-12-15 11:47:31.000000000 +0100
+@@ -89,9 +89,9 @@ DESCRIPTION
+              ``arcfour128'', ``arcfour256'', ``arcfour'', ``blowfish-cbc'',
+              and ``cast128-cbc''.  The default is
+ 
+-               ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour128,
+-                 arcfour256,arcfour,aes192-cbc,aes256-cbc,aes128-ctr,
+-                 aes192-ctr,aes256-ctr''
++               ``aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,
++                 aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,aes192-cbc,
++                 aes256-cbc,arcfour''
+ 
+      ClearAllForwardings
+              Specifies that all local, remote and dynamic port forwardings
+diff -up openssh-4.3p2/ssh_config.5.cbc openssh-4.3p2/ssh_config.5
+--- openssh-4.3p2/ssh_config.5.cbc	2006-01-31 11:39:03.000000000 +0100
++++ openssh-4.3p2/ssh_config.5	2010-12-15 11:46:27.000000000 +0100
+@@ -202,9 +202,9 @@ and
+ .Dq cast128-cbc .
+ The default is
+ .Bd -literal
+-  ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour128,
+-    arcfour256,arcfour,aes192-cbc,aes256-cbc,aes128-ctr,
+-    aes192-ctr,aes256-ctr''
++  ``aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,
++    aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,aes192-cbc,
++    aes256-cbc,arcfour''
+ .Ed
+ .It Cm ClearAllForwardings
+ Specifies that all local, remote and dynamic port forwardings
+diff -up openssh-4.3p2/sshd_config.0.cbc openssh-4.3p2/sshd_config.0
+--- openssh-4.3p2/sshd_config.0.cbc	2010-12-15 11:37:26.000000000 +0100
++++ openssh-4.3p2/sshd_config.0	2010-12-15 11:43:33.000000000 +0100
+@@ -109,9 +109,9 @@ DESCRIPTION
+              ``arcfour256'', ``arcfour'', ``blowfish-cbc'', and
+              ``cast128-cbc''.  The default is
+ 
+-               ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour128,
+-                 arcfour256,arcfour,aes192-cbc,aes256-cbc,aes128-ctr,
+-                 aes192-ctr,aes256-ctr''
++               ``aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,
++                 aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,aes192-cbc,
++                 aes256-cbc,arcfour''
+ 
+      ClientAliveCountMax
+              Sets the number of client alive messages (see below) which may be
+diff -up openssh-4.3p2/sshd_config.5.cbc openssh-4.3p2/sshd_config.5
+--- openssh-4.3p2/sshd_config.5.cbc	2010-12-15 11:37:26.000000000 +0100
++++ openssh-4.3p2/sshd_config.5	2010-12-15 11:47:54.000000000 +0100
+@@ -219,9 +219,9 @@ and
+ .Dq cast128-cbc .
+ The default is
+ .Bd -literal
+-  ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour128,
+-    arcfour256,arcfour,aes192-cbc,aes256-cbc,aes128-ctr,
+-    aes192-ctr,aes256-ctr''
++  ``aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,
++    aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,aes192-cbc,
++    aes256-cbc,arcfour''
+ .Ed
+ .It Cm ClientAliveCountMax
+ Sets the number of client alive messages (see below) which may be

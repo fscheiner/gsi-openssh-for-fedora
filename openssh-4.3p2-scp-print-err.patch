@@ -1,0 +1,27 @@
+--- openssh-4.3p2/scp.c.print-err	2006-02-13 15:06:01.000000000 +0100
++++ openssh-4.3p2/scp.c	2006-02-21 16:47:04.000000000 +0100
+@@ -1097,15 +1097,15 @@
+ 	va_list ap;
+ 
+ 	++errs;
+-	if (fp == NULL && !(fp = fdopen(remout, "w")))
+-		return;
+-	(void) fprintf(fp, "%c", 0x01);
+-	(void) fprintf(fp, "scp: ");
+-	va_start(ap, fmt);
+-	(void) vfprintf(fp, fmt, ap);
+-	va_end(ap);
+-	(void) fprintf(fp, "\n");
+-	(void) fflush(fp);
++	if (fp != NULL || (fp = fdopen(remout, "w"))) {
++		(void) fprintf(fp, "%c", 0x01);
++		(void) fprintf(fp, "scp: ");
++		va_start(ap, fmt);
++		(void) vfprintf(fp, fmt, ap);
++		va_end(ap);
++		(void) fprintf(fp, "\n");
++		(void) fflush(fp);
++	}
+ 
+ 	if (!iamremote) {
+ 		va_start(ap, fmt);

@@ -1,0 +1,211 @@
+diff -up openssh-4.3p2/entropy.c.entropy openssh-4.3p2/entropy.c
+--- openssh-4.3p2/entropy.c.entropy	2011-03-28 14:40:27.246649053 +0200
++++ openssh-4.3p2/entropy.c	2011-03-28 14:40:28.433649147 +0200
+@@ -132,6 +132,9 @@ seed_rng(void)
+ 	memset(buf, '\0', sizeof(buf));
+ 
+ #endif /* OPENSSL_PRNG_ONLY */
++#ifdef __linux__
++	linux_seed();
++#endif /* __linux__ */
+ 	if (RAND_status() != 1)
+ 		fatal("PRNG is not seeded");
+ }
+diff -up openssh-4.3p2/openbsd-compat/Makefile.in.entropy openssh-4.3p2/openbsd-compat/Makefile.in
+--- openssh-4.3p2/openbsd-compat/Makefile.in.entropy	2005-12-31 06:33:37.000000000 +0100
++++ openssh-4.3p2/openbsd-compat/Makefile.in	2011-03-28 14:40:28.461648952 +0200
+@@ -20,7 +20,7 @@ OPENBSD=base64.o basename.o bindresvport
+ 
+ COMPAT=bsd-arc4random.o bsd-asprintf.o bsd-closefrom.o bsd-cray.o bsd-cygwin_util.o bsd-getpeereid.o bsd-misc.o bsd-nextstep.o bsd-openpty.o bsd-snprintf.o bsd-waitpid.o fake-rfc2553.o openssl-compat.o xmmap.o xcrypt.o
+ 
+-PORTS=port-irix.o port-aix.o port-uw.o port-tun.o
++PORTS=port-aix.o port-irix.o port-linux-prng.o port-tun.o
+ 
+ .c.o:
+ 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
+diff -up /dev/null openssh-4.3p2/openbsd-compat/port-linux-prng.c
+--- /dev/null	2011-03-23 10:18:59.458402673 +0100
++++ openssh-4.3p2/openbsd-compat/port-linux-prng.c	2011-03-28 14:40:28.495648553 +0200
+@@ -0,0 +1,56 @@
++/* $Id: port-linux.c,v 1.11.4.2 2011/02/04 00:43:08 djm Exp $ */
++
++/*
++ * Copyright (c) 2005 Daniel Walsh <dwalsh@redhat.com>
++ * Copyright (c) 2006 Damien Miller <djm@openbsd.org>
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
++/*
++ * Linux-specific portability code - prng support
++ */
++
++#include "includes.h"
++
++#include <errno.h>
++#include <stdarg.h>
++#include <string.h>
++#include <stdio.h>
++#include <openssl/rand.h>
++
++#include "log.h"
++#include "xmalloc.h"
++#include "servconf.h"
++#include "key.h"
++#include "hostfile.h"
++#include "auth.h"
++
++void
++linux_seed(void)
++{
++	int len;
++	char *env = getenv("SSH_USE_STRONG_RNG");
++	char *random = "/dev/urandom";
++
++	if (env && !strcmp(env, "1"))
++		random = "/dev/random";
++
++	errno = 0;
++	if ((len = RAND_load_file(random, 48)) != 48) {
++		if (errno)
++			fatal ("cannot read from %s, %s", random, strerror(errno));
++		else
++			fatal ("EOF reading %s", random);
++	}
++}
+diff -up openssh-4.3p2/ssh.1.entropy openssh-4.3p2/ssh.1
+--- openssh-4.3p2/ssh.1.entropy	2006-01-31 11:47:59.000000000 +0100
++++ openssh-4.3p2/ssh.1	2011-03-28 14:40:28.521649077 +0200
+@@ -1196,6 +1196,15 @@ For more information, see the
+ .Cm PermitUserEnvironment
+ option in
+ .Xr sshd_config 5 .
++.It Ev SSH_USE_STRONG_RNG
++The reseeding of the OpenSSL random generator is usually done from
++.Cm /dev/urandom .
++If the 
++.Cm SSH_USE_STRONG_RNG
++is set to
++.Cm 1 ,
++the OpenSSL random generator is reseeded from
++.Cm /dev/random .
+ .Sh FILES
+ .Bl -tag -width Ds -compact
+ .It ~/.rhosts
+diff -up openssh-4.3p2/ssh-add.1.entropy openssh-4.3p2/ssh-add.1
+--- openssh-4.3p2/ssh-add.1.entropy	2005-05-26 04:04:02.000000000 +0200
++++ openssh-4.3p2/ssh-add.1	2011-03-28 14:40:28.554648982 +0200
+@@ -139,6 +139,15 @@ to make this work.)
+ .It Ev SSH_AUTH_SOCK
+ Identifies the path of a unix-domain socket used to communicate with the
+ agent.
++.It Ev SSH_USE_STRONG_RNG
++The reseeding of the OpenSSL random generator is usually done from
++.Cm /dev/urandom .
++If the 
++.Cm SSH_USE_STRONG_RNG
++is set to
++.Cm 1 ,
++the OpenSSL random generator is reseeded from
++.Cm /dev/random .
+ .El
+ .Sh FILES
+ .Bl -tag -width Ds
+diff -up openssh-4.3p2/ssh-agent.1.entropy openssh-4.3p2/ssh-agent.1
+--- openssh-4.3p2/ssh-agent.1.entropy	2005-11-28 07:05:40.000000000 +0100
++++ openssh-4.3p2/ssh-agent.1	2011-03-28 14:40:28.591648831 +0200
+@@ -191,6 +191,18 @@ authentication agent.
+ These sockets should only be readable by the owner.
+ The sockets should get automatically removed when the agent exits.
+ .El
++.Sh ENVIRONMENT
++.Bl -tag -width Ds -compact
++.Pp
++.It Pa SSH_USE_STRONG_RNG
++The reseeding of the OpenSSL random generator is usually done from
++.Cm /dev/urandom .
++If the 
++.Cm SSH_USE_STRONG_RNG
++is set to
++.Cm 1 ,
++the OpenSSL random generator is reseeded from
++.Cm /dev/random .
+ .Sh SEE ALSO
+ .Xr ssh 1 ,
+ .Xr ssh-add 1 ,
+diff -up openssh-4.3p2/sshd.8.entropy openssh-4.3p2/sshd.8
+--- openssh-4.3p2/sshd.8.entropy	2011-03-28 14:40:27.495648499 +0200
++++ openssh-4.3p2/sshd.8	2011-03-28 14:40:28.628648985 +0200
+@@ -830,6 +830,18 @@ This can be used to specify
+ machine-specific login-time initializations globally.
+ This file should be writable only by root, and should be world-readable.
+ .El
++.Sh ENVIRONMENT
++.Bl -tag -width Ds -compact
++.Pp
++.It Pa SSH_USE_STRONG_RNG
++The reseeding of the OpenSSL random generator is usually done from
++.Cm /dev/urandom .
++If the 
++.Cm SSH_USE_STRONG_RNG
++is set to
++.Cm 1 ,
++the OpenSSL random generator is reseeded from
++.Cm /dev/random .
+ .Sh SEE ALSO
+ .Xr scp 1 ,
+ .Xr sftp 1 ,
+diff -up openssh-4.3p2/ssh-keygen.1.entropy openssh-4.3p2/ssh-keygen.1
+--- openssh-4.3p2/ssh-keygen.1.entropy	2005-11-28 06:41:47.000000000 +0100
++++ openssh-4.3p2/ssh-keygen.1	2011-03-28 14:40:28.660649024 +0200
+@@ -443,6 +443,18 @@ Contains Diffie-Hellman groups used for 
+ The file format is described in
+ .Xr moduli 5 .
+ .El
++.Sh ENVIRONMENT
++.Bl -tag -width Ds -compact
++.Pp
++.It Pa SSH_USE_STRONG_RNG
++The reseeding of the OpenSSL random generator is usually done from
++.Cm /dev/urandom .
++If the 
++.Cm SSH_USE_STRONG_RNG
++is set to
++.Cm 1 ,
++the OpenSSL random generator is reseeded from
++.Cm /dev/random .
+ .Sh SEE ALSO
+ .Xr ssh 1 ,
+ .Xr ssh-add 1 ,
+diff -up openssh-4.3p2/ssh-keysign.8.entropy openssh-4.3p2/ssh-keysign.8
+--- openssh-4.3p2/ssh-keysign.8.entropy	2003-06-11 14:04:39.000000000 +0200
++++ openssh-4.3p2/ssh-keysign.8	2011-03-28 14:40:28.692649083 +0200
+@@ -69,6 +69,18 @@ Since they are readable only by root,
+ .Nm
+ must be set-uid root if hostbased authentication is used.
+ .El
++.Sh ENVIRONMENT
++.Bl -tag -width Ds -compact
++.Pp
++.It Pa SSH_USE_STRONG_RNG
++The reseeding of the OpenSSL random generator is usually done from
++.Cm /dev/urandom .
++If the 
++.Cm SSH_USE_STRONG_RNG
++is set to
++.Cm 1 ,
++the OpenSSL random generator is reseeded from
++.Cm /dev/random .
+ .Sh SEE ALSO
+ .Xr ssh 1 ,
+ .Xr ssh-keygen 1 ,

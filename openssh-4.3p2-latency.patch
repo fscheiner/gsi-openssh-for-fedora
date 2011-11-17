@@ -1,0 +1,110 @@
+diff -up openssh-4.3p2/channels.c.latency openssh-4.3p2/channels.c
+--- openssh-4.3p2/channels.c.latency	2008-09-11 12:10:51.000000000 +0200
++++ openssh-4.3p2/channels.c	2008-09-11 13:39:51.000000000 +0200
+@@ -1615,7 +1615,9 @@ channel_check_window(Channel *c)
+ {
+ 	if (c->type == SSH_CHANNEL_OPEN &&
+ 	    !(c->flags & (CHAN_CLOSE_SENT|CHAN_CLOSE_RCVD)) &&
+-	    c->local_window < c->local_window_max/2 &&
++	    ((c->local_window_max - c->local_window >
++	    c->local_maxpacket*3) ||
++	    c->local_window < c->local_window_max/2) &&
+ 	    c->local_consumed > 0) {
+ 		packet_start(SSH2_MSG_CHANNEL_WINDOW_ADJUST);
+ 		packet_put_int(c->remote_id);
+diff -up openssh-4.3p2/sftp.1.latency openssh-4.3p2/sftp.1
+--- openssh-4.3p2/sftp.1.latency	2006-01-20 01:31:47.000000000 +0100
++++ openssh-4.3p2/sftp.1	2008-09-11 13:43:17.000000000 +0200
+@@ -203,7 +203,7 @@ This option may be useful in debugging t
+ Specify how many requests may be outstanding at any one time.
+ Increasing this may slightly improve file transfer speed
+ but will increase memory usage.
+-The default is 16 outstanding requests.
++The default is 64 outstanding requests.
+ .It Fl S Ar program
+ Name of the
+ .Ar program
+diff -up openssh-4.3p2/channels.h.latency openssh-4.3p2/channels.h
+--- openssh-4.3p2/channels.h.latency	2005-12-31 06:22:32.000000000 +0100
++++ openssh-4.3p2/channels.h	2008-09-11 12:31:50.000000000 +0200
+@@ -124,9 +124,9 @@ struct Channel {
+ 
+ /* default window/packet sizes for tcp/x11-fwd-channel */
+ #define CHAN_SES_PACKET_DEFAULT	(32*1024)
+-#define CHAN_SES_WINDOW_DEFAULT	(4*CHAN_SES_PACKET_DEFAULT)
++#define CHAN_SES_WINDOW_DEFAULT	(64*CHAN_SES_PACKET_DEFAULT)
+ #define CHAN_TCP_PACKET_DEFAULT	(32*1024)
+-#define CHAN_TCP_WINDOW_DEFAULT	(4*CHAN_TCP_PACKET_DEFAULT)
++#define CHAN_TCP_WINDOW_DEFAULT	(64*CHAN_TCP_PACKET_DEFAULT)
+ #define CHAN_X11_PACKET_DEFAULT	(16*1024)
+ #define CHAN_X11_WINDOW_DEFAULT	(4*CHAN_X11_PACKET_DEFAULT)
+ 
+diff -up openssh-4.3p2/sftp-server.c.latency openssh-4.3p2/sftp-server.c
+--- openssh-4.3p2/sftp-server.c.latency	2006-01-02 13:40:51.000000000 +0100
++++ openssh-4.3p2/sftp-server.c	2008-09-11 14:00:28.000000000 +0200
+@@ -1074,7 +1074,15 @@ main(int ac, char **av)
+ 		memset(rset, 0, set_size);
+ 		memset(wset, 0, set_size);
+ 
+-		FD_SET(in, rset);
++		/*
++		 * Ensure that we can read a full buffer and handle
++		 * the worst-case length packet it can generate,
++		 * otherwise apply backpressure by stopping reads.
++		 */
++		if (buffer_check_alloc(&iqueue, 4*4096) &&
++		    buffer_check_alloc(&oqueue, SFTP_MAX_MSG_LENGTH))
++			FD_SET(in, rset);
++
+ 		olen = buffer_len(&oqueue);
+ 		if (olen > 0)
+ 			FD_SET(out, wset);
+@@ -1109,7 +1117,13 @@ main(int ac, char **av)
+ 				buffer_consume(&oqueue, len);
+ 			}
+ 		}
+-		/* process requests from client */
+-		process();
++
++		/*
++		 * Process requests from client if we can fit the results
++		 * into the output buffer, otherwise stop processing input
++		 * and let the output queue drain.
++		 */
++		if (buffer_check_alloc(&oqueue, SFTP_MAX_MSG_LENGTH))
++			process();
+ 	}
+ }
+diff -up openssh-4.3p2/sftp.c.latency openssh-4.3p2/sftp.c
+--- openssh-4.3p2/sftp.c.latency	2008-09-11 12:10:51.000000000 +0200
++++ openssh-4.3p2/sftp.c	2008-09-11 13:30:16.000000000 +0200
+@@ -44,7 +44,7 @@ int batchmode = 0;
+ size_t copy_buffer_len = 32768;
+ 
+ /* Number of concurrent outstanding requests */
+-size_t num_requests = 16;
++size_t num_requests = 64;
+ 
+ /* PID of ssh transport process */
+ static pid_t sshpid = -1;
+diff -up openssh-4.3p2/clientloop.c.latency openssh-4.3p2/clientloop.c
+--- openssh-4.3p2/clientloop.c.latency	2008-09-11 12:10:51.000000000 +0200
++++ openssh-4.3p2/clientloop.c	2008-09-11 12:35:36.000000000 +0200
+@@ -1681,7 +1681,7 @@ client_request_forwarded_tcpip(const cha
+ 	}
+ 	c = channel_new("forwarded-tcpip",
+ 	    SSH_CHANNEL_CONNECTING, sock, sock, -1,
+-	    CHAN_TCP_WINDOW_DEFAULT, CHAN_TCP_WINDOW_DEFAULT, 0,
++	    CHAN_TCP_WINDOW_DEFAULT, CHAN_TCP_PACKET_DEFAULT, 0,
+ 	    originator_address, 1);
+ 	xfree(originator_address);
+ 	xfree(listen_address);
+@@ -1739,7 +1739,7 @@ client_request_agent(const char *request
+ 		return NULL;
+ 	c = channel_new("authentication agent connection",
+ 	    SSH_CHANNEL_OPEN, sock, sock, -1,
+-	    CHAN_X11_WINDOW_DEFAULT, CHAN_TCP_WINDOW_DEFAULT, 0,
++	    CHAN_X11_WINDOW_DEFAULT, CHAN_TCP_PACKET_DEFAULT, 0,
+ 	    "authentication agent connection", 1);
+ 	c->force_drain = 1;
+ 	return c;

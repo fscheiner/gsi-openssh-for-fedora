@@ -1,0 +1,41 @@
+--- openssh-3.9p1/contrib/redhat/sshd.init.safe-stop	2005-02-09 13:37:16.365130833 +0100
++++ openssh-3.9p1/contrib/redhat/sshd.init	2005-02-09 15:16:39.618877653 +0100
+@@ -103,7 +103,7 @@
+ 	do_rsa_keygen
+ 	do_dsa_keygen
+ 
+-	echo -n $"Starting $prog:"
++	echo -n $"Starting $prog: "
+ 	$SSHD $OPTIONS && success || failure
+ 	RETVAL=$?
+ 	[ "$RETVAL" = 0 ] && touch /var/lock/subsys/sshd
+@@ -112,8 +112,12 @@
+ 
+ stop()
+ {
+-	echo -n $"Stopping $prog:"
+-	killproc $SSHD -TERM
++	echo -n $"Stopping $prog: "
++	if [ -n "`pidfileofproc $SSHD`" ] ; then
++	    killproc $SSHD -TERM
++	else
++	    failure $"Stopping $prog"
++	fi
+ 	RETVAL=$?
+ 	[ "$RETVAL" = 0 ] && rm -f /var/lock/subsys/sshd
+ 	echo
+@@ -121,8 +125,12 @@
+ 
+ reload()
+ {
+-	echo -n $"Reloading $prog:"
+-	killproc $SSHD -HUP
++	echo -n $"Reloading $prog: "
++	if [ -n "`pidfileofproc $SSHD`" ] ; then
++	    killproc $SSHD -HUP
++	else
++	    failure $"Reloading $prog"
++	fi
+ 	RETVAL=$?
+ 	echo
+ }

@@ -1,0 +1,26 @@
+Skip the initial empty-password check if permit_empty_passwd is disabled.  This
+doesn't change the timing profiles of the host because the additional condition
+check which can short-circuit the call to pam_authenticate() has no dependency
+on the identity of the user who is being authenticated.
+--- openssh-3.8p1/auth1.c	2004-02-26 21:05:25.000000000 -0500
++++ openssh-3.8p1/auth1.c	2004-02-26 21:05:20.000000000 -0500
+@@ -76,7 +76,7 @@
+ 	    authctxt->valid ? "" : "invalid user ", authctxt->user);
+ 
+ 	/* If the user has no password, accept authentication immediately. */
+-	if (options.password_authentication &&
++	if (options.permit_empty_passwd && options.password_authentication &&
+ #ifdef KRB5
+ 	    (!options.kerberos_authentication || options.kerberos_or_local_passwd) &&
+ #endif
+--- openssh-3.8p1/auth2-none.c	2004-02-26 21:07:34.000000000 -0500
++++ openssh-3.8p1/auth2-none.c	2004-02-26 21:07:28.000000000 -0500
+@@ -100,7 +100,7 @@
+ 	if (check_nt_auth(1, authctxt->pw) == 0)
+ 		return (0);
+ #endif
+-	if (options.password_authentication)
++	if (options.permit_empty_passwd && options.password_authentication)
+ 		return (PRIVSEP(auth_password(authctxt, "")));
+ 	return (0);
+ }

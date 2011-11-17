@@ -1,0 +1,13 @@
+diff -up openssh-4.3p2/entropy.c.randclean openssh-4.3p2/entropy.c
+--- openssh-4.3p2/entropy.c.randclean	2010-01-22 15:40:13.000000000 +0100
++++ openssh-4.3p2/entropy.c	2010-01-22 15:40:24.000000000 +0100
+@@ -147,6 +147,9 @@ init_rng(void)
+ 		fatal("OpenSSL version mismatch. Built against %lx, you "
+ 		    "have %lx", OPENSSL_VERSION_NUMBER, SSLeay());
+ 
++	/* clean the PRNG status when exiting the program */
++	atexit(RAND_cleanup);
++
+ #ifndef OPENSSL_PRNG_ONLY
+ 	original_uid = getuid();
+ 	original_euid = geteuid();

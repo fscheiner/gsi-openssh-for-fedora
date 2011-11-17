@@ -1,0 +1,11 @@
+--- openssh-3.9p1/contrib/redhat/sshd.init.foo	2005-01-03 17:22:08.326317216 -0500
++++ openssh-3.9p1/contrib/redhat/sshd.init	2005-01-03 17:22:20.483469048 -0500
+@@ -104,7 +104,7 @@
+ 	do_dsa_keygen
+ 
+ 	echo -n $"Starting $prog:"
+-	initlog -c "$SSHD $OPTIONS" && success || failure
++	$SSHD $OPTIONS && success || failure
+ 	RETVAL=$?
+ 	[ "$RETVAL" = 0 ] && touch /var/lock/subsys/sshd
+ 	echo

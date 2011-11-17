@@ -1,0 +1,149 @@
+diff -up openssh-4.3p2/channels.c.stderr openssh-4.3p2/channels.c
+--- openssh-4.3p2/channels.c.stderr	2010-06-28 10:44:07.000000000 +0200
++++ openssh-4.3p2/channels.c	2010-06-28 10:44:07.000000000 +0200
+@@ -771,8 +771,9 @@ channel_pre_open(Channel *c, fd_set * re
+ 		if (c->extended_usage == CHAN_EXTENDED_WRITE &&
+ 		    buffer_len(&c->extended) > 0)
+ 			FD_SET(c->efd, writeset);
+-		else if (!(c->flags & CHAN_EOF_SENT) &&
+-		    c->extended_usage == CHAN_EXTENDED_READ &&
++		else if (c->efd != -1 && !(c->flags & CHAN_EOF_SENT) &&
++		    (c->extended_usage == CHAN_EXTENDED_READ ||
++		    c->extended_usage == CHAN_EXTENDED_IGNORE) &&
+ 		    buffer_len(&c->extended) < c->remote_window)
+ 			FD_SET(c->efd, readset);
+ 	}
+@@ -1566,7 +1567,9 @@ channel_handle_efd(Channel *c, fd_set * 
+ 				buffer_consume(&c->extended, len);
+ 				c->local_consumed += len;
+ 			}
+-		} else if (c->extended_usage == CHAN_EXTENDED_READ &&
++		} else if (c->efd != -1 &&
++		    (c->extended_usage == CHAN_EXTENDED_READ ||
++		    c->extended_usage == CHAN_EXTENDED_IGNORE) &&
+ 		    (c->detach_close || FD_ISSET(c->efd, readset))) {
+ 			len = read(c->efd, buf, sizeof(buf));
+ 			debug2("channel %d: read %d from efd %d",
+@@ -1579,7 +1582,11 @@ channel_handle_efd(Channel *c, fd_set * 
+ 				    c->self, c->efd);
+ 				channel_close_fd(&c->efd);
+ 			} else {
+-				buffer_append(&c->extended, buf, len);
++				if (c->extended_usage == CHAN_EXTENDED_IGNORE) {
++					debug3("channel %d: discard efd",
++					    c->self);
++				} else
++					buffer_append(&c->extended, buf, len);
+ 			}
+ 		}
+ 	}
+diff -up openssh-4.3p2/session.c.stderr openssh-4.3p2/session.c
+--- openssh-4.3p2/session.c.stderr	2010-06-28 10:44:07.000000000 +0200
++++ openssh-4.3p2/session.c	2010-06-28 10:47:38.000000000 +0200
+@@ -63,6 +63,7 @@ RCSID("$OpenBSD: session.c,v 1.191 2005/
+ 
+ #include "selinux.h"
+ 
++#include <fcntl.h>
+ #if defined(KRB5) && defined(USE_AFS)
+ #include <kafs.h>
+ #endif
+@@ -74,7 +75,7 @@ RCSID("$OpenBSD: session.c,v 1.191 2005/
+ /* func */
+ 
+ Session *session_new(void);
+-void	session_set_fds(Session *, int, int, int);
++void	session_set_fds(Session *, int, int, int, int, int);
+ void	session_pty_cleanup(Session *);
+ void	session_proctitle(Session *);
+ int	session_setup_x11fwd(Session *);
+@@ -381,23 +382,33 @@ void
+ do_exec_no_pty(Session *s, const char *command)
+ {
+ 	pid_t pid;
++ 	int ignore_fderr = 0;
+ 
+ #ifdef USE_PIPES
+ 	int pin[2], pout[2], perr[2];
++
++ 	if (s == NULL)
++ 		fatal("do_exec_no_pty: no session");
++ 
+ 	/* Allocate pipes for communicating with the program. */
+ 	if (pipe(pin) < 0 || pipe(pout) < 0 || pipe(perr) < 0)
+ 		packet_disconnect("Could not create pipes: %.100s",
+ 				  strerror(errno));
+ #else /* USE_PIPES */
+ 	int inout[2], err[2];
++
++ 	if (s == NULL)
++ 		fatal("do_exec_no_pty: no session");
++ 
+ 	/* Uses socket pairs to communicate with the program. */
+ 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, inout) < 0 ||
+ 	    socketpair(AF_UNIX, SOCK_STREAM, 0, err) < 0)
+ 		packet_disconnect("Could not create socket pairs: %.100s",
+ 				  strerror(errno));
+ #endif /* USE_PIPES */
+-	if (s == NULL)
+-		fatal("do_exec_no_pty: no session");
++
++ 	if (s->is_subsystem)
++ 		ignore_fderr = 1;
+ 
+ 	session_proctitle(s);
+ 
+@@ -479,11 +490,7 @@ do_exec_no_pty(Session *s, const char *c
+ 	close(perr[1]);
+ 
+ 	if (compat20) {
+-		if (s->is_subsystem) {
+-			close(perr[0]);
+-			perr[0] = -1;
+-		}
+-		session_set_fds(s, pin[1], pout[0], perr[0]);
++ 		session_set_fds(s, pin[1], pout[0], perr[0], ignore_fderr, 0);
+ 	} else {
+ 		/* Enter the interactive session. */
+ 		server_loop(pid, pin[1], pout[0], perr[0]);
+@@ -506,11 +513,7 @@ do_exec_no_pty(Session *s, const char *c
+ 	 * handle the case that fdin and fdout are the same.
+ 	 */
+ 	if (compat20) {
+-		session_set_fds(s, inout[1], inout[1], s->is_subsystem ? -1 : err[1]);
+-		/* close err[1] to not leak the socket if this inside a subsystem */
+-		if (s->is_subsystem) {
+-			close(err[1]);
+-		}
++ 		session_set_fds(s, inout[1], inout[1], err[1], ignore_fderr, 0);
+ 	} else {
+ 		server_loop(pid, inout[1], inout[1], err[1]);
+ 		/* server_loop has closed inout[1] and err[1]. */
+@@ -608,7 +611,7 @@ do_exec_pty(Session *s, const char *comm
+ 	/* Enter interactive session. */
+ 	packet_set_interactive(1);
+ 	if (compat20) {
+-		session_set_fds(s, ptyfd, fdout, -1);
++ 		session_set_fds(s, ptyfd, fdout, -1, 1, 1);
+ 	} else {
+ 		server_loop(pid, ptyfd, fdout, -1);
+ 		/* server_loop _has_ closed ptyfd and fdout. */
+@@ -2085,7 +2088,8 @@ session_input_channel_req(Channel *c, co
+ }
+ 
+ void
+-session_set_fds(Session *s, int fdin, int fdout, int fderr)
++session_set_fds(Session *s, int fdin, int fdout, int fderr, int ignore_fderr,
++    int is_tty)
+ {
+ 	if (!compat20)
+ 		fatal("session_set_fds: called for proto != 2.0");
+@@ -2097,7 +2101,7 @@ session_set_fds(Session *s, int fdin, in
+ 		fatal("no channel for session %d", s->self);
+ 	channel_set_fds(s->chanid,
+ 	    fdout, fdin, fderr,
+-	    fderr == -1 ? CHAN_EXTENDED_IGNORE : CHAN_EXTENDED_READ,
++ 	    ignore_fderr ? CHAN_EXTENDED_IGNORE : CHAN_EXTENDED_READ,
+ 	    1,
+ 	    CHAN_SES_WINDOW_DEFAULT);
+ }

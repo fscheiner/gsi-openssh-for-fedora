@@ -1,0 +1,129 @@
+--- openssh-4.3p2/auth-pam.c.pam-session	2006-11-27 17:39:08.000000000 +0100
++++ openssh-4.3p2/auth-pam.c	2006-11-27 19:31:41.000000000 +0100
+@@ -563,15 +563,17 @@
+ void
+ sshpam_cleanup(void)
+ {
+-	debug("PAM: cleanup");
+-	if (sshpam_handle == NULL)
++	if (sshpam_handle == NULL || (use_privsep && !mm_is_monitor()))
+ 		return;
++	debug("PAM: cleanup");
+ 	pam_set_item(sshpam_handle, PAM_CONV, (const void *)&null_conv);
+ 	if (sshpam_cred_established) {
++		debug("PAM: deleting credentials");
+ 		pam_setcred(sshpam_handle, PAM_DELETE_CRED);
+ 		sshpam_cred_established = 0;
+ 	}
+ 	if (sshpam_session_open) {
++		debug("PAM: closing session");
+ 		pam_close_session(sshpam_handle, PAM_SILENT);
+ 		sshpam_session_open = 0;
+ 	}
+--- openssh-4.3p2/sshd.c.pam-session	2006-11-27 17:29:44.000000000 +0100
++++ openssh-4.3p2/sshd.c	2006-11-28 21:21:52.000000000 +0100
+@@ -1745,7 +1745,21 @@
+ 	audit_event(SSH_AUTH_SUCCESS);
+ #endif
+ 
+-	/*
++#ifdef GSSAPI
++	if (options.gss_authentication) {
++		temporarily_use_uid(authctxt->pw);
++		ssh_gssapi_storecreds();
++		restore_uid();
++	}
++#endif
++#ifdef USE_PAM
++	if (options.use_pam) {
++		do_pam_setcred(1);
++		do_pam_session();
++	}
++#endif
++
++ 	/*
+ 	 * In privilege separation, we fork another child and prepare
+ 	 * file descriptor passing.
+ 	 */
+--- openssh-4.3p2/monitor.c.pam-session	2006-11-27 17:29:44.000000000 +0100
++++ openssh-4.3p2/monitor.c	2006-11-28 14:01:23.000000000 +0100
+@@ -1539,6 +1539,11 @@
+ 	/* The child is terminating */
+ 	session_destroy_all(&mm_session_close);
+ 
++#ifdef USE_PAM
++	if (options.use_pam)
++		sshpam_cleanup();
++#endif
++
+ 	while (waitpid(pmonitor->m_pid, &status, 0) == -1)
+ 		if (errno != EINTR)
+ 			exit(1);
+--- openssh-4.3p2/session.c.pam-session	2006-11-27 17:29:43.000000000 +0100
++++ openssh-4.3p2/session.c	2006-11-28 21:17:56.000000000 +0100
+@@ -395,11 +395,6 @@
+ 
+ 	session_proctitle(s);
+ 
+-#if defined(USE_PAM)
+-	if (options.use_pam && !use_privsep)
+-		do_pam_setcred(1);
+-#endif /* USE_PAM */
+-
+ 	/* Fork the child. */
+ 	if ((pid = fork()) == 0) {
+ 		is_child = 1;
+@@ -530,14 +525,6 @@
+ 	ptyfd = s->ptyfd;
+ 	ttyfd = s->ttyfd;
+ 
+-#if defined(USE_PAM)
+-	if (options.use_pam) {
+-		do_pam_set_tty(s->tty);
+-		if (!use_privsep)
+-			do_pam_setcred(1);
+-	}
+-#endif
+-
+ 	/* Fork the child. */
+ 	if ((pid = fork()) == 0) {
+ 		is_child = 1;
+@@ -1266,16 +1253,8 @@
+ # ifdef __bsdi__
+ 		setpgid(0, 0);
+ # endif
+-#ifdef GSSAPI
+-		if (options.gss_authentication) {
+-			temporarily_use_uid(pw);
+-			ssh_gssapi_storecreds();
+-			restore_uid();
+-		}
+-#endif
+ # ifdef USE_PAM
+ 		if (options.use_pam) {
+-			do_pam_session();
+ 			do_pam_setcred(0);
+ 		}
+ # endif /* USE_PAM */
+@@ -1303,13 +1282,6 @@
+ 			exit(1);
+ 		}
+ 		endgrent();
+-#ifdef GSSAPI
+-		if (options.gss_authentication) {
+-			temporarily_use_uid(pw);
+-			ssh_gssapi_storecreds();
+-			restore_uid();
+-		}
+-#endif
+ # ifdef USE_PAM
+ 		/*
+ 		 * PAM credentials may take the form of supplementary groups.
+@@ -1317,7 +1289,6 @@
+ 		 * Reestablish them here.
+ 		 */
+ 		if (options.use_pam) {
+-			do_pam_session();
+ 			do_pam_setcred(0);
+ 		}
+ # endif /* USE_PAM */

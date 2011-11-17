@@ -1,0 +1,147 @@
+diff -up openssh-4.3p2/configure.ac.engine openssh-4.3p2/configure.ac
+--- openssh-4.3p2/configure.ac.engine	2010-06-01 13:57:07.000000000 +0200
++++ openssh-4.3p2/configure.ac	2010-06-01 13:57:08.000000000 +0200
+@@ -1834,6 +1834,24 @@ Also see contrib/findssl.sh for help ide
+ 	]
+ )
+ 
++AC_ARG_WITH(ssl-engine,
++	[  --with-ssl-engine       Enable OpenSSL (hardware) ENGINE support ],
++	[ if test "x$withval" != "xno" ; then
++		AC_MSG_CHECKING(for OpenSSL ENGINE support)
++		AC_TRY_COMPILE(
++			[ #include <openssl/engine.h>],
++			[
++int main(void){ENGINE_load_builtin_engines();ENGINE_register_all_complete();}
++			],
++			[ AC_MSG_RESULT(yes)
++			  AC_DEFINE(USE_OPENSSL_ENGINE, 1,
++			     [Enable OpenSSL engine support])
++			],
++			[ AC_MSG_ERROR(OpenSSL ENGINE support not found)]
++		)
++	  fi ]
++)
++
+ # Check for OpenSSL without EVP_aes_{192,256}_cbc
+ AC_MSG_CHECKING([whether OpenSSL has crippled AES support])
+ AC_COMPILE_IFELSE(
+diff -up openssh-4.3p2/openbsd-compat/openssl-compat.c.engine openssh-4.3p2/openbsd-compat/openssl-compat.c
+--- openssh-4.3p2/openbsd-compat/openssl-compat.c.engine	2005-06-17 13:15:21.000000000 +0200
++++ openssh-4.3p2/openbsd-compat/openssl-compat.c	2010-06-01 13:57:08.000000000 +0200
+@@ -21,6 +21,10 @@
+ #define SSH_DONT_REDEF_EVP
+ #include "openssl-compat.h"
+ 
++#ifdef USE_OPENSSL_ENGINE
++# include <openssl/engine.h>
++#endif
++
+ #ifdef SSH_OLD_EVP
+ int
+ ssh_EVP_CipherInit(EVP_CIPHER_CTX *evp, const EVP_CIPHER *type,
+@@ -44,3 +48,16 @@ ssh_EVP_CIPHER_CTX_cleanup(EVP_CIPHER_CT
+ 	return 1;
+ }
+ #endif
++
++#ifdef	USE_OPENSSL_ENGINE
++void
++ssh_SSLeay_add_all_algorithms(void)
++{
++	SSLeay_add_all_algorithms();
++
++	/* Enable use of crypto hardware */
++	ENGINE_load_builtin_engines();
++	ENGINE_register_all_complete();
++	OPENSSL_config(NULL);
++}
++#endif
+diff -up openssh-4.3p2/openbsd-compat/openssl-compat.h.engine openssh-4.3p2/openbsd-compat/openssl-compat.h
+--- openssh-4.3p2/openbsd-compat/openssl-compat.h.engine	2005-12-19 07:40:40.000000000 +0100
++++ openssh-4.3p2/openbsd-compat/openssl-compat.h	2010-06-01 13:57:08.000000000 +0200
+@@ -54,10 +54,9 @@ extern const EVP_CIPHER *evp_acss(void);
+  * define SSH_DONT_OVERLOAD_OPENSSL_FUNCS before including this file and
+  * implement the ssh_* equivalents.
+  */
+-#ifdef SSH_OLD_EVP
+-
+-# ifndef SSH_DONT_REDEF_EVP
++#ifndef SSH_DONT_REDEF_EVP
+ 
++# ifdef SSH_OLD_EVP
+ #  ifdef EVP_Cipher
+ #   undef EVP_Cipher
+ #  endif
+@@ -67,8 +66,16 @@ extern const EVP_CIPHER *evp_acss(void);
+ #  define EVP_CIPHER_CTX_cleanup(a)	ssh_EVP_CIPHER_CTX_cleanup((a))
+ # endif
+ 
++# ifdef USE_OPENSSL_ENGINE
++#  ifdef SSLeay_add_all_algorithms
++#   undef SSLeay_add_all_algorithms
++#  endif
++#  define SSLeay_add_all_algorithms()	ssh_SSLeay_add_all_algorithms()
++#endif
++
+ int ssh_EVP_CipherInit(EVP_CIPHER_CTX *, const EVP_CIPHER *, unsigned char *,
+     unsigned char *, int);
+ int ssh_EVP_Cipher(EVP_CIPHER_CTX *, char *, char *, int);
+ int ssh_EVP_CIPHER_CTX_cleanup(EVP_CIPHER_CTX *);
++void ssh_SSLeay_add_all_algorithms(void);
+ #endif
+diff -up openssh-4.3p2/ssh-add.c.engine openssh-4.3p2/ssh-add.c
+--- openssh-4.3p2/ssh-add.c.engine	2010-06-01 13:57:08.000000000 +0200
++++ openssh-4.3p2/ssh-add.c	2010-06-01 13:57:08.000000000 +0200
+@@ -35,6 +35,7 @@
+  */
+ 
+ #include "includes.h"
++#include "openbsd-compat/openssl-compat.h"
+ RCSID("$OpenBSD: ssh-add.c,v 1.74 2005/11/12 18:37:59 deraadt Exp $");
+ 
+ #include <openssl/evp.h>
+diff -up openssh-4.3p2/ssh-agent.c.engine openssh-4.3p2/ssh-agent.c
+--- openssh-4.3p2/ssh-agent.c.engine	2010-06-01 13:57:08.000000000 +0200
++++ openssh-4.3p2/ssh-agent.c	2010-06-01 13:57:08.000000000 +0200
+@@ -34,6 +34,7 @@
+  */
+ 
+ #include "includes.h"
++#include "openbsd-compat/openssl-compat.h"
+ #include "openbsd-compat/sys-queue.h"
+ RCSID("$OpenBSD: ssh-agent.c,v 1.124 2005/10/30 08:52:18 djm Exp $");
+ 
+diff -up openssh-4.3p2/ssh.c.engine openssh-4.3p2/ssh.c
+--- openssh-4.3p2/ssh.c.engine	2010-06-01 13:57:08.000000000 +0200
++++ openssh-4.3p2/ssh.c	2010-06-01 13:57:08.000000000 +0200
+@@ -40,6 +40,7 @@
+  */
+ 
+ #include "includes.h"
++#include "openbsd-compat/openssl-compat.h"
+ RCSID("$OpenBSD: ssh.c,v 1.257 2005/12/20 04:41:07 dtucker Exp $");
+ 
+ #include <openssl/evp.h>
+diff -up openssh-4.3p2/sshd.c.engine openssh-4.3p2/sshd.c
+--- openssh-4.3p2/sshd.c.engine	2010-06-01 13:57:08.000000000 +0200
++++ openssh-4.3p2/sshd.c	2010-06-01 13:57:08.000000000 +0200
+@@ -42,6 +42,7 @@
+  */
+ 
+ #include "includes.h"
++#include "openbsd-compat/openssl-compat.h"
+ RCSID("$OpenBSD: sshd.c,v 1.318 2005/12/24 02:27:41 djm Exp $");
+ 
+ #include <openssl/dh.h>
+diff -up openssh-4.3p2/ssh-keygen.c.engine openssh-4.3p2/ssh-keygen.c
+--- openssh-4.3p2/ssh-keygen.c.engine	2010-06-01 13:57:08.000000000 +0200
++++ openssh-4.3p2/ssh-keygen.c	2010-06-01 13:57:15.000000000 +0200
+@@ -12,6 +12,7 @@
+  */
+ 
+ #include "includes.h"
++#include "openbsd-compat/openssl-compat.h"
+ RCSID("$OpenBSD: ssh-keygen.c,v 1.135 2005/11/29 02:04:55 dtucker Exp $");
+ 
+ #include <openssl/evp.h>

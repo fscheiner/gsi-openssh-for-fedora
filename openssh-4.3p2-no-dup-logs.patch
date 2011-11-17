@@ -1,0 +1,167 @@
+Don't log duplicate auth messages in the system log.
+--- openssh-4.3p2/auth.c.no-dups	2006-08-23 14:50:05.000000000 +0200
++++ openssh-4.3p2/auth.c	2006-08-23 14:51:14.000000000 +0200
+@@ -55,6 +55,7 @@
+ 
+ /* import */
+ extern ServerOptions options;
++extern int use_privsep;
+ extern Buffer loginmsg;
+ 
+ /* Debugging messages */
+@@ -231,6 +232,9 @@
+ 	void (*authlog) (const char *fmt,...) = verbose;
+ 	char *authmsg;
+ 
++	if (use_privsep && !mm_is_monitor() && !authctxt->postponed)
++		return;
++
+ 	/* Raise logging level */
+ 	if (authenticated == 1 ||
+ 	    !authctxt->valid ||
+@@ -267,42 +271,8 @@
+ 	}
+ #endif
+ #ifdef SSH_AUDIT_EVENTS
+-	if (authenticated == 0 && !authctxt->postponed) {
+-		ssh_audit_event_t event;
+-
+-		debug3("audit failed auth attempt, method %s euid %d",
+-		    method, (int)geteuid());
+-		/*
+-		 * Because the auth loop is used in both monitor and slave,
+-		 * we must be careful to send each event only once and with
+-		 * enough privs to write the event.
+-		 */
+-		event = audit_classify_auth(method);
+-		switch(event) {
+-		case SSH_AUTH_FAIL_NONE:
+-		case SSH_AUTH_FAIL_PASSWD:
+-		case SSH_AUTH_FAIL_KBDINT:
+-			if (geteuid() == 0)
+-				audit_event(event);
+-			break;
+-		case SSH_AUTH_FAIL_PUBKEY:
+-		case SSH_AUTH_FAIL_HOSTBASED:
+-		case SSH_AUTH_FAIL_GSSAPI:
+-			/*
+-			 * This is required to handle the case where privsep
+-			 * is enabled but it's root logging in, since
+-			 * use_privsep won't be cleared until after a
+-			 * successful login.
+-			 */
+-			if (geteuid() == 0)
+-				audit_event(event);
+-			else
+-				PRIVSEP(audit_event(event));
+-			break;
+-		default:
+-			error("unknown authentication audit event %d", event);
+-		}
+-	}
++	if (authenticated == 0 && !authctxt->postponed)
++		audit_event(audit_classify_auth(method));
+ #endif
+ }
+ 
+--- openssh-4.3p2/monitor.c.no-dups	2006-08-23 14:50:42.000000000 +0200
++++ openssh-4.3p2/monitor.c	2006-08-23 14:51:14.000000000 +0200
+@@ -172,6 +172,7 @@
+ #define MON_ISAUTH	0x0004	/* Required for Authentication */
+ #define MON_AUTHDECIDE	0x0008	/* Decides Authentication */
+ #define MON_ONCE	0x0010	/* Disable after calling */
++#define MON_ALOG	0x0020	/* Log auth attempt without authenticating */
+ 
+ #define MON_AUTH	(MON_ISAUTH|MON_AUTHDECIDE)
+ 
+@@ -233,8 +234,8 @@
+     {MONITOR_REQ_SESSKEY, MON_ONCE, mm_answer_sesskey},
+     {MONITOR_REQ_SESSID, MON_ONCE, mm_answer_sessid},
+     {MONITOR_REQ_AUTHPASSWORD, MON_AUTH, mm_answer_authpassword},
+-    {MONITOR_REQ_RSAKEYALLOWED, MON_ISAUTH, mm_answer_rsa_keyallowed},
+-    {MONITOR_REQ_KEYALLOWED, MON_ISAUTH, mm_answer_keyallowed},
++    {MONITOR_REQ_RSAKEYALLOWED, MON_ISAUTH|MON_ALOG, mm_answer_rsa_keyallowed},
++    {MONITOR_REQ_KEYALLOWED, MON_ISAUTH|MON_ALOG, mm_answer_keyallowed},
+     {MONITOR_REQ_RSACHALLENGE, MON_ONCE, mm_answer_rsa_challenge},
+     {MONITOR_REQ_RSARESPONSE, MON_ONCE|MON_AUTHDECIDE, mm_answer_rsa_response},
+ #ifdef BSD_AUTH
+@@ -328,6 +329,7 @@
+ 
+ 	/* The first few requests do not require asynchronous access */
+ 	while (!authenticated) {
++		auth_method = "unknown";
+ 		authenticated = monitor_read(pmonitor, mon_dispatch, &ent);
+ 		if (authenticated) {
+ 			if (!(ent->flags & MON_AUTHDECIDE))
+@@ -350,7 +352,7 @@
+ #endif
+ 		}
+ 
+-		if (ent->flags & MON_AUTHDECIDE) {
++		if (ent->flags & (MON_AUTHDECIDE|MON_ALOG)) {
+ 			auth_log(authctxt, authenticated, auth_method,
+ 			    compat20 ? " ssh2" : "");
+ 			if (!authenticated)
+@@ -360,6 +362,8 @@
+ 
+ 	if (!authctxt->valid)
+ 		fatal("%s: authenticated invalid user", __func__);
++	if (strcmp(auth_method, "unknown") == 0)
++		fatal("%s: authentication method name unknown", __func__);
+ 
+ 	debug("%s: %s has been authenticated by privileged process",
+ 	    __func__, authctxt->user);
+@@ -913,6 +917,7 @@
+ 		xfree(prompts);
+ 	if (echo_on != NULL)
+ 		xfree(echo_on);
++	auth_method = "keyboard-interactive/pam";
+ 	mm_request_send(sock, MONITOR_ANS_PAM_QUERY, m);
+ 	return (0);
+ }
+@@ -955,6 +960,7 @@
+ 	(sshpam_device.free_ctx)(sshpam_ctxt);
+ 	buffer_clear(m);
+ 	mm_request_send(sock, MONITOR_ANS_PAM_FREE_CTX, m);
++	auth_method = "keyboard-interactive/pam";
+ 	return (sshpam_authok == sshpam_ctxt);
+ }
+ #endif
+@@ -1000,17 +1006,20 @@
+ 		case MM_USERKEY:
+ 			allowed = options.pubkey_authentication &&
+ 			    user_key_allowed(authctxt->pw, key);
++			auth_method = "publickey";
+ 			break;
+ 		case MM_HOSTKEY:
+ 			allowed = options.hostbased_authentication &&
+ 			    hostbased_key_allowed(authctxt->pw,
+ 			    cuser, chost, key);
++			auth_method = "hostbased";
+ 			break;
+ 		case MM_RSAHOSTKEY:
+ 			key->type = KEY_RSA1; /* XXX */
+ 			allowed = options.rhosts_rsa_authentication &&
+ 			    auth_rhosts_rsa_key_allowed(authctxt->pw,
+ 			    cuser, chost, key);
++			auth_method = "rsa";
+ 			break;
+ 		default:
+ 			fatal("%s: unknown key type %d", __func__, type);
+@@ -1031,6 +1040,8 @@
+ 		hostbased_cuser = cuser;
+ 		hostbased_chost = chost;
+ 	} else {
++		/* Log failed attempt */
++		auth_log(authctxt, 0, auth_method, compat20 ? " ssh2" : "");
+ 		xfree(blob);
+ 		xfree(cuser);
+ 		xfree(chost);
+@@ -1398,6 +1409,7 @@
+ 
+ 	debug3("%s entering", __func__);
+ 
++	auth_method = "rsa";
+ 	if (options.rsa_authentication && authctxt->valid) {
+ 		if ((client_n = BN_new()) == NULL)
+ 			fatal("%s: BN_new", __func__);

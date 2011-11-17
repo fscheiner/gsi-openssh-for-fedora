@@ -1,0 +1,99 @@
+--- openssh-4.3p1/sshd_config.0.redhat	2006-02-01 12:33:53.000000000 +0100
++++ openssh-4.3p1/sshd_config.0	2006-02-01 16:24:43.000000000 +0100
+@@ -371,9 +371,9 @@
+ 
+      SyslogFacility
+              Gives the facility code that is used when logging messages from
+-             sshd.  The possible values are: DAEMON, USER, AUTH, LOCAL0, LO-
+-             CAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.  The de-
+-             fault is AUTH.
++             sshd.  The possible values are: DAEMON, USER, AUTH, AUTHPRIV,
++             LOCAL0, LOCAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.
++             The default is AUTH.
+ 
+      TCPKeepAlive
+              Specifies whether the system should send TCP keepalive messages
+--- openssh-4.3p1/sshd_config.redhat	2005-12-13 09:29:03.000000000 +0100
++++ openssh-4.3p1/sshd_config	2006-02-01 16:24:43.000000000 +0100
+@@ -12,6 +12,7 @@
+ 
+ #Port 22
+ #Protocol 2,1
++Protocol 2
+ #AddressFamily any
+ #ListenAddress 0.0.0.0
+ #ListenAddress ::
+@@ -29,6 +30,7 @@
+ # Logging
+ # obsoletes QuietMode and FascistLogging
+ #SyslogFacility AUTH
++SyslogFacility AUTHPRIV
+ #LogLevel INFO
+ 
+ # Authentication:
+@@ -55,9 +57,11 @@
+ # To disable tunneled clear text passwords, change to no here!
+ #PasswordAuthentication yes
+ #PermitEmptyPasswords no
++PasswordAuthentication yes
+ 
+ # Change to no to disable s/key passwords
+ #ChallengeResponseAuthentication yes
++ChallengeResponseAuthentication no
+ 
+ # Kerberos options
+ #KerberosAuthentication no
+@@ -67,7 +71,9 @@
+ 
+ # GSSAPI options
+ #GSSAPIAuthentication no
++GSSAPIAuthentication yes
+ #GSSAPICleanupCredentials yes
++GSSAPICleanupCredentials yes
+ 
+ # Set this to 'yes' to enable PAM authentication, account processing, 
+ # and session processing. If this is enabled, PAM authentication will 
+@@ -78,10 +84,16 @@
+ # session checks to run without PAM authentication, then enable this but set 
+ # ChallengeResponseAuthentication=no
+ #UsePAM no
++UsePAM yes
+ 
++# Accept locale-related environment variables
++AcceptEnv LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES 
++AcceptEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT 
++AcceptEnv LC_IDENTIFICATION LC_ALL
+ #AllowTcpForwarding yes
+ #GatewayPorts no
+ #X11Forwarding no
++X11Forwarding yes
+ #X11DisplayOffset 10
+ #X11UseLocalhost yes
+ #PrintMotd yes
+--- openssh-4.3p1/ssh_config.redhat	2005-12-13 09:29:03.000000000 +0100
++++ openssh-4.3p1/ssh_config	2006-02-01 16:26:37.000000000 +0100
+@@ -40,3 +40,13 @@
+ #   Tunnel no
+ #   TunnelDevice any:any
+ #   PermitLocalCommand no
++Host *
++	GSSAPIAuthentication yes
++# If this option is set to yes then remote X11 clients will have full access
++# to the original X11 display. As virtually no X11 client supports the untrusted
++# mode correctly we set this to yes.
++	ForwardX11Trusted yes
++# Send locale-related environment variables
++	SendEnv LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES 
++	SendEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT 
++	SendEnv LC_IDENTIFICATION LC_ALL
+--- openssh-4.3p1/sshd_config.5.redhat	2006-01-03 08:47:31.000000000 +0100
++++ openssh-4.3p1/sshd_config.5	2006-02-01 16:24:43.000000000 +0100
+@@ -620,7 +620,7 @@
+ .It Cm SyslogFacility
+ Gives the facility code that is used when logging messages from
+ .Nm sshd .
+-The possible values are: DAEMON, USER, AUTH, LOCAL0, LOCAL1, LOCAL2,
++The possible values are: DAEMON, USER, AUTH, AUTHPRIV, LOCAL0, LOCAL1, LOCAL2,
+ LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.
+ The default is AUTH.
+ .It Cm TCPKeepAlive

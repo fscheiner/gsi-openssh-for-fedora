@@ -1,0 +1,53 @@
+--- openssh-3.9p1/log.h.log-chroot	2006-02-22 10:54:04.000000000 +0100
++++ openssh-3.9p1/log.h	2006-02-22 10:53:29.000000000 +0100
+@@ -63,4 +63,6 @@
+ 
+ void	 do_log(LogLevel, const char *, va_list);
+ void	 cleanup_exit(int) __dead;
++
++void     open_log(void);
+ #endif
+--- openssh-3.9p1/log.c.log-chroot	2006-02-22 13:29:48.000000000 +0100
++++ openssh-3.9p1/log.c	2006-02-22 10:56:01.000000000 +0100
+@@ -48,6 +48,7 @@
+ static int log_on_stderr = 1;
+ static int log_facility = LOG_AUTH;
+ static char *argv0;
++static int log_fd_keep;
+ 
+ extern char *__progname;
+ 
+@@ -330,9 +331,20 @@
+ 		syslog_r(pri, &sdata, "%.500s", fmtbuf);
+ 		closelog_r(&sdata);
+ #else
++	    if (!log_fd_keep) {
+ 		openlog(argv0 ? argv0 : __progname, LOG_PID, log_facility);
++	    }
+ 		syslog(pri, "%.500s", fmtbuf);
++	    if (!log_fd_keep) {
+ 		closelog();
++	    }
+ #endif
+ 	}
+ }
++
++void
++open_log(void)
++{
++	openlog(argv0 ? argv0 : __progname, LOG_PID|LOG_NDELAY, log_facility);
++	log_fd_keep = 1;
++}
+--- openssh-3.9p1/sshd.c.log-chroot	2006-01-11 13:42:32.000000000 +0100
++++ openssh-3.9p1/sshd.c	2006-02-22 18:58:24.000000000 +0100
+@@ -565,6 +565,10 @@
+ 	memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
+ 	endpwent();
+ 
++	/* Open the syslog permanently so the chrooted process still
++	   can write to syslog. */
++	open_log();
++	
+ 	/* Change our root directory */
+ 	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
+ 		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,

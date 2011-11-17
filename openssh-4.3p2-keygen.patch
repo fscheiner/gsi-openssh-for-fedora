@@ -1,0 +1,27 @@
+diff -up openssh-4.3p2/contrib/redhat/sshd.init.keygen openssh-4.3p2/contrib/redhat/sshd.init
+--- openssh-4.3p2/contrib/redhat/sshd.init.keygen	2009-11-05 13:57:51.000000000 +0100
++++ openssh-4.3p2/contrib/redhat/sshd.init	2009-11-05 14:02:04.000000000 +0100
+@@ -34,6 +34,7 @@ runlevel=$(set -- $(runlevel); eval "ech
+ do_rsa1_keygen() {
+ 	if [ ! -s $RSA1_KEY ]; then
+ 		echo -n $"Generating SSH1 RSA host key: "
++		rm -f $RSA1_KEY
+ 		if $KEYGEN -q -t rsa1 -f $RSA1_KEY -C '' -N '' >&/dev/null; then
+ 			chmod 600 $RSA1_KEY
+ 			chmod 644 $RSA1_KEY.pub
+@@ -53,6 +54,7 @@ do_rsa1_keygen() {
+ do_rsa_keygen() {
+ 	if [ ! -s $RSA_KEY ]; then
+ 		echo -n $"Generating SSH2 RSA host key: "
++		rm -f $RSA_KEY
+ 		if $KEYGEN -q -t rsa -f $RSA_KEY -C '' -N '' >&/dev/null; then
+ 			chmod 600 $RSA_KEY
+ 			chmod 644 $RSA_KEY.pub
+@@ -72,6 +74,7 @@ do_rsa_keygen() {
+ do_dsa_keygen() {
+ 	if [ ! -s $DSA_KEY ]; then
+ 		echo -n $"Generating SSH2 DSA host key: "
++		rm -f $DSA_KEY
+ 		if $KEYGEN -q -t dsa -f $DSA_KEY -C '' -N '' >&/dev/null; then
+ 			chmod 600 $DSA_KEY
+ 			chmod 644 $DSA_KEY.pub

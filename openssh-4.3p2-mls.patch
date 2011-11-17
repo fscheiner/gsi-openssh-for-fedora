@@ -1,0 +1,229 @@
+--- openssh-4.3p2/selinux.c.mls	2007-01-11 14:22:40.000000000 +0100
++++ openssh-4.3p2/selinux.c	2007-01-11 20:25:27.000000000 +0100
+@@ -1,6 +1,7 @@
+ #include "includes.h"
+ #include "auth.h"
+ #include "log.h"
++#include "xmalloc.h"
+ 
+ #ifdef WITH_SELINUX
+ #include <selinux/selinux.h>
+@@ -8,23 +9,147 @@
+ #include <selinux/context.h>
+ #include <selinux/get_context_list.h>
+ #include <selinux/get_default_type.h>
++#include <selinux/av_permissions.h>
++
++#ifdef HAVE_LINUX_AUDIT
++#include <libaudit.h>
++#include <sys/select.h>
++#include <errno.h>
++#endif
++
+ extern Authctxt *the_authctxt;
++extern int inetd_flag;
++extern int rexeced_flag;
++
++/* Send audit message */
++static int send_audit_message(int success, security_context_t default_context,
++		       security_context_t selected_context)
++{
++	int rc=0;
++#ifdef HAVE_LINUX_AUDIT
++	char *msg = NULL;
++	int audit_fd = audit_open();
++	security_context_t default_raw=NULL;
++	security_context_t selected_raw=NULL;
++	rc = -1;
++	if (audit_fd < 0) {
++		if (errno == EINVAL || errno == EPROTONOSUPPORT ||
++                                        errno == EAFNOSUPPORT)
++                        return 0; /* No audit support in kernel */
++		error("Error connecting to audit system.");
++		return rc;
++	}
++	if (selinux_trans_to_raw_context(default_context, &default_raw) < 0) {
++		error("Error translating default context.");
++		goto out;
++	}
++	if (selinux_trans_to_raw_context(selected_context, &selected_raw) < 0) {
++		error("Error translating selected context.");
++		goto out;
++	}
++	if (asprintf(&msg, "sshd: default-context=%s selected-context=%s",
++		     default_context ? default_raw : "?",
++		     selected_context ? selected_raw : "?") < 0) {
++		error("Error allocating memory.");
++		goto out;
++	}
++	if (audit_log_user_message(audit_fd, AUDIT_USER_ROLE_CHANGE,
++				   msg, NULL, NULL, NULL, success) <= 0) {
++		error("Error sending audit message.");
++		goto out;
++	}
++	rc = 0;
++      out:
++	free(msg);
++	freecon(default_raw);
++	freecon(selected_raw);
++	close(audit_fd);
++#endif
++	return rc;
++}
++/* from Linux-PAM-0.99.6.2/modules/pam_selinux/pam_selinux.c */
++static int mls_range_allowed(security_context_t src, security_context_t dst)
++{
++	struct av_decision avd;
++	int retval;
++	unsigned int bit = CONTEXT__CONTAINS;
++
++	retval = security_compute_av(src, dst, SECCLASS_CONTEXT, bit, &avd);
++	if (retval || ((bit & avd.allowed) != bit))
++		return 0;
++
++	return 1;
++}
++
++static int get_user_context(const char *user, const char *role, const char *level,
++	security_context_t *context) {
++	if (role != NULL && role[0]) 
++		return get_default_context_with_rolelevel(user, role, level, NULL, context);
++	else
++		return get_default_context_with_level(user, level, NULL, context);
++}
+ 
+ static const security_context_t selinux_get_user_context(const char *name) {
+ 	security_context_t user_context=NULL;
++	security_context_t default_context=NULL;
++	char *seuser=NULL;
+ 	char *role=NULL;
+ 	int ret=-1;
+-	char *seuser=NULL;
+-	char *level=NULL;
+-
+-	if (the_authctxt) 
+-		role=the_authctxt->role;
++	char *dlevel=NULL;
++	const char *rlevel=NULL;
++	context_t con=NULL;
++
++	if (the_authctxt) {
++		if (the_authctxt->role != NULL) {
++			char *slash;
++			role = xstrdup(the_authctxt->role);
++			if ((slash = strchr(role, '/')) != NULL) {
++				*slash = '\0';
++				rlevel = slash + 1;
++			}
++		}
++	}
++	
++	ret = getseuserbyname(name, &seuser, &dlevel);
++	
++	if (ret >= 0) {
++		ret = get_user_context(seuser, role, dlevel, &default_context);
++	}
++	
++	if (ret >= 0) {
++		/* If launched from xinetd, we must use current level */
++		if (inetd_flag && !rexeced_flag) {
++			security_context_t sshd_context=NULL;
++
++			if (getcon(&sshd_context) < 0)
++				fatal("failed to allocate security context");
++
++			con = context_new(sshd_context);
++			rlevel = context_range_get(con);
++			freecon(sshd_context);
+ 
+-	if (getseuserbyname(name, &seuser, &level)==0) {
+-		if (role != NULL && role[0]) 
+-			ret=get_default_context_with_rolelevel(seuser, role, level,NULL,&user_context);
+-		else
+-			ret=get_default_context_with_level(seuser, level, NULL,&user_context);
++			debug("selinux_get_user_context: current connection level '%s'", rlevel);
++		}
++		
++		if (rlevel != NULL && rlevel[0]) {
++			ret = get_user_context(seuser, role, rlevel, &user_context);
++		
++			if (ret >= 0) {
++				if (mls_range_allowed(default_context, user_context)) {
++					send_audit_message(1, default_context, user_context);
++					logit("permit MLS level %s (user range %s)", rlevel, dlevel);
++				} else {
++					send_audit_message(0, default_context, user_context);
++					if (security_getenforce() > 0) 
++						fatal("deny MLS level %s (user range %s)", rlevel, dlevel);
++					else 
++						error("deny MLS level %s (user range %s). Continuing in permissive mode", rlevel, dlevel);
++				}
++			}
++			freecon(default_context);
++		} else {
++			user_context = default_context;
++		}
+ 	}
+ 
+ 	if ( ret < 0 ) {
+@@ -32,7 +157,13 @@
+ 			fatal("Failed to get default security context for %s.", name);
+ 		else 
+ 			error("Failed to get default security context for %s. Continuing in permissive mode", name);
+-	} 
++	}
++	
++	if (con)
++		context_free(con);
++	free(role);
++	free(seuser);
++	free(dlevel);
+ 	return user_context;
+ }
+ 
+@@ -40,11 +171,15 @@
+ 	if (is_selinux_enabled() > 0) {
+ 		security_context_t new_tty_context=NULL, user_context=NULL, old_tty_context=NULL; 
+ 
+-		user_context=selinux_get_user_context(name);
++		if (getexeccon(&user_context) < 0) {
++			error("getexeccon() failed: %.100s", strerror(errno));
++			return;
++		}
+ 
+ 		if (getfilecon(tty, &old_tty_context) < 0) {
+ 			error("getfilecon(%.100s) failed: %.100s", tty, strerror(errno));
+ 		} else {
++			debug("user_context: %s old_tty_context: %s", user_context, old_tty_context);
+ 			if (security_compute_relabel(user_context,old_tty_context,
+ 						     SECCLASS_CHR_FILE,
+ 						     &new_tty_context) != 0) {
+--- openssh-4.3p2/sshd.c.mls	2007-01-11 14:22:40.000000000 +0100
++++ openssh-4.3p2/sshd.c	2007-01-11 14:22:40.000000000 +0100
+@@ -85,6 +85,7 @@
+ #include "monitor.h"
+ #include "monitor_wrap.h"
+ #include "monitor_fdpass.h"
++#include "selinux.h"
+ 
+ #ifdef LIBWRAP
+ #include <tcpd.h>
+@@ -1752,6 +1753,7 @@
+ 		restore_uid();
+ 	}
+ #endif
++	setup_selinux_exec_context(authctxt->pw->pw_name); 
+ #ifdef USE_PAM
+ 	if (options.use_pam) {
+ 		do_pam_setcred(1);
+--- openssh-4.3p2/session.c.mls	2007-01-11 14:22:40.000000000 +0100
++++ openssh-4.3p2/session.c	2007-01-11 14:22:40.000000000 +0100
+@@ -1313,8 +1313,6 @@
+ #endif
+ 	if (getuid() != pw->pw_uid || geteuid() != pw->pw_uid)
+ 		fatal("Failed to set uids to %u.", (u_int) pw->pw_uid);
+-
+-	setup_selinux_exec_context(pw->pw_name);
+ }
+ 
+ static void

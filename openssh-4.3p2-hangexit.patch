@@ -1,0 +1,94 @@
+diff -up openssh-4.3p2/channels.c.hangexit openssh-4.3p2/channels.c
+--- openssh-4.3p2/channels.c.hangexit	2009-04-08 03:53:26.000000000 -0700
++++ openssh-4.3p2/channels.c	2009-04-08 03:53:26.000000000 -0700
+@@ -1413,12 +1413,13 @@
+ channel_handle_rfd(Channel *c, fd_set * readset, fd_set * writeset)
+ {
+ 	char buf[CHAN_RBUF];
+-	int len;
++	int len, force;
+ 
+-	if (c->rfd != -1 &&
+-	    FD_ISSET(c->rfd, readset)) {
++	force = c->isatty && c->detach_close && c->istate != CHAN_INPUT_CLOSED;
++	if (c->rfd != -1 && (force || FD_ISSET(c->rfd, readset))) {
+ 		len = read(c->rfd, buf, sizeof(buf));
+-		if (len < 0 && (errno == EINTR || errno == EAGAIN))
++		if (len < 0 && (errno == EINTR ||
++		    ((errno == EAGAIN || errno == EWOULDBLOCK) && !force)))
+ 			return 1;
+ 		if (len <= 0) {
+ 			debug2("channel %d: read<=0 rfd %d len %d",
+@@ -1566,11 +1569,12 @@
+ 				c->local_consumed += len;
+ 			}
+ 		} else if (c->extended_usage == CHAN_EXTENDED_READ &&
+-		    FD_ISSET(c->efd, readset)) {
++		    (c->detach_close || FD_ISSET(c->efd, readset))) {
+ 			len = read(c->efd, buf, sizeof(buf));
+ 			debug2("channel %d: read %d from efd %d",
+ 			    c->self, len, c->efd);
+-			if (len < 0 && (errno == EINTR || errno == EAGAIN))
++			if (len < 0 && (errno == EINTR ||
++			    (errno == EAGAIN && !c->detach_close)))
+ 				return 1;
+ 			if (len <= 0) {
+ 				debug2("channel %d: closing read-efd %d",
+diff -up openssh-4.3p2/serverloop.c.hangexit openssh-4.3p2/serverloop.c
+--- openssh-4.3p2/serverloop.c.hangexit	2009-04-08 03:53:26.000000000 -0700
++++ openssh-4.3p2/serverloop.c	2009-04-08 03:53:26.000000000 -0700
+@@ -254,6 +254,7 @@ wait_until_can_do_something(fd_set **rea
+ 	struct timeval tv, *tvp;
+ 	int ret;
+ 	int client_alive_scheduled = 0;
++	int program_alive_scheduled = 0;
+ 
+ 	/*
+ 	 * if using client_alive, set the max timeout accordingly,
+@@ -291,6 +292,7 @@ wait_until_can_do_something(fd_set **rea
+ 		 * the client, try to get some more data from the program.
+ 		 */
+ 		if (packet_not_very_much_data_to_write()) {
++			program_alive_scheduled = child_terminated;
+ 			if (!fdout_eof)
+ 				FD_SET(fdout, *readsetp);
+ 			if (!fderr_eof)
+@@ -336,8 +338,16 @@ wait_until_can_do_something(fd_set **rea
+ 		memset(*writesetp, 0, *nallocp);
+ 		if (errno != EINTR)
+ 			error("select: %.100s", strerror(errno));
+-	} else if (ret == 0 && client_alive_scheduled)
+-		client_alive_check();
++	} else {
++		if (ret == 0 && client_alive_scheduled)
++			client_alive_check();
++		if (!compat20 && program_alive_scheduled && fdin_is_tty) {
++			if (!fdout_eof)
++				FD_SET(fdout, *readsetp);
++			if (!fderr_eof)
++				FD_SET(fderr, *readsetp);
++		}
++	}
+ 
+ 	notify_done(*readsetp);
+ }
+@@ -380,7 +390,8 @@ process_input(fd_set * readset)
+ 	/* Read and buffer any available stdout data from the program. */
+ 	if (!fdout_eof && FD_ISSET(fdout, readset)) {
+ 		len = read(fdout, buf, sizeof(buf));
+-		if (len < 0 && (errno == EINTR || errno == EAGAIN)) {
++		if (len < 0 && (errno == EINTR ||
++		    (errno == EAGAIN && !child_terminated))) {
+ 			/* do nothing */
+ 		} else if (len <= 0) {
+ 			fdout_eof = 1;
+@@ -392,7 +403,8 @@ process_input(fd_set * readset)
+ 	/* Read and buffer any available stderr data from the program. */
+ 	if (!fderr_eof && FD_ISSET(fderr, readset)) {
+ 		len = read(fderr, buf, sizeof(buf));
+-		if (len < 0 && (errno == EINTR || errno == EAGAIN)) {
++		if (len < 0 && (errno == EINTR ||
++		    (errno == EAGAIN && !child_terminated))) {
+ 			/* do nothing */
+ 		} else if (len <= 0) {
+ 			fderr_eof = 1;

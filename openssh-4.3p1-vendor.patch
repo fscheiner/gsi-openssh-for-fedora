@@ -1,0 +1,148 @@
+Add a --enable-vendor-patchlevel option which, if the
+new-but-disabled-by-default ShowPatchLevel option is enabled,
+will append a build-time-specified string to the SSH version
+string.  Based heavily on a patch by Frank Hirtz, modified to
+trigger through configure.
+--- openssh-4.3p1/servconf.h.vendor	2005-12-13 09:29:03.000000000 +0100
++++ openssh-4.3p1/servconf.h	2006-02-01 16:51:56.000000000 +0100
+@@ -120,6 +120,7 @@
+ 	int	max_startups;
+ 	int	max_authtries;
+ 	char   *banner;			/* SSH-2 banner message */
++	int	show_patchlevel;	/* Show vendor patch level to clients */
+ 	int	use_dns;
+ 	int	client_alive_interval;	/*
+ 					 * poke the client this often to
+--- openssh-4.3p1/sshd_config.vendor	2006-02-01 16:29:52.000000000 +0100
++++ openssh-4.3p1/sshd_config	2006-02-01 16:42:01.000000000 +0100
+@@ -101,6 +101,7 @@
+ #Compression delayed
+ #ClientAliveInterval 0
+ #ClientAliveCountMax 3
++#ShowPatchLevel no
+ #UseDNS yes
+ #PidFile /var/run/sshd.pid
+ #MaxStartups 10
+--- openssh-4.3p1/sshd.c.vendor	2005-12-24 04:59:12.000000000 +0100
++++ openssh-4.3p1/sshd.c	2006-02-01 16:29:52.000000000 +0100
+@@ -377,7 +377,8 @@
+ 		major = PROTOCOL_MAJOR_1;
+ 		minor = PROTOCOL_MINOR_1;
+ 	}
+-	snprintf(buf, sizeof buf, "SSH-%d.%d-%.100s\n", major, minor, SSH_VERSION);
++	snprintf(buf, sizeof buf, "SSH-%d.%d-%.100s\n", major, minor,
++		 (options.show_patchlevel == 1) ? SSH_VENDOR_PATCHLEVEL : SSH_VERSION);
+ 	server_version_string = xstrdup(buf);
+ 
+ 	/* Send our protocol version identification. */
+@@ -1089,7 +1090,8 @@
+ 		exit(1);
+ 	}
+ 
+-	debug("sshd version %.100s", SSH_RELEASE);
++	debug("sshd version %.100s",
++	      (options.show_patchlevel == 1) ? SSH_VENDOR_PATCHLEVEL : SSH_RELEASE);
+ 
+ 	/* load private host keys */
+ 	sensitive_data.host_keys = xmalloc(options.num_host_key_files *
+--- openssh-4.3p1/configure.ac.vendor	2006-02-01 16:29:52.000000000 +0100
++++ openssh-4.3p1/configure.ac	2006-02-01 16:29:52.000000000 +0100
+@@ -3521,6 +3521,12 @@
+ 		fi
+ 	]
+ )
++AC_ARG_ENABLE(vendor-patchlevel,
++  [  --enable-vendor-patchlevel=TAG  specify a vendor patch level],
++  [AC_DEFINE_UNQUOTED(SSH_VENDOR_PATCHLEVEL,[SSH_RELEASE "-" "$enableval"],[Define to your vendor patch level, if it has been modified from the upstream source release.])
++   SSH_VENDOR_PATCHLEVEL="$enableval"],
++  [AC_DEFINE(SSH_VENDOR_PATCHLEVEL,SSH_RELEASE,[Define to your vendor patch level, if it has been modified from the upstream source release.])
++   SSH_VENDOR_PATCHLEVEL=none])
+ 
+ dnl lastlog, [uw]tmpx? detection
+ dnl  NOTE: set the paths in the platform section to avoid the
+@@ -3774,6 +3780,7 @@
+ echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
+ echo "                  BSD Auth support: $BSD_AUTH_MSG"
+ echo "              Random number source: $RAND_MSG"
++echo "                Vendor patch level: $SSH_VENDOR_PATCHLEVEL"
+ if test ! -z "$USE_RAND_HELPER" ; then
+ echo "     ssh-rand-helper collects from: $RAND_HELPER_MSG"
+ fi
+--- openssh-4.3p1/sshd_config.0.vendor	2006-02-01 16:29:52.000000000 +0100
++++ openssh-4.3p1/sshd_config.0	2006-02-01 16:29:52.000000000 +0100
+@@ -354,6 +354,11 @@
+              Defines the number of bits in the ephemeral protocol version 1
+              server key.  The minimum value is 512, and the default is 768.
+ 
++     ShowPatchLevel
++	     Specifies whether sshd will display the specific patch level of
++	     the binary in the server identification string.  The patch level
++	     is set at compile-time.  The default is M-bM-^@M-^\noM-bM-^@M-^].
++
+      StrictModes
+              Specifies whether sshd should check file modes and ownership of
+              the user's files and home directory before accepting login.  This
+--- openssh-4.3p1/servconf.c.vendor	2005-12-13 09:33:20.000000000 +0100
++++ openssh-4.3p1/servconf.c	2006-02-01 16:51:16.000000000 +0100
+@@ -95,6 +95,7 @@
+ 	options->max_startups = -1;
+ 	options->max_authtries = -1;
+ 	options->banner = NULL;
++	options->show_patchlevel = -1;
+ 	options->use_dns = -1;
+ 	options->client_alive_interval = -1;
+ 	options->client_alive_count_max = -1;
+@@ -233,6 +234,9 @@
+ 	if (options->permit_tun == -1)
+ 		options->permit_tun = SSH_TUNMODE_NO;
+ 
++	if (options->show_patchlevel == -1)
++		options->show_patchlevel = 0;
++
+ 	/* Turn privilege separation on by default */
+ 	if (use_privsep == -1)
+ 		use_privsep = 1;
+@@ -275,6 +279,7 @@
+ 	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
+ 	sGssAuthentication, sGssCleanupCreds, sAcceptEnv, sPermitTunnel,
+ 	sUsePrivilegeSeparation,
++	sShowPatchLevel,
+ 	sDeprecated, sUnsupported
+ } ServerOpCodes;
+ 
+@@ -367,6 +372,7 @@
+ 	{ "maxstartups", sMaxStartups },
+ 	{ "maxauthtries", sMaxAuthTries },
+ 	{ "banner", sBanner },
++	{ "showpatchlevel", sShowPatchLevel},
+ 	{ "usedns", sUseDNS },
+ 	{ "verifyreversemapping", sDeprecated },
+ 	{ "reversemappingcheck", sDeprecated },
+@@ -807,6 +813,10 @@
+ 		intptr = &use_privsep;
+ 		goto parse_flag;
+ 
++	case sShowPatchLevel:
++		intptr = &options->show_patchlevel;
++		goto parse_flag;
++
+ 	case sAllowUsers:
+ 		while ((arg = strdelim(&cp)) && *arg != '\0') {
+ 			if (options->num_allow_users >= MAX_ALLOW_USERS)
+--- openssh-4.3p1/sshd_config.5.vendor	2006-02-01 16:29:52.000000000 +0100
++++ openssh-4.3p1/sshd_config.5	2006-02-01 16:29:52.000000000 +0100
+@@ -597,6 +597,14 @@
+ .It Cm ServerKeyBits
+ Defines the number of bits in the ephemeral protocol version 1 server key.
+ The minimum value is 512, and the default is 768.
++.It Cm ShowPatchLevel
++Specifies whether
++.Nm sshd
++will display the patch level of the binary in the identification string.
++The patch level is set at compile-time.
++The default is
++.Dq no .
++This option applies to protocol version 1 only.
+ .It Cm StrictModes
+ Specifies whether
+ .Nm sshd

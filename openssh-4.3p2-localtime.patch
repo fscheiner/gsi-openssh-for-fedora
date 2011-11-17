@@ -1,0 +1,11 @@
+--- openssh-4.3p2/contrib/redhat/sshd.init.localtime	2006-08-23 14:50:05.000000000 +0200
++++ openssh-4.3p2/contrib/redhat/sshd.init	2006-08-23 22:08:13.000000000 +0200
+@@ -102,6 +102,8 @@
+ 	do_rsa1_keygen
+ 	do_rsa_keygen
+ 	do_dsa_keygen
++	
++	cp -af /etc/localtime /var/empty/sshd/etc
+ 
+ 	echo -n $"Starting $prog: "
+ 	$SSHD $OPTIONS && success || failure

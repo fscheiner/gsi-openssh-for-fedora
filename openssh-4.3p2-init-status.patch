@@ -1,0 +1,12 @@
+diff -up openssh-4.3p2/contrib/redhat/sshd.init.status openssh-4.3p2/contrib/redhat/sshd.init
+--- openssh-4.3p2/contrib/redhat/sshd.init.status	2008-09-11 12:10:51.000000000 +0200
++++ openssh-4.3p2/contrib/redhat/sshd.init	2008-09-11 12:40:57.000000000 +0200
+@@ -170,7 +170,7 @@ case "$1" in
+ 		fi
+ 		;;
+ 	status)
+-		status $SSHD
++		status -p $PID_FILE openssh-daemon
+ 		RETVAL=$?
+ 		;;
+ 	*)
