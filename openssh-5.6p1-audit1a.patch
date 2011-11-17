@@ -1,0 +1,13 @@
+diff -up openssh-5.6p1/audit-linux.c.audit1a openssh-5.6p1/audit-linux.c
+--- openssh-5.6p1/audit-linux.c.audit1a	2010-12-10 21:47:03.000000000 +0100
++++ openssh-5.6p1/audit-linux.c	2010-12-10 21:50:31.000000000 +0100
+@@ -59,7 +59,8 @@ linux_audit_record_event(int uid, const 
+ 	saved_errno = errno;
+ 	close(audit_fd);
+ 	errno = saved_errno;
+-	return (rc >= 0);
++	/* do not report error if the error is EPERM and sshd is run as non root user */
++	return (rc >= 0) || ((rc == -EPERM) && (getuid() != 0));
+ }
+ 
+ /* Below is the sshd audit API code */

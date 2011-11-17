@@ -1,0 +1,76 @@
+diff -ur openssh-5.3p1.orig/gss-serv-gsi.c openssh-5.3p1/gss-serv-gsi.c
+--- openssh-5.3p1.orig/gss-serv-gsi.c	2011-08-17 08:45:26.119890783 +0200
++++ openssh-5.3p1/gss-serv-gsi.c	2011-08-17 08:46:18.905892255 +0200
+@@ -63,6 +63,22 @@
+ 	&ssh_gssapi_gsi_updatecreds
+ };
+ 
++static
++void
++undo_globus_signal_blocking()
++{
++	sigset_t mysigset;
++	sigemptyset(&mysigset);
++	sigaddset(&mysigset, SIGCHLD);
++	sigaddset(&mysigset, SIGTERM);
++	sigaddset(&mysigset, SIGALRM);
++	sigaddset(&mysigset, SIGHUP);
++	sigaddset(&mysigset, SIGTERM);
++	sigaddset(&mysigset, SIGQUIT);
++	sigaddset(&mysigset, SIGINT);
++	sigprocmask(SIG_UNBLOCK, &mysigset, NULL);
++}
++
+ /*
+  * Check if this user is OK to login under GSI. User has been authenticated
+  * as identity in global 'client_name.value' and is trying to log in as passed
+@@ -83,6 +99,7 @@
+     if (globus_module_activate(GLOBUS_GSI_GSS_ASSIST_MODULE) != 0) {
+ 	return 0;
+     }
++    undo_globus_signal_blocking();
+ #endif
+ 
+ /* use new globus_gss_assist_map_and_authorize() interface if available */
+@@ -129,6 +146,7 @@
+     if (globus_module_activate(GLOBUS_GSI_GSS_ASSIST_MODULE) != 0) {
+ 	return 0;
+     }
++    undo_globus_signal_blocking();
+ #endif
+ 
+ /* use new globus_gss_assist_map_and_authorize() interface if available */
+diff -ur openssh-5.3p1.orig/ssh-globus-usage.c openssh-5.3p1/ssh-globus-usage.c
+--- openssh-5.3p1.orig/ssh-globus-usage.c	2011-08-17 08:45:26.144890783 +0200
++++ openssh-5.3p1/ssh-globus-usage.c	2011-08-17 08:49:03.068896835 +0200
+@@ -59,6 +59,22 @@
+ } ssh_usage_ent_t;
+ 
+ 
++static
++void
++undo_globus_signal_blocking()
++{
++        sigset_t mysigset;
++        sigemptyset(&mysigset);
++        sigaddset(&mysigset, SIGCHLD);
++        sigaddset(&mysigset, SIGTERM);
++        sigaddset(&mysigset, SIGALRM);
++        sigaddset(&mysigset, SIGHUP);
++        sigaddset(&mysigset, SIGTERM);
++        sigaddset(&mysigset, SIGQUIT);
++        sigaddset(&mysigset, SIGINT);
++        sigprocmask(SIG_UNBLOCK, &mysigset, NULL);
++}
++
+ globus_result_t
+ ssh_usage_stats_init(int disable_usage_stats, char *usage_stats_targets)
+ {
+@@ -74,6 +90,7 @@
+ 	return GLOBUS_SUCCESS;
+ 
+     result = globus_module_activate(GLOBUS_USAGE_MODULE);
++    undo_globus_signal_blocking();
+     if (result != GLOBUS_SUCCESS)
+     {
+         error("ERROR: couldn't activate USAGE module");

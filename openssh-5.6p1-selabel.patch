@@ -1,0 +1,108 @@
+diff -up openssh-5.6p1/configure.ac.selabel openssh-5.6p1/configure.ac
+--- openssh-5.6p1/configure.ac.selabel	2010-09-13 11:20:47.000000000 +0200
++++ openssh-5.6p1/configure.ac	2010-09-13 11:20:50.000000000 +0200
+@@ -700,7 +700,6 @@ mips-sony-bsd|mips-sony-newsos4)
+ 			[ AC_DEFINE(USE_SOLARIS_PROCESS_CONTRACTS, 1,
+ 				[Define if you have Solaris process contracts])
+ 			  SSHDLIBS="$SSHDLIBS -lcontract"
+-			  AC_SUBST(SSHDLIBS)
+ 			  SPC_MSG="yes" ], )
+ 		],
+ 	)
+@@ -3500,6 +3499,7 @@ AC_ARG_WITH(selinux,
+ 			],
+ 			AC_MSG_ERROR(SELinux support requires libselinux library))
+ 		SSHDLIBS="$SSHDLIBS $LIBSELINUX"
++		SSHLIBS="$SSHLIBS $LIBSELINUX"
+ 		LIBS="$LIBS $LIBSELINUX"
+ 		AC_CHECK_FUNCS(getseuserbyname get_default_context_with_level)
+ 		AC_CHECK_FUNCS(setkeycreatecon)
+@@ -4269,6 +4269,8 @@ else
+ fi
+ AC_CHECK_DECL(BROKEN_GETADDRINFO,  TEST_SSH_IPV6=no)
+ AC_SUBST(TEST_SSH_IPV6, $TEST_SSH_IPV6)
++AC_SUBST(SSHLIBS)
++AC_SUBST(SSHDLIBS)
+ 
+ AC_EXEEXT
+ AC_CONFIG_FILES([Makefile buildpkg.sh opensshd.init openssh.xml \
+@@ -4345,6 +4347,9 @@ echo "         Libraries: ${LIBS}"
+ if test ! -z "${SSHDLIBS}"; then
+ echo "         +for sshd: ${SSHDLIBS}"
+ fi
++if test ! -z "${SSHLIBS}"; then
++echo "         +for ssh: ${SSHLIBS}"
++fi
+ 
+ echo ""
+ 
+diff -up openssh-5.6p1/contrib/ssh-copy-id.selabel openssh-5.6p1/contrib/ssh-copy-id
+--- openssh-5.6p1/contrib/ssh-copy-id.selabel	2010-08-10 05:36:09.000000000 +0200
++++ openssh-5.6p1/contrib/ssh-copy-id	2010-09-13 11:20:50.000000000 +0200
+@@ -41,7 +41,7 @@ fi
+ # strip any trailing colon
+ host=`echo $1 | sed 's/:$//'`
+ 
+-{ eval "$GET_ID" ; } | ssh $host "umask 077; test -d ~/.ssh || mkdir ~/.ssh ; cat >> ~/.ssh/authorized_keys" || exit 1
++{ eval "$GET_ID" ; } | ssh $host "umask 077; test -d ~/.ssh || mkdir ~/.ssh ; cat >> ~/.ssh/authorized_keys; test -x /sbin/restorecon && /sbin/restorecon ~/.ssh ~/.ssh/authorized_keys" || exit 1
+ 
+ cat <<EOF
+ Now try logging into the machine, with "ssh '$host'", and check in:
+diff -up openssh-5.6p1/Makefile.in.selabel openssh-5.6p1/Makefile.in
+--- openssh-5.6p1/Makefile.in.selabel	2010-09-13 11:20:49.000000000 +0200
++++ openssh-5.6p1/Makefile.in	2010-09-13 11:20:50.000000000 +0200
+@@ -47,6 +47,7 @@ LD=@LD@
+ CFLAGS=@CFLAGS@
+ CPPFLAGS=-I. -I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+ LIBS=@LIBS@
++SSHLIBS=@SSHLIBS@
+ SSHDLIBS=@SSHDLIBS@
+ LIBEDIT=@LIBEDIT@
+ AR=@AR@
+@@ -141,7 +142,7 @@ libssh.a: $(LIBSSH_OBJS)
+ 	$(RANLIB) $@
+ 
+ ssh$(EXEEXT): $(LIBCOMPAT) libssh.a $(SSHOBJS)
+-	$(LD) -o $@ $(SSHOBJS) $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
++	$(LD) -o $@ $(SSHOBJS) $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(SSHLIBS) $(LIBS)
+ 
+ sshd$(EXEEXT): libssh.a	$(LIBCOMPAT) $(SSHDOBJS)
+ 	$(LD) -o $@ $(SSHDOBJS) $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(SSHDLIBS) $(LIBS)
+diff -up openssh-5.6p1/openbsd-compat/port-linux.h.selabel openssh-5.6p1/openbsd-compat/port-linux.h
+--- openssh-5.6p1/openbsd-compat/port-linux.h.selabel	2009-12-08 03:39:48.000000000 +0100
++++ openssh-5.6p1/openbsd-compat/port-linux.h	2010-09-13 11:20:50.000000000 +0200
+@@ -20,6 +20,7 @@
+ #define _PORT_LINUX_H
+ 
+ #ifdef WITH_SELINUX
++#include <selinux/selinux.h>
+ int ssh_selinux_enabled(void);
+ void ssh_selinux_setup_pty(char *, const char *);
+ void ssh_selinux_setup_exec_context(char *);
+diff -up openssh-5.6p1/ssh.c.selabel openssh-5.6p1/ssh.c
+--- openssh-5.6p1/ssh.c.selabel	2010-09-13 11:20:50.000000000 +0200
++++ openssh-5.6p1/ssh.c	2010-09-13 11:23:02.000000000 +0200
+@@ -848,10 +848,21 @@ main(int ac, char **av)
+ 	 */
+ 	r = snprintf(buf, sizeof buf, "%s%s%s", pw->pw_dir,
+ 	    strcmp(pw->pw_dir, "/") ? "/" : "", _PATH_SSH_USER_DIR);
+-	if (r > 0 && (size_t)r < sizeof(buf) && stat(buf, &st) < 0)
++	if (r > 0 && (size_t)r < sizeof(buf) && stat(buf, &st) < 0) {
++#ifdef WITH_SELINUX
++		char *scon;
++
++		if (matchpathcon(buf, 0700, &scon) != -1) {
++			setfscreatecon(scon);
++			matchpathcon_fini();
++		}
++#endif
+ 		if (mkdir(buf, 0700) < 0)
+ 			error("Could not create directory '%.200s'.", buf);
+-
++#ifdef WITH_SELINUX
++		setfscreatecon(NULL);
++#endif
++	}
+ 	/* load options.identity_files */
+ 	load_public_identity_files();
+ 

@@ -1,0 +1,264 @@
+diff -up openssh-5.6p1/audit-bsm.c.audit2 openssh-5.6p1/audit-bsm.c
+--- openssh-5.6p1/audit-bsm.c.audit2	2010-12-10 21:55:40.000000000 +0100
++++ openssh-5.6p1/audit-bsm.c	2010-12-10 21:55:41.000000000 +0100
+@@ -316,6 +316,12 @@ audit_session_close(struct logininfo *li
+ 	/* not implemented */
+ }
+ 
++int
++audit_keyusage(int host_user, const char *type, unsigned len, char *fp, int rv)
++{
++	/* not implemented */
++}
++
+ void
+ audit_event(ssh_audit_event_t event)
+ {
+diff -up openssh-5.6p1/audit.c.audit2 openssh-5.6p1/audit.c
+--- openssh-5.6p1/audit.c.audit2	2010-12-10 21:55:40.000000000 +0100
++++ openssh-5.6p1/audit.c	2010-12-10 21:55:41.000000000 +0100
+@@ -111,6 +111,33 @@ audit_event_lookup(ssh_audit_event_t ev)
+ 	return(event_lookup[i].name);
+ }
+ 
++int
++audit_key(int type, int *rv, const Key *key)
++{
++	char *fp;
++	unsigned size = 0;
++	const char *crypto_name[] = {
++		"ssh-rsa1",
++		"ssh-rsa",
++		"ssh-dsa",
++		"unknown" };
++
++	fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
++	switch(key->type) {
++		case KEY_RSA1:
++		case KEY_RSA:
++			size = RSA_size(key->rsa);
++			break;
++		case KEY_DSA:
++			size = DSA_size(key->dsa);
++			break;
++	}
++
++	if (audit_keyusage(0, crypto_name[key->type], size, fp, *rv) == 0)
++		*rv = 0;
++	xfree(fp);
++}
++
+ # ifndef CUSTOM_SSH_AUDIT_EVENTS
+ /*
+  * Null implementations of audit functions.
+@@ -182,5 +209,17 @@ audit_run_command(const char *command)
+ 	debug("audit run command euid %d user %s command '%.200s'", geteuid(),
+ 	    audit_username(), command);
+ }
++
++/*
++ * This will be called when user is successfully autherized by the RSA1/RSA/DSA key.
++ *
++ * Type is the key type, len is the key length(byte) and fp is the fingerprint of the key.
++ */
++int
++audit_keyusage(int host_user, const char *type, unsigned len, char *fp, int rv)
++{
++	debug("audit %s key usage euid %d user %s key type %s key length %d fingerprint %s, result %d", 
++		host_user ? "hostbased" : "pubkey", geteuid(), audit_username(), type, len, fp, rv);
++}
+ # endif  /* !defined CUSTOM_SSH_AUDIT_EVENTS */
+ #endif /* SSH_AUDIT_EVENTS */
+diff -up openssh-5.6p1/audit.h.audit2 openssh-5.6p1/audit.h
+--- openssh-5.6p1/audit.h.audit2	2010-12-10 21:55:40.000000000 +0100
++++ openssh-5.6p1/audit.h	2010-12-10 21:55:41.000000000 +0100
+@@ -28,6 +28,7 @@
+ # define _SSH_AUDIT_H
+ 
+ #include "loginrec.h"
++#include "key.h"
+ 
+ enum ssh_audit_event_type {
+ 	SSH_LOGIN_EXCEED_MAXTRIES,
+@@ -53,5 +54,7 @@ void	audit_session_open(struct logininfo
+ void	audit_session_close(struct logininfo *);
+ void	audit_run_command(const char *);
+ ssh_audit_event_t audit_classify_auth(const char *);
++int	audit_keyusage(int, const char *, unsigned, char *, int);
++int	audit_key(int, int *, const Key *);
+ 
+ #endif /* _SSH_AUDIT_H */
+diff -up openssh-5.6p1/audit-linux.c.audit2 openssh-5.6p1/audit-linux.c
+--- openssh-5.6p1/audit-linux.c.audit2	2010-12-10 21:55:41.000000000 +0100
++++ openssh-5.6p1/audit-linux.c	2010-12-10 22:16:42.000000000 +0100
+@@ -37,6 +37,8 @@
+ #include "audit.h"
+ #include "canohost.h"
+ 
++#define AUDIT_LOG_SIZE 128
++
+ const char* audit_username(void);
+ 
+ int
+@@ -63,6 +65,37 @@ linux_audit_record_event(int uid, const 
+ 	return (rc >= 0) || ((rc == -EPERM) && (getuid() != 0));
+ }
+ 
++int
++audit_keyusage(int host_user, const char *type, unsigned len, char *fp, int rv)
++{
++	char buf[AUDIT_LOG_SIZE];
++	int audit_fd, rc, saved_errno;
++
++	audit_fd = audit_open();
++	if (audit_fd < 0) {
++		if (errno == EINVAL || errno == EPROTONOSUPPORT ||
++					 errno == EAFNOSUPPORT)
++			return 1; /* No audit support in kernel */
++		else                                                                                                                                       
++			return 0; /* Must prevent login */
++	}
++	snprintf(buf, sizeof(buf), "%s_auth rport=%d", host_user ? "hostbased" : "pubkey", get_remote_port());
++	rc = audit_log_acct_message(audit_fd, AUDIT_USER_AUTH, NULL,
++		buf, audit_username(), -1, NULL, get_remote_ipaddr(), NULL, rv);
++	if ((rc < 0) && ((rc != -1) || (getuid() == 0)))
++		goto out;
++	snprintf(buf, sizeof(buf), "key algo=%s size=%d fp=%s rport=%d",
++			type, 8 * len, fp, get_remote_port());
++	rc = audit_log_acct_message(audit_fd, AUDIT_USER_AUTH, NULL,
++		buf, audit_username(), -1, NULL, get_remote_ipaddr(), NULL, rv);
++out:
++	saved_errno = errno;
++	audit_close(audit_fd);
++	errno = saved_errno;
++	/* do not report error if the error is EPERM and sshd is run as non root user */
++	return (rc >= 0) || ((rc == -EPERM) && (getuid() != 0));
++}
++
+ /* Below is the sshd audit API code */
+ 
+ void
+diff -up openssh-5.6p1/auth2-hostbased.c.audit2 openssh-5.6p1/auth2-hostbased.c
+--- openssh-5.6p1/auth2-hostbased.c.audit2	2010-08-05 05:04:50.000000000 +0200
++++ openssh-5.6p1/auth2-hostbased.c	2010-12-10 21:55:41.000000000 +0100
+@@ -136,6 +136,18 @@ done:
+ 	return authenticated;
+ }
+ 
++int
++hostkey_key_verify(const Key *key, const u_char *sig, u_int slen, const u_char *data, u_int datalen)
++{
++	int rv;
++
++	rv = key_verify(key, sig, slen, data, datalen);
++#ifdef SSH_AUDIT_EVENTS
++	audit_key(0, &rv, key);
++#endif
++	return rv;
++}
++
+ /* return 1 if given hostkey is allowed */
+ int
+ hostbased_key_allowed(struct passwd *pw, const char *cuser, char *chost,
+diff -up openssh-5.6p1/auth2-pubkey.c.audit2 openssh-5.6p1/auth2-pubkey.c
+--- openssh-5.6p1/auth2-pubkey.c.audit2	2010-07-02 05:35:19.000000000 +0200
++++ openssh-5.6p1/auth2-pubkey.c	2010-12-10 21:55:41.000000000 +0100
+@@ -177,6 +177,18 @@ done:
+ 	return authenticated;
+ }
+ 
++int
++pubkey_key_verify(const Key *key, const u_char *sig, u_int slen, const u_char *data, u_int datalen)
++{
++	int rv;
++
++	rv = key_verify(key, sig, slen, data, datalen);
++#ifdef SSH_AUDIT_EVENTS
++	audit_key(1, &rv, key);
++#endif
++	return rv;
++}
++
+ static int
+ match_principals_option(const char *principal_list, struct KeyCert *cert)
+ {
+diff -up openssh-5.6p1/auth.h.audit2 openssh-5.6p1/auth.h
+--- openssh-5.6p1/auth.h.audit2	2010-05-10 03:58:03.000000000 +0200
++++ openssh-5.6p1/auth.h	2010-12-10 21:55:41.000000000 +0100
+@@ -170,6 +170,7 @@ void	abandon_challenge_response(Authctxt
+ char	*authorized_keys_file(struct passwd *);
+ char	*authorized_keys_file2(struct passwd *);
+ char	*authorized_principals_file(struct passwd *);
++int	 pubkey_key_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
+ 
+ FILE	*auth_openkeyfile(const char *, struct passwd *, int);
+ FILE	*auth_openprincipals(const char *, struct passwd *, int);
+@@ -185,6 +186,7 @@ Key	*get_hostkey_public_by_type(int);
+ Key	*get_hostkey_private_by_type(int);
+ int	 get_hostkey_index(Key *);
+ int	 ssh1_session_key(BIGNUM *);
++int	 hostkey_key_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
+ 
+ /* debug messages during authentication */
+ void	 auth_debug_add(const char *fmt,...) __attribute__((format(printf, 1, 2)));
+diff -up openssh-5.6p1/auth-rsa.c.audit2 openssh-5.6p1/auth-rsa.c
+--- openssh-5.6p1/auth-rsa.c.audit2	2010-07-16 05:58:37.000000000 +0200
++++ openssh-5.6p1/auth-rsa.c	2010-12-10 21:55:41.000000000 +0100
+@@ -92,7 +92,10 @@ auth_rsa_verify_response(Key *key, BIGNU
+ {
+ 	u_char buf[32], mdbuf[16];
+ 	MD5_CTX md;
+-	int len;
++	int len, rv;
++#ifdef SSH_AUDIT_EVENTS
++	char *fp;
++#endif
+ 
+ 	if (auth_key_is_revoked(key))
+ 		return 0;
+@@ -116,12 +119,18 @@ auth_rsa_verify_response(Key *key, BIGNU
+ 	MD5_Final(mdbuf, &md);
+ 
+ 	/* Verify that the response is the original challenge. */
+-	if (timingsafe_bcmp(response, mdbuf, 16) != 0) {
+-		/* Wrong answer. */
+-		return (0);
++	rv = timingsafe_bcmp(response, mdbuf, 16) == 0;
++
++#ifdef SSH_AUDIT_EVENTS
++	fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
++	if (audit_keyusage(1, "ssh-rsa1", RSA_size(key->rsa), fp, rv) == 0) {
++		debug("unsuccessful audit");
++		rv = 0;
+ 	}
+-	/* Correct answer. */
+-	return (1);
++	xfree(fp);
++#endif
++
++	return rv;
+ }
+ 
+ /*
+diff -up openssh-5.6p1/monitor.c.audit2 openssh-5.6p1/monitor.c
+--- openssh-5.6p1/monitor.c.audit2	2010-08-03 07:50:16.000000000 +0200
++++ openssh-5.6p1/monitor.c	2010-12-10 21:55:41.000000000 +0100
+@@ -1235,7 +1235,17 @@ mm_answer_keyverify(int sock, Buffer *m)
+ 	if (!valid_data)
+ 		fatal("%s: bad signature data blob", __func__);
+ 
+-	verified = key_verify(key, signature, signaturelen, data, datalen);
++	switch (key_blobtype) {
++	case MM_USERKEY:
++		verified = pubkey_key_verify(key, signature, signaturelen, data, datalen);
++		break;
++	case MM_HOSTKEY:
++		verified = hostkey_key_verify(key, signature, signaturelen, data, datalen);
++		break;
++	default:
++		verified = 0;
++		break;
++	}
+ 	debug3("%s: key %p signature %s",
+ 	    __func__, key, (verified == 1) ? "verified" : "unverified");
+ 

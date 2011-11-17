@@ -1,0 +1,276 @@
+diff -up openssh-5.6p1/audit-bsm.c.audit openssh-5.6p1/audit-bsm.c
+--- openssh-5.6p1/audit-bsm.c.audit	2008-02-25 11:05:04.000000000 +0100
++++ openssh-5.6p1/audit-bsm.c	2010-10-20 09:15:47.000000000 +0200
+@@ -305,13 +305,13 @@ audit_run_command(const char *command)
+ }
+ 
+ void
+-audit_session_open(const char *ttyn)
++audit_session_open(struct logininfo *li)
+ {
+ 	/* not implemented */
+ }
+ 
+ void
+-audit_session_close(const char *ttyn)
++audit_session_close(struct logininfo *li)
+ {
+ 	/* not implemented */
+ }
+diff -up openssh-5.6p1/audit.c.audit openssh-5.6p1/audit.c
+--- openssh-5.6p1/audit.c.audit	2006-09-01 07:38:36.000000000 +0200
++++ openssh-5.6p1/audit.c	2010-10-20 09:15:47.000000000 +0200
+@@ -147,9 +147,9 @@ audit_event(ssh_audit_event_t event)
+  * within a single connection.
+  */
+ void
+-audit_session_open(const char *ttyn)
++audit_session_open(struct logininfo *li)
+ {
+-	const char *t = ttyn ? ttyn : "(no tty)";
++	const char *t = li->line ? li->line : "(no tty)";
+ 
+ 	debug("audit session open euid %d user %s tty name %s", geteuid(),
+ 	    audit_username(), t);
+@@ -163,9 +163,9 @@ audit_session_open(const char *ttyn)
+  * within a single connection.
+  */
+ void
+-audit_session_close(const char *ttyn)
++audit_session_close(struct logininfo *li)
+ {
+-	const char *t = ttyn ? ttyn : "(no tty)";
++	const char *t = li->line ? li->line : "(no tty)";
+ 
+ 	debug("audit session close euid %d user %s tty name %s", geteuid(),
+ 	    audit_username(), t);
+diff -up openssh-5.6p1/audit.h.audit openssh-5.6p1/audit.h
+--- openssh-5.6p1/audit.h.audit	2006-08-05 16:05:10.000000000 +0200
++++ openssh-5.6p1/audit.h	2010-10-20 09:15:47.000000000 +0200
+@@ -26,6 +26,9 @@
+ 
+ #ifndef _SSH_AUDIT_H
+ # define _SSH_AUDIT_H
++
++#include "loginrec.h"
++
+ enum ssh_audit_event_type {
+ 	SSH_LOGIN_EXCEED_MAXTRIES,
+ 	SSH_LOGIN_ROOT_DENIED,
+@@ -46,8 +49,8 @@ typedef enum ssh_audit_event_type ssh_au
+ 
+ void	audit_connection_from(const char *, int);
+ void	audit_event(ssh_audit_event_t);
+-void	audit_session_open(const char *);
+-void	audit_session_close(const char *);
++void	audit_session_open(struct logininfo *);
++void	audit_session_close(struct logininfo *);
+ void	audit_run_command(const char *);
+ ssh_audit_event_t audit_classify_auth(const char *);
+ 
+diff -up openssh-5.6p1/audit-linux.c.audit openssh-5.6p1/audit-linux.c
+--- openssh-5.6p1/audit-linux.c.audit	2010-10-20 09:15:47.000000000 +0200
++++ openssh-5.6p1/audit-linux.c	2010-10-20 09:15:47.000000000 +0200
+@@ -0,0 +1,120 @@
++/* $Id: audit-linux.c,v 1.1 jfch Exp $ */
++
++/*
++ * Copyright 2010 Red Hat, Inc.  All rights reserved.
++ * Use is subject to license terms.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
++ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
++ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
++ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * Red Hat author: Jan F. Chadima <jchadima@redhat.com>
++ */
++
++#include "includes.h"
++#if defined(USE_LINUX_AUDIT)
++#include <libaudit.h>
++#include <unistd.h>
++#include <string.h>
++
++#include "log.h"
++#include "audit.h"
++#include "canohost.h"
++
++const char* audit_username(void);
++
++int
++linux_audit_record_event(int uid, const char *username,
++    const char *hostname, const char *ip, const char *ttyn, int success)
++{
++	int audit_fd, rc, saved_errno;
++
++	audit_fd = audit_open();
++	if (audit_fd < 0) {
++		if (errno == EINVAL || errno == EPROTONOSUPPORT ||
++		    errno == EAFNOSUPPORT)
++			return 1; /* No audit support in kernel */
++		else
++			return 0; /* Must prevent login */
++	}
++	rc = audit_log_acct_message(audit_fd, AUDIT_USER_LOGIN,
++	    NULL, "login", username ? username : "(unknown)",
++	    username == NULL ? uid : -1, hostname, ip, ttyn, success);
++	saved_errno = errno;
++	close(audit_fd);
++	errno = saved_errno;
++	return (rc >= 0);
++}
++
++/* Below is the sshd audit API code */
++
++void
++audit_connection_from(const char *host, int port)
++{
++}
++	/* not implemented */
++
++void
++audit_run_command(const char *command)
++{
++	/* not implemented */
++}
++
++void
++audit_session_open(struct logininfo *li)
++{
++	if (linux_audit_record_event(li->uid, NULL, li->hostname,
++	    NULL, li->line, 1) == 0)
++		fatal("linux_audit_write_entry failed: %s", strerror(errno));
++}
++
++void
++audit_session_close(struct logininfo *li)
++{
++	/* not implemented */
++}
++
++void
++audit_event(ssh_audit_event_t event)
++{
++	switch(event) {
++	case SSH_AUTH_SUCCESS:
++	case SSH_CONNECTION_CLOSE:
++	case SSH_NOLOGIN:
++	case SSH_LOGIN_EXCEED_MAXTRIES:
++	case SSH_LOGIN_ROOT_DENIED:
++		break;
++
++	case SSH_AUTH_FAIL_NONE:
++	case SSH_AUTH_FAIL_PASSWD:
++	case SSH_AUTH_FAIL_KBDINT:
++	case SSH_AUTH_FAIL_PUBKEY:
++	case SSH_AUTH_FAIL_HOSTBASED:
++	case SSH_AUTH_FAIL_GSSAPI:
++	case SSH_INVALID_USER:
++		linux_audit_record_event(-1, audit_username(), NULL,
++			get_remote_ipaddr(), "sshd", 0);
++		break;
++
++	default:
++		debug("%s: unhandled event %d", __func__, event);
++	}
++}
++
++#endif /* USE_LINUX_AUDIT */
+diff -up openssh-5.6p1/configure.ac.audit openssh-5.6p1/configure.ac
+--- openssh-5.6p1/configure.ac.audit	2010-08-16 05:15:23.000000000 +0200
++++ openssh-5.6p1/configure.ac	2010-10-20 09:15:47.000000000 +0200
+@@ -1308,7 +1308,7 @@ int main(void)
+ 
+ AUDIT_MODULE=none
+ AC_ARG_WITH(audit,
+-	[  --with-audit=module     Enable EXPERIMENTAL audit support (modules=debug,bsm)],
++	[  --with-audit=module     Enable audit support (modules=debug,bsm,linux)],
+ 	[
+ 	  AC_MSG_CHECKING(for supported audit module)
+ 	  case "$withval" in
+@@ -1332,10 +1332,18 @@ AC_ARG_WITH(audit,
+ 		AC_CHECK_FUNCS(getaudit_addr aug_get_machine)
+ 		AC_DEFINE(USE_BSM_AUDIT, 1, [Use BSM audit module])
+ 		;;
++	  linux)
++		AC_MSG_RESULT(linux)
++		AUDIT_MODULE=linux
++		dnl    Checks for headers, libs and functions
++		AC_CHECK_HEADERS(libaudit.h)
++		SSHDLIBS="$SSHDLIBS -laudit"
++		AC_DEFINE(USE_LINUX_AUDIT, 1, [Use Linux audit module])
++		;;
+ 	  debug)
+ 		AUDIT_MODULE=debug
+ 		AC_MSG_RESULT(debug)
+-		AC_DEFINE(SSH_AUDIT_EVENTS, 1, Use audit debugging module)
++		AC_DEFINE(SSH_AUDIT_EVENTS, 1, [Use audit debugging module])
+ 		;;
+ 	  no)
+ 		AC_MSG_RESULT(no)
+diff -up openssh-5.6p1/defines.h.audit openssh-5.6p1/defines.h
+--- openssh-5.6p1/defines.h.audit	2010-04-09 10:13:27.000000000 +0200
++++ openssh-5.6p1/defines.h	2010-10-20 09:15:47.000000000 +0200
+@@ -566,6 +566,11 @@ struct winsize {
+ # define CUSTOM_SSH_AUDIT_EVENTS
+ #endif
+ 
++#ifdef USE_LINUX_AUDIT
++# define SSH_AUDIT_EVENTS
++# define CUSTOM_SSH_AUDIT_EVENTS
++#endif
++
+ #if !defined(HAVE___func__) && defined(HAVE___FUNCTION__)
+ #  define __func__ __FUNCTION__
+ #elif !defined(HAVE___func__)
+diff -up openssh-5.6p1/loginrec.c.audit openssh-5.6p1/loginrec.c
+--- openssh-5.6p1/loginrec.c.audit	2010-04-09 10:13:27.000000000 +0200
++++ openssh-5.6p1/loginrec.c	2010-10-20 09:15:47.000000000 +0200
+@@ -468,9 +468,9 @@ login_write(struct logininfo *li)
+ #endif
+ #ifdef SSH_AUDIT_EVENTS
+ 	if (li->type == LTYPE_LOGIN)
+-		audit_session_open(li->line);
++		audit_session_open(li);
+ 	else if (li->type == LTYPE_LOGOUT)
+-		audit_session_close(li->line);
++		audit_session_close(li);
+ #endif
+ 	return (0);
+ }
+diff -up openssh-5.6p1/Makefile.in.audit openssh-5.6p1/Makefile.in
+--- openssh-5.6p1/Makefile.in.audit	2010-05-12 08:51:39.000000000 +0200
++++ openssh-5.6p1/Makefile.in	2010-10-20 09:15:47.000000000 +0200
+@@ -81,6 +81,7 @@ SSHOBJS= ssh.o readconf.o clientloop.o s
+ 	roaming_common.o roaming_client.o
+ 
+ SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
++	audit.o audit-bsm.o audit-linux.o platform.o \
+ 	sshpty.o sshlogin.o servconf.o serverloop.o \
+ 	auth.o auth1.o auth2.o auth-options.o session.o \
+ 	auth-chall.o auth2-chall.o groupaccess.o \
+@@ -90,7 +91,7 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passw
+ 	auth-krb5.o \
+ 	auth2-gss.o gss-serv.o gss-serv-krb5.o \
+ 	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
+-	audit.o audit-bsm.o platform.o sftp-server.o sftp-common.o \
++	sftp-server.o sftp-common.o \
+ 	roaming_common.o roaming_serv.o
+ 
+ MANPAGES	= moduli.5.out scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-rand-helper.8.out ssh-keysign.8.out ssh-pkcs11-helper.8.out sshd_config.5.out ssh_config.5.out
