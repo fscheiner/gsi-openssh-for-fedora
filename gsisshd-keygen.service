@@ -1,0 +1,12 @@
+[Unit]
+Description=gsissh server keys generation.
+After=syslog.target
+Before=gsisshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/gsisshd-keygen
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
