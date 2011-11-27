@@ -5,6 +5,7 @@ Before=gsisshd.service
 
 [Service]
 Type=oneshot
+EnvironmentFile=/etc/sysconfig/gsisshd
 ExecStart=/usr/sbin/gsisshd-keygen
 RemainAfterExit=yes
 

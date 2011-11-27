@@ -36,7 +36,7 @@
 %global nologin 1
 
 %global openssh_ver 5.8p2
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -136,10 +136,14 @@ Patch63: openssh-5.8p2-force_krb.patch
 Patch64: openssh-5.8p2-kuserok.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1329 (WONTFIX)
 Patch65: openssh-5.8p2-remove-stale-control-socket.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1919
-Patch66: openssh-5.8p2-ipv6man.patch
 #?
+Patch66: openssh-5.8p2-ipv6man.patch
+#https://bugzilla.mindrot.org/show_bug.cgi?id=1919
 Patch67: openssh-5.8p2-unconfined.patch
+#?
+Patch69: openssh-5.8p2-askpass-ld.patch
+#https://bugzilla.redhat.com/show_bug.cgi?id=739989
+Patch70: openssh-5.8p2-copy-id-restorecon.patch
 #---
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1604
 # sctp
@@ -304,6 +308,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch65 -p1 -b .remove_stale
 %patch66 -p1 -b .ipv6man
 %patch67 -p1 -b .unconfined
+%patch69 -p1 -b .askpass-ld
+%patch70 -p1 -b .restorecon
 %patch98 -p1 -b .gsi
 %patch99 -p1 -b .signals
 
@@ -527,6 +533,9 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Sun Nov 27 2011 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.8p2-3
+- Based on openssh-5.8p2-22.fc16
+
 * Thu Oct 06 2011 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.8p2-2
 - Change package name gsissh → gsi-openssh
 - Based on openssh-5.8p2-16.fc16.1

@@ -1,9 +1,10 @@
 [Unit]
-Description=gsissh server daemon.
+Description=gsissh server daemon
 After=syslog.target network.target auditd.service
 
 [Service]
-ExecStart=/usr/sbin/gsisshd -D
+EnvironmentFile=/etc/sysconfig/gsisshd
+ExecStart=/usr/sbin/gsisshd -D $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
