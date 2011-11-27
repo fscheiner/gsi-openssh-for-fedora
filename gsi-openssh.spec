@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 5.9p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -136,6 +136,8 @@ Patch707: openssh-5.9p1-redhat.patch
 Patch708: openssh-5.9p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
 Patch709: openssh-5.9p1-vendor.patch
+#?
+Patch710: openssh-5.9p1-copy-id-restorecon.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 Patch800: openssh-5.9p1-gsskex.patch
@@ -306,6 +308,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch707 -p1 -b .redhat
 %patch708 -p1 -b .entropy
 %patch709 -p1 -b .vendor
+%patch710 -p1 -b .restorecon
 
 %patch800 -p1 -b .gsskex
 %patch801 -p1 -b .force_krb
@@ -534,6 +537,9 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Sun Nov 27 2011 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-3
+- Based on openssh-5.9p1-13.fc17
+
 * Thu Nov 17 2011 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-2
 - Based on openssh-5.9p1-11.fc17
 
