@@ -32,7 +32,7 @@
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: 4.3p2
-Release: 3%{?dist}
+Release: 4%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 4.3p2-3
 URL: http://www.openssh.com/portable.html
@@ -105,10 +105,6 @@ Patch76: openssh-4.3p2-entropy.patch
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-4.3p2.patch
 Patch98: openssh-4.3p2-gsissh.patch
 
-# The gsissh server has problems with blocked signals in threaded globus libs
-# This patch from OSG resolves these problems
-Patch99: openssh-4.3p2-unblock-signals.patch
-
 License: BSD
 Group: Applications/Internet
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -132,7 +128,9 @@ BuildRequires: krb5-devel
 %endif
 
 %if %{gsi}
-BuildRequires: globus-gss-assist-devel
+BuildRequires: globus-gss-assist-devel >= 8
+BuildRequires: globus-gssapi-gsi >= 10
+BuildRequires: globus-common >=	 14
 %endif
 
 %if %{nss}
@@ -267,7 +265,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch74 -p1 -b .cryptoaudit
 %patch76 -p1 -b .entropy
 %patch98 -p1 -b .gsi
-%patch99 -p1 -b .signals
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
@@ -455,6 +452,10 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 4.3p2-4
+- Drop openssh-4.3p2-unblock-signals.patch - not needed with GT >= 5.2
+- Based on openssh-4.3p2-72.el5_7.5
+
 * Thu Oct 06 2011 Mattias Ellert <mattias.ellert@fysast.uu.se> - 4.3p2-3
 - Change package name gsissh → gsi-openssh
 - Based on openssh-4.3p2-72.el5_7.5

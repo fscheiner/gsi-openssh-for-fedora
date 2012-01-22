@@ -494,8 +494,8 @@ diff -Nur openssh-4.3p2.orig/configure.ac openssh-4.3p2/configure.ac
 +		GSSAPI="GSI"
 +	fi
 +
-+	LIBS="$LIBS `pkg-config --libs globus-gss-assist`"
-+	CPPFLAGS="$CPPFLAGS `pkg-config --cflags globus-gss-assist`"
++	LIBS="$LIBS `pkg-config --libs globus-gss-assist globus-gssapi-gsi globus-common`"
++	CPPFLAGS="$CPPFLAGS `pkg-config --cflags globus-gss-assist globus-gssapi-gsi globus-common`"
 +
 +	AC_DEFINE(GSSAPI)
 +	AC_DEFINE(HAVE_GSSAPI_H)
