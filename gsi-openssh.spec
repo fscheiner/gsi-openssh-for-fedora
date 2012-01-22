@@ -36,7 +36,7 @@
 %global nologin 1
 
 %global openssh_ver 5.8p2
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -144,6 +144,8 @@ Patch67: openssh-5.8p2-unconfined.patch
 Patch69: openssh-5.8p2-askpass-ld.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=739989
 Patch70: openssh-5.8p2-copy-id-restorecon.patch
+# warn users for unsupported UsePAM=no
+Patch71: openssh-5.8p2-log-usepam-no.patch
 #---
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1604
 # sctp
@@ -152,10 +154,6 @@ Patch70: openssh-5.8p2-copy-id-restorecon.patch
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.8p2.patch
 Patch98: openssh-5.8p2-gsissh.patch
-
-# The gsissh server has problems with blocked signals in threaded globus libs
-# This patch from OSG resolves these problems
-Patch99: openssh-5.8p2-unblock-signals.patch
 
 License: BSD
 Group: Applications/Internet
@@ -182,8 +180,10 @@ BuildRequires: krb5-devel
 %endif
 
 %if %{gsi}
-BuildRequires: globus-gss-assist-devel
-BuildRequires: globus-usage-devel
+BuildRequires: globus-gss-assist-devel >= 8
+BuildRequires: globus-gssapi-gsi >= 10
+BuildRequires: globus-common >=	 14
+BuildRequires: globus-usage-devel >= 3
 %endif
 
 %if %{libedit}
@@ -310,8 +310,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch67 -p1 -b .unconfined
 %patch69 -p1 -b .askpass-ld
 %patch70 -p1 -b .restorecon
+%patch71 -p1 -b .log-usepam-no
 %patch98 -p1 -b .gsi
-%patch99 -p1 -b .signals
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
@@ -533,6 +533,10 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.8p2-4
+- Drop openssh-5.8p2-unblock-signals.patch - not needed for GT >= 5.2
+- Based on openssh-5.8p2-23.fc16
+
 * Sun Nov 27 2011 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.8p2-3
 - Based on openssh-5.8p2-22.fc16
 
