@@ -1,6 +1,6 @@
 diff -up openssh-5.3p1/configure.ac.ldap openssh-5.3p1/configure.ac
---- openssh-5.3p1/configure.ac.ldap	2011-03-10 22:39:33.204854859 +0100
-+++ openssh-5.3p1/configure.ac	2011-03-10 22:39:34.913980413 +0100
+--- openssh-5.3p1/configure.ac.ldap	2011-05-28 09:22:48.143856747 +0200
++++ openssh-5.3p1/configure.ac	2011-05-28 09:22:52.868860720 +0200
 @@ -1363,6 +1363,109 @@ AC_ARG_WITH(authorized-keys-command,
  	]
  )
@@ -112,8 +112,8 @@ diff -up openssh-5.3p1/configure.ac.ldap openssh-5.3p1/configure.ac
  AC_CHECK_FUNCS( \
  	arc4random \
 diff -up openssh-5.3p1/HOWTO.ldap-keys.ldap openssh-5.3p1/HOWTO.ldap-keys
---- openssh-5.3p1/HOWTO.ldap-keys.ldap	2011-03-10 22:39:34.940854648 +0100
-+++ openssh-5.3p1/HOWTO.ldap-keys	2011-03-10 22:39:34.952854376 +0100
+--- openssh-5.3p1/HOWTO.ldap-keys.ldap	2011-05-28 09:22:52.967865560 +0200
++++ openssh-5.3p1/HOWTO.ldap-keys	2011-05-28 09:22:52.973858316 +0200
 @@ -0,0 +1,108 @@
 +
 +HOW TO START
@@ -224,8 +224,8 @@ diff -up openssh-5.3p1/HOWTO.ldap-keys.ldap openssh-5.3p1/HOWTO.ldap-keys
 +    Jan F. Chadima <jchadima@redhat.com>
 +
 diff -up openssh-5.3p1/ldapbody.c.ldap openssh-5.3p1/ldapbody.c
---- openssh-5.3p1/ldapbody.c.ldap	2011-03-10 22:39:34.982980062 +0100
-+++ openssh-5.3p1/ldapbody.c	2011-03-10 22:39:34.995855141 +0100
+--- openssh-5.3p1/ldapbody.c.ldap	2011-05-28 09:22:53.037865268 +0200
++++ openssh-5.3p1/ldapbody.c	2011-05-28 09:22:53.043861843 +0200
 @@ -0,0 +1,494 @@
 +/* $OpenBSD: ldapbody.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -722,8 +722,8 @@ diff -up openssh-5.3p1/ldapbody.c.ldap openssh-5.3p1/ldapbody.c
 +}
 +
 diff -up openssh-5.3p1/ldapbody.h.ldap openssh-5.3p1/ldapbody.h
---- openssh-5.3p1/ldapbody.h.ldap	2011-03-10 22:39:35.008854699 +0100
-+++ openssh-5.3p1/ldapbody.h	2011-03-10 22:39:35.016854649 +0100
+--- openssh-5.3p1/ldapbody.h.ldap	2011-05-28 09:22:53.112919409 +0200
++++ openssh-5.3p1/ldapbody.h	2011-05-28 09:22:53.117924005 +0200
 @@ -0,0 +1,37 @@
 +/* $OpenBSD: ldapbody.h,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -763,8 +763,8 @@ diff -up openssh-5.3p1/ldapbody.h.ldap openssh-5.3p1/ldapbody.h
 +#endif /* LDAPBODY_H */
 +
 diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
---- openssh-5.3p1/ldapconf.c.ldap	2011-03-10 22:39:35.030979743 +0100
-+++ openssh-5.3p1/ldapconf.c	2011-03-10 22:39:35.039854544 +0100
+--- openssh-5.3p1/ldapconf.c.ldap	2011-05-28 09:22:53.182919207 +0200
++++ openssh-5.3p1/ldapconf.c	2011-05-28 09:22:53.189922758 +0200
 @@ -0,0 +1,682 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1449,8 +1449,8 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +}
 +
 diff -up openssh-5.3p1/ldapconf.h.ldap openssh-5.3p1/ldapconf.h
---- openssh-5.3p1/ldapconf.h.ldap	2011-03-10 22:39:35.055854552 +0100
-+++ openssh-5.3p1/ldapconf.h	2011-03-10 22:39:35.065855563 +0100
+--- openssh-5.3p1/ldapconf.h.ldap	2011-05-28 09:22:53.256919658 +0200
++++ openssh-5.3p1/ldapconf.h	2011-05-28 09:22:53.263919774 +0200
 @@ -0,0 +1,71 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1524,8 +1524,8 @@ diff -up openssh-5.3p1/ldapconf.h.ldap openssh-5.3p1/ldapconf.h
 +
 +#endif /* LDAPCONF_H */
 diff -up openssh-5.3p1/ldap.conf.ldap openssh-5.3p1/ldap.conf
---- openssh-5.3p1/ldap.conf.ldap	2011-03-10 22:39:35.079855199 +0100
-+++ openssh-5.3p1/ldap.conf	2011-03-10 22:39:35.087979869 +0100
+--- openssh-5.3p1/ldap.conf.ldap	2011-05-28 09:22:53.330862108 +0200
++++ openssh-5.3p1/ldap.conf	2011-05-28 09:22:53.337859759 +0200
 @@ -0,0 +1,88 @@
 +# $Id: openssh-5.5p1-ldap.patch,v 1.3 2010/07/07 13:48:36 jfch2222 Exp $
 +#
@@ -1616,8 +1616,8 @@ diff -up openssh-5.3p1/ldap.conf.ldap openssh-5.3p1/ldap.conf
 +#tls_key
 +
 diff -up openssh-5.3p1/ldap-helper.c.ldap openssh-5.3p1/ldap-helper.c
---- openssh-5.3p1/ldap-helper.c.ldap	2011-03-10 22:39:35.102854543 +0100
-+++ openssh-5.3p1/ldap-helper.c	2011-03-10 22:39:35.111854833 +0100
+--- openssh-5.3p1/ldap-helper.c.ldap	2011-05-28 09:22:53.406919574 +0200
++++ openssh-5.3p1/ldap-helper.c	2011-05-28 09:22:53.412919868 +0200
 @@ -0,0 +1,155 @@
 +/* $OpenBSD: ssh-pka-ldap.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1775,8 +1775,8 @@ diff -up openssh-5.3p1/ldap-helper.c.ldap openssh-5.3p1/ldap-helper.c
 +void    buffer_put_string(Buffer *b, const void *f, u_int l) {}
 +
 diff -up openssh-5.3p1/ldap-helper.h.ldap openssh-5.3p1/ldap-helper.h
---- openssh-5.3p1/ldap-helper.h.ldap	2011-03-10 22:39:35.126854639 +0100
-+++ openssh-5.3p1/ldap-helper.h	2011-03-10 22:39:35.134854896 +0100
+--- openssh-5.3p1/ldap-helper.h.ldap	2011-05-28 09:22:53.487857455 +0200
++++ openssh-5.3p1/ldap-helper.h	2011-05-28 09:22:53.493862808 +0200
 @@ -0,0 +1,32 @@
 +/* $OpenBSD: ldap-helper.h,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1811,8 +1811,8 @@ diff -up openssh-5.3p1/ldap-helper.h.ldap openssh-5.3p1/ldap-helper.h
 +
 +#endif /* LDAP_HELPER_H */
 diff -up openssh-5.3p1/ldapincludes.h.ldap openssh-5.3p1/ldapincludes.h
---- openssh-5.3p1/ldapincludes.h.ldap	2011-03-10 22:39:35.147854785 +0100
-+++ openssh-5.3p1/ldapincludes.h	2011-03-10 22:39:35.155979595 +0100
+--- openssh-5.3p1/ldapincludes.h.ldap	2011-05-28 09:22:53.565865885 +0200
++++ openssh-5.3p1/ldapincludes.h	2011-05-28 09:22:53.571920016 +0200
 @@ -0,0 +1,41 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1856,8 +1856,8 @@ diff -up openssh-5.3p1/ldapincludes.h.ldap openssh-5.3p1/ldapincludes.h
 +
 +#endif /* LDAPINCLUDES_H */
 diff -up openssh-5.3p1/ldapmisc.c.ldap openssh-5.3p1/ldapmisc.c
---- openssh-5.3p1/ldapmisc.c.ldap	2011-03-10 22:39:35.169854892 +0100
-+++ openssh-5.3p1/ldapmisc.c	2011-03-10 22:39:35.177981004 +0100
+--- openssh-5.3p1/ldapmisc.c.ldap	2011-05-28 09:22:53.630856564 +0200
++++ openssh-5.3p1/ldapmisc.c	2011-05-28 09:22:53.635919960 +0200
 @@ -0,0 +1,79 @@
 +
 +#include "ldapincludes.h"
@@ -1939,8 +1939,8 @@ diff -up openssh-5.3p1/ldapmisc.c.ldap openssh-5.3p1/ldapmisc.c
 +#endif
 +
 diff -up openssh-5.3p1/ldapmisc.h.ldap openssh-5.3p1/ldapmisc.h
---- openssh-5.3p1/ldapmisc.h.ldap	2011-03-10 22:39:35.192855203 +0100
-+++ openssh-5.3p1/ldapmisc.h	2011-03-10 22:39:35.201854926 +0100
+--- openssh-5.3p1/ldapmisc.h.ldap	2011-05-28 09:22:53.706856962 +0200
++++ openssh-5.3p1/ldapmisc.h	2011-05-28 09:22:53.712920133 +0200
 @@ -0,0 +1,35 @@
 +/* $OpenBSD: ldapbody.h,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1978,8 +1978,8 @@ diff -up openssh-5.3p1/ldapmisc.h.ldap openssh-5.3p1/ldapmisc.h
 +#endif /* LDAPMISC_H */
 +
 diff -up openssh-5.3p1/Makefile.in.ldap openssh-5.3p1/Makefile.in
---- openssh-5.3p1/Makefile.in.ldap	2011-03-10 22:39:33.602854839 +0100
-+++ openssh-5.3p1/Makefile.in	2011-03-10 22:39:35.237854870 +0100
+--- openssh-5.3p1/Makefile.in.ldap	2011-05-28 09:22:49.651856957 +0200
++++ openssh-5.3p1/Makefile.in	2011-05-28 09:22:53.835856734 +0200
 @@ -25,6 +25,8 @@ SSH_PROGRAM=@bindir@/ssh
  ASKPASS_PROGRAM=$(libexecdir)/ssh-askpass
  SFTP_SERVER=$(libexecdir)/sftp-server
@@ -2066,8 +2066,8 @@ diff -up openssh-5.3p1/Makefile.in.ldap openssh-5.3p1/Makefile.in
  
  tests interop-tests:	$(TARGETS)
 diff -up openssh-5.3p1/openssh-lpk-openldap.schema.ldap openssh-5.3p1/openssh-lpk-openldap.schema
---- openssh-5.3p1/openssh-lpk-openldap.schema.ldap	2011-03-10 22:39:35.263854862 +0100
-+++ openssh-5.3p1/openssh-lpk-openldap.schema	2011-03-10 22:39:35.271854845 +0100
+--- openssh-5.3p1/openssh-lpk-openldap.schema.ldap	2011-05-28 09:22:53.922861293 +0200
++++ openssh-5.3p1/openssh-lpk-openldap.schema	2011-05-28 09:22:53.928859824 +0200
 @@ -0,0 +1,21 @@
 +#
 +# LDAP Public Key Patch schema for use with openssh-ldappubkey
@@ -2091,8 +2091,8 @@ diff -up openssh-5.3p1/openssh-lpk-openldap.schema.ldap openssh-5.3p1/openssh-lp
 +	MUST ( sshPublicKey $ uid ) 
 +	)
 diff -up openssh-5.3p1/openssh-lpk-sun.schema.ldap openssh-5.3p1/openssh-lpk-sun.schema
---- openssh-5.3p1/openssh-lpk-sun.schema.ldap	2011-03-10 22:39:35.285854812 +0100
-+++ openssh-5.3p1/openssh-lpk-sun.schema	2011-03-10 22:39:35.295979788 +0100
+--- openssh-5.3p1/openssh-lpk-sun.schema.ldap	2011-05-28 09:22:54.000865350 +0200
++++ openssh-5.3p1/openssh-lpk-sun.schema	2011-05-28 09:22:54.008865109 +0200
 @@ -0,0 +1,23 @@
 +#
 +# LDAP Public Key Patch schema for use with openssh-ldappubkey
@@ -2118,9 +2118,9 @@ diff -up openssh-5.3p1/openssh-lpk-sun.schema.ldap openssh-5.3p1/openssh-lpk-sun
 +	MUST ( sshPublicKey $ uid ) 
 +	)
 diff -up openssh-5.3p1/ssh-ldap.conf.5.ldap openssh-5.3p1/ssh-ldap.conf.5
---- openssh-5.3p1/ssh-ldap.conf.5.ldap	2011-03-10 22:39:35.310854926 +0100
-+++ openssh-5.3p1/ssh-ldap.conf.5	2011-03-10 22:39:35.319854605 +0100
-@@ -0,0 +1,373 @@
+--- openssh-5.3p1/ssh-ldap.conf.5.ldap	2011-05-28 09:22:54.076856990 +0200
++++ openssh-5.3p1/ssh-ldap.conf.5	2011-05-28 09:30:39.790918625 +0200
+@@ -0,0 +1,376 @@
 +.\" $OpenBSD: ssh-ldap.conf.5,v 1.1 2010/02/10 23:20:38 markus Exp $
 +.\"
 +.\" Copyright (c) 2010 Jan F. Chadima.  All rights reserved.
@@ -2164,6 +2164,7 @@ diff -up openssh-5.3p1/ssh-ldap.conf.5.ldap openssh-5.3p1/ssh-ldap.conf.5
 +may be incorrect, as the quotes would become part of the value.
 +The possible keywords and their meanings are as follows (note that
 +keywords are case-insensitive, and arguments, on a case by case basis, may be case-sensitive).
++.Bl -tag -width Ds
 +.It Cm URI
 +The argument(s) are in the form
 +.Pa ldap[si]://[name[:port]]
@@ -2331,7 +2332,7 @@ diff -up openssh-5.3p1/ssh-ldap.conf.5.ldap openssh-5.3p1/ssh-ldap.conf.5
 +are the aliases for
 +.Dq no .
 +If
-+.Dqstart_tls
++.Dq start_tls
 +is specified then StartTLS is used rather than raw LDAP over SSL.
 +The default for ldap:// is
 +.Dq start_tls ,
@@ -2480,11 +2481,13 @@ diff -up openssh-5.3p1/ssh-ldap.conf.5.ldap openssh-5.3p1/ssh-ldap.conf.5
 +.It Cm SSH_Filter
 +Specifies the user filter applied on the LDAP serch.
 +The default is no filter.
++.El
 +.Sh FILES
 +.Bl -tag -width Ds
 +.It Pa  /etc/ssh/ldap.conf
 +Ldap configuration file for
 +.Xr ssh-ldap-helper 8 .
++.El
 +.Sh "SEE ALSO"
 +.Xr ldap.conf 5 ,
 +.Xr ssh-ldap-helper 8
@@ -2495,8 +2498,8 @@ diff -up openssh-5.3p1/ssh-ldap.conf.5.ldap openssh-5.3p1/ssh-ldap.conf.5
 +.Sh AUTHORS
 +.An Jan F. Chadima Aq jchadima@redhat.com
 diff -up openssh-5.3p1/ssh-ldap-helper.8.ldap openssh-5.3p1/ssh-ldap-helper.8
---- openssh-5.3p1/ssh-ldap-helper.8.ldap	2011-03-10 22:39:35.333855077 +0100
-+++ openssh-5.3p1/ssh-ldap-helper.8	2011-03-10 22:39:35.342854887 +0100
+--- openssh-5.3p1/ssh-ldap-helper.8.ldap	2011-05-28 09:22:54.149856901 +0200
++++ openssh-5.3p1/ssh-ldap-helper.8	2011-05-28 09:30:39.913857981 +0200
 @@ -0,0 +1,79 @@
 +.\" $OpenBSD: ssh-ldap-helper.8,v 1.1 2010/02/10 23:20:38 markus Exp $
 +.\"
@@ -2566,7 +2569,7 @@ diff -up openssh-5.3p1/ssh-ldap-helper.8.ldap openssh-5.3p1/ssh-ldap-helper.8
 +.It Fl w
 +.Nm
 +writes warnings about unknown items in the ldap.conf configuration file.
-+
++.El
 +.Sh SEE ALSO
 +.Xr sshd 8 ,
 +.Xr sshd_config 5 ,
@@ -2578,8 +2581,8 @@ diff -up openssh-5.3p1/ssh-ldap-helper.8.ldap openssh-5.3p1/ssh-ldap-helper.8
 +.Sh AUTHORS
 +.An Jan F. Chadima Aq jchadima@redhat.com
 diff -up openssh-5.3p1/ssh-ldap-wrapper.ldap openssh-5.3p1/ssh-ldap-wrapper
---- openssh-5.3p1/ssh-ldap-wrapper.ldap	2011-03-10 22:39:35.356855153 +0100
-+++ openssh-5.3p1/ssh-ldap-wrapper	2011-03-10 22:39:35.365854937 +0100
+--- openssh-5.3p1/ssh-ldap-wrapper.ldap	2011-05-28 09:22:54.224857230 +0200
++++ openssh-5.3p1/ssh-ldap-wrapper	2011-05-28 09:22:54.230861451 +0200
 @@ -0,0 +1,4 @@
 +#!/bin/sh
 +

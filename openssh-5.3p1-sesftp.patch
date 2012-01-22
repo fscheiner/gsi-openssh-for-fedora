@@ -1,6 +1,6 @@
-diff -up openssh-5.2p1/openbsd-compat/port-linux.c.sesftp openssh-5.2p1/openbsd-compat/port-linux.c
---- openssh-5.2p1/openbsd-compat/port-linux.c.sesftp	2009-08-12 00:29:37.712368892 +0200
-+++ openssh-5.2p1/openbsd-compat/port-linux.c	2009-08-12 00:29:37.732544890 +0200
+diff -up openssh-5.3p1/openbsd-compat/port-linux.c.sesftp openssh-5.3p1/openbsd-compat/port-linux.c
+--- openssh-5.3p1/openbsd-compat/port-linux.c.sesftp	2011-06-20 13:03:45.615457484 +0200
++++ openssh-5.3p1/openbsd-compat/port-linux.c	2011-06-20 13:03:45.741457374 +0200
 @@ -469,4 +469,36 @@ ssh_selinux_setup_pty(char *pwname, cons
  		freecon(user_ctx);
  	debug3("%s: done", __func__);
@@ -38,9 +38,9 @@ diff -up openssh-5.2p1/openbsd-compat/port-linux.c.sesftp openssh-5.2p1/openbsd-
 +	xfree(newctx);
 +}
  #endif /* WITH_SELINUX */
-diff -up openssh-5.2p1/openbsd-compat/port-linux.h.sesftp openssh-5.2p1/openbsd-compat/port-linux.h
---- openssh-5.2p1/openbsd-compat/port-linux.h.sesftp	2008-03-26 21:27:21.000000000 +0100
-+++ openssh-5.2p1/openbsd-compat/port-linux.h	2009-08-12 00:29:37.733388083 +0200
+diff -up openssh-5.3p1/openbsd-compat/port-linux.h.sesftp openssh-5.3p1/openbsd-compat/port-linux.h
+--- openssh-5.3p1/openbsd-compat/port-linux.h.sesftp	2008-03-26 21:27:21.000000000 +0100
++++ openssh-5.3p1/openbsd-compat/port-linux.h	2011-06-20 13:03:45.786457484 +0200
 @@ -23,6 +23,7 @@
  int ssh_selinux_enabled(void);
  void ssh_selinux_setup_pty(char *, const char *);
@@ -49,16 +49,17 @@ diff -up openssh-5.2p1/openbsd-compat/port-linux.h.sesftp openssh-5.2p1/openbsd-
  #endif
  
  #endif /* ! _PORT_LINUX_H */
-diff -up openssh-5.2p1/session.c.sesftp openssh-5.2p1/session.c
---- openssh-5.2p1/session.c.sesftp	2009-08-12 00:29:37.659250161 +0200
-+++ openssh-5.2p1/session.c	2009-08-12 00:29:37.729578695 +0200
-@@ -1798,6 +1798,9 @@ do_child(Session *s, const char *command
- 		argv[i] = NULL;
- 		optind = optreset = 1;
- 		__progname = argv[0];
-+#ifdef WITH_SELINUX
-+		ssh_selinux_change_context("sftpd_t");
-+#endif
- 		exit(sftp_server_main(i, argv, s->pw));
- 	}
+diff -up openssh-5.3p1/session.c.sesftp openssh-5.3p1/session.c
+--- openssh-5.3p1/session.c.sesftp	2011-06-20 13:03:45.000000000 +0200
++++ openssh-5.3p1/session.c	2011-06-20 13:06:29.224741978 +0200
+@@ -1533,6 +1533,10 @@ do_setusercontext(struct passwd *pw)
+ 			free(chroot_path);
+ 		}
  
++#ifdef WITH_SELINUX
++		ssh_selinux_change_context("sshd_sftpd_t");
++#endif
++
+ #ifdef HAVE_SETPCRED
+ 		if (setpcred(pw->pw_name, (char **)NULL) == -1)
+ 			fatal("Failed to set process credentials");

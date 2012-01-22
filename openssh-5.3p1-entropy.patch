@@ -89,10 +89,12 @@ diff -up openssh-5.3p1/openbsd-compat/port-linux-prng.c.entropy openssh-5.3p1/op
 diff -up openssh-5.3p1/ssh.1.entropy openssh-5.3p1/ssh.1
 --- openssh-5.3p1/ssh.1.entropy	2009-06-21 09:48:52.000000000 +0200
 +++ openssh-5.3p1/ssh.1	2011-05-28 01:28:30.341858350 +0200
-@@ -1252,6 +1252,20 @@ For more information, see the
+@@ -1252,6 +1252,23 @@ For more information, see the
  .Cm PermitUserEnvironment
  option in
  .Xr sshd_config 5 .
++.Sh ENVIRONMENT
++.Bl -tag -width Ds -compact
 +.It Ev SSH_USE_STRONG_RNG
 +The reseeding of the OpenSSL random generator is usually done from
 +.Cm /dev/urandom .
@@ -107,6 +109,7 @@ diff -up openssh-5.3p1/ssh.1.entropy openssh-5.3p1/ssh.1
 +This setting is not recommended on the computers without the hardware
 +random generator because insufficient entropy causes the connection to 
 +be blocked until enough entropy is available.
++.El
  .Sh FILES
  .Bl -tag -width Ds -compact
  .It ~/.rhosts
@@ -137,7 +140,7 @@ diff -up openssh-5.3p1/ssh-add.1.entropy openssh-5.3p1/ssh-add.1
 diff -up openssh-5.3p1/ssh-agent.1.entropy openssh-5.3p1/ssh-agent.1
 --- openssh-5.3p1/ssh-agent.1.entropy	2009-06-21 09:52:28.000000000 +0200
 +++ openssh-5.3p1/ssh-agent.1	2011-05-28 01:28:30.592856618 +0200
-@@ -191,6 +191,23 @@ authentication agent.
+@@ -191,6 +191,24 @@ authentication agent.
  These sockets should only be readable by the owner.
  The sockets should get automatically removed when the agent exits.
  .El
@@ -158,13 +161,14 @@ diff -up openssh-5.3p1/ssh-agent.1.entropy openssh-5.3p1/ssh-agent.1
 +This setting is not recommended on the computers without the hardware
 +random generator because insufficient entropy causes the connection to 
 +be blocked until enough entropy is available.
++.El
  .Sh SEE ALSO
  .Xr ssh 1 ,
  .Xr ssh-add 1 ,
 diff -up openssh-5.3p1/sshd.8.entropy openssh-5.3p1/sshd.8
 --- openssh-5.3p1/sshd.8.entropy	2009-06-21 09:52:28.000000000 +0200
 +++ openssh-5.3p1/sshd.8	2011-05-28 01:28:30.716858123 +0200
-@@ -863,6 +863,23 @@ concurrently for different ports, this c
+@@ -863,6 +863,24 @@ concurrently for different ports, this c
  started last).
  The content of this file is not sensitive; it can be world-readable.
  .El
@@ -185,13 +189,14 @@ diff -up openssh-5.3p1/sshd.8.entropy openssh-5.3p1/sshd.8
 +This setting is not recommended on the computers without the hardware
 +random generator because insufficient entropy causes the connection to 
 +be blocked until enough entropy is available.
++.El
  .Sh SEE ALSO
  .Xr scp 1 ,
  .Xr sftp 1 ,
 diff -up openssh-5.3p1/ssh-keygen.1.entropy openssh-5.3p1/ssh-keygen.1
 --- openssh-5.3p1/ssh-keygen.1.entropy	2011-05-28 01:28:08.141857715 +0200
 +++ openssh-5.3p1/ssh-keygen.1	2011-05-28 01:28:30.843857051 +0200
-@@ -452,6 +452,23 @@ Contains Diffie-Hellman groups used for 
+@@ -452,6 +452,24 @@ Contains Diffie-Hellman groups used for 
  The file format is described in
  .Xr moduli 5 .
  .El
@@ -212,13 +217,14 @@ diff -up openssh-5.3p1/ssh-keygen.1.entropy openssh-5.3p1/ssh-keygen.1
 +This setting is not recommended on the computers without the hardware
 +random generator because insufficient entropy causes the connection to 
 +be blocked until enough entropy is available.
++.El
  .Sh SEE ALSO
  .Xr ssh 1 ,
  .Xr ssh-add 1 ,
 diff -up openssh-5.3p1/ssh-keysign.8.entropy openssh-5.3p1/ssh-keysign.8
 --- openssh-5.3p1/ssh-keysign.8.entropy	2007-06-05 10:27:13.000000000 +0200
 +++ openssh-5.3p1/ssh-keysign.8	2011-05-28 01:28:30.954857427 +0200
-@@ -69,6 +69,23 @@ Since they are readable only by root,
+@@ -69,6 +69,24 @@ Since they are readable only by root,
  .Nm
  must be set-uid root if host-based authentication is used.
  .El
@@ -239,6 +245,7 @@ diff -up openssh-5.3p1/ssh-keysign.8.entropy openssh-5.3p1/ssh-keysign.8
 +This setting is not recommended on the computers without the hardware
 +random generator because insufficient entropy causes the connection to 
 +be blocked until enough entropy is available.
++.El
  .Sh SEE ALSO
  .Xr ssh 1 ,
  .Xr ssh-keygen 1 ,

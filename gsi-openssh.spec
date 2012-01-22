@@ -2,7 +2,11 @@
 # This gsissh specfile is based on the openssh specfile
 
 # Do we want SELinux & Audit
+%if 0%{?!noselinux:1}
 %global WITH_SELINUX 1
+%else
+%define WITH_SELINUX 0
+%endif
 
 # OpenSSH privilege separation requires a user & group ID
 %global sshd_uid    74
@@ -33,7 +37,7 @@
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: 5.3p1
-Release: 3%{?dist}
+Release: 4%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.3p1-3
 URL: http://www.openssh.com/portable.html
@@ -55,7 +59,7 @@ Patch5: openssh-5.3p1-engine.patch
 Patch12: openssh-5.2p1-selinux.patch
 Patch13: openssh-5.3p1-mls.patch
 Patch18: openssh-5.0p1-pam_selinux.patch
-Patch19: openssh-5.2p1-sesftp.patch
+Patch19: openssh-5.3p1-sesftp.patch
 Patch22: openssh-3.9p1-askpass-keep-above.patch
 Patch24: openssh-4.3p1-fromto-remote.patch
 Patch27: openssh-5.1p1-log-in-chroot.patch
@@ -88,14 +92,13 @@ Patch86: openssh-5.3p1-keycat.patch
 Patch87: openssh-5.3p1-sftp-chroot.patch
 Patch88: openssh-5.3p1-entropy.patch
 Patch89: openssh-5.3p1-multiple-sighup.patch
+Patch90: openssh-5.3p1-ipv6man.patch
+Patch91: openssh-5.3p1-manerr.patch
+Patch92: openssh-5.3p1-askpass-ld.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
 Patch98: openssh-5.3p1-gsissh.patch
-
-# The gsissh server has problems with blocked signals in threaded globus libs
-# This patch from OSG resolves these problems
-Patch99: openssh-5.3p1-unblock-signals.patch
 
 License: BSD
 Group: Applications/Internet
@@ -122,8 +125,10 @@ BuildRequires: krb5-devel
 %endif
 
 %if %{gsi}
-BuildRequires: globus-gss-assist-devel
-BuildRequires: globus-usage-devel
+BuildRequires: globus-gss-assist-devel >= 8
+BuildRequires: globus-gssapi-gsi >= 10
+BuildRequires: globus-common >=	 14
+BuildRequires: globus-usage-devel >= 3
 %endif
 
 %if %{libedit}
@@ -241,7 +246,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch88 -p1 -b .entropy
 %patch89 -p1 -b .multiple-sighhup
 %patch98 -p1 -b .gsi
-%patch99 -p1 -b .signals
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
@@ -444,6 +448,10 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-4
+- Drop openssh-5.3p1-unblock-signals.patch - not needed with GT >= 5.2
+- Based on openssh-5.3p1-70.el6
+
 * Thu Oct 06 2011 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-3
 - Change package name gsissh → gsi-openssh
 - Based on openssh-5.3p1-52.el6_1.2

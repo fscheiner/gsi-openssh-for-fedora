@@ -1,6 +1,6 @@
 diff -up openssh-5.3p1/channels.c.sftp-chroot openssh-5.3p1/channels.c
---- openssh-5.3p1/channels.c.sftp-chroot	2011-03-03 12:03:43.000000000 +0100
-+++ openssh-5.3p1/channels.c	2011-03-03 12:03:48.000000000 +0100
+--- openssh-5.3p1/channels.c.sftp-chroot	2011-08-25 22:56:05.097081555 +0200
++++ openssh-5.3p1/channels.c	2011-08-25 22:56:17.284027242 +0200
 @@ -839,8 +839,9 @@ channel_pre_open(Channel *c, fd_set *rea
  		if (c->extended_usage == CHAN_EXTENDED_WRITE &&
  		    buffer_len(&c->extended) > 0)
@@ -22,7 +22,7 @@ diff -up openssh-5.3p1/channels.c.sftp-chroot openssh-5.3p1/channels.c
 +		} else if (c->efd != -1 &&
 +		    (c->extended_usage == CHAN_EXTENDED_READ ||
 +		    c->extended_usage == CHAN_EXTENDED_IGNORE) &&
-+ 		    FD_ISSET(c->efd, readset)) {
++ 		    (c->detach_close || FD_ISSET(c->efd, readset))) {
  			len = read(c->efd, buf, sizeof(buf));
  			debug2("channel %d: read %d from efd %d",
  			    c->self, len, c->efd);
@@ -39,9 +39,45 @@ diff -up openssh-5.3p1/channels.c.sftp-chroot openssh-5.3p1/channels.c
  			}
  		}
  	}
+diff -up openssh-5.3p1/openbsd-compat/port-linux.c.sftp-chroot openssh-5.3p1/openbsd-compat/port-linux.c
+--- openssh-5.3p1/openbsd-compat/port-linux.c.sftp-chroot	2011-08-25 22:56:16.941023541 +0200
++++ openssh-5.3p1/openbsd-compat/port-linux.c	2011-08-25 22:56:17.445026125 +0200
+@@ -519,4 +519,21 @@ ssh_selinux_change_context(const char *n
+ 	xfree(oldctx);
+ 	xfree(newctx);
+ }
++
++void
++ssh_selinux_copy_context(void)
++{
++	char *ctx;
++
++	if (!ssh_selinux_enabled())
++		return;
++
++	if (getexeccon((security_context_t *)&ctx) < 0) {
++		logit("%s: getcon failed with %s", __func__, strerror (errno));
++		return;
++	}
++	if (setcon(ctx) < 0)
++		logit("%s: setcon failed with %s", __func__, strerror (errno));
++	xfree(ctx);
++}
+ #endif /* WITH_SELINUX */
+diff -up openssh-5.3p1/openbsd-compat/port-linux.h.sftp-chroot openssh-5.3p1/openbsd-compat/port-linux.h
+--- openssh-5.3p1/openbsd-compat/port-linux.h.sftp-chroot	2011-08-25 22:55:48.496222543 +0200
++++ openssh-5.3p1/openbsd-compat/port-linux.h	2011-08-25 22:56:17.603031980 +0200
+@@ -24,6 +24,7 @@ int ssh_selinux_enabled(void);
+ void ssh_selinux_setup_pty(char *, const char *);
+ void ssh_selinux_setup_exec_context(char *);
+ void ssh_selinux_change_context(const char *);
++void ssh_selinux_chopy_context(void);
+ #endif
+ 
+ #endif /* ! _PORT_LINUX_H */
 diff -up openssh-5.3p1/session.c.sftp-chroot openssh-5.3p1/session.c
---- openssh-5.3p1/session.c.sftp-chroot	2011-03-03 12:03:46.000000000 +0100
-+++ openssh-5.3p1/session.c	2011-03-03 12:03:49.000000000 +0100
+--- openssh-5.3p1/session.c.sftp-chroot	2011-08-25 22:56:11.262030419 +0200
++++ openssh-5.3p1/session.c	2011-08-26 10:01:26.419149592 +0200
 @@ -105,7 +105,7 @@
  /* func */
  
@@ -184,7 +220,40 @@ diff -up openssh-5.3p1/session.c.sftp-chroot openssh-5.3p1/session.c
  	} else {
  		server_loop(pid, ptyfd, fdout, -1);
  		/* server_loop _has_ closed ptyfd and fdout. */
-@@ -2342,7 +2316,8 @@ session_input_channel_req(Channel *c, co
+@@ -1568,15 +1542,14 @@ do_setusercontext(struct passwd *pw)
+ 			    pw->pw_uid);
+ 			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
+ 			    "u", pw->pw_name, (char *)NULL);
++#ifdef WITH_SELINUX
++			ssh_selinux_change_context("chroot_user_t");
++#endif
+ 			safely_chroot(chroot_path, pw->pw_uid);
+ 			free(tmp);
+ 			free(chroot_path);
+ 		}
+ 
+-#ifdef WITH_SELINUX
+-		ssh_selinux_change_context("sshd_sftpd_t");
+-#endif
+-
+ #ifdef HAVE_SETPCRED
+ 		if (setpcred(pw->pw_name, (char **)NULL) == -1)
+ 			fatal("Failed to set process credentials");
+@@ -1832,6 +1805,13 @@ do_child(Session *s, const char *command
+ 		int i;
+ 		char *p, *args;
+ 
++#ifdef WITH_SELINUX
++		if (options.chroot_directory == NULL ||
++		    strcasecmp(options.chroot_directory, "none") == 0) {
++			ssh_selinux_copy_context();
++		}
++#endif
++
+ 		setproctitle("%s@%s", s->pw->pw_name, INTERNAL_SFTP_NAME);
+ 		args = xstrdup(command ? command : "sftp-server");
+ 		for (i = 0, (p = strtok(args, " ")); p; (p = strtok(NULL, " ")))
+@@ -2343,7 +2323,8 @@ session_input_channel_req(Channel *c, co
  }
  
  void
@@ -194,7 +263,7 @@ diff -up openssh-5.3p1/session.c.sftp-chroot openssh-5.3p1/session.c
  {
  	if (!compat20)
  		fatal("session_set_fds: called for proto != 2.0");
-@@ -2354,7 +2329,7 @@ session_set_fds(Session *s, int fdin, in
+@@ -2355,7 +2336,7 @@ session_set_fds(Session *s, int fdin, in
  		fatal("no channel for session %d", s->self);
  	channel_set_fds(s->chanid,
  	    fdout, fdin, fderr,

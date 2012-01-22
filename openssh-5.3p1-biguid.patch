@@ -52,7 +52,7 @@ diff -up openssh-5.6p1/loginrec.c.biguid openssh-5.6p1/loginrec.c
  	if (S_ISREG(st.st_mode)) {
  		/* find this uid's offset in the lastlog file */
 -		offset = (off_t) ((long)li->uid * sizeof(struct lastlog));
-+		offset = (off_t) ((u_long)li->uid * sizeof(struct lastlog));
++		offset = (off_t) ((unsigned long long)li->uid * sizeof(struct lastlog));
  
  		if (lseek(*fd, offset, SEEK_SET) != offset) {
  			logit("%s: %s->lseek(): %s", __func__,

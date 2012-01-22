@@ -1,0 +1,48 @@
+diff -up openssh-5.3p1/scp.1.ipv6man openssh-5.3p1/scp.1
+--- openssh-5.3p1/scp.1.ipv6man	2011-09-07 10:57:07.674442095 +0200
++++ openssh-5.3p1/scp.1	2011-09-07 11:01:01.693446719 +0200
+@@ -219,6 +219,8 @@ debugging connection, authentication, an
+ .El
+ .Pp
+ .Ex -std scp
++.Sh IPV6
++IPv6 address can be used everywhere where IPv4 address. In all entries must be the IPv6 address enclosed in square brackets. Note: The square brackets are metacharacters for the shell and must be escaped in shell.
+ .Sh SEE ALSO
+ .Xr rcp 1 ,
+ .Xr sftp 1 ,
+diff -up openssh-5.3p1/sftp.1.ipv6man openssh-5.3p1/sftp.1
+--- openssh-5.3p1/sftp.1.ipv6man	2011-09-07 11:05:24.720458419 +0200
++++ openssh-5.3p1/sftp.1	2011-09-07 11:08:23.002567843 +0200
+@@ -450,6 +450,8 @@ Escape to local shell.
+ .It Ic \&?
+ Synonym for help.
+ .El
++.Sh IPV6
++IPv6 address can be used everywhere where IPv4 address. In all entries must be the IPv6 address enclosed in square brackets. Note: The square brackets are metacharacters for the shell and must be escaped in shell.
+ .Sh SEE ALSO
+ .Xr ftp 1 ,
+ .Xr ls 1 ,
+diff -up openssh-5.3p1/ssh.1.ipv6man openssh-5.3p1/ssh.1
+--- openssh-5.3p1/ssh.1.ipv6man	2011-09-07 10:55:13.803453440 +0200
++++ openssh-5.3p1/ssh.1	2011-09-07 10:55:15.645549247 +0200
+@@ -1406,6 +1406,8 @@ See the
+ .Xr sshd 8
+ manual page for more information.
+ .El
++.Sh IPV6
++IPv6 address can be used everywhere where IPv4 address. In all entries must be the IPv6 address enclosed in square brackets. Note: The square brackets are metacharacters for the shell and must be escaped in shell.
+ .Sh SEE ALSO
+ .Xr scp 1 ,
+ .Xr sftp 1 ,
+diff -up openssh-5.3p1/sshd.8.ipv6man openssh-5.3p1/sshd.8
+--- openssh-5.3p1/sshd.8.ipv6man	2011-09-07 10:55:14.611444938 +0200
++++ openssh-5.3p1/sshd.8	2011-09-07 10:55:15.813502969 +0200
+@@ -881,6 +881,8 @@ This setting is not recommended on the c
+ random generator because insufficient entropy causes the connection to 
+ be blocked until enough entropy is available.
+ .El
++.Sh IPV6
++IPv6 address can be used everywhere where IPv4 address. In all entries must be the IPv6 address enclosed in square brackets. Note: The square brackets are metacharacters for the shell and must be escaped in shell.
+ .Sh SEE ALSO
+ .Xr scp 1 ,
+ .Xr sftp 1 ,
