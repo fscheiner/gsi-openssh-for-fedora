@@ -32,12 +32,12 @@
 %global nologin 1
 
 %global openssh_ver 5.9p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -138,6 +138,12 @@ Patch708: openssh-5.9p1-entropy.patch
 Patch709: openssh-5.9p1-vendor.patch
 #?
 Patch710: openssh-5.9p1-copy-id-restorecon.patch
+# warn users for unsupported UsePAM=no (#757545)
+Patch711: openssh-5.9p1-log-usepam-no.patch
+# make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
+Patch712: openssh-5.9p1-ctr-evp-fast.patch
+# add cavs test binary for the aes-ctr
+Patch713: openssh-5.9p1-ctr-cavstest.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 Patch800: openssh-5.9p1-gsskex.patch
@@ -156,10 +162,6 @@ Patch901: openssh-5.9p1-kuserok.patch
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.9p1.patch
 Patch98: openssh-5.9p1-gsissh.patch
-
-# The gsissh server has problems with blocked signals in threaded globus libs
-# This patch from OSG resolves these problems
-Patch99: openssh-5.8p2-unblock-signals.patch
 
 License: BSD
 Group: Applications/Internet
@@ -184,8 +186,10 @@ BuildRequires: krb5-devel
 %endif
 
 %if %{gsi}
-BuildRequires: globus-gss-assist-devel
-BuildRequires: globus-usage-devel
+BuildRequires: globus-gss-assist-devel >= 8
+BuildRequires: globus-gssapi-gsi >= 10
+BuildRequires: globus-common >= 14
+BuildRequires: globus-usage-devel >= 3
 %endif
 
 %if %{libedit}
@@ -309,6 +313,9 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch708 -p1 -b .entropy
 %patch709 -p1 -b .vendor
 %patch710 -p1 -b .restorecon
+%patch711 -p1 -b .log-usepam-no
+%patch712 -p1 -b .evp-ctr
+%patch713 -p1 -b .ctr-cavs
 
 %patch800 -p1 -b .gsskex
 %patch801 -p1 -b .force_krb
@@ -317,7 +324,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch901 -p1 -b .kuserok
 
 %patch98 -p1 -b .gsi
-%patch99 -p1 -b .signals
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
@@ -503,6 +509,7 @@ fi
 %attr(0644,root,root) %{_mandir}/man1/gsissh-keygen.1*
 %attr(0755,root,root) %dir %{_libexecdir}/gsissh
 %attr(2755,root,ssh_keys) %{_libexecdir}/gsissh/ssh-keysign
+%attr(0755,root,root) %{_libexecdir}/gsissh/ctr-cavstest
 %attr(0644,root,root) %{_mandir}/man8/gsissh-keysign.8*
 
 %files clients
@@ -537,6 +544,10 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-4
+- Drop openssh-5.8p2-unblock-signals.patch - not needed for GT >= 5.2
+- Based on openssh-5.9p1-16.fc17
+
 * Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 5.9p1-3.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
 

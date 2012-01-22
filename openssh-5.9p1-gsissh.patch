@@ -597,8 +597,8 @@ diff -Nur openssh-5.9p1.orig/configure.ac openssh-5.9p1/configure.ac
 +		GSSAPI="GSI"
 +	fi
 +
-+	LIBS="$LIBS `pkg-config --libs globus-gss-assist`"
-+	CPPFLAGS="$CPPFLAGS `pkg-config --cflags globus-gss-assist`"
++	LIBS="$LIBS `pkg-config --libs globus-gss-assist globus-gssapi-gsi globus-common`"
++	CPPFLAGS="$CPPFLAGS `pkg-config --cflags globus-gss-assist globus-gssapi-gsi globus-common`"
 +
 +	AC_DEFINE(GSSAPI)
 +	AC_DEFINE(HAVE_GSSAPI_H)
@@ -2923,7 +2923,7 @@ diff -Nur openssh-5.9p1.orig/ssh-gss.h openssh-5.9p1/ssh-gss.h
 diff -Nur openssh-5.9p1.orig/version.h openssh-5.9p1/version.h
 --- openssh-5.9p1.orig/version.h	2011-09-07 01:11:20.000000000 +0200
 +++ openssh-5.9p1/version.h	2011-11-17 16:59:47.520790935 +0100
-@@ -1,5 +1,19 @@
+@@ -1,6 +1,21 @@
  /* $OpenBSD: version.h,v 1.62 2011/08/02 23:13:01 djm Exp $ */
  
 +#ifdef GSI
@@ -2943,3 +2943,6 @@ diff -Nur openssh-5.9p1.orig/version.h openssh-5.9p1/version.h
  #define SSH_VERSION	"OpenSSH_5.9"
  
  #define SSH_PORTABLE	"p1"
+-#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE
++#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE \
++	  			    NCSA_VERSION GSI_VERSION KRB5_VERSION
