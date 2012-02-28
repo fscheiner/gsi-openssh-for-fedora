@@ -1,6 +1,6 @@
 diff -up openssh-4.3p2/audit.c.cryptoaudit openssh-4.3p2/audit.c
 --- openssh-4.3p2/audit.c.cryptoaudit	2005-07-17 09:26:44.000000000 +0200
-+++ openssh-4.3p2/audit.c	2010-12-09 18:48:44.000000000 +0100
++++ openssh-4.3p2/audit.c	2011-03-23 08:25:21.445649051 +0100
 @@ -26,7 +26,6 @@
  
  #include "includes.h"
@@ -37,8 +37,8 @@ diff -up openssh-4.3p2/audit.c.cryptoaudit openssh-4.3p2/audit.c
  audit_event_lookup(ssh_audit_event_t ev)
  {
 diff -up openssh-4.3p2/auth2-pubkey.c.cryptoaudit openssh-4.3p2/auth2-pubkey.c
---- openssh-4.3p2/auth2-pubkey.c.cryptoaudit	2010-12-09 18:48:42.000000000 +0100
-+++ openssh-4.3p2/auth2-pubkey.c	2010-12-09 21:46:44.000000000 +0100
+--- openssh-4.3p2/auth2-pubkey.c.cryptoaudit	2011-03-23 08:25:18.408648540 +0100
++++ openssh-4.3p2/auth2-pubkey.c	2011-03-23 08:29:33.437648313 +0100
 @@ -44,12 +44,99 @@ RCSID("$OpenBSD: auth2-pubkey.c,v 1.9 20
  #include "canohost.h"
  #include "monitor_wrap.h"
@@ -141,7 +141,7 @@ diff -up openssh-4.3p2/auth2-pubkey.c.cryptoaudit openssh-4.3p2/auth2-pubkey.c
  {
 diff -up openssh-4.3p2/auth-rsa.c.cryptoaudit openssh-4.3p2/auth-rsa.c
 --- openssh-4.3p2/auth-rsa.c.cryptoaudit	2005-06-17 04:59:35.000000000 +0200
-+++ openssh-4.3p2/auth-rsa.c	2010-12-09 18:48:44.000000000 +0100
++++ openssh-4.3p2/auth-rsa.c	2011-03-23 08:25:21.527648689 +0100
 @@ -35,6 +35,8 @@ RCSID("$OpenBSD: auth-rsa.c,v 1.63 2005/
  #include "ssh.h"
  #include "misc.h"
@@ -172,7 +172,7 @@ diff -up openssh-4.3p2/auth-rsa.c.cryptoaudit openssh-4.3p2/auth-rsa.c
 -		return (0);
 +	rv = memcmp(response, mdbuf, 16) == 0;
 +#ifdef HAVE_LINUX_AUDIT
-+	fp = key_fingerprint(key, FIPS_mode() ? SSH_FP_SHA1 : SSH_FP_MD5, SSH_FP_HEX);
++	fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
 +	if (linux_audit_record_keyusage("ssh-rsa1", RSA_size(key->rsa), fp, rv) == 0) {
 +		debug("unsuccessful audit");
 +		rv = 0;
@@ -194,8 +194,8 @@ diff -up openssh-4.3p2/auth-rsa.c.cryptoaudit openssh-4.3p2/auth-rsa.c
  }
  
 diff -up openssh-4.3p2/cipher.c.cryptoaudit openssh-4.3p2/cipher.c
---- openssh-4.3p2/cipher.c.cryptoaudit	2010-12-09 18:48:43.000000000 +0100
-+++ openssh-4.3p2/cipher.c	2010-12-09 18:48:44.000000000 +0100
+--- openssh-4.3p2/cipher.c.cryptoaudit	2011-03-23 08:25:20.183648973 +0100
++++ openssh-4.3p2/cipher.c	2011-03-23 08:25:21.566649230 +0100
 @@ -55,15 +55,7 @@ extern void ssh1_3des_iv(EVP_CIPHER_CTX 
  extern const EVP_CIPHER *evp_aes_128_ctr(void);
  extern void ssh_aes_ctr_iv(EVP_CIPHER_CTX *, int, u_char *, u_int);
@@ -214,8 +214,8 @@ diff -up openssh-4.3p2/cipher.c.cryptoaudit openssh-4.3p2/cipher.c
  	{ "des",		SSH_CIPHER_DES, 8, 8, 0, 1, EVP_des_cbc },
  	{ "3des",		SSH_CIPHER_3DES, 8, 16, 0, 1, evp_ssh1_3des },
 diff -up openssh-4.3p2/cipher.h.cryptoaudit openssh-4.3p2/cipher.h
---- openssh-4.3p2/cipher.h.cryptoaudit	2010-12-09 18:48:43.000000000 +0100
-+++ openssh-4.3p2/cipher.h	2010-12-09 18:48:44.000000000 +0100
+--- openssh-4.3p2/cipher.h.cryptoaudit	2011-03-23 08:25:20.221649100 +0100
++++ openssh-4.3p2/cipher.h	2011-03-23 08:25:21.604649064 +0100
 @@ -61,7 +61,16 @@
  typedef struct Cipher Cipher;
  typedef struct CipherContext CipherContext;
@@ -236,7 +236,7 @@ diff -up openssh-4.3p2/cipher.h.cryptoaudit openssh-4.3p2/cipher.h
  	EVP_CIPHER_CTX evp;
 diff -up openssh-4.3p2/kex.c.cryptoaudit openssh-4.3p2/kex.c
 --- openssh-4.3p2/kex.c.cryptoaudit	2005-11-05 05:19:36.000000000 +0100
-+++ openssh-4.3p2/kex.c	2010-12-09 18:48:44.000000000 +0100
++++ openssh-4.3p2/kex.c	2011-03-23 08:25:21.637649103 +0100
 @@ -44,6 +44,11 @@ RCSID("$OpenBSD: kex.c,v 1.65 2005/11/04
  
  #define KEX_COOKIE_LEN	16
@@ -302,8 +302,8 @@ diff -up openssh-4.3p2/kex.c.cryptoaudit openssh-4.3p2/kex.c
  	choose_kex(kex, cprop[PROPOSAL_KEX_ALGS], sprop[PROPOSAL_KEX_ALGS]);
  	choose_hostkeyalg(kex, cprop[PROPOSAL_SERVER_HOST_KEY_ALGS],
 diff -up /dev/null openssh-4.3p2/lkstub.c
---- /dev/null	2010-12-04 01:37:10.480937212 +0100
-+++ openssh-4.3p2/lkstub.c	2010-12-09 18:48:44.000000000 +0100
+--- /dev/null	2011-03-22 23:05:57.778345320 +0100
++++ openssh-4.3p2/lkstub.c	2011-03-23 08:25:21.670648991 +0100
 @@ -0,0 +1,10 @@
 +
 +void
@@ -316,8 +316,8 @@ diff -up /dev/null openssh-4.3p2/lkstub.c
 +{
 +}
 diff -up openssh-4.3p2/Makefile.in.cryptoaudit openssh-4.3p2/Makefile.in
---- openssh-4.3p2/Makefile.in.cryptoaudit	2010-12-09 18:48:43.000000000 +0100
-+++ openssh-4.3p2/Makefile.in	2010-12-09 18:48:44.000000000 +0100
+--- openssh-4.3p2/Makefile.in.cryptoaudit	2011-03-23 08:25:20.020649142 +0100
++++ openssh-4.3p2/Makefile.in	2011-03-23 08:25:21.698649117 +0100
 @@ -73,7 +73,7 @@ LIBSSH_OBJS=acss.o authfd.o authfile.o b
  	atomicio.o key.o dispatch.o kex.o mac.o uidswap.o uuencode.o misc.o \
  	monitor_fdpass.o rijndael.o ssh-dss.o ssh-rsa.o dh.o kexdh.o \
@@ -328,8 +328,8 @@ diff -up openssh-4.3p2/Makefile.in.cryptoaudit openssh-4.3p2/Makefile.in
  SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
  	sshconnect.o sshconnect1.o sshconnect2.o
 diff -up openssh-4.3p2/monitor.c.cryptoaudit openssh-4.3p2/monitor.c
---- openssh-4.3p2/monitor.c.cryptoaudit	2010-12-09 18:48:41.000000000 +0100
-+++ openssh-4.3p2/monitor.c	2010-12-09 18:48:44.000000000 +0100
+--- openssh-4.3p2/monitor.c.cryptoaudit	2011-03-23 08:25:17.180648524 +0100
++++ openssh-4.3p2/monitor.c	2011-03-23 08:25:21.739649656 +0100
 @@ -149,6 +149,9 @@ int mm_answer_audit_event(int, Buffer *)
  int mm_answer_audit_command(int, Buffer *);
  #endif
@@ -436,8 +436,8 @@ diff -up openssh-4.3p2/monitor.c.cryptoaudit openssh-4.3p2/monitor.c
 +}
 +
 diff -up openssh-4.3p2/monitor.h.cryptoaudit openssh-4.3p2/monitor.h
---- openssh-4.3p2/monitor.h.cryptoaudit	2010-12-09 18:48:39.000000000 +0100
-+++ openssh-4.3p2/monitor.h	2010-12-09 18:48:44.000000000 +0100
+--- openssh-4.3p2/monitor.h.cryptoaudit	2011-03-23 08:25:14.639649068 +0100
++++ openssh-4.3p2/monitor.h	2011-03-23 08:25:21.774648162 +0100
 @@ -29,6 +29,15 @@
  #define _MONITOR_H_
  
@@ -479,8 +479,8 @@ diff -up openssh-4.3p2/monitor.h.cryptoaudit openssh-4.3p2/monitor.h
  
  struct mm_master;
 diff -up openssh-4.3p2/monitor_wrap.c.cryptoaudit openssh-4.3p2/monitor_wrap.c
---- openssh-4.3p2/monitor_wrap.c.cryptoaudit	2010-12-09 18:48:39.000000000 +0100
-+++ openssh-4.3p2/monitor_wrap.c	2010-12-09 18:48:45.000000000 +0100
+--- openssh-4.3p2/monitor_wrap.c.cryptoaudit	2011-03-23 08:25:14.733648742 +0100
++++ openssh-4.3p2/monitor_wrap.c	2011-03-23 08:25:21.819648587 +0100
 @@ -1233,3 +1233,34 @@ mm_ssh_gssapi_userok(char *user)
  	return (authenticated);
  }
@@ -517,8 +517,8 @@ diff -up openssh-4.3p2/monitor_wrap.c.cryptoaudit openssh-4.3p2/monitor_wrap.c
 +	buffer_free(&m);
 +}
 diff -up openssh-4.3p2/monitor_wrap.h.cryptoaudit openssh-4.3p2/monitor_wrap.h
---- openssh-4.3p2/monitor_wrap.h.cryptoaudit	2010-12-09 18:48:40.000000000 +0100
-+++ openssh-4.3p2/monitor_wrap.h	2010-12-09 18:48:45.000000000 +0100
+--- openssh-4.3p2/monitor_wrap.h.cryptoaudit	2011-03-23 08:25:15.010648857 +0100
++++ openssh-4.3p2/monitor_wrap.h	2011-03-23 08:25:21.858648553 +0100
 @@ -112,4 +112,8 @@ void *mm_zalloc(struct mm_master *, u_in
  void mm_zfree(struct mm_master *, void *);
  void mm_init_compression(struct mm_master *);
@@ -529,8 +529,8 @@ diff -up openssh-4.3p2/monitor_wrap.h.cryptoaudit openssh-4.3p2/monitor_wrap.h
 +
  #endif /* _MM_H_ */
 diff -up openssh-4.3p2/serverloop.c.cryptoaudit openssh-4.3p2/serverloop.c
---- openssh-4.3p2/serverloop.c.cryptoaudit	2010-12-09 18:48:43.000000000 +0100
-+++ openssh-4.3p2/serverloop.c	2010-12-09 21:51:02.000000000 +0100
+--- openssh-4.3p2/serverloop.c.cryptoaudit	2011-03-23 08:25:20.372648937 +0100
++++ openssh-4.3p2/serverloop.c	2011-03-23 08:25:21.893648540 +0100
 @@ -55,6 +55,11 @@ RCSID("$OpenBSD: serverloop.c,v 1.124 20
  #include "serverloop.h"
  #include "misc.h"
@@ -617,8 +617,8 @@ diff -up openssh-4.3p2/serverloop.c.cryptoaudit openssh-4.3p2/serverloop.c
  server_request_direct_tcpip(void)
  {
 diff -up openssh-4.3p2/sshd.c.cryptoaudit openssh-4.3p2/sshd.c
---- openssh-4.3p2/sshd.c.cryptoaudit	2010-12-09 18:48:44.000000000 +0100
-+++ openssh-4.3p2/sshd.c	2010-12-09 18:48:45.000000000 +0100
+--- openssh-4.3p2/sshd.c.cryptoaudit	2011-03-23 08:25:21.280648835 +0100
++++ openssh-4.3p2/sshd.c	2011-03-23 08:25:21.934648453 +0100
 @@ -224,6 +224,8 @@ void demote_sensitive_data(void);
  static void do_ssh1_kex(void);
  static void do_ssh2_kex(void);

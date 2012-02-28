@@ -1,0 +1,87 @@
+diff -up openssh-4.3p2/channels.c.cloexec openssh-4.3p2/channels.c
+--- openssh-4.3p2/channels.c.cloexec	2011-10-01 04:35:15.173495608 +0200
++++ openssh-4.3p2/channels.c	2011-10-01 04:37:16.405456972 +0200
+@@ -55,6 +55,7 @@ RCSID("$OpenBSD: channels.c,v 1.232 2006
+ #include "authfd.h"
+ #include "pathnames.h"
+ #include "bufaux.h"
++#include <fcntl.h>
+ 
+ /* -- channel core */
+ 
+@@ -200,6 +201,18 @@ channel_register_fds(Channel *c, int rfd
+ 
+ 	/* XXX set close-on-exec -markus */
+ 
++	if (rfd != -1) {
++		fcntl(rfd, F_SETFD, FD_CLOEXEC);
++	}
++
++	if (wfd != -1 && wfd != rfd) {
++		fcntl(wfd, F_SETFD, FD_CLOEXEC);
++	}
++
++	if (efd != -1 && efd != rfd && efd != wfd) {
++		fcntl(efd, F_SETFD, FD_CLOEXEC);
++	}
++
+ 	c->rfd = rfd;
+ 	c->wfd = wfd;
+ 	c->sock = (rfd == wfd) ? rfd : -1;
+diff -up openssh-4.3p2/sshconnect.c.cloexec openssh-4.3p2/sshconnect.c
+--- openssh-4.3p2/sshconnect.c.cloexec	2011-10-01 04:35:08.540471150 +0200
++++ openssh-4.3p2/sshconnect.c	2011-10-01 04:39:45.137475605 +0200
+@@ -33,6 +33,7 @@ RCSID("$OpenBSD: sshconnect.c,v 1.171 20
+ #include "atomicio.h"
+ #include "misc.h"
+ #include "dns.h"
++#include <fcntl.h>
+ 
+ char *client_version_string = NULL;
+ char *server_version_string = NULL;
+@@ -170,8 +171,11 @@ ssh_create_socket(int privileged, struct
+ 		return sock;
+ 	}
+ 	sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+-	if (sock < 0)
++	if (sock < 0) {
+ 		error("socket: %.100s", strerror(errno));
++		return -1;
++	}
++	fcntl(sock, F_SETFD, FD_CLOEXEC);
+ 
+ 	/* Bind the socket to an alternative local IP address */
+ 	if (options.bind_address == NULL)
+diff -up openssh-4.3p2/sshconnect2.c.cloexec openssh-4.3p2/sshconnect2.c
+--- openssh-4.3p2/sshconnect2.c.cloexec	2011-10-01 04:35:08.395643552 +0200
++++ openssh-4.3p2/sshconnect2.c	2011-10-01 04:39:10.685583830 +0200
+@@ -51,6 +51,7 @@ RCSID("$OpenBSD: sshconnect2.c,v 1.143 2
+ #include "canohost.h"
+ #include "msg.h"
+ #include "pathnames.h"
++#include <fcntl.h>
+ 
+ #ifdef GSSAPI
+ #include "ssh-gss.h"
+@@ -1251,6 +1252,7 @@ ssh_keysign(Key *key, u_char **sigp, u_i
+ 		return -1;
+ 	}
+ 	if (pid == 0) {
++		fcntl(packet_get_connection_in(), F_SETFD, 0); /* keep the socket on exec */
+ 		seteuid(getuid());
+ 		setuid(getuid());
+ 		close(from[0]);
+diff -up openssh-4.3p2/sshd.c.cloexec openssh-4.3p2/sshd.c
+--- openssh-4.3p2/sshd.c.cloexec	2011-10-01 04:35:19.207521080 +0200
++++ openssh-4.3p2/sshd.c	2011-10-01 04:35:21.197480532 +0200
+@@ -1639,6 +1639,10 @@ main(int ac, char **av)
+ 		    sock_in, sock_out, newsock, startup_pipe, config_s[0]);
+ 	}
+ 
++	/* set fd cloexec on io/sockets to avoid to forward them to childern */
++	fcntl(sock_out, F_SETFD, FD_CLOEXEC);
++	fcntl(sock_in, F_SETFD, FD_CLOEXEC);
++
+ 	/*
+ 	 * Disable the key regeneration alarm.  We will not regenerate the
+ 	 * key since we are no longer in a position to give it to anyone. We

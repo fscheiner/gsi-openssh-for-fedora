@@ -1,0 +1,34 @@
+diff --git a/misc.c b/misc.c
+index 29e9288..8d46a69 100644
+--- a/misc.c
++++ b/misc.c
+@@ -687,4 +687,14 @@ tohex(const u_char *d, u_int l)
+ 	}
+ 	return (r);
+ }
++void
++sock_set_v6only(int s)
++{
++#ifdef IPV6_V6ONLY
++	int on = 1;
+ 
++	debug3("%s: set socket %d IPV6_V6ONLY", __func__, s);
++	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) == -1)
++		error("setsockopt IPV6_V6ONLY: %s", strerror(errno));
++#endif
++}
+diff --git a/sshd.c b/sshd.c
+index 9d0a093..214256b 100644
+--- a/sshd.c
++++ b/sshd.c
+@@ -1333,6 +1333,10 @@ main(int ac, char **av)
+ 			    &on, sizeof(on)) == -1)
+ 				error("setsockopt SO_REUSEADDR: %s", strerror(errno));
+ 
++			/* Only communicate in IPv6 over AF_INET6 sockets. */
++			if (ai->ai_family == AF_INET6)
++				sock_set_v6only(listen_sock);
++
+ 			debug("Bind to port %s on %s.", strport, ntop);
+ 
+ 			/* Bind the socket to the desired port. */

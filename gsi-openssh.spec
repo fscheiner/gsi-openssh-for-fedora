@@ -32,7 +32,7 @@
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: 4.3p2
-Release: 4%{?dist}
+Release: 5%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 4.3p2-3
 URL: http://www.openssh.com/portable.html
@@ -100,6 +100,12 @@ Patch71: openssh-4.3p2-engine.patch
 Patch73: openssh-4.3p2-biguid.patch
 Patch74: openssh-4.3p2-crypto-audit.patch
 Patch76: openssh-4.3p2-entropy.patch
+Patch77: openssh-4.3p2-sepasswd.patch
+Patch78: openssh-4.3p2-cloexec.patch
+Patch79: openssh-4.3p2-sftp_umask.patch
+Patch80: openssh-4.3p2-identity.patch
+Patch81: openssh-4.3p2-sshd-v6only-for-inet6.patch
+Patch82: openssh-4.3p2-ssh-exchange-identification-timeout.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-4.3p2.patch
@@ -130,7 +136,7 @@ BuildRequires: krb5-devel
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
 BuildRequires: globus-gssapi-gsi >= 10
-BuildRequires: globus-common >=	 14
+BuildRequires: globus-common >= 14
 %endif
 
 %if %{nss}
@@ -264,6 +270,12 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch73 -p1 -b .biguid
 %patch74 -p1 -b .cryptoaudit
 %patch76 -p1 -b .entropy
+%patch77 -p1 -b .sepasswd
+%patch78 -p1 -b .cloexec
+%patch79 -p1 -b .sftp_umask
+%patch80 -p1 -b .identity
+%patch81 -p1 -b .v6only
+%patch82 -p1 -b .exchange-timeout
 %patch98 -p1 -b .gsi
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
@@ -452,6 +464,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Tue Feb 28 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 4.3p2-5
+- Based on openssh-4.3p2-82.el5
+
 * Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 4.3p2-4
 - Drop openssh-4.3p2-unblock-signals.patch - not needed with GT >= 5.2
 - Based on openssh-4.3p2-72.el5_7.5

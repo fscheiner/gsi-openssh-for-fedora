@@ -26,12 +26,11 @@ diff -up openssh-4.3p2/openbsd-compat/Makefile.in.entropy openssh-4.3p2/openbsd-
 diff -up /dev/null openssh-4.3p2/openbsd-compat/port-linux-prng.c
 --- /dev/null	2011-03-23 10:18:59.458402673 +0100
 +++ openssh-4.3p2/openbsd-compat/port-linux-prng.c	2011-03-28 14:40:28.495648553 +0200
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,58 @@
 +/* $Id: port-linux.c,v 1.11.4.2 2011/02/04 00:43:08 djm Exp $ */
 +
 +/*
-+ * Copyright (c) 2005 Daniel Walsh <dwalsh@redhat.com>
-+ * Copyright (c) 2006 Damien Miller <djm@openbsd.org>
++ * Copyright (c) 2011 Jan F. Chadima <jchadima@redhat.com>
 + *
 + * Permission to use, copy, modify, and distribute this software for any
 + * purpose with or without fee is hereby granted, provided that the above
@@ -70,42 +69,53 @@ diff -up /dev/null openssh-4.3p2/openbsd-compat/port-linux-prng.c
 +{
 +	int len;
 +	char *env = getenv("SSH_USE_STRONG_RNG");
-+	char *random = "/dev/urandom";
++	char *random = "/dev/random";
++	size_t ienv, randlen = 6;
 +
-+	if (env && !strcmp(env, "1"))
-+		random = "/dev/random";
++	if (!env || !strcmp(env, "0"))
++		random = "/dev/urandom";
++	else if ((ienv = atoi(env)) > 6)
++		randlen = ienv;
 +
 +	errno = 0;
-+	if ((len = RAND_load_file(random, 48)) != 48) {
++	if ((len = RAND_load_file(random, randlen)) != randlen) {
 +		if (errno)
 +			fatal ("cannot read from %s, %s", random, strerror(errno));
 +		else
 +			fatal ("EOF reading %s", random);
 +	}
 +}
-diff -up openssh-4.3p2/ssh.1.entropy openssh-4.3p2/ssh.1
---- openssh-4.3p2/ssh.1.entropy	2006-01-31 11:47:59.000000000 +0100
-+++ openssh-4.3p2/ssh.1	2011-03-28 14:40:28.521649077 +0200
-@@ -1196,6 +1196,15 @@ For more information, see the
+diff -up openssh-5.3p1/ssh.1.entropy openssh-5.3p1/ssh.1
+--- openssh-5.3p1/ssh.1.entropy	2009-06-21 09:48:52.000000000 +0200
++++ openssh-5.3p1/ssh.1	2011-05-28 01:28:30.341858350 +0200
+@@ -1252,6 +1252,23 @@ For more information, see the
  .Cm PermitUserEnvironment
  option in
  .Xr sshd_config 5 .
++.Sh ENVIRONMENT
++.Bl -tag -width Ds -compact
 +.It Ev SSH_USE_STRONG_RNG
 +The reseeding of the OpenSSL random generator is usually done from
 +.Cm /dev/urandom .
 +If the 
 +.Cm SSH_USE_STRONG_RNG
-+is set to
-+.Cm 1 ,
++environment variable is set to value other than
++.Cm 0
 +the OpenSSL random generator is reseeded from
 +.Cm /dev/random .
++The number of bytes read is defined by the SSH_USE_STRONG_RNG value. 
++Minimum is 6 bytes.
++This setting is not recommended on the computers without the hardware
++random generator because insufficient entropy causes the connection to 
++be blocked until enough entropy is available.
++.El
  .Sh FILES
  .Bl -tag -width Ds -compact
  .It ~/.rhosts
-diff -up openssh-4.3p2/ssh-add.1.entropy openssh-4.3p2/ssh-add.1
---- openssh-4.3p2/ssh-add.1.entropy	2005-05-26 04:04:02.000000000 +0200
-+++ openssh-4.3p2/ssh-add.1	2011-03-28 14:40:28.554648982 +0200
-@@ -139,6 +139,15 @@ to make this work.)
+diff -up openssh-5.3p1/ssh-add.1.entropy openssh-5.3p1/ssh-add.1
+--- openssh-5.3p1/ssh-add.1.entropy	2011-05-28 01:28:07.412857036 +0200
++++ openssh-5.3p1/ssh-add.1	2011-05-28 01:28:30.478856207 +0200
+@@ -155,6 +155,20 @@ to make this work.)
  .It Ev SSH_AUTH_SOCK
  Identifies the path of a unix-domain socket used to communicate with the
  agent.
@@ -114,17 +124,22 @@ diff -up openssh-4.3p2/ssh-add.1.entropy openssh-4.3p2/ssh-add.1
 +.Cm /dev/urandom .
 +If the 
 +.Cm SSH_USE_STRONG_RNG
-+is set to
-+.Cm 1 ,
++environment variable is set to value other than
++.Cm 0
 +the OpenSSL random generator is reseeded from
 +.Cm /dev/random .
++The number of bytes read is defined by the SSH_USE_STRONG_RNG value. 
++Minimum is 6 bytes.
++This setting is not recommended on the computers without the hardware
++random generator because insufficient entropy causes the connection to 
++be blocked until enough entropy is available.
  .El
  .Sh FILES
  .Bl -tag -width Ds
-diff -up openssh-4.3p2/ssh-agent.1.entropy openssh-4.3p2/ssh-agent.1
---- openssh-4.3p2/ssh-agent.1.entropy	2005-11-28 07:05:40.000000000 +0100
-+++ openssh-4.3p2/ssh-agent.1	2011-03-28 14:40:28.591648831 +0200
-@@ -191,6 +191,18 @@ authentication agent.
+diff -up openssh-5.3p1/ssh-agent.1.entropy openssh-5.3p1/ssh-agent.1
+--- openssh-5.3p1/ssh-agent.1.entropy	2009-06-21 09:52:28.000000000 +0200
++++ openssh-5.3p1/ssh-agent.1	2011-05-28 01:28:30.592856618 +0200
+@@ -191,6 +191,24 @@ authentication agent.
  These sockets should only be readable by the owner.
  The sockets should get automatically removed when the agent exits.
  .El
@@ -136,17 +151,23 @@ diff -up openssh-4.3p2/ssh-agent.1.entropy openssh-4.3p2/ssh-agent.1
 +.Cm /dev/urandom .
 +If the 
 +.Cm SSH_USE_STRONG_RNG
-+is set to
-+.Cm 1 ,
++environment variable is set to value other than
++.Cm 0
 +the OpenSSL random generator is reseeded from
 +.Cm /dev/random .
++The number of bytes read is defined by the SSH_USE_STRONG_RNG value. 
++Minimum is 6 bytes.
++This setting is not recommended on the computers without the hardware
++random generator because insufficient entropy causes the connection to 
++be blocked until enough entropy is available.
++.El
  .Sh SEE ALSO
  .Xr ssh 1 ,
  .Xr ssh-add 1 ,
-diff -up openssh-4.3p2/sshd.8.entropy openssh-4.3p2/sshd.8
---- openssh-4.3p2/sshd.8.entropy	2011-03-28 14:40:27.495648499 +0200
-+++ openssh-4.3p2/sshd.8	2011-03-28 14:40:28.628648985 +0200
-@@ -830,6 +830,18 @@ This can be used to specify
+diff -up openssh-5.3p1/sshd.8.entropy openssh-5.3p1/sshd.8
+--- openssh-5.3p1/sshd.8.entropy	2009-06-21 09:52:28.000000000 +0200
++++ openssh-5.3p1/sshd.8	2011-05-28 01:28:30.716858123 +0200
+@@ -863,6 +863,24 @@ concurrently for different ports, this c
  machine-specific login-time initializations globally.
  This file should be writable only by root, and should be world-readable.
  .El
@@ -158,17 +179,23 @@ diff -up openssh-4.3p2/sshd.8.entropy openssh-4.3p2/sshd.8
 +.Cm /dev/urandom .
 +If the 
 +.Cm SSH_USE_STRONG_RNG
-+is set to
-+.Cm 1 ,
++environment variable is set to value other than
++.Cm 0
 +the OpenSSL random generator is reseeded from
 +.Cm /dev/random .
++The number of bytes read is defined by the SSH_USE_STRONG_RNG value. 
++Minimum is 6 bytes.
++This setting is not recommended on the computers without the hardware
++random generator because insufficient entropy causes the connection to 
++be blocked until enough entropy is available.
++.El
  .Sh SEE ALSO
  .Xr scp 1 ,
  .Xr sftp 1 ,
-diff -up openssh-4.3p2/ssh-keygen.1.entropy openssh-4.3p2/ssh-keygen.1
---- openssh-4.3p2/ssh-keygen.1.entropy	2005-11-28 06:41:47.000000000 +0100
-+++ openssh-4.3p2/ssh-keygen.1	2011-03-28 14:40:28.660649024 +0200
-@@ -443,6 +443,18 @@ Contains Diffie-Hellman groups used for 
+diff -up openssh-5.3p1/ssh-keygen.1.entropy openssh-5.3p1/ssh-keygen.1
+--- openssh-5.3p1/ssh-keygen.1.entropy	2011-05-28 01:28:08.141857715 +0200
++++ openssh-5.3p1/ssh-keygen.1	2011-05-28 01:28:30.843857051 +0200
+@@ -452,6 +452,24 @@ Contains Diffie-Hellman groups used for 
  The file format is described in
  .Xr moduli 5 .
  .El
@@ -180,17 +207,23 @@ diff -up openssh-4.3p2/ssh-keygen.1.entropy openssh-4.3p2/ssh-keygen.1
 +.Cm /dev/urandom .
 +If the 
 +.Cm SSH_USE_STRONG_RNG
-+is set to
-+.Cm 1 ,
++environment variable is set to value other than
++.Cm 0
 +the OpenSSL random generator is reseeded from
 +.Cm /dev/random .
++The number of bytes read is defined by the SSH_USE_STRONG_RNG value. 
++Minimum is 6 bytes.
++This setting is not recommended on the computers without the hardware
++random generator because insufficient entropy causes the connection to 
++be blocked until enough entropy is available.
++.El
  .Sh SEE ALSO
  .Xr ssh 1 ,
  .Xr ssh-add 1 ,
-diff -up openssh-4.3p2/ssh-keysign.8.entropy openssh-4.3p2/ssh-keysign.8
---- openssh-4.3p2/ssh-keysign.8.entropy	2003-06-11 14:04:39.000000000 +0200
-+++ openssh-4.3p2/ssh-keysign.8	2011-03-28 14:40:28.692649083 +0200
-@@ -69,6 +69,18 @@ Since they are readable only by root,
+diff -up openssh-5.3p1/ssh-keysign.8.entropy openssh-5.3p1/ssh-keysign.8
+--- openssh-5.3p1/ssh-keysign.8.entropy	2007-06-05 10:27:13.000000000 +0200
++++ openssh-5.3p1/ssh-keysign.8	2011-05-28 01:28:30.954857427 +0200
+@@ -69,6 +69,24 @@ Since they are readable only by root,
  .Nm
  must be set-uid root if hostbased authentication is used.
  .El
@@ -202,10 +235,16 @@ diff -up openssh-4.3p2/ssh-keysign.8.entropy openssh-4.3p2/ssh-keysign.8
 +.Cm /dev/urandom .
 +If the 
 +.Cm SSH_USE_STRONG_RNG
-+is set to
-+.Cm 1 ,
++environment variable is set to value other than
++.Cm 0
 +the OpenSSL random generator is reseeded from
 +.Cm /dev/random .
++The number of bytes read is defined by the SSH_USE_STRONG_RNG value. 
++Minimum is 6 bytes.
++This setting is not recommended on the computers without the hardware
++random generator because insufficient entropy causes the connection to 
++be blocked until enough entropy is available.
++.El
  .Sh SEE ALSO
  .Xr ssh 1 ,
  .Xr ssh-keygen 1 ,

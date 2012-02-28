@@ -1,0 +1,299 @@
+diff --git a/ssh.c b/ssh.c
+index fd1a892..8b16f15 100644
+--- a/ssh.c
++++ b/ssh.c
+@@ -188,7 +188,7 @@ main(int ac, char **av)
+ 	char *p, *cp, *line, buf[256];
+ 	struct stat st;
+ 	struct passwd *pw;
+-	int dummy;
++	int dummy, timeout_ms;
+ 	extern int optind, optreset;
+ 	extern char *optarg;
+ 	struct servent *sp;
+@@ -667,9 +667,12 @@ again:
+ 			fatal("Protocol 2 disabled by configuration but required in the FIPS mode.");
+ 	}
+ 
++	timeout_ms = options.connection_timeout * 1000;
++
+ 	/* Open a connection to the remote host. */
+ 	if (ssh_connect(host, &hostaddr, options.port,
+-	    options.address_family, options.connection_attempts,
++	    options.address_family, options.connection_attempts, &timeout_ms,
++	    options.tcp_keep_alive,
+ #ifdef HAVE_CYGWIN
+ 	    options.use_privileged_port,
+ #else
+@@ -678,6 +681,9 @@ again:
+ 	    options.proxy_command) != 0)
+ 		exit(255);
+ 
++	if (timeout_ms > 0)
++		debug3("timeout: %d ms remain after connect", timeout_ms);
++
+ 	/*
+ 	 * If we successfully made the connection, load the host private key
+ 	 * in case we will need it later for combined rsa-rhosts
+@@ -753,7 +759,8 @@ again:
+ 	signal(SIGPIPE, SIG_IGN); /* ignore SIGPIPE early */
+ 
+ 	/* Log into the remote system.  This never returns if the login fails. */
+-	ssh_login(&sensitive_data, host, (struct sockaddr *)&hostaddr, pw);
++	ssh_login(&sensitive_data, host, (struct sockaddr *)&hostaddr,
++	    pw, timeout_ms);
+ 
+ 	/* We no longer need the private host keys.  Clear them now. */
+ 	if (sensitive_data.nkeys != 0) {
+diff --git a/sshconnect.c b/sshconnect.c
+index 6769fd0..56a6dc5 100644
+--- a/sshconnect.c
++++ b/sshconnect.c
+@@ -54,6 +54,23 @@ extern pid_t proxy_command_pid;
+ static int show_other_keys(const char *, Key *);
+ static void warn_changed_key(Key *);
+ 
++static void
++ms_subtract_diff(struct timeval *start, int *ms)
++{
++	struct timeval diff, finish;
++
++	gettimeofday(&finish, NULL);
++	timersub(&finish, start, &diff);
++	*ms -= (diff.tv_sec * 1000) + (diff.tv_usec / 1000);
++}
++
++static void
++ms_to_timeval(struct timeval *tv, int ms)
++{
++	tv->tv_sec = ms / 1000;
++	tv->tv_usec = (ms % 1000) * 1000;
++}
++
+ /*
+  * Connect to the given ssh server using a proxy command.
+  */
+@@ -205,32 +222,38 @@ ssh_create_socket(int privileged, struct addrinfo *ai)
+ 
+ static int
+ timeout_connect(int sockfd, const struct sockaddr *serv_addr,
+-    socklen_t addrlen, int timeout)
++    socklen_t addrlen, int *timeoutp)
+ {
+ 	fd_set *fdset;
+-	struct timeval tv;
++	struct timeval tv, t_start;
+ 	socklen_t optlen;
+ 	int fdsetsz, optval, rc, result = -1;
+ 
+-	if (timeout <= 0)
+-		return (connect(sockfd, serv_addr, addrlen));
++	gettimeofday(&t_start, NULL);
++
++	if (*timeoutp <= 0) {
++		result = connect(sockfd, serv_addr, addrlen);
++		goto done;
++	}
+ 
+ 	set_nonblock(sockfd);
+ 	rc = connect(sockfd, serv_addr, addrlen);
+ 	if (rc == 0) {
+ 		unset_nonblock(sockfd);
+-		return (0);
++		result = 0;
++		goto done;
++	}
++	if (errno != EINPROGRESS) {
++		result = -1;
++		goto done;
+ 	}
+-	if (errno != EINPROGRESS)
+-		return (-1);
+ 
+ 	fdsetsz = howmany(sockfd + 1, NFDBITS) * sizeof(fd_mask);
+ 	fdset = (fd_set *)xmalloc(fdsetsz);
+ 
+ 	memset(fdset, 0, fdsetsz);
+ 	FD_SET(sockfd, fdset);
+-	tv.tv_sec = timeout;
+-	tv.tv_usec = 0;
++	ms_to_timeval(&tv, *timeoutp);
+ 
+ 	for (;;) {
+ 		rc = select(sockfd + 1, NULL, fdset, NULL, &tv);
+@@ -269,6 +292,16 @@ timeout_connect(int sockfd, const struct sockaddr *serv_addr,
+ 	}
+ 
+ 	xfree(fdset);
++
++done:
++	if (result == 0 && *timeoutp > 0) {
++		ms_subtract_diff(&t_start, timeoutp);
++		if (*timeoutp <= 0) {
++			errno = ETIMEDOUT;
++			result = -1;
++		}
++	}
++
+ 	return (result);
+ }
+ 
+@@ -285,8 +318,8 @@ timeout_connect(int sockfd, const struct sockaddr *serv_addr,
+  */
+ int
+ ssh_connect(const char *host, struct sockaddr_storage * hostaddr,
+-    u_short port, int family, int connection_attempts,
+-    int needpriv, const char *proxy_command)
++    u_short port, int family, int connection_attempts, int *timeout_ms,
++    int want_keepalive, int needpriv, const char *proxy_command)
+ {
+ 	int gaierr;
+ 	int on = 1;
+@@ -340,7 +373,7 @@ ssh_connect(const char *host, struct sockaddr_storage * hostaddr,
+ 				continue;
+ 
+ 			if (timeout_connect(sock, ai->ai_addr, ai->ai_addrlen,
+-			    options.connection_timeout) >= 0) {
++			    timeout_ms) >= 0) {
+ 				/* Successful connection. */
+ 				memcpy(hostaddr, ai->ai_addr, ai->ai_addrlen);
+ 				break;
+@@ -378,7 +411,7 @@ ssh_connect(const char *host, struct sockaddr_storage * hostaddr,
+ 	debug("Connection established.");
+ 
+ 	/* Set SO_KEEPALIVE if requested. */
+-	if (options.tcp_keep_alive &&
++	if (want_keepalive &&
+ 	    setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (void *)&on,
+ 	    sizeof(on)) < 0)
+ 		error("setsockopt SO_KEEPALIVE: %.100s", strerror(errno));
+@@ -394,7 +427,7 @@ ssh_connect(const char *host, struct sockaddr_storage * hostaddr,
+  * identification string.
+  */
+ static void
+-ssh_exchange_identification(void)
++ssh_exchange_identification(int timeout_ms)
+ {
+ 	char buf[256], remote_version[256];	/* must be same size! */
+ 	int remote_major, remote_minor, mismatch;
+@@ -402,11 +435,37 @@ ssh_exchange_identification(void)
+ 	int connection_out = packet_get_connection_out();
+ 	int minor1 = PROTOCOL_MINOR_1;
+ 	u_int i;
++	size_t len;
++	int fdsetsz, remaining, rc;
++	struct timeval t_start, t_remaining;
++	fd_set *fdset;
++
++	fdsetsz = howmany(connection_in + 1, NFDBITS) * sizeof(fd_mask);
++	fdset = xcalloc(1, fdsetsz);
+ 
+ 	/* Read other side's version identification. */
++	remaining = timeout_ms;
+ 	for (;;) {
+ 		for (i = 0; i < sizeof(buf) - 1; i++) {
+-			size_t len = atomicio(read, connection_in, &buf[i], 1);
++			if (timeout_ms > 0) {
++				gettimeofday(&t_start, NULL);
++				ms_to_timeval(&t_remaining, remaining);
++				FD_SET(connection_in, fdset);
++				rc = select(connection_in + 1, fdset, NULL,
++				    fdset, &t_remaining);
++				ms_subtract_diff(&t_start, &remaining);
++				if (rc == 0 || remaining <= 0)
++					fatal("Connection timed out during "
++					    "banner exchange");
++				if (rc == -1) {
++					if (errno == EINTR)
++						continue;
++					fatal("ssh_exchange_identification: "
++					    "select: %s", strerror(errno));
++				}
++			}
++
++			len = atomicio(read, connection_in, &buf[i], 1);
+ 
+ 			if (len != 1 && errno == EPIPE)
+ 				fatal("ssh_exchange_identification: Connection closed by remote host");
+@@ -428,6 +487,7 @@ ssh_exchange_identification(void)
+ 		debug("ssh_exchange_identification: %s", buf);
+ 	}
+ 	server_version_string = xstrdup(buf);
++	xfree(fdset);
+ 
+ 	/*
+ 	 * Check that the versions match.  In future this might accept
+@@ -914,7 +974,7 @@ verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
+  */
+ void
+ ssh_login(Sensitive *sensitive, const char *orighost,
+-    struct sockaddr *hostaddr, struct passwd *pw)
++    struct sockaddr *hostaddr, struct passwd *pw, int timeout_ms)
+ {
+ 	char *host, *cp;
+ 	char *server_user, *local_user;
+@@ -929,7 +989,7 @@ ssh_login(Sensitive *sensitive, const char *orighost,
+ 			*cp = tolower(*cp);
+ 
+ 	/* Exchange protocol version identification strings with the server. */
+-	ssh_exchange_identification();
++	ssh_exchange_identification(timeout_ms);
+ 
+ 	/* Put the connection into non-blocking mode. */
+ 	packet_set_nonblocking();
+diff --git a/sshconnect.h b/sshconnect.h
+index e7c7a2b..f52cd00 100644
+--- a/sshconnect.h
++++ b/sshconnect.h
+@@ -35,10 +35,10 @@ struct Sensitive {
+ 
+ int
+ ssh_connect(const char *, struct sockaddr_storage *, u_short, int, int,
+-    int, const char *);
++    int *, int, int, const char *);
+ 
+ void
+-ssh_login(Sensitive *, const char *, struct sockaddr *, struct passwd *);
++ssh_login(Sensitive *, const char *, struct sockaddr *, struct passwd *, int);
+ 
+ int	 verify_host_key(char *, struct sockaddr *, Key *);
+ 
+diff --git a/xmalloc.c b/xmalloc.c
+index 99c6ac3..3fb3931 100644
+--- a/xmalloc.c
++++ b/xmalloc.c
+@@ -32,6 +32,22 @@ xmalloc(size_t size)
+ }
+ 
+ void *
++xcalloc(size_t nmemb, size_t size)
++{
++	void *ptr;
++
++	if (size == 0 || nmemb == 0)
++		fatal("xcalloc: zero size");
++	if (SIZE_T_MAX / nmemb < size)
++		fatal("xcalloc: nmemb * size > SIZE_T_MAX");
++	ptr = calloc(nmemb, size);
++	if (ptr == NULL)
++		fatal("xcalloc: out of memory (allocating %lu bytes)",
++		    (u_long)(size * nmemb));
++	return ptr;
++}
++
++void *
+ xrealloc(void *ptr, size_t new_size)
+ {
+ 	void *new_ptr;
+diff --git a/xmalloc.h b/xmalloc.h
+index 7ac4b13..3bd577c 100644
+--- a/xmalloc.h
++++ b/xmalloc.h
+@@ -20,6 +20,7 @@
+ #define XMALLOC_H
+ 
+ void	*xmalloc(size_t);
++void	*xcalloc(size_t, size_t);
+ void	*xrealloc(void *, size_t);
+ void     xfree(void *);
+ char	*xstrdup(const char *);
