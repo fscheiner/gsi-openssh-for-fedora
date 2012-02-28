@@ -1,0 +1,40 @@
+diff --git a/session.c b/session.c
+index 436ea48..49c9321 100644
+--- a/session.c
++++ b/session.c
+@@ -1561,6 +1561,13 @@ do_setusercontext(struct passwd *pw)
+ #endif
+ 	}
+ 
++#ifdef WITH_SELINUX
++	if (options.chroot_directory == NULL ||
++	    strcasecmp(options.chroot_directory, "none") == 0) {
++		ssh_selinux_copy_context();
++	}
++#endif
++
+ 	if (getuid() != pw->pw_uid || geteuid() != pw->pw_uid)
+ 		fatal("Failed to set uids to %u.", (u_int) pw->pw_uid);
+ }
+@@ -1670,7 +1677,9 @@ do_child(Session *s, const char *command
+ 		/* When PAM is enabled we rely on it to do the nologin check */
+ 		if (!options.use_pam)
+ 			do_nologin(pw);
+-		do_setusercontext(pw);
++		/* We are already separated */
++		if (!use_privsep)
++			do_setusercontext(pw);
+ 		/*
+ 		 * PAM session modules in do_setusercontext may have
+ 		 * generated messages, so if this in an interactive
+@@ -1791,8 +1800,8 @@ do_child(Session *s, const char *command
+ 		optind = optreset = 1;
+ 		__progname = argv[0];
+ #ifdef WITH_SELINUX
+-		if (options.chroot_directory == NULL ||
+-		    strcasecmp(options.chroot_directory, "none") == 0) {
++		if (!use_privsep &&
++		    (options.chroot_directory == NULL || strcasecmp(options.chroot_directory, "none") == 0)) {
+ 			ssh_selinux_copy_context();
+ 		}
+ #endif

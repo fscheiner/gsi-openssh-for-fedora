@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 5.9p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -60,11 +60,12 @@ Patch100: openssh-5.9p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1872
 Patch101: openssh-5.8p1-fingerprint.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
+#https://bugzilla.redhat.com/show_bug.cgi?id=735889
 Patch102: openssh-5.8p1-getaddrinfo.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1889
 Patch103: openssh-5.8p1-packet.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=983
-Patch104: openssh-5.9p1-2auth.patch
+Patch104: openssh-5.9p1-required-authentications.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 Patch200: openssh-5.8p1-audit0.patch
@@ -87,6 +88,8 @@ Patch401: openssh-5.9p1-mls.patch
 Patch402: openssh-5.9p1-sftp-chroot.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1940
 Patch403: openssh-5.9p1-sesandbox.patch
+#https://bugzilla.redhat.com/show_bug.cgi?id=781634
+Patch404: openssh-5.9p1-privsep-selinux.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1663
 Patch500: openssh-5.9p1-akc.patch
@@ -269,7 +272,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch101 -p1 -b .fingerprint
 %patch102 -p1 -b .getaddrinfo
 %patch103 -p1 -b .packet
-%patch104 -p1 -b .2auth
+%patch104 -p1 -b .required-authentication
 
 %patch200 -p1 -b .audit0
 %patch201 -p1 -b .audit1
@@ -283,6 +286,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch401 -p1 -b .mls
 %patch402 -p1 -b .sftp-chroot
 %patch403 -p1 -b .sesandbox
+%patch404 -p1 -b .privsep-selinux
 %endif
 
 %patch500 -p1 -b .akc
@@ -544,6 +548,9 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Wed Feb 08 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-5
+- Based on openssh-5.9p1-19.fc17
+
 * Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-4
 - Drop openssh-5.8p2-unblock-signals.patch - not needed for GT >= 5.2
 - Based on openssh-5.9p1-16.fc17
