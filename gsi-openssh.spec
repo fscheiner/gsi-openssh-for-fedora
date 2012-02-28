@@ -36,7 +36,7 @@
 %global nologin 1
 
 %global openssh_ver 5.8p2
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -65,6 +65,7 @@ Patch100: openssh-5.8p1-fingerprint.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1879
 Patch200: openssh-5.8p1-exit.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
+#https://bugzilla.redhat.com/show_bug.cgi?id=735889
 Patch300: openssh-5.8p1-getaddrinfo.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 Patch8: openssh-5.8p1-audit0.patch
@@ -91,9 +92,8 @@ Patch23: openssh-5.8p1-selinux-role.patch
 Patch24: openssh-5.8p1-mls.patch
 # #https://bugzilla.mindrot.org/show_bug.cgi?id=1614
 # Patch25: openssh-5.6p1-selabel.patch
-#was https://bugzilla.mindrot.org/show_bug.cgi?id=1637
-#?
-Patch26: openssh-5.8p1-sftpcontext.patch
+#https://bugzilla.redhat.com/show_bug.cgi?id=782078
+Patch26: openssh-5.8p2-sftp-chroot.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1668
 Patch30: openssh-5.6p1-keygen.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1644
@@ -182,7 +182,7 @@ BuildRequires: krb5-devel
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
 BuildRequires: globus-gssapi-gsi >= 10
-BuildRequires: globus-common >=	 14
+BuildRequires: globus-common >= 14
 BuildRequires: globus-usage-devel >= 3
 %endif
 
@@ -283,7 +283,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 # %patch22 -p1 -b .selinux
 %patch23 -p1 -b .role
 %patch24 -p1 -b .mls
-%patch26 -p1 -b .sftpcontext
+%patch26 -p1 -b .sftp-chroot
 %endif
 %patch30 -p1 -b .keygen
 %patch31 -p1 -b .ip-opts
@@ -533,6 +533,9 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Wed Feb 08 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.8p2-5
+- Based on openssh-5.8p2-25.fc16
+
 * Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.8p2-4
 - Drop openssh-5.8p2-unblock-signals.patch - not needed for GT >= 5.2
 - Based on openssh-5.8p2-23.fc16
