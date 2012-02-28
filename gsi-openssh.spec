@@ -5,7 +5,7 @@
 %if 0%{?!noselinux:1}
 %global WITH_SELINUX 1
 %else
-%define WITH_SELINUX 0
+%global WITH_SELINUX 0
 %endif
 
 # OpenSSH privilege separation requires a user & group ID
@@ -37,7 +37,7 @@
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: 5.3p1
-Release: 4%{?dist}
+Release: 5%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.3p1-3
 URL: http://www.openssh.com/portable.html
@@ -95,6 +95,8 @@ Patch89: openssh-5.3p1-multiple-sighup.patch
 Patch90: openssh-5.3p1-ipv6man.patch
 Patch91: openssh-5.3p1-manerr.patch
 Patch92: openssh-5.3p1-askpass-ld.patch
+# make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
+Patch93: openssh-5.3p1-ctr-evp-fast.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
@@ -127,7 +129,7 @@ BuildRequires: krb5-devel
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
 BuildRequires: globus-gssapi-gsi >= 10
-BuildRequires: globus-common >=	 14
+BuildRequires: globus-common >= 14
 BuildRequires: globus-usage-devel >= 3
 %endif
 
@@ -245,6 +247,10 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch87 -p1 -b .sftp-chroot
 %patch88 -p1 -b .entropy
 %patch89 -p1 -b .multiple-sighhup
+%patch90 -p1 -b .ipv6man
+%patch91 -p1 -b .manerr
+%patch92 -p1 -b .askpass-ld
+%patch93 -p1 -b .evp-ctr
 %patch98 -p1 -b .gsi
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
@@ -448,6 +454,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Wed Feb 08 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-5
+- Based on openssh-5.3p1-70.el6_2.2
+
 * Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-4
 - Drop openssh-5.3p1-unblock-signals.patch - not needed with GT >= 5.2
 - Based on openssh-5.3p1-70.el6
