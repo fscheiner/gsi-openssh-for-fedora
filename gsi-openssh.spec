@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 5.6p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -100,6 +100,8 @@ Patch81: openssh-5.6p1-clientloop.patch
 Patch82:openssh-5.6p1-getaddrinfo.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1838
 Patch83:openssh-5.6p1-linux-oomkiller.patch
+#https://bugzilla.redhat.com//show_bug.cgi?id=784641
+Patch84:openssh-5.6p1-legacy-certificate.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.6p1.patch
@@ -132,7 +134,7 @@ BuildRequires: krb5-devel
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
 BuildRequires: globus-gssapi-gsi >= 10
-BuildRequires: globus-common >=	 14
+BuildRequires: globus-common >= 14
 BuildRequires: globus-usage-devel >= 3
 %endif
 
@@ -243,6 +245,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch81 -p1 -b .clientloop
 %patch82 -p1 -b .getaddrinfo
 %patch83 -p0 -b .oomkiller
+%patch84 -p1 -b .legacy
 %patch98 -p1 -b .gsi
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
@@ -442,6 +445,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Tue Feb 28 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.6p1-5
+- Based on openssh-5.6p1-35.fc15
+
 * Sun Jan 22 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.6p1-4
 - Drop openssh-5.8p2-unblock-signals.patch - not needed for GT >= 5.2
 - Based on openssh-5.6p1-34.fc15.1

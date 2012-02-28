@@ -1,0 +1,14 @@
+diff --git a/key.c b/key.c
+index 57ad9fd..5886d44 100644
+--- a/key.c
++++ b/key.c
+@@ -1517,8 +1517,8 @@ key_certify(Key *k, Key *ca)
+ 	buffer_put_cstring(&k->cert->certblob, key_ssh_name(k));
+ 
+ 	/* -v01 certs put nonce first */
++	arc4random_buf(&nonce, sizeof(nonce));
+ 	if (k->type == KEY_DSA_CERT || k->type == KEY_RSA_CERT) {
+-		arc4random_buf(&nonce, sizeof(nonce));
+ 		buffer_put_string(&k->cert->certblob, nonce, sizeof(nonce));
+ 	}
+ 
