@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 5.9p1
-%global openssh_rel 5
+%global openssh_rel 6
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -50,7 +50,6 @@ Source0: openssh-%{version}-noacss.tar.bz2
 Source1: openssh-nukeacss.sh
 Source2: gsisshd.pam
 Source7: gsisshd.sysconfig
-Source8: gsisshd-keygen.service
 Source11: gsisshd.service
 Source13: gsisshd-keygen
 Source99: README.sshd-and-gsisshd
@@ -435,7 +434,6 @@ install -m644 %{SOURCE2} $RPM_BUILD_ROOT/etc/pam.d/gsisshd
 install -m644 %{SOURCE7} $RPM_BUILD_ROOT/etc/sysconfig/gsisshd
 install -m755 %{SOURCE13} $RPM_BUILD_ROOT/%{_sbindir}/sshd-keygen
 install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
-install -m644 %{SOURCE8} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd-keygen.service
 install -m644 %{SOURCE11} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.service
 
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-add
@@ -480,29 +478,32 @@ getent passwd sshd >/dev/null || \
   -s /dev/null -r -d /var/empty/sshd sshd 2> /dev/null || :
 %endif
 
+%post server
+if [ $1 -eq 1 ] ; then
+    /bin/systemctl daemon-reload >/dev/null 2>&1 || :
+fi
+
 %postun server
 /bin/systemctl daemon-reload >/dev/null 2>&1 || :
 if [ $1 -ge 1 ] ; then
     # Package upgrade, not uninstall
     /bin/systemctl try-restart gsisshd.service >/dev/null 2>&1 || :
-    /bin/systemctl try-restart gsisshd-keygen.service >/dev/null 2>&1 || :
 fi
 
 %preun server
 if [ $1 -eq 0 ] ; then
     # Package removal, not upgrade
     /bin/systemctl --no-reload disable gsisshd.service > /dev/null 2>&1 || :
-    /bin/systemctl --no-reload disable gsisshd-keygen.service > /dev/null 2>&1 || :
     /bin/systemctl stop gsisshd.service > /dev/null 2>&1 || :
-    /bin/systemctl stop gsisshd-keygen.service > /dev/null 2>&1 || :
 fi
 
 %triggerun server -- gsi-openssh-server < 5.8p2-1
 /usr/bin/systemd-sysv-convert --save gsisshd >/dev/null 2>&1 || :
 /sbin/chkconfig --del gsisshd >/dev/null 2>&1 || :
 /bin/systemctl try-restart gsisshd.service >/dev/null 2>&1 || :
-# This one was never a service, so we don't simply restart it
-/bin/systemctl is-active -q gsisshd.service && /bin/systemctl start gsisshd-keygen.service >/dev/null 2>&1 || :
+
+%triggerun server -- gsi-openssh-server < 5.9p1-6
+/bin/systemctl --no-reload disable gsisshd-keygen.service >/dev/null 2>&1 || :
 
 %files
 %defattr(-,root,root)
@@ -544,10 +545,12 @@ fi
 %attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/sshd_config
 %attr(0644,root,root) %config(noreplace) /etc/pam.d/gsisshd
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
-%attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Fri May 11 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-6
+- Based on openssh-5.9p1-22.fc17
+
 * Wed Feb 08 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-5
 - Based on openssh-5.9p1-19.fc17
 

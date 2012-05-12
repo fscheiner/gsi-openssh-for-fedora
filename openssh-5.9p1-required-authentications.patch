@@ -1,6 +1,6 @@
 diff -up openssh-5.9p1/auth.c.required-authentication openssh-5.9p1/auth.c
---- openssh-5.9p1/auth.c.required-authentication	2012-02-06 17:03:51.034158031 +0100
-+++ openssh-5.9p1/auth.c	2012-02-06 17:03:55.007830206 +0100
+--- openssh-5.9p1/auth.c.required-authentication	2012-03-30 18:37:59.990184619 +0200
++++ openssh-5.9p1/auth.c	2012-03-30 18:38:00.003189876 +0200
 @@ -251,7 +251,8 @@ allowed_user(struct passwd * pw)
  }
  
@@ -92,7 +92,7 @@ diff -up openssh-5.9p1/auth.c.required-authentication openssh-5.9p1/auth.c
 +}
 diff -up openssh-5.9p1/auth.h.required-authentication openssh-5.9p1/auth.h
 --- openssh-5.9p1/auth.h.required-authentication	2011-05-29 13:39:38.000000000 +0200
-+++ openssh-5.9p1/auth.h	2012-02-06 17:03:55.008839468 +0100
++++ openssh-5.9p1/auth.h	2012-03-30 18:38:00.003189876 +0200
 @@ -142,10 +142,11 @@ void disable_forwarding(void);
  void	do_authentication(Authctxt *);
  void	do_authentication2(Authctxt *);
@@ -122,7 +122,7 @@ diff -up openssh-5.9p1/auth.h.required-authentication openssh-5.9p1/auth.h
  
 diff -up openssh-5.9p1/auth1.c.required-authentication openssh-5.9p1/auth1.c
 --- openssh-5.9p1/auth1.c.required-authentication	2010-08-31 14:36:39.000000000 +0200
-+++ openssh-5.9p1/auth1.c	2012-02-06 17:03:55.055811924 +0100
++++ openssh-5.9p1/auth1.c	2012-03-30 18:38:00.004189905 +0200
 @@ -98,6 +98,54 @@ static const struct AuthMethod1
  	return (NULL);
  }
@@ -282,7 +282,7 @@ diff -up openssh-5.9p1/auth1.c.required-authentication openssh-5.9p1/auth1.c
  		packet_send();
 diff -up openssh-5.9p1/auth2.c.required-authentication openssh-5.9p1/auth2.c
 --- openssh-5.9p1/auth2.c.required-authentication	2011-05-05 06:04:11.000000000 +0200
-+++ openssh-5.9p1/auth2.c	2012-02-06 17:03:55.100896430 +0100
++++ openssh-5.9p1/auth2.c	2012-03-30 18:38:04.560122485 +0200
 @@ -215,7 +215,7 @@ input_userauth_request(int type, u_int32
  {
  	Authctxt *authctxt = ctxt;
@@ -444,7 +444,7 @@ diff -up openssh-5.9p1/auth2.c.required-authentication openssh-5.9p1/auth2.c
 +			ret = -1;
 +		}
 +		/* Activate method if it isn't already */
-+		if (*(m->enabled) == -1)
++		if (m->enabled != NULL && *(m->enabled) == -1)
 +			*(m->enabled) = 1;
 +	}
 +	xfree(orig_methods);
@@ -453,7 +453,7 @@ diff -up openssh-5.9p1/auth2.c.required-authentication openssh-5.9p1/auth2.c
 +
 diff -up openssh-5.9p1/auth2-gss.c.required-authentication openssh-5.9p1/auth2-gss.c
 --- openssh-5.9p1/auth2-gss.c.required-authentication	2011-05-05 06:04:11.000000000 +0200
-+++ openssh-5.9p1/auth2-gss.c	2012-02-06 17:03:55.098862514 +0100
++++ openssh-5.9p1/auth2-gss.c	2012-03-30 18:38:00.005184630 +0200
 @@ -163,7 +163,7 @@ input_gssapi_token(int type, u_int32_t p
  		}
  		authctxt->postponed = 0;
@@ -483,21 +483,20 @@ diff -up openssh-5.9p1/auth2-gss.c.required-authentication openssh-5.9p1/auth2-g
  Authmethod method_gssapi = {
 diff -up openssh-5.9p1/auth2-chall.c.required-authentication openssh-5.9p1/auth2-chall.c
 --- openssh-5.9p1/auth2-chall.c.required-authentication	2009-01-28 06:13:39.000000000 +0100
-+++ openssh-5.9p1/auth2-chall.c	2012-02-06 17:03:55.098862514 +0100
-@@ -341,8 +341,8 @@ input_userauth_info_response(int type, u
++++ openssh-5.9p1/auth2-chall.c	2012-03-30 19:25:49.049897712 +0200
+@@ -341,7 +341,8 @@ input_userauth_info_response(int type, u
  			auth2_challenge_start(authctxt);
  		}
  	}
 -	userauth_finish(authctxt, authenticated, method);
--	xfree(method);
 +	userauth_finish(authctxt, authenticated, "keyboard-interactive",
-+	    kbdintctxt->device?kbdintctxt->device->name:NULL);
++	    authctxt->kbdintctxt?kbdintctxt->device->name:NULL);
+ 	xfree(method);
  }
  
- void
 diff -up openssh-5.9p1/auth2-none.c.required-authentication openssh-5.9p1/auth2-none.c
 --- openssh-5.9p1/auth2-none.c.required-authentication	2010-06-26 02:01:33.000000000 +0200
-+++ openssh-5.9p1/auth2-none.c	2012-02-06 17:03:55.099879104 +0100
++++ openssh-5.9p1/auth2-none.c	2012-03-30 18:38:00.006184515 +0200
 @@ -61,7 +61,7 @@ userauth_none(Authctxt *authctxt)
  {
  	none_enabled = 0;
@@ -508,8 +507,8 @@ diff -up openssh-5.9p1/auth2-none.c.required-authentication openssh-5.9p1/auth2-
  	return (0);
  }
 diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
---- openssh-5.9p1/monitor.c.required-authentication	2012-02-06 17:03:51.020095446 +0100
-+++ openssh-5.9p1/monitor.c	2012-02-06 17:03:55.101912924 +0100
+--- openssh-5.9p1/monitor.c.required-authentication	2012-03-30 18:37:59.976189954 +0200
++++ openssh-5.9p1/monitor.c	2012-03-30 18:38:04.555127442 +0200
 @@ -199,6 +199,7 @@ static int key_blobtype = MM_NOKEY;
  static char *hostbased_cuser = NULL;
  static char *hostbased_chost = NULL;
@@ -552,7 +551,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  		authenticated = (monitor_read(pmonitor, mon_dispatch, &ent) == 1);
  		if (authenticated) {
  			if (!(ent->flags & MON_AUTHDECIDE))
-@@ -401,11 +407,23 @@ monitor_child_preauth(Authctxt *_authctx
+@@ -401,11 +407,24 @@ monitor_child_preauth(Authctxt *_authctx
  			}
  #endif
  		}
@@ -564,9 +563,10 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
 +				    auth_method, *req_auth);
 +			debug2("monitor_child_preauth: required list now: %s",
 +			    *req_auth == NULL ? "DONE" : *req_auth);
-+			if (*req_auth != NULL)
++			if (*req_auth != NULL) {
 +				authenticated = 0;
-+			no_increment = 1;
++				no_increment = 1;
++			}
 +		}
  
  		if (ent->flags & (MON_AUTHDECIDE|MON_ALOG)) {
@@ -578,7 +578,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  				authctxt->failures++;
  		}
  #ifdef JPAKE
-@@ -862,6 +880,7 @@ mm_answer_authpassword(int sock, Buffer 
+@@ -862,6 +881,7 @@ mm_answer_authpassword(int sock, Buffer 
  		auth_method = "none";
  	else
  		auth_method = "password";
@@ -586,7 +586,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  
  	/* Causes monitor loop to terminate if authenticated */
  	return (authenticated);
-@@ -921,6 +940,7 @@ mm_answer_bsdauthrespond(int sock, Buffe
+@@ -921,6 +941,7 @@ mm_answer_bsdauthrespond(int sock, Buffe
  	mm_request_send(sock, MONITOR_ANS_BSDAUTHRESPOND, m);
  
  	auth_method = "bsdauth";
@@ -594,7 +594,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  
  	return (authok != 0);
  }
-@@ -970,6 +990,7 @@ mm_answer_skeyrespond(int sock, Buffer *
+@@ -970,6 +991,7 @@ mm_answer_skeyrespond(int sock, Buffer *
  	mm_request_send(sock, MONITOR_ANS_SKEYRESPOND, m);
  
  	auth_method = "skey";
@@ -602,7 +602,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  
  	return (authok != 0);
  }
-@@ -1059,7 +1080,8 @@ mm_answer_pam_query(int sock, Buffer *m)
+@@ -1059,7 +1081,8 @@ mm_answer_pam_query(int sock, Buffer *m)
  		xfree(prompts);
  	if (echo_on != NULL)
  		xfree(echo_on);
@@ -612,7 +612,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  	mm_request_send(sock, MONITOR_ANS_PAM_QUERY, m);
  	return (0);
  }
-@@ -1088,7 +1110,8 @@ mm_answer_pam_respond(int sock, Buffer *
+@@ -1088,7 +1111,8 @@ mm_answer_pam_respond(int sock, Buffer *
  	buffer_clear(m);
  	buffer_put_int(m, ret);
  	mm_request_send(sock, MONITOR_ANS_PAM_RESPOND, m);
@@ -622,7 +622,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  	if (ret == 0)
  		sshpam_authok = sshpam_ctxt;
  	return (0);
-@@ -1102,7 +1125,8 @@ mm_answer_pam_free_ctx(int sock, Buffer 
+@@ -1102,7 +1126,8 @@ mm_answer_pam_free_ctx(int sock, Buffer 
  	(sshpam_device.free_ctx)(sshpam_ctxt);
  	buffer_clear(m);
  	mm_request_send(sock, MONITOR_ANS_PAM_FREE_CTX, m);
@@ -632,7 +632,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  	return (sshpam_authok == sshpam_ctxt);
  }
  #endif
-@@ -1138,6 +1162,7 @@ mm_answer_keyallowed(int sock, Buffer *m
+@@ -1138,6 +1163,7 @@ mm_answer_keyallowed(int sock, Buffer *m
  			allowed = options.pubkey_authentication &&
  			    user_key_allowed(authctxt->pw, key);
  			auth_method = "publickey";
@@ -640,7 +640,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  			if (options.pubkey_authentication && allowed != 1)
  				auth_clear_options();
  			break;
-@@ -1146,6 +1171,7 @@ mm_answer_keyallowed(int sock, Buffer *m
+@@ -1146,6 +1172,7 @@ mm_answer_keyallowed(int sock, Buffer *m
  			    hostbased_key_allowed(authctxt->pw,
  			    cuser, chost, key);
  			auth_method = "hostbased";
@@ -648,7 +648,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  			break;
  		case MM_RSAHOSTKEY:
  			key->type = KEY_RSA1; /* XXX */
-@@ -1155,6 +1181,7 @@ mm_answer_keyallowed(int sock, Buffer *m
+@@ -1155,6 +1182,7 @@ mm_answer_keyallowed(int sock, Buffer *m
  			if (options.rhosts_rsa_authentication && allowed != 1)
  				auth_clear_options();
  			auth_method = "rsa";
@@ -656,7 +656,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  			break;
  		default:
  			fatal("%s: unknown key type %d", __func__, type);
-@@ -1180,7 +1207,8 @@ mm_answer_keyallowed(int sock, Buffer *m
+@@ -1180,7 +1208,8 @@ mm_answer_keyallowed(int sock, Buffer *m
  		hostbased_chost = chost;
  	} else {
  		/* Log failed attempt */
@@ -666,7 +666,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  		xfree(blob);
  		xfree(cuser);
  		xfree(chost);
-@@ -1356,6 +1384,7 @@ mm_answer_keyverify(int sock, Buffer *m)
+@@ -1356,6 +1385,7 @@ mm_answer_keyverify(int sock, Buffer *m)
  	xfree(data);
  
  	auth_method = key_blobtype == MM_USERKEY ? "publickey" : "hostbased";
@@ -674,7 +674,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  
  	monitor_reset_key_state();
  
-@@ -1545,6 +1574,7 @@ mm_answer_rsa_keyallowed(int sock, Buffe
+@@ -1545,6 +1575,7 @@ mm_answer_rsa_keyallowed(int sock, Buffe
  	debug3("%s entering", __func__);
  
  	auth_method = "rsa";
@@ -682,7 +682,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  	if (options.rsa_authentication && authctxt->valid) {
  		if ((client_n = BN_new()) == NULL)
  			fatal("%s: BN_new", __func__);
-@@ -1650,6 +1680,7 @@ mm_answer_rsa_response(int sock, Buffer 
+@@ -1650,6 +1681,7 @@ mm_answer_rsa_response(int sock, Buffer 
  	xfree(response);
  
  	auth_method = key_blobtype == MM_RSAUSERKEY ? "rsa" : "rhosts-rsa";
@@ -690,7 +690,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  
  	/* reset state */
  	BN_clear_free(ssh1_challenge);
-@@ -2099,6 +2130,7 @@ mm_answer_gss_userok(int sock, Buffer *m
+@@ -2099,6 +2131,7 @@ mm_answer_gss_userok(int sock, Buffer *m
  	mm_request_send(sock, MONITOR_ANS_GSSUSEROK, m);
  
  	auth_method = "gssapi-with-mic";
@@ -698,7 +698,7 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  
  	/* Monitor loop will terminate if authenticated */
  	return (authenticated);
-@@ -2303,6 +2335,7 @@ mm_answer_jpake_check_confirm(int sock, 
+@@ -2303,6 +2336,7 @@ mm_answer_jpake_check_confirm(int sock, 
  	monitor_permit(mon_dispatch, MONITOR_REQ_JPAKE_STEP1, 1);
  
  	auth_method = "jpake-01@openssh.com";
@@ -707,8 +707,8 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  }
  
 diff -up openssh-5.9p1/servconf.c.required-authentication openssh-5.9p1/servconf.c
---- openssh-5.9p1/servconf.c.required-authentication	2012-02-06 17:03:51.024963230 +0100
-+++ openssh-5.9p1/servconf.c	2012-02-06 17:03:55.102929716 +0100
+--- openssh-5.9p1/servconf.c.required-authentication	2012-03-30 18:37:59.981184513 +0200
++++ openssh-5.9p1/servconf.c	2012-03-30 18:38:04.558121635 +0200
 @@ -42,6 +42,8 @@
  #include "key.h"
  #include "kex.h"
@@ -752,12 +752,12 @@ diff -up openssh-5.9p1/servconf.c.required-authentication openssh-5.9p1/servconf
 +	case sRequiredAuthentications1:
 +		charptr = &options->required_auth1;
 +		arg = strdelim(&cp);
-+		if (auth1_check_required(arg) != 0)
-+			fatal("%.200s line %d: Invalid required authentication "
-+			    "list", filename, linenum);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing argument.",
 +			    filename, linenum);
++		if (auth1_check_required(arg) != 0)
++			fatal("%.200s line %d: Invalid required authentication "
++			    "list", filename, linenum);
 +		if (*charptr == NULL)
 +			*charptr = xstrdup(arg);
 +		break;
@@ -765,12 +765,12 @@ diff -up openssh-5.9p1/servconf.c.required-authentication openssh-5.9p1/servconf
 +	case sRequiredAuthentications2:
 +		charptr = &options->required_auth2;
 +		arg = strdelim(&cp);
-+		if (auth2_check_required(arg) != 0)
-+			fatal("%.200s line %d: Invalid required authentication "
-+			    "list", filename, linenum);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing argument.",
 +			    filename, linenum);
++		if (auth2_check_required(arg) != 0)
++			fatal("%.200s line %d: Invalid required authentication "
++			    "list", filename, linenum);
 +		if (*charptr == NULL)
 +			*charptr = xstrdup(arg);
 +		break;
@@ -780,7 +780,7 @@ diff -up openssh-5.9p1/servconf.c.required-authentication openssh-5.9p1/servconf
  		goto parse_int;
 diff -up openssh-5.9p1/servconf.h.required-authentication openssh-5.9p1/servconf.h
 --- openssh-5.9p1/servconf.h.required-authentication	2011-06-23 00:30:03.000000000 +0200
-+++ openssh-5.9p1/servconf.h	2012-02-06 17:03:55.102929716 +0100
++++ openssh-5.9p1/servconf.h	2012-03-30 18:38:00.009184624 +0200
 @@ -154,6 +154,9 @@ typedef struct {
  	u_int num_authkeys_files;	/* Files containing public keys */
  	char   *authorized_keys_files[MAX_AUTHKEYS_FILES];
@@ -793,7 +793,7 @@ diff -up openssh-5.9p1/servconf.h.required-authentication openssh-5.9p1/servconf
  	int	use_pam;		/* Enable auth via PAM */
 diff -up openssh-5.9p1/sshd_config.5.required-authentication openssh-5.9p1/sshd_config.5
 --- openssh-5.9p1/sshd_config.5.required-authentication	2011-08-05 22:17:33.000000000 +0200
-+++ openssh-5.9p1/sshd_config.5	2012-02-06 17:09:39.038871798 +0100
++++ openssh-5.9p1/sshd_config.5	2012-03-30 18:38:00.009184624 +0200
 @@ -723,6 +723,8 @@ Available keywords are
  .Cm PermitOpen ,
  .Cm PermitRootLogin ,
@@ -803,7 +803,7 @@ diff -up openssh-5.9p1/sshd_config.5.required-authentication openssh-5.9p1/sshd_
  .Cm PubkeyAuthentication ,
  .Cm RhostsRSAAuthentication ,
  .Cm RSAAuthentication ,
-@@ -920,6 +937,21 @@ Specifies a list of revoked public keys.
+@@ -920,6 +922,21 @@ Specifies a list of revoked public keys.
  Keys listed in this file will be refused for public key authentication.
  Note that if this file is not readable, then public key authentication will
  be refused for all users.
