@@ -81,7 +81,7 @@ diff -u -p -r1.9 port-linux.c
  
  	debug3("%s", __func__);
 -	if (oom_adj_save == INT_MIN || (fp = fopen(OOM_ADJ_PATH, "w")) == NULL)
-+	if (oom_adj_save == INT_MIN || oom_adj_save == NULL ||
++	if (oom_adj_save == INT_MIN || oom_adj_path == NULL ||
 +	    (fp = fopen(oom_adj_path, "w")) == NULL)
  		return;
  
