@@ -32,12 +32,12 @@
 %global nologin 1
 
 %global openssh_ver 5.9p1
-%global openssh_rel 6
+%global openssh_rel 7
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -146,6 +146,8 @@ Patch711: openssh-5.9p1-log-usepam-no.patch
 Patch712: openssh-5.9p1-ctr-evp-fast.patch
 # add cavs test binary for the aes-ctr
 Patch713: openssh-5.9p1-ctr-cavstest.patch
+#https://bugzilla.redhat.com/show_bug.cgi?id=815993
+Patch714: openssh-5.9p1-null-xcrypt.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 Patch800: openssh-5.9p1-gsskex.patch
@@ -319,6 +321,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch711 -p1 -b .log-usepam-no
 %patch712 -p1 -b .evp-ctr
 %patch713 -p1 -b .ctr-cavs
+%patch714 -p0 -b .null-xcrypt
 
 %patch800 -p1 -b .gsskex
 %patch801 -p1 -b .force_krb
@@ -548,6 +551,9 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Mon Aug 13 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-7
+- Based on openssh-5.9p1-26.fc17
+
 * Thu Jul 19 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 5.9p1-6.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
 

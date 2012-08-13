@@ -1,40 +1,35 @@
-diff --git a/session.c b/session.c
-index 436ea48..49c9321 100644
---- a/session.c
-+++ b/session.c
-@@ -1561,6 +1561,13 @@ do_setusercontext(struct passwd *pw)
+diff -up openssh-5.9p1/session.c.privsep-selinux openssh-5.9p1/session.c
+--- openssh-5.9p1/session.c.privsep-selinux	2012-08-01 15:36:33.397565915 +0200
++++ openssh-5.9p1/session.c	2012-08-02 18:18:15.038094629 +0200
+@@ -1536,6 +1536,13 @@ do_setusercontext(struct passwd *pw)
+ 		/* Permanently switch to the desired uid. */
+ 		permanently_set_uid(pw);
  #endif
++
++#ifdef WITH_SELINUX
++		if (options.chroot_directory == NULL ||
++		    strcasecmp(options.chroot_directory, "none") == 0) {
++			ssh_selinux_copy_context();
++		}
++#endif
  	}
  
+ 	if (getuid() != pw->pw_uid || geteuid() != pw->pw_uid)
+diff -up openssh-5.9p1/sshd.c.privsep-selinux openssh-5.9p1/sshd.c
+--- openssh-5.9p1/sshd.c.privsep-selinux	2012-08-01 16:09:22.949423356 +0200
++++ openssh-5.9p1/sshd.c	2012-08-02 18:07:22.912225684 +0200
+@@ -790,6 +790,14 @@ privsep_postauth(Authctxt *authctxt)
+ 	do_setusercontext(authctxt->pw);
+ 
+  skip:
 +#ifdef WITH_SELINUX
-+	if (options.chroot_directory == NULL ||
-+	    strcasecmp(options.chroot_directory, "none") == 0) {
++	/* switch SELinux content for root too */
++	if (authctxt->pw->pw_uid == 0 && (options.chroot_directory == NULL ||
++	    strcasecmp(options.chroot_directory, "none") == 0)) {
 +		ssh_selinux_copy_context();
 +	}
 +#endif
 +
- 	if (getuid() != pw->pw_uid || geteuid() != pw->pw_uid)
- 		fatal("Failed to set uids to %u.", (u_int) pw->pw_uid);
- }
-@@ -1670,7 +1677,9 @@ do_child(Session *s, const char *command
- 		/* When PAM is enabled we rely on it to do the nologin check */
- 		if (!options.use_pam)
- 			do_nologin(pw);
--		do_setusercontext(pw);
-+		/* We are already separated */
-+		if (!use_privsep)
-+			do_setusercontext(pw);
- 		/*
- 		 * PAM session modules in do_setusercontext may have
- 		 * generated messages, so if this in an interactive
-@@ -1791,8 +1800,8 @@ do_child(Session *s, const char *command
- 		optind = optreset = 1;
- 		__progname = argv[0];
- #ifdef WITH_SELINUX
--		if (options.chroot_directory == NULL ||
--		    strcasecmp(options.chroot_directory, "none") == 0) {
-+		if (!use_privsep &&
-+		    (options.chroot_directory == NULL || strcasecmp(options.chroot_directory, "none") == 0)) {
- 			ssh_selinux_copy_context();
- 		}
- #endif
+ 	/* It is safe now to apply the key state */
+ 	monitor_apply_keystate(pmonitor);
+ 
