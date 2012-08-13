@@ -1,7 +1,7 @@
-diff -up openssh-5.9p0/audit-bsm.c.audit1 openssh-5.9p0/audit-bsm.c
---- openssh-5.9p0/audit-bsm.c.audit1	2011-01-17 11:15:29.000000000 +0100
-+++ openssh-5.9p0/audit-bsm.c	2011-08-30 10:46:57.704148875 +0200
-@@ -298,10 +298,23 @@ audit_connection_from(const char *host,
+diff -up openssh-6.0p1/audit-bsm.c.audit1 openssh-6.0p1/audit-bsm.c
+--- openssh-6.0p1/audit-bsm.c.audit1	2012-02-24 00:40:43.000000000 +0100
++++ openssh-6.0p1/audit-bsm.c	2012-08-06 20:33:24.416382804 +0200
+@@ -375,10 +375,23 @@ audit_connection_from(const char *host,
  #endif
  }
  
@@ -26,9 +26,78 @@ diff -up openssh-5.9p0/audit-bsm.c.audit1 openssh-5.9p0/audit-bsm.c
  }
  
  void
-diff -up openssh-5.9p0/audit-linux.c.audit1 openssh-5.9p0/audit-linux.c
---- openssh-5.9p0/audit-linux.c.audit1	2011-01-17 11:15:30.000000000 +0100
-+++ openssh-5.9p0/audit-linux.c	2011-08-30 10:46:58.059024733 +0200
+diff -up openssh-6.0p1/audit.c.audit1 openssh-6.0p1/audit.c
+--- openssh-6.0p1/audit.c.audit1	2011-01-17 11:15:30.000000000 +0100
++++ openssh-6.0p1/audit.c	2012-08-06 20:33:24.417382801 +0200
+@@ -140,6 +140,17 @@ audit_event(ssh_audit_event_t event)
+ }
+ 
+ /*
++ * Called when a child process has called, or will soon call,
++ * audit_session_open.
++ */
++void
++audit_count_session_open(void)
++{
++	debug("audit count session open euid %d user %s", geteuid(),
++	      audit_username());
++}
++
++/*
+  * Called when a user session is started.  Argument is the tty allocated to
+  * the session, or NULL if no tty was allocated.
+  *
+@@ -174,13 +185,29 @@ audit_session_close(struct logininfo *li
+ /*
+  * This will be called when a user runs a non-interactive command.  Note that
+  * it may be called multiple times for a single connection since SSH2 allows
+- * multiple sessions within a single connection.
++ * multiple sessions within a single connection.  Returns a "handle" for
++ * audit_end_command.
+  */
+-void
++int
+ audit_run_command(const char *command)
+ {
+ 	debug("audit run command euid %d user %s command '%.200s'", geteuid(),
+ 	    audit_username(), command);
++	return 0;
++}
++
++/*
++ * This will be called when the non-interactive command finishes.  Note that
++ * it may be called multiple times for a single connection since SSH2 allows
++ * multiple sessions within a single connection.  "handle" should come from
++ * the corresponding audit_run_command.
++ */
++void
++audit_end_command(int handle, const char *command)
++{
++	debug("audit end nopty exec  euid %d user %s command '%.200s'", geteuid(),
++	    audit_username(), command);
+ }
++
+ # endif  /* !defined CUSTOM_SSH_AUDIT_EVENTS */
+ #endif /* SSH_AUDIT_EVENTS */
+diff -up openssh-6.0p1/audit.h.audit1 openssh-6.0p1/audit.h
+--- openssh-6.0p1/audit.h.audit1	2011-01-17 11:15:30.000000000 +0100
++++ openssh-6.0p1/audit.h	2012-08-06 20:33:24.417382801 +0200
+@@ -49,9 +49,11 @@ typedef enum ssh_audit_event_type ssh_au
+ 
+ void	audit_connection_from(const char *, int);
+ void	audit_event(ssh_audit_event_t);
++void	audit_count_session_open(void);
+ void	audit_session_open(struct logininfo *);
+ void	audit_session_close(struct logininfo *);
+-void	audit_run_command(const char *);
++int	audit_run_command(const char *);
++void 	audit_end_command(int, const char *);
+ ssh_audit_event_t audit_classify_auth(const char *);
+ 
+ #endif /* _SSH_AUDIT_H */
+diff -up openssh-6.0p1/audit-linux.c.audit1 openssh-6.0p1/audit-linux.c
+--- openssh-6.0p1/audit-linux.c.audit1	2011-01-17 11:15:30.000000000 +0100
++++ openssh-6.0p1/audit-linux.c	2012-08-06 20:33:24.416382804 +0200
 @@ -35,13 +35,20 @@
  
  #include "log.h"
@@ -244,78 +313,9 @@ diff -up openssh-5.9p0/audit-linux.c.audit1 openssh-5.9p0/audit-linux.c
  		break;
  
  	default:
-diff -up openssh-5.9p0/audit.c.audit1 openssh-5.9p0/audit.c
---- openssh-5.9p0/audit.c.audit1	2011-01-17 11:15:30.000000000 +0100
-+++ openssh-5.9p0/audit.c	2011-08-30 10:46:57.822025769 +0200
-@@ -140,6 +140,17 @@ audit_event(ssh_audit_event_t event)
- }
- 
- /*
-+ * Called when a child process has called, or will soon call,
-+ * audit_session_open.
-+ */
-+void
-+audit_count_session_open(void)
-+{
-+	debug("audit count session open euid %d user %s", geteuid(),
-+	      audit_username());
-+}
-+
-+/*
-  * Called when a user session is started.  Argument is the tty allocated to
-  * the session, or NULL if no tty was allocated.
-  *
-@@ -174,13 +185,29 @@ audit_session_close(struct logininfo *li
- /*
-  * This will be called when a user runs a non-interactive command.  Note that
-  * it may be called multiple times for a single connection since SSH2 allows
-- * multiple sessions within a single connection.
-+ * multiple sessions within a single connection.  Returns a "handle" for
-+ * audit_end_command.
-  */
--void
-+int
- audit_run_command(const char *command)
- {
- 	debug("audit run command euid %d user %s command '%.200s'", geteuid(),
- 	    audit_username(), command);
-+	return 0;
-+}
-+
-+/*
-+ * This will be called when the non-interactive command finishes.  Note that
-+ * it may be called multiple times for a single connection since SSH2 allows
-+ * multiple sessions within a single connection.  "handle" should come from
-+ * the corresponding audit_run_command.
-+ */
-+void
-+audit_end_command(int handle, const char *command)
-+{
-+	debug("audit end nopty exec  euid %d user %s command '%.200s'", geteuid(),
-+	    audit_username(), command);
- }
-+
- # endif  /* !defined CUSTOM_SSH_AUDIT_EVENTS */
- #endif /* SSH_AUDIT_EVENTS */
-diff -up openssh-5.9p0/audit.h.audit1 openssh-5.9p0/audit.h
---- openssh-5.9p0/audit.h.audit1	2011-01-17 11:15:30.000000000 +0100
-+++ openssh-5.9p0/audit.h	2011-08-30 10:46:57.952035525 +0200
-@@ -49,9 +49,11 @@ typedef enum ssh_audit_event_type ssh_au
- 
- void	audit_connection_from(const char *, int);
- void	audit_event(ssh_audit_event_t);
-+void	audit_count_session_open(void);
- void	audit_session_open(struct logininfo *);
- void	audit_session_close(struct logininfo *);
--void	audit_run_command(const char *);
-+int	audit_run_command(const char *);
-+void 	audit_end_command(int, const char *);
- ssh_audit_event_t audit_classify_auth(const char *);
- 
- #endif /* _SSH_AUDIT_H */
-diff -up openssh-5.9p0/monitor.c.audit1 openssh-5.9p0/monitor.c
---- openssh-5.9p0/monitor.c.audit1	2011-08-05 22:15:18.000000000 +0200
-+++ openssh-5.9p0/monitor.c	2011-08-30 10:50:47.074038891 +0200
+diff -up openssh-6.0p1/monitor.c.audit1 openssh-6.0p1/monitor.c
+--- openssh-6.0p1/monitor.c.audit1	2012-08-06 20:33:24.410382828 +0200
++++ openssh-6.0p1/monitor.c	2012-08-06 20:33:24.418382797 +0200
 @@ -185,6 +185,7 @@ int mm_answer_gss_checkmic(int, Buffer *
  #ifdef SSH_AUDIT_EVENTS
  int mm_answer_audit_event(int, Buffer *);
@@ -324,7 +324,7 @@ diff -up openssh-5.9p0/monitor.c.audit1 openssh-5.9p0/monitor.c
  #endif
  
  static int monitor_read_log(struct monitor *);
-@@ -271,6 +272,7 @@ struct mon_table mon_dispatch_postauth20
+@@ -272,6 +273,7 @@ struct mon_table mon_dispatch_postauth20
  #ifdef SSH_AUDIT_EVENTS
      {MONITOR_REQ_AUDIT_EVENT, MON_PERMIT, mm_answer_audit_event},
      {MONITOR_REQ_AUDIT_COMMAND, MON_PERMIT, mm_answer_audit_command},
@@ -332,7 +332,7 @@ diff -up openssh-5.9p0/monitor.c.audit1 openssh-5.9p0/monitor.c
  #endif
      {0, 0, NULL}
  };
-@@ -313,6 +315,7 @@ struct mon_table mon_dispatch_postauth15
+@@ -314,6 +316,7 @@ struct mon_table mon_dispatch_postauth15
  #ifdef SSH_AUDIT_EVENTS
      {MONITOR_REQ_AUDIT_EVENT, MON_PERMIT, mm_answer_audit_event},
      {MONITOR_REQ_AUDIT_COMMAND, MON_PERMIT|MON_ONCE, mm_answer_audit_command},
@@ -340,7 +340,7 @@ diff -up openssh-5.9p0/monitor.c.audit1 openssh-5.9p0/monitor.c
  #endif
      {0, 0, NULL}
  };
-@@ -1398,6 +1401,12 @@ mm_session_close(Session *s)
+@@ -1427,6 +1430,12 @@ mm_session_close(Session *s)
  		debug3("%s: tty %s ptyfd %d", __func__, s->tty, s->ptyfd);
  		session_pty_cleanup2(s);
  	}
@@ -353,7 +353,7 @@ diff -up openssh-5.9p0/monitor.c.audit1 openssh-5.9p0/monitor.c
  	session_unused(s->self);
  }
  
-@@ -1720,11 +1729,44 @@ mm_answer_audit_command(int socket, Buff
+@@ -1751,11 +1760,44 @@ mm_answer_audit_command(int socket, Buff
  {
  	u_int len;
  	char *cmd;
@@ -399,9 +399,9 @@ diff -up openssh-5.9p0/monitor.c.audit1 openssh-5.9p0/monitor.c
  	xfree(cmd);
  	return (0);
  }
-diff -up openssh-5.9p0/monitor.h.audit1 openssh-5.9p0/monitor.h
---- openssh-5.9p0/monitor.h.audit1	2011-06-20 06:42:23.000000000 +0200
-+++ openssh-5.9p0/monitor.h	2011-08-30 10:46:58.392112520 +0200
+diff -up openssh-6.0p1/monitor.h.audit1 openssh-6.0p1/monitor.h
+--- openssh-6.0p1/monitor.h.audit1	2011-06-20 06:42:23.000000000 +0200
++++ openssh-6.0p1/monitor.h	2012-08-06 20:33:24.418382797 +0200
 @@ -60,6 +60,7 @@ enum monitor_reqtype {
  	MONITOR_REQ_PAM_RESPOND, MONITOR_ANS_PAM_RESPOND,
  	MONITOR_REQ_PAM_FREE_CTX, MONITOR_ANS_PAM_FREE_CTX,
@@ -410,9 +410,9 @@ diff -up openssh-5.9p0/monitor.h.audit1 openssh-5.9p0/monitor.h
  	MONITOR_REQ_TERM,
  	MONITOR_REQ_JPAKE_STEP1, MONITOR_ANS_JPAKE_STEP1,
  	MONITOR_REQ_JPAKE_GET_PWDATA, MONITOR_ANS_JPAKE_GET_PWDATA,
-diff -up openssh-5.9p0/monitor_wrap.c.audit1 openssh-5.9p0/monitor_wrap.c
---- openssh-5.9p0/monitor_wrap.c.audit1	2011-06-20 06:42:23.000000000 +0200
-+++ openssh-5.9p0/monitor_wrap.c	2011-08-30 10:46:58.505031574 +0200
+diff -up openssh-6.0p1/monitor_wrap.c.audit1 openssh-6.0p1/monitor_wrap.c
+--- openssh-6.0p1/monitor_wrap.c.audit1	2012-08-06 20:33:24.384382930 +0200
++++ openssh-6.0p1/monitor_wrap.c	2012-08-06 20:33:24.419382793 +0200
 @@ -1188,10 +1188,11 @@ mm_audit_event(ssh_audit_event_t event)
  	buffer_free(&m);
  }
@@ -453,9 +453,9 @@ diff -up openssh-5.9p0/monitor_wrap.c.audit1 openssh-5.9p0/monitor_wrap.c
  	buffer_free(&m);
  }
  #endif /* SSH_AUDIT_EVENTS */
-diff -up openssh-5.9p0/monitor_wrap.h.audit1 openssh-5.9p0/monitor_wrap.h
---- openssh-5.9p0/monitor_wrap.h.audit1	2011-06-20 06:42:23.000000000 +0200
-+++ openssh-5.9p0/monitor_wrap.h	2011-08-30 10:46:58.616212835 +0200
+diff -up openssh-6.0p1/monitor_wrap.h.audit1 openssh-6.0p1/monitor_wrap.h
+--- openssh-6.0p1/monitor_wrap.h.audit1	2011-06-20 06:42:23.000000000 +0200
++++ openssh-6.0p1/monitor_wrap.h	2012-08-06 20:33:24.419382793 +0200
 @@ -74,7 +74,8 @@ void mm_sshpam_free_ctx(void *);
  #ifdef SSH_AUDIT_EVENTS
  #include "audit.h"
@@ -466,9 +466,9 @@ diff -up openssh-5.9p0/monitor_wrap.h.audit1 openssh-5.9p0/monitor_wrap.h
  #endif
  
  struct Session;
-diff -up openssh-5.9p0/session.c.audit1 openssh-5.9p0/session.c
---- openssh-5.9p0/session.c.audit1	2011-05-20 03:23:10.000000000 +0200
-+++ openssh-5.9p0/session.c	2011-08-30 10:46:58.756024849 +0200
+diff -up openssh-6.0p1/session.c.audit1 openssh-6.0p1/session.c
+--- openssh-6.0p1/session.c.audit1	2011-11-04 00:55:24.000000000 +0100
++++ openssh-6.0p1/session.c	2012-08-06 20:33:24.420382789 +0200
 @@ -742,6 +742,14 @@ do_exec_pty(Session *s, const char *comm
  	/* Parent.  Close the slave side of the pseudo tty. */
  	close(ttyfd);
@@ -599,9 +599,9 @@ diff -up openssh-5.9p0/session.c.audit1 openssh-5.9p0/session.c
 -		session_destroy_all(session_pty_cleanup2);
 +		session_destroy_all(do_cleanup_one_session);
  }
-diff -up openssh-5.9p0/session.h.audit1 openssh-5.9p0/session.h
---- openssh-5.9p0/session.h.audit1	2008-05-19 07:34:50.000000000 +0200
-+++ openssh-5.9p0/session.h	2011-08-30 10:46:58.884024597 +0200
+diff -up openssh-6.0p1/session.h.audit1 openssh-6.0p1/session.h
+--- openssh-6.0p1/session.h.audit1	2008-05-19 07:34:50.000000000 +0200
++++ openssh-6.0p1/session.h	2012-08-06 20:33:24.420382789 +0200
 @@ -60,6 +60,12 @@ struct Session {
  		char	*name;
  		char	*val;
@@ -626,11 +626,11 @@ diff -up openssh-5.9p0/session.h.audit1 openssh-5.9p0/session.h
  Session	*session_by_tty(char *);
  void	 session_close(Session *);
  void	 do_setusercontext(struct passwd *);
-diff -up openssh-5.9p0/sshd.c.audit1 openssh-5.9p0/sshd.c
---- openssh-5.9p0/sshd.c.audit1	2011-06-23 11:45:51.000000000 +0200
-+++ openssh-5.9p0/sshd.c	2011-08-30 10:46:59.009025421 +0200
-@@ -2364,7 +2364,8 @@ cleanup_exit(int i)
- 		do_cleanup(the_authctxt);
+diff -up openssh-6.0p1/sshd.c.audit1 openssh-6.0p1/sshd.c
+--- openssh-6.0p1/sshd.c.audit1	2012-08-06 20:33:24.392382898 +0200
++++ openssh-6.0p1/sshd.c	2012-08-06 20:33:24.421382785 +0200
+@@ -2381,7 +2381,8 @@ cleanup_exit(int i)
+ 	}
  #ifdef SSH_AUDIT_EVENTS
  	/* done after do_cleanup so it can cancel the PAM auth 'thread' */
 -	if (!use_privsep || mm_is_monitor())
