@@ -1,0 +1,164 @@
+--- a/configure.ac	
++++ a/configure.ac	
+@@ -613,6 +613,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
+ 		if it doesn't return EOPNOTSUPP.])
+ 	AC_DEFINE(_PATH_BTMP, "/var/log/btmp", [log for bad login attempts])
+ 	AC_DEFINE(USE_BTMP)
++	AC_DEFINE(LINUX_OOM_ADJUST, 1, [Adjust Linux out-of-memory killer])
+ 	inet6_default_4in6=yes
+ 	case `uname -r` in
+ 	1.*|2.0.*)
+--- a/openbsd-compat/port-linux.c	
++++ a/openbsd-compat/port-linux.c	
+@@ -27,8 +27,15 @@ 
+ #include <stdarg.h>
+ #include <string.h>
+ 
+-#ifdef WITH_SELINUX
++#if defined(LINUX_OOM_ADJUST) || defined(WITH_SELINUX)
+ #include "log.h"
++#endif
++
++#ifdef LINUX_OOM_ADJUST
++#include <stdio.h>
++#endif
++
++#ifdef WITH_SELINUX
+ #include "port-linux.h"
+ #include "key.h"
+ #include "hostfile.h"
+@@ -537,3 +544,76 @@ ssh_selinux_copy_context(void)
+ 	xfree(ctx);
+ }
+ #endif /* WITH_SELINUX */
++
++#ifdef LINUX_OOM_ADJUST
++/*
++ * The magic "don't kill me" values, old and new, as documented in eg:
++ * http://lxr.linux.no/#linux+v2.6.36/Documentation/filesystems/proc.txt
++ */
++
++static int oom_adj_save = INT_MIN;
++static char *oom_adj_path = NULL;
++struct {
++       char *path;
++       int value;
++} oom_adjust[] = {
++       {"/proc/self/oom_score_adj", -1000},    /* kernels >= 2.6.36 */
++       {"/proc/self/oom_adj", -17},            /* kernels <= 2.6.35 */
++       {NULL, 0},
++};
++
++
++/*
++ * Tell the kernel's out-of-memory killer to avoid sshd.
++ * Returns the previous oom_adj value or zero.
++ */
++void
++oom_adjust_setup(void)
++{
++	int i, value;
++	FILE *fp;
++
++	debug3("%s", __func__);
++	for (i = 0; oom_adjust[i].path != NULL; i++) {
++	       oom_adj_path = oom_adjust[i].path;
++	       value = oom_adjust[i].value;
++	       if ((fp = fopen(oom_adj_path, "r+")) != NULL) {
++		       if (fscanf(fp, "%d", &oom_adj_save) != 1)
++			       verbose("error reading %s: %s", oom_adj_path,
++				   strerror(errno));
++		       else {
++			       rewind(fp);
++			       if (fprintf(fp, "%d\n", value) <= 0)
++				       verbose("error writing %s: %s",
++					  oom_adj_path, strerror(errno));
++			       else
++				       verbose("Set %s from %d to %d",
++					  oom_adj_path, oom_adj_save, value);
++		       }
++		       fclose(fp);
++		       return;
++		}
++	}
++	oom_adj_path = NULL;
++}
++
++/* Restore the saved OOM adjustment */
++void
++oom_adjust_restore(void)
++{
++	FILE *fp;
++
++	debug3("%s", __func__);
++	if (oom_adj_save == INT_MIN || oom_adj_path == NULL ||
++	    (fp = fopen(oom_adj_path, "w")) == NULL)
++		return;
++
++	if (fprintf(fp, "%d\n", oom_adj_save) <= 0)
++		verbose("error writing %s: %s", oom_adj_path, strerror(errno));
++	else
++		verbose("Set %s to %d", oom_adj_path, oom_adj_save);
++
++	fclose(fp);
++	return;
++}
++#endif
+--- a/openbsd-compat/port-linux.h	
++++ a/openbsd-compat/port-linux.h	
+@@ -27,4 +27,9 @@ void ssh_selinux_change_context(const char *);
+ void ssh_selinux_chopy_context(void);
+ #endif
+ 
++#ifdef LINUX_OOM_ADJUST
++void oom_adjust_restore(void);
++void oom_adjust_setup(void);
++#endif
++
+ #endif /* ! _PORT_LINUX_H */
+--- a/platform.c	
++++ a/platform.c	
+@@ -22,6 +22,15 @@ 
+ #include "openbsd-compat/openbsd-compat.h"
+ 
+ void
++platform_pre_listen(void)
++{
++#ifdef LINUX_OOM_ADJUST
++	/* Adjust out-of-memory killer so listening process is not killed */
++	oom_adjust_setup();
++#endif
++}
++
++void
+ platform_pre_fork(void)
+ {
+ #ifdef USE_SOLARIS_PROCESS_CONTRACTS
+@@ -43,4 +52,7 @@ platform_post_fork_child(void)
+ #ifdef USE_SOLARIS_PROCESS_CONTRACTS
+ 	solaris_contract_post_fork_child();
+ #endif
++#ifdef LINUX_OOM_ADJUST
++	oom_adjust_restore();
++#endif
+ }
+--- a/platform.h	
++++ a/platform.h	
+@@ -18,6 +18,7 @@ 
+ 
+ #include <sys/types.h>
+ 
++void platform_pre_listen(void);
+ void platform_pre_fork(void);
+ void platform_post_fork_parent(pid_t child_pid);
+ void platform_post_fork_child(void);
+--- a/sshd.c	
++++ a/sshd.c	
+@@ -1746,6 +1746,7 @@ main(int ac, char **av)
+ 	if (inetd_flag) {
+ 		server_accept_inetd(&sock_in, &sock_out);
+ 	} else {
++		platform_pre_listen();
+ 		server_listen();
+ 
+ 		if (options.protocol & SSH_PROTO_1)

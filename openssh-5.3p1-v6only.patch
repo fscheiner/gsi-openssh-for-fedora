@@ -1,0 +1,18 @@
+diff -up openssh-5.3p1/channels.c.v6only openssh-5.3p1/channels.c
+--- openssh-5.3p1/channels.c.v6only	2012-04-26 11:12:22.306701457 +0200
++++ openssh-5.3p1/channels.c	2012-04-26 11:13:40.962041896 +0200
+@@ -2599,7 +2599,13 @@ channel_setup_fwd_listener(int type, con
+ 			verbose("socket: %.100s", strerror(errno));
+ 			continue;
+ 		}
+-
++#ifdef IPV6_V6ONLY
++		if (ai->ai_family == AF_INET6) {
++			int on = 1;
++			if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) < 0)
++				error("setsockopt IPV6_V6ONLY: %.100s", strerror(errno));
++		}
++#endif
+ 		channel_set_reuseaddr(sock);
+ 
+ 		debug("Local forwarding listening on %s port %s.",

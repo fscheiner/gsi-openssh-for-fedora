@@ -1,6 +1,6 @@
 diff -up openssh-5.3p1/channels.c.sftp-chroot openssh-5.3p1/channels.c
---- openssh-5.3p1/channels.c.sftp-chroot	2011-08-25 22:56:05.097081555 +0200
-+++ openssh-5.3p1/channels.c	2011-08-25 22:56:17.284027242 +0200
+--- openssh-5.3p1/channels.c.sftp-chroot	2012-05-14 15:07:37.162692861 +0200
++++ openssh-5.3p1/channels.c	2012-05-14 15:07:37.223697550 +0200
 @@ -839,8 +839,9 @@ channel_pre_open(Channel *c, fd_set *rea
  		if (c->extended_usage == CHAN_EXTENDED_WRITE &&
  		    buffer_len(&c->extended) > 0)
@@ -40,9 +40,9 @@ diff -up openssh-5.3p1/channels.c.sftp-chroot openssh-5.3p1/channels.c
  		}
  	}
 diff -up openssh-5.3p1/openbsd-compat/port-linux.c.sftp-chroot openssh-5.3p1/openbsd-compat/port-linux.c
---- openssh-5.3p1/openbsd-compat/port-linux.c.sftp-chroot	2011-08-25 22:56:16.941023541 +0200
-+++ openssh-5.3p1/openbsd-compat/port-linux.c	2011-08-25 22:56:17.445026125 +0200
-@@ -519,4 +519,21 @@ ssh_selinux_change_context(const char *n
+--- openssh-5.3p1/openbsd-compat/port-linux.c.sftp-chroot	2012-05-14 15:07:37.220691904 +0200
++++ openssh-5.3p1/openbsd-compat/port-linux.c	2012-05-14 15:09:21.246692262 +0200
+@@ -519,4 +519,24 @@ ssh_selinux_change_context(const char *n
  	xfree(oldctx);
  	xfree(newctx);
  }
@@ -59,14 +59,17 @@ diff -up openssh-5.3p1/openbsd-compat/port-linux.c.sftp-chroot openssh-5.3p1/ope
 +		logit("%s: getcon failed with %s", __func__, strerror (errno));
 +		return;
 +	}
++	if (ctx == NULL)
++		return;
++
 +	if (setcon(ctx) < 0)
 +		logit("%s: setcon failed with %s", __func__, strerror (errno));
 +	xfree(ctx);
 +}
  #endif /* WITH_SELINUX */
 diff -up openssh-5.3p1/openbsd-compat/port-linux.h.sftp-chroot openssh-5.3p1/openbsd-compat/port-linux.h
---- openssh-5.3p1/openbsd-compat/port-linux.h.sftp-chroot	2011-08-25 22:55:48.496222543 +0200
-+++ openssh-5.3p1/openbsd-compat/port-linux.h	2011-08-25 22:56:17.603031980 +0200
+--- openssh-5.3p1/openbsd-compat/port-linux.h.sftp-chroot	2012-05-14 15:07:37.072823237 +0200
++++ openssh-5.3p1/openbsd-compat/port-linux.h	2012-05-14 15:07:37.224698177 +0200
 @@ -24,6 +24,7 @@ int ssh_selinux_enabled(void);
  void ssh_selinux_setup_pty(char *, const char *);
  void ssh_selinux_setup_exec_context(char *);
@@ -76,8 +79,8 @@ diff -up openssh-5.3p1/openbsd-compat/port-linux.h.sftp-chroot openssh-5.3p1/ope
  
  #endif /* ! _PORT_LINUX_H */
 diff -up openssh-5.3p1/session.c.sftp-chroot openssh-5.3p1/session.c
---- openssh-5.3p1/session.c.sftp-chroot	2011-08-25 22:56:11.262030419 +0200
-+++ openssh-5.3p1/session.c	2011-08-26 10:01:26.419149592 +0200
+--- openssh-5.3p1/session.c.sftp-chroot	2012-05-14 15:07:37.192692480 +0200
++++ openssh-5.3p1/session.c	2012-05-14 15:07:37.225697525 +0200
 @@ -105,7 +105,7 @@
  /* func */
  

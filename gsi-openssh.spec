@@ -37,7 +37,7 @@
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: 5.3p1
-Release: 5%{?dist}
+Release: 6%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.3p1-3
 URL: http://www.openssh.com/portable.html
@@ -66,7 +66,6 @@ Patch27: openssh-5.1p1-log-in-chroot.patch
 Patch30: openssh-4.0p1-exit-deadlock.patch
 Patch35: openssh-5.1p1-askpass-progress.patch
 Patch38: openssh-4.3p2-askpass-grab-info.patch
-Patch39: openssh-4.3p2-no-v6only.patch
 Patch44: openssh-5.2p1-allow-ip-opts.patch
 Patch49: openssh-4.3p2-gssapi-canohost.patch
 Patch51: openssh-5.3p1-nss-keys.patch
@@ -97,10 +96,22 @@ Patch91: openssh-5.3p1-manerr.patch
 Patch92: openssh-5.3p1-askpass-ld.patch
 # make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
 Patch93: openssh-5.3p1-ctr-evp-fast.patch
+# adjust Linux out-of-memory killer (#744236)
+Patch94: openssh-5.3p1-linux-oomkiller.patch
+# add RequiredAuthentications (#657378)
+Patch95: openssh-5.3p1-required-authentications.patch
+# run privsep slave process as the users SELinux context (#798241)
+Patch96: openssh-5.3p1-selinux-privsep.patch
+# don't escape backslah in a banner (#809619)
+Patch97: openssh-5.3p1-noslash.patch
+# prevent post-auth resource exhaustion (#809938)
+Patch98: openssh-5.3p1-prevent-post-auth-resource-exhaustion.patch
+# use IPV6_V6ONLY also for channels (#732955)
+Patch99: openssh-5.3p1-v6only.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
-Patch98: openssh-5.3p1-gsissh.patch
+Patch200: openssh-5.3p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -219,7 +230,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch30 -p1 -b .exit-deadlock
 %patch35 -p1 -b .progress
 %patch38 -p1 -b .grab-info
-%patch39 -p1 -b .no-v6only
 %patch44 -p1 -b .ip-opts
 %patch49 -p1 -b .canohost
 %patch51 -p1 -b .nss-keys
@@ -251,7 +261,14 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch91 -p1 -b .manerr
 %patch92 -p1 -b .askpass-ld
 %patch93 -p1 -b .evp-ctr
-%patch98 -p1 -b .gsi
+%patch94 -p1 -b .oom-killer
+%patch95 -p1 -b .required-authentication
+%patch96 -p1 -b .privsep
+%patch97 -p1 -b .noslash
+%patch98 -p1 -b .postauth-exhaustion
+%patch99 -p1 -b .v6only
+
+%patch200 -p1 -b .gsi
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
@@ -454,6 +471,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Tue Aug 14 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-6
+- Based on openssh-5.3p1-81.el6
+
 * Wed Feb 08 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-5
 - Based on openssh-5.3p1-70.el6_2.2
 

@@ -1,0 +1,21 @@
+commit 4927f76786f0db9cb2d7c9f49c3f58344fd234da
+Author: Jeffrey Bastian <jbastian@redhat.com>
+Date:   Tue Apr 3 14:19:40 2012 -0500
+
+    don't double up backslash in banner
+
+    http://www.openbsd.org/cgi-bin/cvsweb/src/usr.bin/ssh/sshconnect2.c.diff?r1=1.176;r2=1.177
+
+diff --git a/sshconnect2.c b/sshconnect2.c
+index 9d56120..8510367 100644
+--- a/sshconnect2.c
++++ b/sshconnect2.c
+@@ -483,7 +483,7 @@ input_userauth_banner(int type, u_int32_t seq, void *ctxt)
+ 		if (len > 65536)
+ 			len = 65536;
+ 		msg = xmalloc(len * 4 + 1); /* max expansion from strnvis() */
+-		strnvis(msg, raw, len * 4 + 1, VIS_SAFE|VIS_OCTAL);
++		strnvis(msg, raw, len * 4 + 1, VIS_SAFE|VIS_OCTAL|VIS_NOSLASH);
+ 		fprintf(stderr, "%s", msg);
+ 		xfree(msg);
+ 	}

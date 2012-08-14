@@ -33,7 +33,7 @@ diff -up openssh-5.3p1/ssh.c.selabel openssh-5.3p1/ssh.c
  #include "openbsd-compat/openssl-compat.h"
  #include "openbsd-compat/sys-queue.h"
  
-@@ -792,10 +793,17 @@ main(int ac, char **av)
+@@ -792,10 +793,15 @@ main(int ac, char **av)
  	 */
  	r = snprintf(buf, sizeof buf, "%s%s%s", pw->pw_dir,
  	    strcmp(pw->pw_dir, "/") ? "/" : "", _PATH_SSH_USER_DIR);
@@ -41,10 +41,8 @@ diff -up openssh-5.3p1/ssh.c.selabel openssh-5.3p1/ssh.c
 +	if (r > 0 && (size_t)r < sizeof(buf) && stat(buf, &st) < 0) {
 +		char *scon;
 +
-+		if (matchpathcon(buf, 0700, &scon) != -1) {
-+			setfscreatecon(scon);
-+			matchpathcon_fini();
-+		}
++		matchpathcon(buf, 0700, &scon);
++		setfscreatecon(scon);
  		if (mkdir(buf, 0700) < 0)
  			error("Could not create directory '%.200s'.", buf);
 -
