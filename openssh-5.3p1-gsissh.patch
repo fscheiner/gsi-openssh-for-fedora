@@ -2130,7 +2130,7 @@ diff -Nur openssh-5.3p1.orig/sshconnect2.c openssh-5.3p1/sshconnect2.c
 diff -Nur openssh-5.3p1.orig/sshd.8 openssh-5.3p1/sshd.8
 --- openssh-5.3p1.orig/sshd.8	2012-08-14 08:39:57.166580557 +0200
 +++ openssh-5.3p1/sshd.8	2012-08-14 08:41:07.495696234 +0200
-@@ -682,6 +682,43 @@
+@@ -682,6 +682,44 @@
  |1|JfKTdBh7rNbXkVAQCRp4OQoPfmI=|USECr3SWf1JUPsms5AqfD5QfxkM= ssh-rsa
  AAAA1234.....=
  .Ed
@@ -2171,6 +2171,7 @@ diff -Nur openssh-5.3p1.orig/sshd.8 openssh-5.3p1/sshd.8
 +.It Ev X509_USER_PROXY
 +Used for GSI authentication. Specifies a non-standard location for the
 +proxy credential to be used for authentication to the client.
++.El
  .Sh FILES
  .Bl -tag -width Ds -compact
  .It ~/.hushlogin
