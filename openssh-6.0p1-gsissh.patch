@@ -2121,7 +2121,7 @@ diff -Nur openssh-6.0p1.orig/sshconnect2.c openssh-6.0p1/sshconnect2.c
 diff -Nur openssh-6.0p1.orig/sshd.8 openssh-6.0p1/sshd.8
 --- openssh-6.0p1.orig/sshd.8	2012-08-13 19:04:08.528575057 +0200
 +++ openssh-6.0p1/sshd.8	2012-08-13 19:05:18.646695364 +0200
-@@ -760,6 +760,43 @@
+@@ -760,6 +760,44 @@
  # A CA key, accepted for any host in *.mydomain.com or *.mydomain.org
  @cert-authority *.mydomain.org,*.mydomain.com ssh-rsa AAAAB5W...
  .Ed
@@ -2162,6 +2162,7 @@ diff -Nur openssh-6.0p1.orig/sshd.8 openssh-6.0p1/sshd.8
 +.It Ev X509_USER_PROXY
 +Used for GSI authentication. Specifies a non-standard location for the
 +proxy credential to be used for authentication to the client.
++.El
  .Sh FILES
  .Bl -tag -width Ds -compact
  .It Pa ~/.hushlogin
@@ -2940,7 +2941,7 @@ diff -Nur openssh-6.0p1.orig/version.h openssh-6.0p1/version.h
 +#define KRB5_VERSION	""
 +#endif
 +
-+#define NCSA_VERSION	" GSI_GSSAPI_20110906"
++#define NCSA_VERSION	" GSI_GSSAPI_20120527"
 +
  #define SSH_VERSION	"OpenSSH_6.0"
  
