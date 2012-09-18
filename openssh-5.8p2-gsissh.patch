@@ -2128,7 +2128,7 @@ diff -Nur openssh-5.8p2.orig/sshconnect2.c openssh-5.8p2/sshconnect2.c
 diff -Nur openssh-5.8p2.orig/sshd.8 openssh-5.8p2/sshd.8
 --- openssh-5.8p2.orig/sshd.8	2011-08-10 21:30:02.996759605 +0200
 +++ openssh-5.8p2/sshd.8	2011-08-10 21:34:43.859767440 +0200
-@@ -754,6 +754,43 @@
+@@ -754,6 +754,44 @@
  # A CA key, accepted for any host in *.mydomain.com or *.mydomain.org
  @cert-authority *.mydomain.org,*.mydomain.com ssh-rsa AAAAB5W...
  .Ed
@@ -2169,6 +2169,7 @@ diff -Nur openssh-5.8p2.orig/sshd.8 openssh-5.8p2/sshd.8
 +.It Ev X509_USER_PROXY
 +Used for GSI authentication. Specifies a non-standard location for the
 +proxy credential to be used for authentication to the client.
++.El
  .Sh FILES
  .Bl -tag -width Ds -compact
  .It Pa ~/.hushlogin
