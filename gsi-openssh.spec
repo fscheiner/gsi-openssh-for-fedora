@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 6.1p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -81,8 +81,6 @@ Patch205: openssh-6.0p1-audit5.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
 Patch400: openssh-6.0p1-role-mls.patch
-#?
-Patch402: openssh-5.9p1-sftp-chroot.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=781634
 Patch404: openssh-6.1p1-privsep-selinux.patch
 
@@ -127,7 +125,7 @@ Patch705: openssh-5.1p1-scp-manpage.patch
 #?
 Patch706: openssh-5.8p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
-Patch707: openssh-5.9p1-redhat.patch
+Patch707: openssh-6.1p1-redhat.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
 Patch708: openssh-6.0p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
@@ -142,12 +140,11 @@ Patch712: openssh-5.9p1-ctr-evp-fast.patch
 Patch713: openssh-5.9p1-ctr-cavstest.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
+#changed cache storage type - #848228
 Patch800: openssh-6.1p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
 Patch801: openssh-5.8p2-force_krb.patch
-
-#?
-Patch900: openssh-5.8p1-gssapi-canohost.patch
+Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-6.1p1-kuserok.patch
 #---
@@ -225,7 +222,6 @@ Requires(postun): systemd-units
 # is not valid.  We can use %post because this particular %triggerun script
 # should fire just after this package is installed.
 Requires(post): systemd-sysv
-Requires(post): chkconfig
 
 %description
 SSH (Secure SHell) is a program for logging into and executing
@@ -276,7 +272,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 %if %{WITH_SELINUX}
 %patch400 -p1 -b .role-mls
-%patch402 -p1 -b .sftp-chroot
 %patch404 -p1 -b .privsep-selinux
 %endif
 
@@ -530,6 +525,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Thu Nov 01 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-2
+- Based on openssh-6.1p1-2.fc18
+
 * Tue Sep 18 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-1
 - Based on openssh-6.1p1-1.fc18
 
