@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 5.9p1
-%global openssh_rel 7
+%global openssh_rel 8
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -154,8 +154,7 @@ Patch800: openssh-5.9p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
 Patch801: openssh-5.8p2-force_krb.patch
 
-#?
-Patch900: openssh-5.8p1-gssapi-canohost.patch
+Patch900: openssh-5.9p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-5.9p1-kuserok.patch
 #---
@@ -373,8 +372,8 @@ fi
 	--libexecdir=%{_libexecdir}/gsissh \
 	--datadir=%{_datadir}/gsissh \
 	--with-tcp-wrappers \
-	--with-default-path=/usr/local/bin:/bin:/usr/bin \
-	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin \
+	--with-default-path=/usr/local/bin:/usr/bin \
+	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
 	--with-privsep-path=%{_var}/empty/gsisshd \
 	--enable-vendor-patchlevel="FC-%{version}-%{release}" \
 	--disable-strip \
@@ -551,6 +550,9 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Thu Nov 01 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-8
+- Based on openssh-5.9p1-27.fc17
+
 * Mon Aug 13 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-7
 - Based on openssh-5.9p1-26.fc17
 

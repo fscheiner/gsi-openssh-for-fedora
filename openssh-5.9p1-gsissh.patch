@@ -2068,7 +2068,7 @@ diff -Nur openssh-5.9p1.orig/sshconnect2.c openssh-5.9p1/sshconnect2.c
 +
  	if (options.gss_server_identity)
  		gss_host = options.gss_server_identity;
- 	else if (options.gss_trust_dns)
+ 	else if (options.gss_trust_dns) {
 @@ -935,6 +940,15 @@
  	xfree(lang);
  }
