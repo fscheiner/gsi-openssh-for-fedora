@@ -146,10 +146,8 @@ Patch69: openssh-5.8p2-askpass-ld.patch
 Patch70: openssh-5.8p2-copy-id-restorecon.patch
 # warn users for unsupported UsePAM=no
 Patch71: openssh-5.8p2-log-usepam-no.patch
-#---
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1604
-# sctp
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1873 => https://bugzilla.redhat.com/show_bug.cgi?id=668993
+#https://bugzilla.redhat.com/show_bug.cgi?id=841065
+Patch72: openssh-5.8p2-man-moduli.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.8p2.patch
@@ -311,6 +309,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch69 -p1 -b .askpass-ld
 %patch70 -p1 -b .restorecon
 %patch71 -p1 -b .log-usepam-no
+%patch72 -p1 -b .man-moduli
 %patch98 -p1 -b .gsi
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
