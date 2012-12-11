@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 6.1p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -64,7 +64,7 @@ Patch102: openssh-5.8p1-getaddrinfo.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1889
 Patch103: openssh-5.8p1-packet.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=983
-Patch104: openssh-6.1p1-required-authentications.patch
+Patch104: openssh-6.1p1-authenticationmethods.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 Patch200: openssh-5.8p1-audit0.patch
@@ -75,12 +75,12 @@ Patch202: openssh-5.9p1-audit2.patch
 # -"-
 Patch203: openssh-5.9p1-audit3.patch
 # -"-
-Patch204: openssh-6.0p1-audit4.patch
+Patch204: openssh-6.1p1-audit4.patch
 # -"-
 Patch205: openssh-6.0p1-audit5.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
-Patch400: openssh-6.0p1-role-mls.patch
+Patch400: openssh-6.1p1-role-mls.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=781634
 Patch404: openssh-6.1p1-privsep-selinux.patch
 
@@ -147,10 +147,10 @@ Patch801: openssh-5.8p2-force_krb.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-6.1p1-kuserok.patch
-#---
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1604
-# sctp
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1873 => https://bugzilla.redhat.com/show_bug.cgi?id=668993
+#https://bugzilla.redhat.com/show_bug.cgi?id=841065
+Patch902: openssh-6.1p1-man-moduli.patch
+# obsolete RequiredAuthentications options
+Patch903: openssh-6.1p1-required-authentications.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.1p1.patch
@@ -261,7 +261,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch101 -p1 -b .fingerprint
 %patch102 -p1 -b .getaddrinfo
 %patch103 -p1 -b .packet
-%patch104 -p1 -b .required-authentication
+%patch104 -p1 -b .authenticationmethods
 
 %patch200 -p1 -b .audit0
 %patch201 -p1 -b .audit1
@@ -311,6 +311,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
+%patch902 -p1 -b .man-moduli
+%patch903 -p1 -b .required-authentication
 
 %patch98 -p1 -b .gsi
 
@@ -363,7 +365,6 @@ fi
 	--disable-strip \
 	--without-zlib-version-check \
 	--with-ssl-engine \
-	--with-authorized-keys-command \
 	--with-ipaddr-display \
 %if %{ldap}
 	--with-ldap \
@@ -525,6 +526,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Mon Dec 10 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-3
+- Based on openssh-6.1p1-4.fc18
+
 * Thu Nov 01 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-2
 - Based on openssh-6.1p1-2.fc18
 

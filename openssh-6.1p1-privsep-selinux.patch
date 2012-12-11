@@ -1,14 +1,14 @@
 diff -up openssh-6.1p1/openbsd-compat/port-linux.c.privsep-selinux openssh-6.1p1/openbsd-compat/port-linux.c
---- openssh-6.1p1/openbsd-compat/port-linux.c.privsep-selinux	2012-10-12 13:35:03.715980297 +0200
-+++ openssh-6.1p1/openbsd-compat/port-linux.c	2012-10-12 13:35:03.719980279 +0200
-@@ -505,6 +505,23 @@ ssh_selinux_change_context(const char *n
+--- openssh-6.1p1/openbsd-compat/port-linux.c.privsep-selinux	2012-11-05 14:46:39.334809203 +0100
++++ openssh-6.1p1/openbsd-compat/port-linux.c	2012-11-05 14:54:32.614504884 +0100
+@@ -505,6 +505,25 @@ ssh_selinux_change_context(const char *n
  	xfree(newctx);
  }
  
 +void
 +ssh_selinux_copy_context(void)
 +{
-+	char *ctx;
++	security_context_t *ctx;
 +
 +	if (!ssh_selinux_enabled())
 +		return;
@@ -17,9 +17,11 @@ diff -up openssh-6.1p1/openbsd-compat/port-linux.c.privsep-selinux openssh-6.1p1
 +		logit("%s: getcon failed with %s", __func__, strerror (errno));
 +		return;
 +	}
-+	if (setcon(ctx) != 0)
-+		logit("%s: setcon failed with %s", __func__, strerror (errno));
-+	xfree(ctx);
++	if (ctx != NULL) {
++		if (setcon(ctx) != 0)
++			logit("%s: setcon failed with %s", __func__, strerror (errno));
++		freecon(ctx);
++	}
 +}
 +
  #endif /* WITH_SELINUX */
@@ -27,7 +29,7 @@ diff -up openssh-6.1p1/openbsd-compat/port-linux.c.privsep-selinux openssh-6.1p1
  #ifdef LINUX_OOM_ADJUST
 diff -up openssh-6.1p1/openbsd-compat/port-linux.h.privsep-selinux openssh-6.1p1/openbsd-compat/port-linux.h
 --- openssh-6.1p1/openbsd-compat/port-linux.h.privsep-selinux	2011-01-25 02:16:18.000000000 +0100
-+++ openssh-6.1p1/openbsd-compat/port-linux.h	2012-10-12 13:35:03.719980279 +0200
++++ openssh-6.1p1/openbsd-compat/port-linux.h	2012-11-05 14:46:39.339809234 +0100
 @@ -24,6 +24,7 @@ int ssh_selinux_enabled(void);
  void ssh_selinux_setup_pty(char *, const char *);
  void ssh_selinux_setup_exec_context(char *);
@@ -37,20 +39,32 @@ diff -up openssh-6.1p1/openbsd-compat/port-linux.h.privsep-selinux openssh-6.1p1
  #endif
  
 diff -up openssh-6.1p1/session.c.privsep-selinux openssh-6.1p1/session.c
---- openssh-6.1p1/session.c.privsep-selinux	2012-10-12 13:35:03.670980503 +0200
-+++ openssh-6.1p1/session.c	2012-10-12 14:03:01.011305806 +0200
-@@ -1513,6 +1513,10 @@ do_setusercontext(struct passwd *pw)
- 
- 		platform_setusercontext_post_groups(pw);
- 
+--- openssh-6.1p1/session.c.privsep-selinux	2012-12-03 09:43:11.727505761 +0100
++++ openssh-6.1p1/session.c	2012-12-03 09:54:50.455688902 +0100
+@@ -1519,6 +1519,9 @@ do_setusercontext(struct passwd *pw)
+ 			    pw->pw_uid);
+ 			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
+ 			    "u", pw->pw_name, (char *)NULL);
++#ifdef WITH_SELINUX
++			ssh_selinux_copy_context();
++#endif
+ 			safely_chroot(chroot_path, pw->pw_uid);
+ 			free(tmp);
+ 			free(chroot_path);
+@@ -1533,6 +1536,12 @@ do_setusercontext(struct passwd *pw)
+ 		/* Permanently switch to the desired uid. */
+ 		permanently_set_uid(pw);
+ #endif
 +
 +#ifdef WITH_SELINUX
-+		ssh_selinux_copy_context();
++		if (options.chroot_directory == NULL ||
++		    strcasecmp(options.chroot_directory, "none") == 0)
++			ssh_selinux_copy_context();
 +#endif
- 		if (options.chroot_directory != NULL &&
- 		    strcasecmp(options.chroot_directory, "none") != 0) {
-                         tmp = tilde_expand_filename(options.chroot_directory,
-@@ -1787,9 +1791,6 @@ do_child(Session *s, const char *command
+ 	}
+ 
+ 	if (getuid() != pw->pw_uid || geteuid() != pw->pw_uid)
+@@ -1787,9 +1796,6 @@ do_child(Session *s, const char *command
  		argv[i] = NULL;
  		optind = optreset = 1;
  		__progname = argv[0];
@@ -61,8 +75,8 @@ diff -up openssh-6.1p1/session.c.privsep-selinux openssh-6.1p1/session.c
  	}
  
 diff -up openssh-6.1p1/sshd.c.privsep-selinux openssh-6.1p1/sshd.c
---- openssh-6.1p1/sshd.c.privsep-selinux	2012-10-12 13:35:03.716980292 +0200
-+++ openssh-6.1p1/sshd.c	2012-10-12 13:35:03.721980271 +0200
+--- openssh-6.1p1/sshd.c.privsep-selinux	2012-11-05 14:46:39.335809209 +0100
++++ openssh-6.1p1/sshd.c	2012-11-05 14:46:39.341809247 +0100
 @@ -794,6 +794,13 @@ privsep_postauth(Authctxt *authctxt)
  	do_setusercontext(authctxt->pw);
  

@@ -80,7 +80,7 @@ diff -up openssh-5.8p2/gss-serv-krb5.c.force_krb openssh-5.8p2/gss-serv-krb5.c
  	} else
  		retval = 0;
  
-@@ -108,6 +132,134 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client
+@@ -108,6 +132,135 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client
  	return retval;
  }
  
@@ -167,7 +167,8 @@ diff -up openssh-5.8p2/gss-serv-krb5.c.force_krb openssh-5.8p2/gss-serv-krb5.c
 +		char *token;
 +
 +		/* we parse just like ksu, even though we could do better */
-+		token = strtok(line, " \t\n");
++		if ((token = strtok(line, " \t\n")) == NULL)
++			continue;
 +		if (strcmp(name, token) == 0) {
 +			/* we matched on client principal */
 +			found_principal = 1;
@@ -218,7 +219,7 @@ diff -up openssh-5.8p2/gss-serv-krb5.c.force_krb openssh-5.8p2/gss-serv-krb5.c
 diff -up openssh-5.8p2/session.c.force_krb openssh-5.8p2/session.c
 --- openssh-5.8p2/session.c.force_krb	2011-05-19 03:41:41.000000000 +0200
 +++ openssh-5.8p2/session.c	2011-05-19 03:43:32.437173662 +0200
-@@ -816,6 +816,29 @@ do_exec(Session *s, const char *command)
+@@ -820,6 +820,29 @@ do_exec(Session *s, const char *command)
  		debug("Forced command (key option) '%.900s'", command);
  	}
  
@@ -251,7 +252,7 @@ diff -up openssh-5.8p2/session.c.force_krb openssh-5.8p2/session.c
 diff -up openssh-5.8p2/sshd.8.force_krb openssh-5.8p2/sshd.8
 --- openssh-5.8p2/sshd.8.force_krb	2011-05-19 03:41:30.582114401 +0200
 +++ openssh-5.8p2/sshd.8	2011-05-19 03:41:46.159106308 +0200
-@@ -320,6 +320,7 @@ Finally, the server and the client enter
+@@ -323,6 +323,7 @@ Finally, the server and the client enter
  The client tries to authenticate itself using
  host-based authentication,
  public key authentication,
@@ -259,7 +260,7 @@ diff -up openssh-5.8p2/sshd.8.force_krb openssh-5.8p2/sshd.8
  challenge-response authentication,
  or password authentication.
  .Pp
-@@ -788,6 +789,12 @@ This file is used in exactly the same wa
+@@ -796,6 +797,12 @@ This file is used in exactly the same wa
  but allows host-based authentication without permitting login with
  rlogin/rsh.
  .Pp

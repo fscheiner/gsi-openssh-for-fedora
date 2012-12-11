@@ -1,0 +1,24 @@
+diff -up openssh-6.1p1/moduli.0.man-moduli openssh-6.1p1/moduli.0
+--- openssh-6.1p1/moduli.0.man-moduli	2012-11-06 09:42:13.677062887 +0100
++++ openssh-6.1p1/moduli.0	2012-11-06 09:42:58.693543381 +0100
+@@ -25,7 +25,7 @@ DESCRIPTION
+ 
+                         0     Unknown, not tested.
+                         2     "Safe" prime; (p-1)/2 is also prime.
+-                        4     Sophie Germain; (p+1)*2 is also prime.
++                        4     Sophie Germain; (p*2)+1 is also prime.
+ 
+                         Moduli candidates initially produced by ssh-keygen(1)
+                         are Sophie Germain primes (type 4).  Further primality
+diff -up openssh-6.1p1/moduli.5.man-moduli openssh-6.1p1/moduli.5
+--- openssh-6.1p1/moduli.5.man-moduli	2012-11-06 09:42:17.730035388 +0100
++++ openssh-6.1p1/moduli.5	2012-11-06 09:43:31.403180375 +0100
+@@ -61,7 +61,7 @@ Unknown, not tested.
+ .It 2
+ "Safe" prime; (p-1)/2 is also prime.
+ .It 4
+-Sophie Germain; (p+1)*2 is also prime.
++Sophie Germain; (p*2)+1 is also prime.
+ .El
+ .Pp
+ Moduli candidates initially produced by
