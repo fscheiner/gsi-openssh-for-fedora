@@ -1,0 +1,12 @@
+diff -up openssh-5.9p1/packet.c.ipqos openssh-5.9p1/packet.c
+--- openssh-5.9p1/packet.c.ipqos	2012-11-26 16:15:50.664604385 +0100
++++ openssh-5.9p1/packet.c	2012-11-26 16:15:50.793603960 +0100
+@@ -435,8 +435,6 @@ packet_connection_af(void)
+ 	if (getsockname(active_state->connection_out, (struct sockaddr *)&to,
+ 	    &tolen) < 0)
+ 		return 0;
+-	if (to.ss_family == AF_INET)
+-		return 1;
+ #ifdef IPV4_IN_IPV6
+ 	if (to.ss_family == AF_INET6 &&
+ 	    IN6_IS_ADDR_V4MAPPED(&((struct sockaddr_in6 *)&to)->sin6_addr))

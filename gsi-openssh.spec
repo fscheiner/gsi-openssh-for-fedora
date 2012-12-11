@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 5.9p1
-%global openssh_rel 8
+%global openssh_rel 9
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -157,10 +157,10 @@ Patch801: openssh-5.8p2-force_krb.patch
 Patch900: openssh-5.9p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-5.9p1-kuserok.patch
-#---
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1604
-# sctp
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1873 => https://bugzilla.redhat.com/show_bug.cgi?id=668993
+#https://bugzilla.redhat.com/show_bug.cgi?id=841065
+Patch902: openssh-5.9p1-man-moduli.patch
+#https://bugzilla.redhat.com/show_bug.cgi?id=861818
+Patch903: openssh-5.9p1-ipqos.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.9p1.patch
@@ -327,6 +327,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
+%patch902 -p1 -b .man-moduli
+%patch903 -p1 -b .ipqos
 
 %patch98 -p1 -b .gsi
 
@@ -550,6 +552,9 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Tue Dec 11 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-9
+- Based on openssh-5.9p1-28.fc17
+
 * Thu Nov 01 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-8
 - Based on openssh-5.9p1-27.fc17
 

@@ -1,128 +1,6 @@
-diff -up openssh-5.9p1/auth.c.required-authentication openssh-5.9p1/auth.c
---- openssh-5.9p1/auth.c.required-authentication	2012-07-27 12:21:41.181601972 +0200
-+++ openssh-5.9p1/auth.c	2012-07-27 12:21:41.203602020 +0200
-@@ -251,7 +251,8 @@ allowed_user(struct passwd * pw)
- }
- 
- void
--auth_log(Authctxt *authctxt, int authenticated, char *method, char *info)
-+auth_log(Authctxt *authctxt, int authenticated, const char *method,
-+    const char *submethod, const char *info)
- {
- 	void (*authlog) (const char *fmt,...) = verbose;
- 	char *authmsg;
-@@ -271,9 +272,10 @@ auth_log(Authctxt *authctxt, int authent
- 	else
- 		authmsg = authenticated ? "Accepted" : "Failed";
- 
--	authlog("%s %s for %s%.100s from %.200s port %d%s",
-+	authlog("%s %s%s%s for %s%.100s from %.200s port %d%s",
- 	    authmsg,
- 	    method,
-+	    submethod == NULL ? "" : "/", submethod == NULL ? "" : submethod,
- 	    authctxt->valid ? "" : "invalid user ",
- 	    authctxt->user,
- 	    get_remote_ipaddr(),
-@@ -303,7 +305,7 @@ auth_log(Authctxt *authctxt, int authent
-  * Check whether root logins are disallowed.
-  */
- int
--auth_root_allowed(char *method)
-+auth_root_allowed(const char *method)
- {
- 	switch (options.permit_root_login) {
- 	case PERMIT_YES:
-@@ -694,3 +696,57 @@ fakepw(void)
- 
- 	return (&fake);
- }
-+
-+int
-+auth_method_in_list(const char *list, const char *method)
-+{
-+	char *cp;
-+
-+	cp = match_list(method, list, NULL);
-+	if (cp != NULL) {
-+		xfree(cp);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+#define	DELIM	","
-+int
-+auth_remove_from_list(char **list, const char *method)
-+{
-+	char *oldlist, *cp, *newlist = NULL;
-+	u_int len = 0, ret = 0;
-+
-+	if (list == NULL || *list == NULL)
-+		return (0);
-+
-+	oldlist = *list;
-+	len = strlen(oldlist) + 1;
-+	newlist = xmalloc(len);
-+	memset(newlist, '\0', len);
-+
-+	/* Remove method from list, if present */
-+	for (;;) {
-+		if ((cp = strsep(&oldlist, DELIM)) == NULL)
-+			break;
-+		if (*cp == '\0')
-+			continue;
-+		if (strcmp(cp, method) != 0) {
-+			if (*newlist != '\0')
-+				strlcat(newlist, DELIM, len);
-+			strlcat(newlist, cp, len);
-+		} else
-+			ret++;
-+	}
-+
-+	/* Return NULL instead of empty list */
-+	if (*newlist == '\0') {
-+		xfree(newlist);
-+		newlist = NULL;
-+	}
-+	xfree(*list);
-+	*list = newlist;
-+	
-+	return (ret);
-+}
-diff -up openssh-5.9p1/auth.h.required-authentication openssh-5.9p1/auth.h
---- openssh-5.9p1/auth.h.required-authentication	2011-05-29 13:39:38.000000000 +0200
-+++ openssh-5.9p1/auth.h	2012-07-27 12:21:41.204602022 +0200
-@@ -142,10 +142,11 @@ void disable_forwarding(void);
- void	do_authentication(Authctxt *);
- void	do_authentication2(Authctxt *);
- 
--void	auth_log(Authctxt *, int, char *, char *);
--void	userauth_finish(Authctxt *, int, char *);
-+void	auth_log(Authctxt *, int, const char *, const char *, const char *);
-+void	userauth_finish(Authctxt *, int, const char *, const char *);
-+int	auth_root_allowed(const char *);
-+
- void	userauth_send_banner(const char *);
--int	auth_root_allowed(char *);
- 
- char	*auth2_read_banner(void);
- 
-@@ -192,6 +193,11 @@ void	 auth_debug_send(void);
- void	 auth_debug_reset(void);
- 
- struct passwd *fakepw(void);
-+int	 auth_method_in_list(const char *, const char *);
-+int	 auth_remove_from_list(char **, const char *);
-+
-+int	 auth1_check_required(const char *);
-+int	 auth2_check_required(const char *);
- 
- int	 sys_auth_passwd(Authctxt *, const char *);
- 
 diff -up openssh-5.9p1/auth1.c.required-authentication openssh-5.9p1/auth1.c
 --- openssh-5.9p1/auth1.c.required-authentication	2010-08-31 14:36:39.000000000 +0200
-+++ openssh-5.9p1/auth1.c	2012-07-27 12:50:50.708706675 +0200
++++ openssh-5.9p1/auth1.c	2012-11-26 15:36:02.138986418 +0100
 @@ -98,6 +98,55 @@ static const struct AuthMethod1
  	return (NULL);
  }
@@ -281,9 +159,22 @@ diff -up openssh-5.9p1/auth1.c.required-authentication openssh-5.9p1/auth1.c
  
  		packet_start(SSH_SMSG_FAILURE);
  		packet_send();
+diff -up openssh-5.9p1/auth2-chall.c.required-authentication openssh-5.9p1/auth2-chall.c
+--- openssh-5.9p1/auth2-chall.c.required-authentication	2009-01-28 06:13:39.000000000 +0100
++++ openssh-5.9p1/auth2-chall.c	2012-11-26 15:36:02.138986418 +0100
+@@ -341,7 +341,8 @@ input_userauth_info_response(int type, u
+ 			auth2_challenge_start(authctxt);
+ 		}
+ 	}
+-	userauth_finish(authctxt, authenticated, method);
++	userauth_finish(authctxt, authenticated, "keyboard-interactive",
++	    authctxt->kbdintctxt?kbdintctxt->device->name:NULL);
+ 	xfree(method);
+ }
+ 
 diff -up openssh-5.9p1/auth2.c.required-authentication openssh-5.9p1/auth2.c
 --- openssh-5.9p1/auth2.c.required-authentication	2011-05-05 06:04:11.000000000 +0200
-+++ openssh-5.9p1/auth2.c	2012-07-27 12:51:59.048241612 +0200
++++ openssh-5.9p1/auth2.c	2012-11-26 15:36:02.138986418 +0100
 @@ -215,7 +215,7 @@ input_userauth_request(int type, u_int32
  {
  	Authctxt *authctxt = ctxt;
@@ -454,7 +345,7 @@ diff -up openssh-5.9p1/auth2.c.required-authentication openssh-5.9p1/auth2.c
 +
 diff -up openssh-5.9p1/auth2-gss.c.required-authentication openssh-5.9p1/auth2-gss.c
 --- openssh-5.9p1/auth2-gss.c.required-authentication	2011-05-05 06:04:11.000000000 +0200
-+++ openssh-5.9p1/auth2-gss.c	2012-07-27 12:21:41.206602026 +0200
++++ openssh-5.9p1/auth2-gss.c	2012-11-26 15:36:02.138986418 +0100
 @@ -163,7 +163,7 @@ input_gssapi_token(int type, u_int32_t p
  		}
  		authctxt->postponed = 0;
@@ -482,22 +373,9 @@ diff -up openssh-5.9p1/auth2-gss.c.required-authentication openssh-5.9p1/auth2-g
  }
  
  Authmethod method_gssapi = {
-diff -up openssh-5.9p1/auth2-chall.c.required-authentication openssh-5.9p1/auth2-chall.c
---- openssh-5.9p1/auth2-chall.c.required-authentication	2009-01-28 06:13:39.000000000 +0100
-+++ openssh-5.9p1/auth2-chall.c	2012-07-27 12:21:41.206602026 +0200
-@@ -341,7 +341,8 @@ input_userauth_info_response(int type, u
- 			auth2_challenge_start(authctxt);
- 		}
- 	}
--	userauth_finish(authctxt, authenticated, method);
-+	userauth_finish(authctxt, authenticated, "keyboard-interactive",
-+	    authctxt->kbdintctxt?kbdintctxt->device->name:NULL);
- 	xfree(method);
- }
- 
 diff -up openssh-5.9p1/auth2-none.c.required-authentication openssh-5.9p1/auth2-none.c
 --- openssh-5.9p1/auth2-none.c.required-authentication	2010-06-26 02:01:33.000000000 +0200
-+++ openssh-5.9p1/auth2-none.c	2012-07-27 12:21:41.207602028 +0200
++++ openssh-5.9p1/auth2-none.c	2012-11-26 15:36:02.139986402 +0100
 @@ -61,7 +61,7 @@ userauth_none(Authctxt *authctxt)
  {
  	none_enabled = 0;
@@ -507,9 +385,131 @@ diff -up openssh-5.9p1/auth2-none.c.required-authentication openssh-5.9p1/auth2-
  		return (PRIVSEP(auth_password(authctxt, "")));
  	return (0);
  }
+diff -up openssh-5.9p1/auth.c.required-authentication openssh-5.9p1/auth.c
+--- openssh-5.9p1/auth.c.required-authentication	2012-11-26 15:27:28.134216999 +0100
++++ openssh-5.9p1/auth.c	2012-11-26 15:36:02.137986437 +0100
+@@ -251,7 +251,8 @@ allowed_user(struct passwd * pw)
+ }
+ 
+ void
+-auth_log(Authctxt *authctxt, int authenticated, char *method, char *info)
++auth_log(Authctxt *authctxt, int authenticated, const char *method,
++    const char *submethod, const char *info)
+ {
+ 	void (*authlog) (const char *fmt,...) = verbose;
+ 	char *authmsg;
+@@ -271,9 +272,10 @@ auth_log(Authctxt *authctxt, int authent
+ 	else
+ 		authmsg = authenticated ? "Accepted" : "Failed";
+ 
+-	authlog("%s %s for %s%.100s from %.200s port %d%s",
++	authlog("%s %s%s%s for %s%.100s from %.200s port %d%s",
+ 	    authmsg,
+ 	    method,
++	    submethod == NULL ? "" : "/", submethod == NULL ? "" : submethod,
+ 	    authctxt->valid ? "" : "invalid user ",
+ 	    authctxt->user,
+ 	    get_remote_ipaddr(),
+@@ -303,7 +305,7 @@ auth_log(Authctxt *authctxt, int authent
+  * Check whether root logins are disallowed.
+  */
+ int
+-auth_root_allowed(char *method)
++auth_root_allowed(const char *method)
+ {
+ 	switch (options.permit_root_login) {
+ 	case PERMIT_YES:
+@@ -694,3 +696,57 @@ fakepw(void)
+ 
+ 	return (&fake);
+ }
++
++int
++auth_method_in_list(const char *list, const char *method)
++{
++	char *cp;
++
++	cp = match_list(method, list, NULL);
++	if (cp != NULL) {
++		xfree(cp);
++		return 1;
++	}
++
++	return 0;
++}
++
++#define	DELIM	","
++int
++auth_remove_from_list(char **list, const char *method)
++{
++	char *oldlist, *cp, *newlist = NULL;
++	u_int len = 0, ret = 0;
++
++	if (list == NULL || *list == NULL)
++		return (0);
++
++	oldlist = *list;
++	len = strlen(oldlist) + 1;
++	newlist = xmalloc(len);
++	memset(newlist, '\0', len);
++
++	/* Remove method from list, if present */
++	for (;;) {
++		if ((cp = strsep(&oldlist, DELIM)) == NULL)
++			break;
++		if (*cp == '\0')
++			continue;
++		if (strcmp(cp, method) != 0) {
++			if (*newlist != '\0')
++				strlcat(newlist, DELIM, len);
++			strlcat(newlist, cp, len);
++		} else
++			ret++;
++	}
++
++	/* Return NULL instead of empty list */
++	if (*newlist == '\0') {
++		xfree(newlist);
++		newlist = NULL;
++	}
++	xfree(*list);
++	*list = newlist;
++	
++	return (ret);
++}
+diff -up openssh-5.9p1/auth.h.required-authentication openssh-5.9p1/auth.h
+--- openssh-5.9p1/auth.h.required-authentication	2011-05-29 13:39:38.000000000 +0200
++++ openssh-5.9p1/auth.h	2012-11-26 15:36:02.138986418 +0100
+@@ -142,10 +142,11 @@ void disable_forwarding(void);
+ void	do_authentication(Authctxt *);
+ void	do_authentication2(Authctxt *);
+ 
+-void	auth_log(Authctxt *, int, char *, char *);
+-void	userauth_finish(Authctxt *, int, char *);
++void	auth_log(Authctxt *, int, const char *, const char *, const char *);
++void	userauth_finish(Authctxt *, int, const char *, const char *);
++int	auth_root_allowed(const char *);
++
+ void	userauth_send_banner(const char *);
+-int	auth_root_allowed(char *);
+ 
+ char	*auth2_read_banner(void);
+ 
+@@ -192,6 +193,11 @@ void	 auth_debug_send(void);
+ void	 auth_debug_reset(void);
+ 
+ struct passwd *fakepw(void);
++int	 auth_method_in_list(const char *, const char *);
++int	 auth_remove_from_list(char **, const char *);
++
++int	 auth1_check_required(const char *);
++int	 auth2_check_required(const char *);
+ 
+ int	 sys_auth_passwd(Authctxt *, const char *);
+ 
 diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
---- openssh-5.9p1/monitor.c.required-authentication	2012-07-27 12:21:41.161601930 +0200
-+++ openssh-5.9p1/monitor.c	2012-07-27 12:51:18.884927066 +0200
+--- openssh-5.9p1/monitor.c.required-authentication	2012-11-26 15:27:28.128217022 +0100
++++ openssh-5.9p1/monitor.c	2012-11-26 15:36:02.140986390 +0100
 @@ -199,6 +199,7 @@ static int key_blobtype = MM_NOKEY;
  static char *hostbased_cuser = NULL;
  static char *hostbased_chost = NULL;
@@ -708,8 +708,8 @@ diff -up openssh-5.9p1/monitor.c.required-authentication openssh-5.9p1/monitor.c
  }
  
 diff -up openssh-5.9p1/servconf.c.required-authentication openssh-5.9p1/servconf.c
---- openssh-5.9p1/servconf.c.required-authentication	2012-07-27 12:21:41.167601942 +0200
-+++ openssh-5.9p1/servconf.c	2012-07-27 12:21:41.209602032 +0200
+--- openssh-5.9p1/servconf.c.required-authentication	2012-11-26 15:27:28.129217018 +0100
++++ openssh-5.9p1/servconf.c	2012-11-26 15:36:02.140986390 +0100
 @@ -42,6 +42,8 @@
  #include "key.h"
  #include "kex.h"
@@ -745,56 +745,77 @@ diff -up openssh-5.9p1/servconf.c.required-authentication openssh-5.9p1/servconf
  	{ "ipqos", sIPQoS, SSHCFG_ALL },
  	{ NULL, sBadOption, 0 }
  };
-@@ -1220,6 +1227,33 @@ process_server_config_line(ServerOptions
+@@ -1220,6 +1227,37 @@ process_server_config_line(ServerOptions
  			options->max_startups = options->max_startups_begin;
  		break;
  
 +
 +	case sRequiredAuthentications1:
-+		charptr = &options->required_auth1;
-+		arg = strdelim(&cp);
-+		if (!arg || *arg == '\0')
-+			fatal("%.200s line %d: Missing argument.",
-+			    filename, linenum);
-+		if (auth1_check_required(arg) != 0)
-+			fatal("%.200s line %d: Invalid required authentication "
-+			    "list", filename, linenum);
-+		if (*charptr == NULL)
-+			*charptr = xstrdup(arg);
-+		break;
++		if (*activep && options->required_auth1 == NULL) {
++			charptr = &options->required_auth1;
++			arg = strdelim(&cp);
++			if (!arg || *arg == '\0')
++				fatal("%.200s line %d: Missing argument.",
++				    filename, linenum);
++			if (auth1_check_required(arg) != 0)
++				fatal("%.200s line %d: Invalid required authentication "
++				    "list", filename, linenum);
++			if (*charptr == NULL)
++				*charptr = xstrdup(arg);
++		}
++		return 0;
 +
 +	case sRequiredAuthentications2:
-+		charptr = &options->required_auth2;
-+		arg = strdelim(&cp);
-+		if (!arg || *arg == '\0')
-+			fatal("%.200s line %d: Missing argument.",
-+			    filename, linenum);
-+		if (auth2_check_required(arg) != 0)
-+			fatal("%.200s line %d: Invalid required authentication "
-+			    "list", filename, linenum);
-+		if (*charptr == NULL)
-+			*charptr = xstrdup(arg);
-+		break;
++		if (*activep && options->required_auth2 == NULL) {
++			charptr = &options->required_auth2;
++			arg = strdelim(&cp);
++			if (!arg || *arg == '\0')
++				fatal("%.200s line %d: Missing argument.",
++				    filename, linenum);
++			if (auth2_check_required(arg) != 0)
++				fatal("%.200s line %d: Invalid required authentication "
++				    "list", filename, linenum);
++			if (*charptr == NULL)
++				*charptr = xstrdup(arg);
++		}
++		return 0;
 +
  	case sMaxAuthTries:
  		intptr = &options->max_authtries;
  		goto parse_int;
+@@ -1776,6 +1814,7 @@ dump_config(ServerOptions *o)
+ 	dump_cfg_strarray(sAllowGroups, o->num_allow_groups, o->allow_groups);
+ 	dump_cfg_strarray(sDenyGroups, o->num_deny_groups, o->deny_groups);
+ 	dump_cfg_strarray(sAcceptEnv, o->num_accept_env, o->accept_env);
++	dump_cfg_string(sRequiredAuthentications2, o->required_auth2);
+ 
+ 	/* other arguments */
+ 	for (i = 0; i < o->num_subsystems; i++)
 diff -up openssh-5.9p1/servconf.h.required-authentication openssh-5.9p1/servconf.h
 --- openssh-5.9p1/servconf.h.required-authentication	2011-06-23 00:30:03.000000000 +0200
-+++ openssh-5.9p1/servconf.h	2012-07-27 12:21:41.210602035 +0200
++++ openssh-5.9p1/servconf.h	2012-11-26 15:40:11.694443938 +0100
 @@ -154,6 +154,9 @@ typedef struct {
  	u_int num_authkeys_files;	/* Files containing public keys */
  	char   *authorized_keys_files[MAX_AUTHKEYS_FILES];
  
-+	char   *required_auth1; /* Required, but not sufficient */
++	char   *required_auth1;
 +	char   *required_auth2;
 +
  	char   *adm_forced_command;
  
  	int	use_pam;		/* Enable auth via PAM */
+@@ -180,6 +183,8 @@ typedef struct {
+ 		M_CP_STROPT(revoked_keys_file); \
+ 		M_CP_STROPT(authorized_principals_file); \
+ 		M_CP_STRARRAYOPT(authorized_keys_files, num_authkeys_files); \
++		M_CP_STROPT(required_auth1); \
++		M_CP_STROPT(required_auth2); \
+ 	} while (0)
+ 
+ void	 initialize_server_options(ServerOptions *);
 diff -up openssh-5.9p1/sshd_config.5.required-authentication openssh-5.9p1/sshd_config.5
 --- openssh-5.9p1/sshd_config.5.required-authentication	2011-08-05 22:17:33.000000000 +0200
-+++ openssh-5.9p1/sshd_config.5	2012-07-27 12:38:47.607222070 +0200
++++ openssh-5.9p1/sshd_config.5	2012-11-26 15:36:02.141986377 +0100
 @@ -723,6 +723,8 @@ Available keywords are
  .Cm PermitOpen ,
  .Cm PermitRootLogin ,
@@ -804,25 +825,36 @@ diff -up openssh-5.9p1/sshd_config.5.required-authentication openssh-5.9p1/sshd_
  .Cm PubkeyAuthentication ,
  .Cm RhostsRSAAuthentication ,
  .Cm RSAAuthentication ,
-@@ -920,6 +922,21 @@ Specifies a list of revoked public keys.
+@@ -920,6 +922,32 @@ Specifies a list of revoked public keys.
  Keys listed in this file will be refused for public key authentication.
  Note that if this file is not readable, then public key authentication will
  be refused for all users.
 +.It Cm RequiredAuthentications[12]
-+ Specifies required methods of authentications that has to succeed before authorizing the connection.
-+ (RequiredAuthentication1 for Protocol version 1, and RequiredAuthentication2 for v2)
-+
-+ RequiredAuthentications1 method[,method...] 
-+ RequiredAuthentications2 method[,method...]
-+
++Specifies required methods of authentications that has to succeed before 
++authorizing the connection. (RequiredAuthentication1 for Protocol version 1, 
++and RequiredAuthentication2 for v2)
++.Pp
++.Bl -item -offset indent -compact
++.It
++RequiredAuthentications1 method[,method...] 
++.It
++RequiredAuthentications2 method[,method...]
++.El
 +.Pp
 +Example 1:
-+
-+ RequiredAuthentications2 password,hostbased
-+
++.Bl -item -offset indent -compact
++RequiredAuthentications2 password,hostbased
++.El
 +Example 2:
-+ RequiredAuthentications2 publickey,password
-+
++.Bl -item -offset indent -compact
++RequiredAuthentications2 publickey,password
++.El
++.Pp
++Available methods:
++.Bl -item -offset indent -compact
++.It
++password, keyboard-interactive, publickey, hostbased, gssapi-keyex, gssapi-with-mic
++.El
  .It Cm RhostsRSAAuthentication
  Specifies whether rhosts or /etc/hosts.equiv authentication together
  with successful RSA host authentication is allowed.
