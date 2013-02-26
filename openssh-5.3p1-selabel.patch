@@ -6,7 +6,7 @@ diff -up openssh-5.3p1/contrib/ssh-copy-id.selabel openssh-5.3p1/contrib/ssh-cop
  fi
  
 -{ eval "$GET_ID" ; } | ssh $1 "umask 077; test -d .ssh || mkdir .ssh ; cat >> .ssh/authorized_keys" || exit 1
-+{ eval "$GET_ID" ; } | ssh $1 "umask 077; test -d .ssh || mkdir .ssh ; cat >> .ssh/authorized_keys; test -x /sbin/restorecon && /sbin/restorecon .ssh .ssh/authorized_keys" || exit 1
++{ eval "$GET_ID" ; } | ssh $1 "umask 077; test -d ~/.ssh || mkdir ~/.ssh ; cat >> ~/.ssh/authorized_keys && (test -x /sbin/restorecon && /sbin/restorecon ~/.ssh ~/.ssh/authorized_keys >/dev/null 2>&1 || true)" || exit 1
  
  cat <<EOF
  Now try logging into the machine, with "ssh '$1'", and check in:

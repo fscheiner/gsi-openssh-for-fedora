@@ -1,6 +1,6 @@
 diff -up openssh-5.3p1/authfd.c.nss-keys openssh-5.3p1/authfd.c
 --- openssh-5.3p1/authfd.c.nss-keys	2006-09-01 07:38:36.000000000 +0200
-+++ openssh-5.3p1/authfd.c	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/authfd.c	2012-10-04 15:35:21.059075780 +0200
 @@ -626,6 +626,45 @@ ssh_update_card(AuthenticationConnection
  	return decode_reply(type);
  }
@@ -49,7 +49,7 @@ diff -up openssh-5.3p1/authfd.c.nss-keys openssh-5.3p1/authfd.c
   * by normal applications.
 diff -up openssh-5.3p1/authfd.h.nss-keys openssh-5.3p1/authfd.h
 --- openssh-5.3p1/authfd.h.nss-keys	2006-08-05 04:39:39.000000000 +0200
-+++ openssh-5.3p1/authfd.h	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/authfd.h	2012-10-04 15:35:21.059075780 +0200
 @@ -49,6 +49,12 @@
  #define SSH2_AGENTC_ADD_ID_CONSTRAINED		25
  #define SSH_AGENTC_ADD_SMARTCARD_KEY_CONSTRAINED 26
@@ -73,8 +73,8 @@ diff -up openssh-5.3p1/authfd.h.nss-keys openssh-5.3p1/authfd.h
  int
  ssh_decrypt_challenge(AuthenticationConnection *, Key *, BIGNUM *, u_char[16],
 diff -up openssh-5.3p1/configure.ac.nss-keys openssh-5.3p1/configure.ac
---- openssh-5.3p1/configure.ac.nss-keys	2011-01-20 11:30:33.000000000 +0100
-+++ openssh-5.3p1/configure.ac	2011-01-20 11:30:34.000000000 +0100
+--- openssh-5.3p1/configure.ac.nss-keys	2012-10-04 15:35:21.013075979 +0200
++++ openssh-5.3p1/configure.ac	2012-10-04 15:35:21.060075776 +0200
 @@ -3514,6 +3514,21 @@ AC_ARG_WITH(kerberos5,
  	]
  )
@@ -107,7 +107,7 @@ diff -up openssh-5.3p1/configure.ac.nss-keys openssh-5.3p1/configure.ac
  echo "                  BSD Auth support: $BSD_AUTH_MSG"
 diff -up openssh-5.3p1/key.c.nss-keys openssh-5.3p1/key.c
 --- openssh-5.3p1/key.c.nss-keys	2008-11-03 09:24:17.000000000 +0100
-+++ openssh-5.3p1/key.c	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/key.c	2012-10-04 15:35:21.061075772 +0200
 @@ -96,6 +96,54 @@ key_new(int type)
  	return k;
  }
@@ -185,7 +185,7 @@ diff -up openssh-5.3p1/key.c.nss-keys openssh-5.3p1/key.c
  
 diff -up openssh-5.3p1/key.h.nss-keys openssh-5.3p1/key.h
 --- openssh-5.3p1/key.h.nss-keys	2008-06-12 20:40:35.000000000 +0200
-+++ openssh-5.3p1/key.h	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/key.h	2012-10-04 15:35:21.061075772 +0200
 @@ -29,11 +29,17 @@
  #include <openssl/rsa.h>
  #include <openssl/dsa.h>
@@ -237,7 +237,7 @@ diff -up openssh-5.3p1/key.h.nss-keys openssh-5.3p1/key.h
  int		 key_equal(const Key *, const Key *);
 diff -up openssh-5.3p1/Makefile.in.nss-keys openssh-5.3p1/Makefile.in
 --- openssh-5.3p1/Makefile.in.nss-keys	2009-08-28 02:47:38.000000000 +0200
-+++ openssh-5.3p1/Makefile.in	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/Makefile.in	2012-10-04 15:35:21.062075768 +0200
 @@ -71,7 +71,7 @@ LIBSSH_OBJS=acss.o authfd.o authfile.o b
  	atomicio.o key.o dispatch.o kex.o mac.o uidswap.o uuencode.o misc.o \
  	monitor_fdpass.o rijndael.o ssh-dss.o ssh-rsa.o dh.o kexdh.o \
@@ -248,8 +248,8 @@ diff -up openssh-5.3p1/Makefile.in.nss-keys openssh-5.3p1/Makefile.in
  SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
  	sshconnect.o sshconnect1.o sshconnect2.o mux.o \
 diff -up openssh-5.3p1/nsskeys.c.nss-keys openssh-5.3p1/nsskeys.c
---- openssh-5.3p1/nsskeys.c.nss-keys	2011-01-20 11:30:34.000000000 +0100
-+++ openssh-5.3p1/nsskeys.c	2011-01-20 11:30:34.000000000 +0100
+--- openssh-5.3p1/nsskeys.c.nss-keys	2012-10-04 15:35:21.062075768 +0200
++++ openssh-5.3p1/nsskeys.c	2012-10-04 15:35:21.062075768 +0200
 @@ -0,0 +1,443 @@
 +/*
 + * Copyright (c) 2001 Markus Friedl.  All rights reserved.
@@ -695,8 +695,8 @@ diff -up openssh-5.3p1/nsskeys.c.nss-keys openssh-5.3p1/nsskeys.c
 +
 +#endif /* HAVE_LIBNSS */
 diff -up openssh-5.3p1/nsskeys.h.nss-keys openssh-5.3p1/nsskeys.h
---- openssh-5.3p1/nsskeys.h.nss-keys	2011-01-20 11:30:34.000000000 +0100
-+++ openssh-5.3p1/nsskeys.h	2011-01-20 11:30:34.000000000 +0100
+--- openssh-5.3p1/nsskeys.h.nss-keys	2012-10-04 15:35:21.063075763 +0200
++++ openssh-5.3p1/nsskeys.h	2012-10-04 15:35:21.063075763 +0200
 @@ -0,0 +1,39 @@
 +/*
 + * Copyright (c) 2001 Markus Friedl.  All rights reserved.
@@ -739,7 +739,7 @@ diff -up openssh-5.3p1/nsskeys.h.nss-keys openssh-5.3p1/nsskeys.h
 +#endif
 diff -up openssh-5.3p1/readconf.c.nss-keys openssh-5.3p1/readconf.c
 --- openssh-5.3p1/readconf.c.nss-keys	2009-07-05 23:12:27.000000000 +0200
-+++ openssh-5.3p1/readconf.c	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/readconf.c	2012-10-04 15:35:21.063075763 +0200
 @@ -124,6 +124,7 @@ typedef enum {
  	oKbdInteractiveAuthentication, oKbdInteractiveDevices, oHostKeyAlias,
  	oDynamicForward, oPreferredAuthentications, oHostbasedAuthentication,
@@ -814,7 +814,7 @@ diff -up openssh-5.3p1/readconf.c.nss-keys openssh-5.3p1/readconf.c
  	if (options->rekey_limit == -1)
 diff -up openssh-5.3p1/readconf.h.nss-keys openssh-5.3p1/readconf.h
 --- openssh-5.3p1/readconf.h.nss-keys	2009-07-05 23:12:27.000000000 +0200
-+++ openssh-5.3p1/readconf.h	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/readconf.h	2012-10-04 15:35:21.064075758 +0200
 @@ -85,6 +85,10 @@ typedef struct {
  	char   *preferred_authentications;
  	char   *bind_address;	/* local socket address for connection to sshd */
@@ -827,8 +827,8 @@ diff -up openssh-5.3p1/readconf.h.nss-keys openssh-5.3p1/readconf.h
  
  	int     num_identity_files;	/* Number of files for RSA/DSA identities. */
 diff -up openssh-5.3p1/README.nss.nss-keys openssh-5.3p1/README.nss
---- openssh-5.3p1/README.nss.nss-keys	2011-01-20 11:30:34.000000000 +0100
-+++ openssh-5.3p1/README.nss	2011-01-20 11:30:34.000000000 +0100
+--- openssh-5.3p1/README.nss.nss-keys	2012-10-04 15:35:21.064075758 +0200
++++ openssh-5.3p1/README.nss	2012-10-04 15:35:21.064075758 +0200
 @@ -0,0 +1,38 @@
 +How to use NSS tokens with OpenSSH?
 +
@@ -869,8 +869,8 @@ diff -up openssh-5.3p1/README.nss.nss-keys openssh-5.3p1/README.nss
 +
 +Tomas Mraz, Red Hat, Inc.
 diff -up openssh-5.3p1/ssh-add.1.nss-keys openssh-5.3p1/ssh-add.1
---- openssh-5.3p1/ssh-add.1.nss-keys	2011-01-20 13:42:22.000000000 +0100
-+++ openssh-5.3p1/ssh-add.1	2011-01-20 14:28:29.000000000 +0100
+--- openssh-5.3p1/ssh-add.1.nss-keys	2007-06-12 16:00:27.000000000 +0200
++++ openssh-5.3p1/ssh-add.1	2012-10-04 15:35:21.065075754 +0200
 @@ -52,6 +52,9 @@
  .Fl s Ar reader
  .Nm ssh-add
@@ -892,7 +892,7 @@ diff -up openssh-5.3p1/ssh-add.1.nss-keys openssh-5.3p1/ssh-add.1
  Unlock the agent.
 diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
 --- openssh-5.3p1/ssh-add.c.nss-keys	2008-02-28 09:13:52.000000000 +0100
-+++ openssh-5.3p1/ssh-add.c	2011-01-20 13:42:06.000000000 +0100
++++ openssh-5.3p1/ssh-add.c	2012-10-04 15:38:45.889189170 +0200
 @@ -44,6 +44,14 @@
  #include <openssl/evp.h>
  #include "openbsd-compat/openssl-compat.h"
@@ -916,7 +916,7 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
  #include "buffer.h"
  #include "authfd.h"
  #include "authfile.h"
-@@ -307,6 +316,128 @@ do_file(AuthenticationConnection *ac, in
+@@ -307,6 +316,132 @@ do_file(AuthenticationConnection *ac, in
  	return 0;
  }
  
@@ -968,14 +968,18 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
 +	int count = 0;
 +	int i;
 +	
++	tokenname = PK11_GetTokenName(slot);
++
 +	if (PK11_NeedLogin(slot))
-+		PK11_Authenticate(slot, PR_TRUE, &passcache);
++		if (PK11_Authenticate(slot, PR_TRUE, &passcache) != SECSuccess) {
++			fprintf(stderr, "Authentication on slot '%s' failed\n",
++			    tokenname);
++			return 0;
++		}
 +		
 +	if ((list=PK11_ListPrivKeysInSlot(slot, NULL, NULL)) == NULL) {
 +		return 0;
 +	}
-+	
-+	tokenname = PK11_GetTokenName(slot);
 +	
 +	for (node=PRIVKEY_LIST_HEAD(list); !PRIVKEY_LIST_END(node, list);
 +		node=PRIVKEY_LIST_NEXT(node)) {
@@ -1045,7 +1049,7 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
  static void
  usage(void)
  {
-@@ -323,6 +454,8 @@ usage(void)
+@@ -323,6 +458,8 @@ usage(void)
  #ifdef SMARTCARD
  	fprintf(stderr, "  -s reader   Add key in smartcard reader.\n");
  	fprintf(stderr, "  -e reader   Remove key in smartcard reader.\n");
@@ -1054,7 +1058,7 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
  #endif
  }
  
-@@ -334,6 +467,10 @@ main(int argc, char **argv)
+@@ -334,6 +471,10 @@ main(int argc, char **argv)
  	AuthenticationConnection *ac = NULL;
  	char *sc_reader_id = NULL;
  	int i, ch, deleting = 0, ret = 0;
@@ -1065,7 +1069,7 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
  
  	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
  	sanitise_stdfd();
-@@ -351,7 +488,7 @@ main(int argc, char **argv)
+@@ -351,7 +492,7 @@ main(int argc, char **argv)
  		    "Could not open a connection to your authentication agent.\n");
  		exit(2);
  	}
@@ -1074,7 +1078,7 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
  		switch (ch) {
  		case 'l':
  		case 'L':
-@@ -373,6 +510,11 @@ main(int argc, char **argv)
+@@ -373,6 +514,11 @@ main(int argc, char **argv)
  			if (delete_all(ac) == -1)
  				ret = 1;
  			goto done;
@@ -1086,7 +1090,7 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
  		case 's':
  			sc_reader_id = optarg;
  			break;
-@@ -387,6 +529,11 @@ main(int argc, char **argv)
+@@ -387,6 +533,11 @@ main(int argc, char **argv)
  				goto done;
  			}
  			break;
@@ -1098,7 +1102,7 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
  		default:
  			usage();
  			ret = 1;
-@@ -400,6 +547,40 @@ main(int argc, char **argv)
+@@ -400,6 +551,40 @@ main(int argc, char **argv)
  			ret = 1;
  		goto done;
  	}
@@ -1141,7 +1145,7 @@ diff -up openssh-5.3p1/ssh-add.c.nss-keys openssh-5.3p1/ssh-add.c
  		struct passwd *pw;
 diff -up openssh-5.3p1/ssh-agent.c.nss-keys openssh-5.3p1/ssh-agent.c
 --- openssh-5.3p1/ssh-agent.c.nss-keys	2009-06-21 09:50:15.000000000 +0200
-+++ openssh-5.3p1/ssh-agent.c	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/ssh-agent.c	2012-10-04 15:35:21.066075750 +0200
 @@ -80,6 +80,10 @@
  #include "scard.h"
  #endif
@@ -1286,7 +1290,7 @@ diff -up openssh-5.3p1/ssh-agent.c.nss-keys openssh-5.3p1/ssh-agent.c
  		error("Unknown message %d", type);
 diff -up openssh-5.3p1/ssh.c.nss-keys openssh-5.3p1/ssh.c
 --- openssh-5.3p1/ssh.c.nss-keys	2009-07-05 23:16:56.000000000 +0200
-+++ openssh-5.3p1/ssh.c	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/ssh.c	2012-10-04 15:35:21.067075746 +0200
 @@ -105,6 +105,9 @@
  #ifdef SMARTCARD
  #include "scard.h"
@@ -1342,7 +1346,7 @@ diff -up openssh-5.3p1/ssh.c.nss-keys openssh-5.3p1/ssh.c
  	pwname = xstrdup(pw->pw_name);
 diff -up openssh-5.3p1/ssh-dss.c.nss-keys openssh-5.3p1/ssh-dss.c
 --- openssh-5.3p1/ssh-dss.c.nss-keys	2006-11-07 13:14:42.000000000 +0100
-+++ openssh-5.3p1/ssh-dss.c	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/ssh-dss.c	2012-10-04 15:35:21.067075746 +0200
 @@ -39,6 +39,10 @@
  #include "log.h"
  #include "key.h"
@@ -1402,7 +1406,7 @@ diff -up openssh-5.3p1/ssh-dss.c.nss-keys openssh-5.3p1/ssh-dss.c
  			*lenp = SIGBLOB_LEN;
 diff -up openssh-5.3p1/ssh.h.nss-keys openssh-5.3p1/ssh.h
 --- openssh-5.3p1/ssh.h.nss-keys	2006-08-05 04:39:41.000000000 +0200
-+++ openssh-5.3p1/ssh.h	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/ssh.h	2012-10-04 15:35:21.067075746 +0200
 @@ -28,6 +28,12 @@
  #define SSH_MAX_IDENTITY_FILES		100
  
@@ -1417,8 +1421,8 @@ diff -up openssh-5.3p1/ssh.h.nss-keys openssh-5.3p1/ssh.h
   * Current value permits 16kbit RSA and RSA1 keys and 8kbit DSA keys, with
   * some room for options and comments.
 diff -up openssh-5.3p1/ssh-keygen.1.nss-keys openssh-5.3p1/ssh-keygen.1
---- openssh-5.3p1/ssh-keygen.1.nss-keys	2011-01-20 11:32:31.000000000 +0100
-+++ openssh-5.3p1/ssh-keygen.1	2011-01-20 12:14:53.000000000 +0100
+--- openssh-5.3p1/ssh-keygen.1.nss-keys	2008-11-03 09:15:20.000000000 +0100
++++ openssh-5.3p1/ssh-keygen.1	2012-10-04 15:35:21.068075742 +0200
 @@ -109,6 +109,9 @@
  .Op Fl v
  .Op Fl a Ar num_trials
@@ -1440,7 +1444,7 @@ diff -up openssh-5.3p1/ssh-keygen.1.nss-keys openssh-5.3p1/ssh-keygen.1
  .It Fl P Ar passphrase
 diff -up openssh-5.3p1/ssh-keygen.c.nss-keys openssh-5.3p1/ssh-keygen.c
 --- openssh-5.3p1/ssh-keygen.c.nss-keys	2009-06-22 08:11:07.000000000 +0200
-+++ openssh-5.3p1/ssh-keygen.c	2011-01-20 12:18:23.000000000 +0100
++++ openssh-5.3p1/ssh-keygen.c	2012-10-04 15:35:21.069075737 +0200
 @@ -53,6 +53,11 @@
  #include "scard.h"
  #endif
@@ -1554,7 +1558,7 @@ diff -up openssh-5.3p1/ssh-keygen.c.nss-keys openssh-5.3p1/ssh-keygen.c
  		if (download)
 diff -up openssh-5.3p1/ssh-rsa.c.nss-keys openssh-5.3p1/ssh-rsa.c
 --- openssh-5.3p1/ssh-rsa.c.nss-keys	2006-09-01 07:38:37.000000000 +0200
-+++ openssh-5.3p1/ssh-rsa.c	2011-01-20 11:30:34.000000000 +0100
++++ openssh-5.3p1/ssh-rsa.c	2012-10-04 15:35:21.069075737 +0200
 @@ -32,6 +32,10 @@
  #include "compat.h"
  #include "ssh.h"

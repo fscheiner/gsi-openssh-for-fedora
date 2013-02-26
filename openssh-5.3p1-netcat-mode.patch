@@ -1,0 +1,185 @@
+diff -up openssh-5.3p1/channels.c.netcat openssh-5.3p1/channels.c
+--- openssh-5.3p1/channels.c.netcat	2012-11-07 15:13:28.366300887 +0100
++++ openssh-5.3p1/channels.c	2012-11-07 15:13:28.369300878 +0100
+@@ -1224,6 +1224,35 @@ channel_decode_socks5(Channel *c, fd_set
+ 	return 1;
+ }
+ 
++Channel *
++channel_connect_stdio_fwd(const char *host_to_connect, u_short port_to_connect)
++{
++	Channel *c;
++	int in, out;
++
++	debug("channel_connect_stdio_fwd %s:%d", host_to_connect,
++	    port_to_connect);
++
++	in = dup(STDIN_FILENO);
++	out = dup(STDOUT_FILENO);
++	if (in < 0 || out < 0)
++		fatal("channel_connect_stdio_fwd: dup() in/out failed");
++
++	c = channel_new("stdio-forward", SSH_CHANNEL_OPENING, in, out,
++	    -1, CHAN_TCP_WINDOW_DEFAULT, CHAN_TCP_PACKET_DEFAULT,
++	    0, "stdio-forward", /*nonblock*/0);
++
++	c->path = xstrdup(host_to_connect);
++	c->host_port = port_to_connect;
++	c->listening_port = 0;
++	c->force_drain = 1;
++
++	channel_register_fds(c, in, out, -1, 0, 1, 0);
++	port_open_helper(c, "direct-tcpip");
++
++	return c;
++}
++
+ /* dynamic port forwarding */
+ static void
+ channel_pre_dynamic(Channel *c, fd_set *readset, fd_set *writeset)
+diff -up openssh-5.3p1/channels.h.netcat openssh-5.3p1/channels.h
+--- openssh-5.3p1/channels.h.netcat	2009-02-14 06:28:21.000000000 +0100
++++ openssh-5.3p1/channels.h	2012-11-07 15:13:28.371300872 +0100
+@@ -239,6 +239,7 @@ void	 channel_clear_adm_permitted_opens(
+ void 	 channel_print_adm_permitted_opens(void);
+ int      channel_input_port_forward_request(int, int);
+ Channel	*channel_connect_to(const char *, u_short, char *, char *);
++Channel	*channel_connect_stdio_fwd(const char*, u_short);
+ Channel	*channel_connect_by_listen_address(u_short, char *, char *);
+ int	 channel_request_remote_forwarding(const char *, u_short,
+ 	     const char *, u_short);
+diff -up openssh-5.3p1/ssh.1.netcat openssh-5.3p1/ssh.1
+--- openssh-5.3p1/ssh.1.netcat	2012-11-07 15:13:28.336300977 +0100
++++ openssh-5.3p1/ssh.1	2012-11-07 15:13:28.370300875 +0100
+@@ -77,12 +77,11 @@
+ .Sm on
+ .Oc
+ .Op Fl S Ar ctl_path
+-.Bk -words
++.Op Fl W Ar host : Ns Ar port
+ .Oo Fl w Ar local_tun Ns
+ .Op : Ns Ar remote_tun Oc
+ .Oo Ar user Ns @ Oc Ns Ar hostname
+ .Op Ar command
+-.Ek
+ .Sh DESCRIPTION
+ .Nm
+ (SSH client) is a program for logging into a remote machine and for
+@@ -593,6 +592,19 @@ Multiple
+ .Fl v
+ options increase the verbosity.
+ The maximum is 3.
++.It Fl W Ar host : Ns Ar port
++Requests that standard input and output on the client be forwarded to
++.Ar host
++on
++.Ar port
++over the secure channel.
++Implies
++.Fl N ,
++.Fl T ,
++.Cm ExitOnForwardFailure
++and
++.Cm ClearAllForwardings
++and works with Protocol version 2 only.
+ .It Fl w Xo
+ .Ar local_tun Ns Op : Ns Ar remote_tun
+ .Xc
+diff -up openssh-5.3p1/ssh.c.netcat openssh-5.3p1/ssh.c
+--- openssh-5.3p1/ssh.c.netcat	2012-11-07 15:13:28.220301325 +0100
++++ openssh-5.3p1/ssh.c	2012-11-07 15:17:36.042461824 +0100
+@@ -138,6 +138,10 @@ int stdin_null_flag = 0;
+  */
+ int fork_after_authentication_flag = 0;
+ 
++/* forward stdio to remote host and port */
++char *stdio_forward_host = NULL;
++int stdio_forward_port = 0;
++
+ /*
+  * General data structure for command line options and options configurable
+  * in configuration files.  See readconf.h.
+@@ -191,7 +195,8 @@ usage(void)
+ "           [-i identity_file] [-L [bind_address:]port:host:hostport]\n"
+ "           [-l login_name] [-m mac_spec] [-O ctl_cmd] [-o option] [-p port]\n"
+ "           [-R [bind_address:]port:host:hostport] [-S ctl_path]\n"
+-"           [-w local_tun[:remote_tun]] [user@]hostname [command]\n"
++"           [-W host:port] [-w local_tun[:remote_tun]]\n"
++"           [user@]hostname [command]\n"
+ 	);
+ 	exit(255);
+ }
+@@ -285,7 +290,7 @@ main(int ac, char **av)
+ 
+  again:
+ 	while ((opt = getopt(ac, av, "1246ab:c:e:fgi:kl:m:no:p:qstvx"
+-	    "ACD:F:I:KL:MNO:PR:S:TVw:XYy")) != -1) {
++	    "ACD:F:I:KL:MNO:PR:S:TVw:W:XYy")) != -1) {
+ 		switch (opt) {
+ 		case '1':
+ 			if (FIPS_mode()) {
+@@ -401,6 +406,22 @@ main(int ac, char **av)
+ 				exit(255);
+ 			}
+ 			break;
++		case 'W':
++			if (parse_forward(&fwd, optarg, 1, 0)) {
++				stdio_forward_host = fwd.listen_host;
++				stdio_forward_port = fwd.listen_port;
++				xfree(fwd.connect_host);
++			} else {
++				fprintf(stderr,
++				    "Bad stdio forwarding specification '%s'\n",
++				    optarg);
++				exit(255);
++			}
++			no_tty_flag = 1;
++			no_shell_flag = 1;
++			options.clear_forwardings = 1;
++			options.exit_on_forward_failure = 1;
++			break;
+ 		case 'q':
+ 			options.log_level = SYSLOG_LEVEL_QUIET;
+ 			break;
+@@ -900,11 +921,41 @@ ssh_confirm_remote_forward(int type, u_i
+ }
+ 
+ static void
++client_cleanup_stdio_fwd(int id, void *arg)
++{
++	debug("stdio forwarding: done");
++	cleanup_exit(0);
++}
++
++static int
++client_setup_stdio_fwd(const char *host_to_connect, u_short port_to_connect)
++{
++	Channel *c;
++
++	debug3("client_setup_stdio_fwd %s:%d", host_to_connect,
++	    port_to_connect);
++	if ((c = channel_connect_stdio_fwd(host_to_connect, port_to_connect))
++	    == NULL)
++		return 0;
++	channel_register_cleanup(c->self, client_cleanup_stdio_fwd, 0);
++	return 1;
++}
++
++static void
+ ssh_init_forwarding(void)
+ {
+ 	int success = 0;
+ 	int i;
+ 
++	if (stdio_forward_host != NULL) {
++		if (!compat20) {
++			fatal("stdio forwarding require Protocol 2");
++		}
++		if (!client_setup_stdio_fwd(stdio_forward_host,
++		    stdio_forward_port))
++			fatal("Failed to connect in stdio forward mode.");
++	}
++
+ 	/* Initiate local TCP/IP port forwardings. */
+ 	for (i = 0; i < options.num_local_forwards; i++) {
+ 		debug("Local connections to %.200s:%d forwarded to remote "

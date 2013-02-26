@@ -147,11 +147,7 @@ start()
 stop()
 {
 	echo -n $"Stopping $prog: "
-	if [ -n "`pidfileofproc $SSHD`" ] ; then
-	    killproc $SSHD
-	else
-	    failure $"Stopping $prog"
-	fi
+	killproc -p $PID_FILE $SSHD
 	RETVAL=$?
 	# if we are in halt or reboot runlevel kill all running sessions
 	# so the TCP connections are closed cleanly
@@ -167,11 +163,7 @@ stop()
 reload()
 {
 	echo -n $"Reloading $prog: "
-	if [ -n "`pidfileofproc $SSHD`" ] ; then
-	    killproc $SSHD -HUP
-	else
-	    failure $"Reloading $prog"
-	fi
+	killproc -p $PID_FILE $SSHD -HUP
 	RETVAL=$?
 	echo
 }

@@ -149,7 +149,7 @@ diff -up openssh-5.3p1/HOWTO.ldap-keys.ldap openssh-5.3p1/HOWTO.ldap-keys
 +	sshPublicKey: command="kill -9 1" ssh-rss AAAAM5...
 +4) on the ssh side set in sshd_config
 +  * Set up the backend
-+	AuthorizedKeysCommand "/usr/libexec/openssh/ssh-ldap-wrapper"
++	AuthorizedKeysCommand /usr/libexec/openssh/ssh-ldap-wrapper
 +	AuthorizedKeysCommandRunAs <appropriate user to run LDAP>
 +  * Do not forget to set
 +	PubkeyAuthentication yes

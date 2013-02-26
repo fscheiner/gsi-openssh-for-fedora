@@ -37,7 +37,7 @@
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: 5.3p1
-Release: 7%{?dist}
+Release: 8%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.3p1-3
 URL: http://www.openssh.com/portable.html
@@ -108,6 +108,8 @@ Patch97: openssh-5.3p1-noslash.patch
 Patch98: openssh-5.3p1-prevent-post-auth-resource-exhaustion.patch
 # use IPV6_V6ONLY also for channels (#732955)
 Patch99: openssh-5.3p1-v6only.patch
+# Add a 'netcat mode' (ssh -W) (#860809)
+Patch100: openssh-5.3p1-netcat-mode.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
@@ -267,6 +269,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch97 -p1 -b .noslash
 %patch98 -p1 -b .postauth-exhaustion
 %patch99 -p1 -b .v6only
+%patch100 -p1 -b .netcat
 
 %patch200 -p1 -b .gsi
 
@@ -471,6 +474,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Tue Feb 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-8
+- Based on openssh-5.3p1-84.1.el6
+
 * Tue Dec 11 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-7
 - Based on openssh-5.3p1-81.el6_3
 
