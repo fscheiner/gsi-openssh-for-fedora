@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 5.9p1
-%global openssh_rel 9
+%global openssh_rel 10
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -161,6 +161,8 @@ Patch901: openssh-5.9p1-kuserok.patch
 Patch902: openssh-5.9p1-man-moduli.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=861818
 Patch903: openssh-5.9p1-ipqos.patch
+# change default value of MaxStartups - CVE-2010-5107 - #908707
+Patch904: openssh-5.9p1-change-max-startups.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.9p1.patch
@@ -329,6 +331,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch901 -p1 -b .kuserok
 %patch902 -p1 -b .man-moduli
 %patch903 -p1 -b .ipqos
+%patch904 -p1 -b .max-startups
 
 %patch98 -p1 -b .gsi
 
@@ -552,6 +555,9 @@ fi
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Tue Feb 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-10
+- Based on openssh-5.9p1-29.fc17
+
 * Tue Dec 11 2012 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.9p1-9
 - Based on openssh-5.9p1-28.fc17
 
