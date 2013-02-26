@@ -32,12 +32,12 @@
 %global nologin 1
 
 %global openssh_ver 6.1p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -151,6 +151,8 @@ Patch901: openssh-6.1p1-kuserok.patch
 Patch902: openssh-6.1p1-man-moduli.patch
 # obsolete RequiredAuthentications options
 Patch903: openssh-6.1p1-required-authentications.patch
+# change default value of MaxStartups - CVE-2010-5107 - #908707
+Patch904: openssh-6.1p1-change-max-startups.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.1p1.patch
@@ -313,6 +315,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch901 -p1 -b .kuserok
 %patch902 -p1 -b .man-moduli
 %patch903 -p1 -b .required-authentication
+%patch904 -p1 -b .max-startups
 
 %patch98 -p1 -b .gsi
 
@@ -526,6 +529,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Tue Feb 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-4
+- Based on openssh-6.1p1-6.fc18
+
 * Thu Feb 14 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 6.1p1-3.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_19_Mass_Rebuild
 

@@ -1,9 +1,9 @@
 diff -up openssh-6.1p1/auth2-pubkey.c.keycat openssh-6.1p1/auth2-pubkey.c
---- openssh-6.1p1/auth2-pubkey.c.keycat	2012-11-01 13:37:59.000000000 +0100
-+++ openssh-6.1p1/auth2-pubkey.c	2012-11-01 14:03:47.402279914 +0100
-@@ -564,6 +564,14 @@ user_key_command_allowed2(struct passwd 
+--- openssh-6.1p1/auth2-pubkey.c.keycat	2013-02-14 17:39:21.000000000 +0100
++++ openssh-6.1p1/auth2-pubkey.c	2013-02-14 17:40:42.600050510 +0100
+@@ -571,6 +571,14 @@ user_key_command_allowed2(struct passwd
+ 			_exit(1);
  		}
- 		closefrom(STDERR_FILENO + 1);
  
 +#ifdef WITH_SELINUX
 +		if (ssh_selinux_setup_env_variables() < 0) {
@@ -14,11 +14,11 @@ diff -up openssh-6.1p1/auth2-pubkey.c.keycat openssh-6.1p1/auth2-pubkey.c
 +#endif
 +
  		execl(options.authorized_keys_command,
- 		    options.authorized_keys_command, pw->pw_name, NULL);
+ 		    options.authorized_keys_command, user_pw->pw_name, NULL);
  
 diff -up openssh-6.1p1/HOWTO.ssh-keycat.keycat openssh-6.1p1/HOWTO.ssh-keycat
---- openssh-6.1p1/HOWTO.ssh-keycat.keycat	2012-11-01 13:37:59.417280097 +0100
-+++ openssh-6.1p1/HOWTO.ssh-keycat	2012-11-01 13:37:59.417280097 +0100
+--- openssh-6.1p1/HOWTO.ssh-keycat.keycat	2013-02-14 17:39:21.148382013 +0100
++++ openssh-6.1p1/HOWTO.ssh-keycat	2013-02-14 17:39:21.148382013 +0100
 @@ -0,0 +1,12 @@
 +The ssh-keycat retrieves the content of the ~/.ssh/authorized_keys
 +of an user in any environment. This includes environments with
@@ -33,8 +33,8 @@ diff -up openssh-6.1p1/HOWTO.ssh-keycat.keycat openssh-6.1p1/HOWTO.ssh-keycat
 +
 +
 diff -up openssh-6.1p1/Makefile.in.keycat openssh-6.1p1/Makefile.in
---- openssh-6.1p1/Makefile.in.keycat	2012-11-01 13:37:59.413280097 +0100
-+++ openssh-6.1p1/Makefile.in	2012-11-01 13:37:59.418280097 +0100
+--- openssh-6.1p1/Makefile.in.keycat	2013-02-14 17:39:21.143382033 +0100
++++ openssh-6.1p1/Makefile.in	2013-02-14 17:39:21.148382013 +0100
 @@ -27,6 +27,7 @@ SFTP_SERVER=$(libexecdir)/sftp-server
  SSH_KEYSIGN=$(libexecdir)/ssh-keysign
  SSH_LDAP_HELPER=$(libexecdir)/ssh-ldap-helper
@@ -71,8 +71,8 @@ diff -up openssh-6.1p1/Makefile.in.keycat openssh-6.1p1/Makefile.in
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp-server$(EXEEXT) $(DESTDIR)$(SFTP_SERVER)$(EXEEXT)
  	$(INSTALL) -m 644 ssh.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
 diff -up openssh-6.1p1/openbsd-compat/port-linux.c.keycat openssh-6.1p1/openbsd-compat/port-linux.c
---- openssh-6.1p1/openbsd-compat/port-linux.c.keycat	2012-11-01 13:37:59.367280097 +0100
-+++ openssh-6.1p1/openbsd-compat/port-linux.c	2012-11-01 13:37:59.419280097 +0100
+--- openssh-6.1p1/openbsd-compat/port-linux.c.keycat	2013-02-14 17:39:21.126382101 +0100
++++ openssh-6.1p1/openbsd-compat/port-linux.c	2013-02-14 17:39:21.149382009 +0100
 @@ -315,7 +315,7 @@ ssh_selinux_getctxbyname(char *pwname,
  
  /* Setup environment variables for pam_selinux */
@@ -128,8 +128,8 @@ diff -up openssh-6.1p1/openbsd-compat/port-linux.c.keycat openssh-6.1p1/openbsd-
  void
  ssh_selinux_setup_exec_context(char *pwname)
 diff -up openssh-6.1p1/ssh-keycat.c.keycat openssh-6.1p1/ssh-keycat.c
---- openssh-6.1p1/ssh-keycat.c.keycat	2012-11-01 13:37:59.420280097 +0100
-+++ openssh-6.1p1/ssh-keycat.c	2012-11-01 13:37:59.420280097 +0100
+--- openssh-6.1p1/ssh-keycat.c.keycat	2013-02-14 17:39:21.149382009 +0100
++++ openssh-6.1p1/ssh-keycat.c	2013-02-14 17:39:21.149382009 +0100
 @@ -0,0 +1,238 @@
 +/*
 + * Redistribution and use in source and binary forms, with or without

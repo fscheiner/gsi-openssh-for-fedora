@@ -1,6 +1,6 @@
 diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
---- openssh-6.1p1/auth2-pubkey.c.akc	2012-11-28 17:12:43.238524384 +0100
-+++ openssh-6.1p1/auth2-pubkey.c	2012-11-28 17:12:43.263524297 +0100
+--- openssh-6.1p1/auth2-pubkey.c.akc	2013-02-14 17:46:45.259546968 +0100
++++ openssh-6.1p1/auth2-pubkey.c	2013-02-14 17:48:19.072137541 +0100
 @@ -27,9 +27,13 @@
  
  #include <sys/types.h>
@@ -71,7 +71,7 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
  	key_free(found);
  	if (!found_key)
  		debug2("key not found");
-@@ -453,7 +446,173 @@ user_cert_trusted_ca(struct passwd *pw,
+@@ -453,7 +446,180 @@ user_cert_trusted_ca(struct passwd *pw,
  	return ret;
  }
  
@@ -112,45 +112,48 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
 +	struct stat st;
 +	int status, devnull, p[2], i;
 +	pid_t pid;
-+	char errmsg[512];
++	char *username, errmsg[512];
 +
 +	if (options.authorized_keys_command == NULL ||
 +	    options.authorized_keys_command[0] != '/')
 +		return 0;
 +
-+	/* If no user specified to run commands the default to target user */
-+	if (options.authorized_keys_command_user == NULL)
-+		pw = user_pw;
-+	else {
-+		pw = getpwnam(options.authorized_keys_command_user);
-+		if (pw == NULL) {
-+			error("AuthorizedKeyCommandUser \"%s\" not found: %s",
-+			    options.authorized_keys_command, strerror(errno));
-+			return 0;
-+		}
++	if (options.authorized_keys_command_user == NULL) {
++		error("No user for AuthorizedKeysCommand specified, skipping");
++		return 0;
 +	}
 +
++	username = percent_expand(options.authorized_keys_command_user,
++	    "u", user_pw->pw_name, (char *)NULL);
++	pw = getpwnam(username);
++	if (pw == NULL) {
++		error("AuthorizedKeyCommandUser \"%s\" not found: %s",
++		    username, strerror(errno));
++		free(username);
++		return 0;
++	}
++	free(username);
++
 +	temporarily_use_uid(pw);
++
 +	if (stat(options.authorized_keys_command, &st) < 0) {
 +		error("Could not stat AuthorizedKeysCommand \"%s\": %s",
 +		    options.authorized_keys_command, strerror(errno));
 +		goto out;
 +	}
-+
 +	if (auth_secure_path(options.authorized_keys_command, &st, NULL, 0,
 +	    errmsg, sizeof(errmsg)) != 0) {
 +		error("Unsafe AuthorizedKeysCommand: %s", errmsg);
 +		goto out;
 +	}
 +
-+	/* open the pipe and read the keys */
 +	if (pipe(p) != 0) {
 +		error("%s: pipe: %s", __func__, strerror(errno));
 +		goto out;
-+ 	}
++	}
 +
-+	debug3("Running AuthorizedKeysCommand: \"%s\" as \"%s\"",
-+	    options.authorized_keys_command, pw->pw_name);
++	debug3("Running AuthorizedKeysCommand: \"%s %s\" as \"%s\"",
++	    options.authorized_keys_command, user_pw->pw_name, pw->pw_name);
 +
 +	/*
 +	 * Don't want to call this in the child, where it can fatal() and
@@ -168,6 +171,19 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
 +		for (i = 0; i < NSIG; i++)
 +			signal(i, SIG_DFL);
 +
++		if ((devnull = open(_PATH_DEVNULL, O_RDWR)) == -1) {
++			error("%s: open %s: %s", __func__, _PATH_DEVNULL,
++			    strerror(errno));
++			_exit(1);
++		}
++		/* Keep stderr around a while longer to catch errors */
++		if (dup2(devnull, STDIN_FILENO) == -1 ||
++		    dup2(p[1], STDOUT_FILENO) == -1) {
++			error("%s: dup2: %s", __func__, strerror(errno));
++			_exit(1);
++		}
++		closefrom(STDERR_FILENO + 1);
++
 +		/* Don't use permanently_set_uid() here to avoid fatal() */
 +		if (setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) != 0) {
 +			error("setresgid %u: %s", (u_int)pw->pw_gid,
@@ -179,23 +195,14 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
 +			    strerror(errno));
 +			_exit(1);
 +		}
-+
-+		close(p[0]);
-+		if ((devnull = open(_PATH_DEVNULL, O_RDWR)) == -1) {
-+			error("%s: open %s: %s", __func__, _PATH_DEVNULL,
-+			    strerror(errno));
-+			_exit(1);
-+		}
-+		if (dup2(devnull, STDIN_FILENO) == -1 ||
-+		    dup2(p[1], STDOUT_FILENO) == -1 ||
-+		    dup2(devnull, STDERR_FILENO) == -1) {
++		/* stdin is pointed to /dev/null at this point */
++		if (dup2(STDIN_FILENO, STDERR_FILENO) == -1) {
 +			error("%s: dup2: %s", __func__, strerror(errno));
 +			_exit(1);
 +		}
-+		closefrom(STDERR_FILENO + 1);
 +
 +		execl(options.authorized_keys_command,
-+		    options.authorized_keys_command, pw->pw_name, NULL);
++		    options.authorized_keys_command, user_pw->pw_name, NULL);
 +
 +		error("AuthorizedKeysCommand %s exec failed: %s",
 +		    options.authorized_keys_command, strerror(errno));
@@ -203,7 +210,7 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
 +	default: /* parent */
 +		break;
 +	}
-+	
++
 +	temporarily_use_uid(pw);
 +
 +	close(p[1]);
@@ -211,6 +218,7 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
 +		error("%s: fdopen: %s", __func__, strerror(errno));
 +		close(p[0]);
 +		/* Don't leave zombie child */
++		kill(pid, SIGTERM);
 +		while (waitpid(pid, NULL, 0) == -1 && errno == EINTR)
 +			;
 +		goto out;
@@ -236,7 +244,6 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
 +	found_key = ok;
 + out:
 +	restore_uid();
-+
 +	return found_key;
 +}
 +
@@ -246,7 +253,7 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
  int
  user_key_allowed(struct passwd *pw, Key *key)
  {
-@@ -469,6 +628,10 @@ user_key_allowed(struct passwd *pw, Key
+@@ -469,9 +635,17 @@ user_key_allowed(struct passwd *pw, Key
  	if (success)
  		return success;
  
@@ -255,12 +262,19 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
 +		return success;
 +
  	for (i = 0; !success && i < options.num_authkeys_files; i++) {
++
++		if (strcasecmp(options.authorized_keys_files[i], "none") == 0)
++			continue;
  		file = expand_authorized_keys(
  		    options.authorized_keys_files[i], pw);
++
+ 		success = user_key_allowed2(pw, key, file);
+ 		xfree(file);
+ 	}
 diff -up openssh-6.1p1/auth.c.akc openssh-6.1p1/auth.c
---- openssh-6.1p1/auth.c.akc	2012-11-28 17:12:43.187524558 +0100
-+++ openssh-6.1p1/auth.c	2012-11-28 17:12:43.263524297 +0100
-@@ -411,39 +411,41 @@ check_key_in_hostfiles(struct passwd *pw
+--- openssh-6.1p1/auth.c.akc	2013-02-14 17:46:45.189547274 +0100
++++ openssh-6.1p1/auth.c	2013-02-14 17:46:45.273546907 +0100
+@@ -415,39 +415,41 @@ check_key_in_hostfiles(struct passwd *pw
  
  
  /*
@@ -315,7 +329,7 @@ diff -up openssh-6.1p1/auth.c.akc openssh-6.1p1/auth.c
  		snprintf(err, errlen, "bad ownership or modes for file %s",
  		    buf);
  		return -1;
-@@ -479,6 +481,31 @@ secure_filename(FILE *f, const char *fil
+@@ -483,6 +485,31 @@ secure_filename(FILE *f, const char *fil
  	return 0;
  }
  
@@ -348,8 +362,8 @@ diff -up openssh-6.1p1/auth.c.akc openssh-6.1p1/auth.c
  auth_openfile(const char *file, struct passwd *pw, int strict_modes,
      int log_missing, char *file_type)
 diff -up openssh-6.1p1/auth.h.akc openssh-6.1p1/auth.h
---- openssh-6.1p1/auth.h.akc	2012-11-28 17:12:43.239524381 +0100
-+++ openssh-6.1p1/auth.h	2012-11-28 17:12:43.263524297 +0100
+--- openssh-6.1p1/auth.h.akc	2013-02-14 17:46:45.259546968 +0100
++++ openssh-6.1p1/auth.h	2013-02-14 17:46:45.274546903 +0100
 @@ -125,6 +125,10 @@ int	 auth_rhosts_rsa_key_allowed(struct
  int	 hostbased_key_allowed(struct passwd *, const char *, char *, Key *);
  int	 user_key_allowed(struct passwd *, Key *);
@@ -362,8 +376,8 @@ diff -up openssh-6.1p1/auth.h.akc openssh-6.1p1/auth.h
  int	auth_krb5(Authctxt *authctxt, krb5_data *auth, char **client, krb5_data *);
  int	auth_krb5_tgt(Authctxt *authctxt, krb5_data *tgt);
 diff -up openssh-6.1p1/servconf.c.akc openssh-6.1p1/servconf.c
---- openssh-6.1p1/servconf.c.akc	2012-11-28 17:12:43.198524521 +0100
-+++ openssh-6.1p1/servconf.c	2012-11-28 17:14:50.314005026 +0100
+--- openssh-6.1p1/servconf.c.akc	2013-02-14 17:46:45.193547257 +0100
++++ openssh-6.1p1/servconf.c	2013-02-14 17:46:45.274546903 +0100
 @@ -137,6 +137,8 @@ initialize_server_options(ServerOptions
  	options->num_permitted_opens = -1;
  	options->adm_forced_command = NULL;
@@ -437,8 +451,8 @@ diff -up openssh-6.1p1/servconf.c.akc openssh-6.1p1/servconf.c
  	/* string arguments requiring a lookup */
  	dump_cfg_string(sLogLevel, log_level_name(o->log_level));
 diff -up openssh-6.1p1/servconf.h.akc openssh-6.1p1/servconf.h
---- openssh-6.1p1/servconf.h.akc	2012-11-28 17:12:43.000000000 +0100
-+++ openssh-6.1p1/servconf.h	2012-11-28 17:18:41.217055157 +0100
+--- openssh-6.1p1/servconf.h.akc	2013-02-14 17:46:45.194547252 +0100
++++ openssh-6.1p1/servconf.h	2013-02-14 17:46:45.275546898 +0100
 @@ -167,6 +167,8 @@ typedef struct {
  	char   *revoked_keys_file;
  	char   *trusted_user_ca_keys;
@@ -449,8 +463,8 @@ diff -up openssh-6.1p1/servconf.h.akc openssh-6.1p1/servconf.h
  	char   *version_addendum;	/* Appended to SSH banner */
  
 diff -up openssh-6.1p1/sshd.c.akc openssh-6.1p1/sshd.c
---- openssh-6.1p1/sshd.c.akc	2012-11-28 17:12:43.245524360 +0100
-+++ openssh-6.1p1/sshd.c	2012-11-28 17:12:43.265524291 +0100
+--- openssh-6.1p1/sshd.c.akc	2013-02-14 17:46:45.270546920 +0100
++++ openssh-6.1p1/sshd.c	2013-02-14 17:46:45.276546894 +0100
 @@ -366,9 +366,20 @@ main_sigchld_handler(int sig)
  static void
  grace_alarm_handler(int sig)
@@ -474,7 +488,7 @@ diff -up openssh-6.1p1/sshd.c.akc openssh-6.1p1/sshd.c
  }
 diff -up openssh-6.1p1/sshd_config.0.akc openssh-6.1p1/sshd_config.0
 --- openssh-6.1p1/sshd_config.0.akc	2012-08-29 02:53:04.000000000 +0200
-+++ openssh-6.1p1/sshd_config.0	2012-11-28 17:12:43.265524291 +0100
++++ openssh-6.1p1/sshd_config.0	2013-02-14 17:46:45.276546894 +0100
 @@ -71,6 +71,23 @@ DESCRIPTION
  
               See PATTERNS in ssh_config(5) for more information on patterns.
@@ -510,8 +524,8 @@ diff -up openssh-6.1p1/sshd_config.0.akc openssh-6.1p1/sshd_config.0
               GatewayPorts, GSSAPIAuthentication, HostbasedAuthentication,
               HostbasedUsesNameFromPacketOnly, KbdInteractiveAuthentication,
 diff -up openssh-6.1p1/sshd_config.5.akc openssh-6.1p1/sshd_config.5
---- openssh-6.1p1/sshd_config.5.akc	2012-11-28 17:12:43.199524517 +0100
-+++ openssh-6.1p1/sshd_config.5	2012-11-28 17:16:23.736624980 +0100
+--- openssh-6.1p1/sshd_config.5.akc	2013-02-14 17:46:45.195547248 +0100
++++ openssh-6.1p1/sshd_config.5	2013-02-14 17:46:45.277546890 +0100
 @@ -173,6 +173,20 @@ Note that each authentication method lis
  in the configuration.
  The default is not to require multiple authentication; successful completion
@@ -552,7 +566,7 @@ diff -up openssh-6.1p1/sshd_config.5.akc openssh-6.1p1/sshd_config.5
  .Cm PermitOpen ,
 diff -up openssh-6.1p1/sshd_config.akc openssh-6.1p1/sshd_config
 --- openssh-6.1p1/sshd_config.akc	2012-07-31 04:21:34.000000000 +0200
-+++ openssh-6.1p1/sshd_config	2012-11-28 17:12:43.265524291 +0100
++++ openssh-6.1p1/sshd_config	2013-02-14 17:46:45.277546890 +0100
 @@ -49,6 +49,9 @@
  # but this is overridden so installations will only check .ssh/authorized_keys
  AuthorizedKeysFile	.ssh/authorized_keys
