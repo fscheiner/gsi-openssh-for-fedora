@@ -37,7 +37,7 @@
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: 5.3p1
-Release: 8%{?dist}
+Release: 9%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.3p1-3
 URL: http://www.openssh.com/portable.html
@@ -474,6 +474,11 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Sat Apr 06 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-9
+- Security fix for vulnerability
+    http://grid.ncsa.illinois.edu/ssh/pamuserchange-2013-01.adv
+    https://wiki.egi.eu/wiki/SVG:Advisory-SVG-2013-5168
+
 * Tue Feb 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-8
 - Based on openssh-5.3p1-84.1.el6
 
