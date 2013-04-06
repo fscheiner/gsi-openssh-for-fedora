@@ -75,9 +75,20 @@ diff -up openssh-6.1p1/session.c.privsep-selinux openssh-6.1p1/session.c
  	}
  
 diff -up openssh-6.1p1/sshd.c.privsep-selinux openssh-6.1p1/sshd.c
---- openssh-6.1p1/sshd.c.privsep-selinux	2012-11-05 14:46:39.335809209 +0100
-+++ openssh-6.1p1/sshd.c	2012-11-05 14:46:39.341809247 +0100
-@@ -794,6 +794,13 @@ privsep_postauth(Authctxt *authctxt)
+--- openssh-6.1p1/sshd.c.privsep-selinux	2013-02-24 11:29:32.997823377 +0100
++++ openssh-6.1p1/sshd.c	2013-02-24 11:43:34.171182720 +0100
+@@ -653,6 +653,10 @@ privsep_preauth_child(void)
+ 	/* Demote the private keys to public keys. */
+ 	demote_sensitive_data();
+ 
++#ifdef WITH_SELINUX
++	ssh_selinux_change_context("sshd_net_t");
++#endif
++
+ 	/* Change our root directory */
+ 	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
+ 		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
+@@ -794,6 +798,13 @@ privsep_postauth(Authctxt *authctxt)
  	do_setusercontext(authctxt->pw);
  
   skip:
