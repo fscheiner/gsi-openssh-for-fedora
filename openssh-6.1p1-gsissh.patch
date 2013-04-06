@@ -370,7 +370,7 @@ diff -Nur openssh-6.1p1.orig/auth-pam.c openssh-6.1p1/auth-pam.c
  typedef pid_t sp_pthread_t;
  #endif
  
-@@ -277,6 +281,49 @@
+@@ -277,6 +281,51 @@
  # define pam_chauthtok(a,b)	(sshpam_chauthtok_ruid((a), (b)))
  #endif
  
@@ -410,8 +410,10 @@ diff -Nur openssh-6.1p1.orig/auth-pam.c openssh-6.1p1/auth-pam.c
 +			fatal("PAM: could not get passwd entry for user "
 +			    "'%.100s' provided by PAM_USER", user);
 +		pwfree(sshpam_authctxt->pw);
-+		sshpam_authctxt->pw = pw;
++		sshpam_authctxt->pw = pwcopy(pw);
 +		sshpam_authctxt->valid = allowed_user(pw);
++		xfree(sshpam_authctxt->user);
++		sshpam_authctxt->user = xstrdup(user);
 +		debug("PAM: user '%.100s' now %svalid", user,
 +		    sshpam_authctxt->valid ? "" : "in");
 +	}
