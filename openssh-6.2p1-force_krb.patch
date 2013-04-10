@@ -1,6 +1,6 @@
-diff -up openssh-5.8p2/gss-serv-krb5.c.force_krb openssh-5.8p2/gss-serv-krb5.c
---- openssh-5.8p2/gss-serv-krb5.c.force_krb	2006-09-01 07:38:36.000000000 +0200
-+++ openssh-5.8p2/gss-serv-krb5.c	2011-05-19 03:41:45.801109545 +0200
+diff -up openssh-6.2p1/gss-serv-krb5.c.force_krb openssh-6.2p1/gss-serv-krb5.c
+--- openssh-6.2p1/gss-serv-krb5.c.force_krb	2013-03-25 20:04:53.807817333 +0100
++++ openssh-6.2p1/gss-serv-krb5.c	2013-03-25 20:04:53.818817403 +0100
 @@ -32,7 +32,9 @@
  #include <sys/types.h>
  
@@ -216,10 +216,10 @@ diff -up openssh-5.8p2/gss-serv-krb5.c.force_krb openssh-5.8p2/gss-serv-krb5.c
  
  /* This writes out any forwarded credentials from the structure populated
   * during userauth. Called after we have setuid to the user */
-diff -up openssh-5.8p2/session.c.force_krb openssh-5.8p2/session.c
---- openssh-5.8p2/session.c.force_krb	2011-05-19 03:41:41.000000000 +0200
-+++ openssh-5.8p2/session.c	2011-05-19 03:43:32.437173662 +0200
-@@ -820,6 +820,29 @@ do_exec(Session *s, const char *command)
+diff -up openssh-6.2p1/session.c.force_krb openssh-6.2p1/session.c
+--- openssh-6.2p1/session.c.force_krb	2013-03-25 20:04:53.724816810 +0100
++++ openssh-6.2p1/session.c	2013-03-25 20:04:53.818817403 +0100
+@@ -823,6 +823,29 @@ do_exec(Session *s, const char *command)
  		debug("Forced command (key option) '%.900s'", command);
  	}
  
@@ -249,9 +249,9 @@ diff -up openssh-5.8p2/session.c.force_krb openssh-5.8p2/session.c
  #ifdef SSH_AUDIT_EVENTS
  	if (s->command != NULL || s->command_handle != -1)
  		fatal("do_exec: command already set");
-diff -up openssh-5.8p2/sshd.8.force_krb openssh-5.8p2/sshd.8
---- openssh-5.8p2/sshd.8.force_krb	2011-05-19 03:41:30.582114401 +0200
-+++ openssh-5.8p2/sshd.8	2011-05-19 03:41:46.159106308 +0200
+diff -up openssh-6.2p1/sshd.8.force_krb openssh-6.2p1/sshd.8
+--- openssh-6.2p1/sshd.8.force_krb	2013-03-25 20:04:53.787817207 +0100
++++ openssh-6.2p1/sshd.8	2013-03-25 20:04:53.819817409 +0100
 @@ -323,6 +323,7 @@ Finally, the server and the client enter
  The client tries to authenticate itself using
  host-based authentication,
@@ -273,13 +273,13 @@ diff -up openssh-5.8p2/sshd.8.force_krb openssh-5.8p2/sshd.8
  .It Pa ~/.ssh/
  This directory is the default location for all user-specific configuration
  and authentication information.
-diff -up openssh-5.8p2/ssh-gss.h.force_krb openssh-5.8p2/ssh-gss.h
---- openssh-5.8p2/ssh-gss.h.force_krb	2007-06-12 15:40:39.000000000 +0200
-+++ openssh-5.8p2/ssh-gss.h	2011-05-19 03:41:46.302234118 +0200
-@@ -48,6 +48,10 @@
- #define GSS_C_NT_HOSTBASED_SERVICE gss_nt_service_name
- #endif /* GSS_C_NT_... */
- #endif /* !HEIMDAL */
+diff -up openssh-6.2p1/ssh-gss.h.force_krb openssh-6.2p1/ssh-gss.h
+--- openssh-6.2p1/ssh-gss.h.force_krb	2013-03-25 20:04:53.819817409 +0100
++++ openssh-6.2p1/ssh-gss.h	2013-03-25 20:05:26.463023197 +0100
+@@ -49,6 +49,10 @@
+ #  endif /* !HAVE_DECL_GSS_C_NT_... */
+ 
+ # endif /* !HEIMDAL */
 +
 +/* .k5users support */
 +extern char **k5users_allowed_cmds;

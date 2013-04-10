@@ -31,8 +31,8 @@
 # Whether or not /sbin/nologin exists.
 %global nologin 1
 
-%global openssh_ver 6.1p1
-%global openssh_rel 5
+%global openssh_ver 6.2p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -41,13 +41,7 @@ Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
-#Source0: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{version}.tar.gz
-#Source1: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{version}.tar.gz.asc
-# This package differs from the upstream OpenSSH tarball in that
-# the ACSS cipher is removed by running openssh-nukeacss.sh in
-# the unpacked source directory.
-Source0: openssh-%{version}-noacss.tar.bz2
-Source1: openssh-nukeacss.sh
+Source0: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{version}.tar.gz
 Source2: gsisshd.pam
 Source7: gsisshd.sysconfig
 Source11: gsisshd.service
@@ -55,41 +49,27 @@ Source13: gsisshd-keygen
 Source99: README.sshd-and-gsisshd
 
 #?
-Patch100: openssh-6.1p1-coverity.patch
+Patch100: openssh-6.2p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1872
-Patch101: openssh-5.8p1-fingerprint.patch
+Patch101: openssh-6.2p1-fingerprint.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
 #https://bugzilla.redhat.com/show_bug.cgi?id=735889
 Patch102: openssh-5.8p1-getaddrinfo.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1889
 Patch103: openssh-5.8p1-packet.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=983
-Patch104: openssh-6.1p1-authenticationmethods.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
-Patch200: openssh-5.8p1-audit0.patch
-# -"-
-Patch201: openssh-6.0p1-audit1.patch
-# -"-
-Patch202: openssh-5.9p1-audit2.patch
-# -"-
-Patch203: openssh-5.9p1-audit3.patch
-# -"-
-Patch204: openssh-6.1p1-audit4.patch
-# -"-
-Patch205: openssh-6.0p1-audit5.patch
+Patch200: openssh-6.2p1-audit.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
-Patch400: openssh-6.1p1-role-mls.patch
+Patch400: openssh-6.2p1-role-mls.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=781634
 Patch404: openssh-6.1p1-privsep-selinux.patch
 
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1663
-Patch500: openssh-6.1p1-akc.patch
 #?-- unwanted child :(
-Patch501: openssh-6.0p1-ldap.patch
+Patch501: openssh-6.2p1-ldap.patch
 #?
-Patch502: openssh-5.9p1-keycat.patch
+Patch502: openssh-6.2p1-keycat.patch
 
 #http6://bugzilla.mindrot.org/show_bug.cgi?id=1644
 Patch601: openssh-5.2p1-allow-ip-opts.patch
@@ -111,7 +91,7 @@ Patch608: openssh-6.1p1-askpass-ld.patch
 Patch609: openssh-5.5p1-x11.patch
 
 #?
-Patch700: openssh-5.9p1-fips.patch
+Patch700: openssh-6.2p1-fips.patch
 #?
 Patch701: openssh-5.6p1-exit-deadlock.patch
 #?
@@ -127,36 +107,33 @@ Patch706: openssh-5.8p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
 Patch707: openssh-6.1p1-redhat.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
-Patch708: openssh-6.0p1-entropy.patch
+Patch708: openssh-6.2p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
-Patch709: openssh-6.1p1-vendor.patch
-#?
-Patch710: openssh-5.9p1-copy-id-restorecon.patch
+Patch709: openssh-6.2p1-vendor.patch
 # warn users for unsupported UsePAM=no (#757545)
 Patch711: openssh-6.1p1-log-usepam-no.patch
 # make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
 Patch712: openssh-5.9p1-ctr-evp-fast.patch
 # add cavs test binary for the aes-ctr
-Patch713: openssh-5.9p1-ctr-cavstest.patch
+Patch713: openssh-6.2p1-ctr-cavstest.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 #changed cache storage type - #848228
-Patch800: openssh-6.1p1-gsskex.patch
+Patch800: openssh-6.2p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
-Patch801: openssh-5.8p2-force_krb.patch
+Patch801: openssh-6.2p1-force_krb.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
-Patch901: openssh-6.1p1-kuserok.patch
-#https://bugzilla.redhat.com/show_bug.cgi?id=841065
-Patch902: openssh-6.1p1-man-moduli.patch
-# obsolete RequiredAuthentications options
-Patch903: openssh-6.1p1-required-authentications.patch
-# change default value of MaxStartups - CVE-2010-5107 - #908707
-Patch904: openssh-6.1p1-change-max-startups.patch
+Patch901: openssh-6.2p1-kuserok.patch
+# build regress/modpipe tests with $(CFLAGS), based on
+# http://lists.mindrot.org/pipermail/openssh-unix-dev/2013-March/031167.html
+Patch905: openssh-6.2p1-modpipe-cflags.patch
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2084
+Patch906: openssh-6.2p1-track-IdentifyFile.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.1p1.patch
-Patch98: openssh-6.1p1-gsissh.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p1.patch
+Patch98: openssh-6.2p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -263,21 +240,14 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch101 -p1 -b .fingerprint
 %patch102 -p1 -b .getaddrinfo
 %patch103 -p1 -b .packet
-%patch104 -p1 -b .authenticationmethods
 
-%patch200 -p1 -b .audit0
-%patch201 -p1 -b .audit1
-%patch202 -p1 -b .audit2
-%patch203 -p1 -b .audit3
-%patch204 -p1 -b .audit4
-%patch205 -p1 -b .audit5
+%patch200 -p1 -b .audit
 
 %if %{WITH_SELINUX}
 %patch400 -p1 -b .role-mls
 %patch404 -p1 -b .privsep-selinux
 %endif
 
-%patch500 -p1 -b .akc
 %if %{ldap}
 %patch501 -p1 -b .ldap
 %endif
@@ -303,7 +273,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch707 -p1 -b .redhat
 %patch708 -p1 -b .entropy
 %patch709 -p1 -b .vendor
-%patch710 -p1 -b .restorecon
 %patch711 -p1 -b .log-usepam-no
 %patch712 -p1 -b .evp-ctr
 %patch713 -p1 -b .ctr-cavs
@@ -313,9 +282,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
-%patch902 -p1 -b .man-moduli
-%patch903 -p1 -b .required-authentication
-%patch904 -p1 -b .max-startups
+%patch905 -p1 -b .modpipe-cflags
+%patch906 -p1 -b .identityfile
 
 %patch98 -p1 -b .gsi
 
@@ -529,6 +497,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Wed Apr 10 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p1-1
+- Based on openssh-6.2p1-2.fc19
+
 * Sat Apr 06 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-5
 - Based on openssh-6.1p1-7.fc19
 - Security fix for vulnerability

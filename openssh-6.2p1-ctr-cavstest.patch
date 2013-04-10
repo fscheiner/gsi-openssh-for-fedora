@@ -1,6 +1,6 @@
-diff -up openssh-5.9p1/ctr-cavstest.c.ctr-cavs openssh-5.9p1/ctr-cavstest.c
---- openssh-5.9p1/ctr-cavstest.c.ctr-cavs	2012-01-13 15:59:06.584283289 +0100
-+++ openssh-5.9p1/ctr-cavstest.c	2012-01-13 18:21:33.791941027 +0100
+diff -up openssh-6.2p1/ctr-cavstest.c.ctr-cavs openssh-6.2p1/ctr-cavstest.c
+--- openssh-6.2p1/ctr-cavstest.c.ctr-cavs	2013-03-25 21:35:52.512586671 +0100
++++ openssh-6.2p1/ctr-cavstest.c	2013-03-25 21:35:52.512586671 +0100
 @@ -0,0 +1,208 @@
 +/*
 + *
@@ -194,7 +194,7 @@ diff -up openssh-5.9p1/ctr-cavstest.c.ctr-cavs openssh-5.9p1/ctr-cavstest.c
 +		return 2;
 +	}
 +
-+	cipher_crypt(&cc, outdata, data, datalen);
++	cipher_crypt(&cc, outdata, data, datalen, 0, 0);
 +
 +        xfree(data);
 +
@@ -210,9 +210,9 @@ diff -up openssh-5.9p1/ctr-cavstest.c.ctr-cavs openssh-5.9p1/ctr-cavstest.c
 +        return 0;
 +}
 +
-diff -up openssh-5.9p1/Makefile.in.ctr-cavs openssh-5.9p1/Makefile.in
---- openssh-5.9p1/Makefile.in.ctr-cavs	2012-01-13 15:59:06.539282357 +0100
-+++ openssh-5.9p1/Makefile.in	2012-01-13 15:59:06.588283373 +0100
+diff -up openssh-6.2p1/Makefile.in.ctr-cavs openssh-6.2p1/Makefile.in
+--- openssh-6.2p1/Makefile.in.ctr-cavs	2013-03-25 21:35:52.451586280 +0100
++++ openssh-6.2p1/Makefile.in	2013-03-25 21:37:14.956114584 +0100
 @@ -28,6 +28,7 @@ SSH_KEYSIGN=$(libexecdir)/ssh-keysign
  SSH_LDAP_HELPER=$(libexecdir)/ssh-ldap-helper
  SSH_LDAP_WRAPPER=$(libexecdir)/ssh-ldap-wrapper
@@ -221,16 +221,16 @@ diff -up openssh-5.9p1/Makefile.in.ctr-cavs openssh-5.9p1/Makefile.in
  SSH_PKCS11_HELPER=$(libexecdir)/ssh-pkcs11-helper
  PRIVSEP_PATH=@PRIVSEP_PATH@
  SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
-@@ -63,7 +64,7 @@ EXEEXT=@EXEEXT@
+@@ -65,7 +66,7 @@ EXEEXT=@EXEEXT@
  MANFMT=@MANFMT@
  INSTALL_SSH_LDAP_HELPER=@INSTALL_SSH_LDAP_HELPER@
  
 -TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT)
 +TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT) ctr-cavstest$(EXEEXT)
  
- LIBSSH_OBJS=acss.o authfd.o authfile.o bufaux.o bufbn.o buffer.o \
- 	canohost.o channels.o cipher.o cipher-acss.o cipher-aes.o \
-@@ -171,6 +172,9 @@ ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) l
+ LIBSSH_OBJS=authfd.o authfile.o bufaux.o bufbn.o buffer.o \
+ 	canohost.o channels.o cipher.o cipher-aes.o \
+@@ -174,6 +175,9 @@ ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) l
  ssh-keycat$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keycat.o
  	$(LD) -o $@ ssh-keycat.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(SSHDLIBS)
  
@@ -240,7 +240,7 @@ diff -up openssh-5.9p1/Makefile.in.ctr-cavs openssh-5.9p1/Makefile.in
  ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o roaming_dummy.o
  	$(LD) -o $@ ssh-keyscan.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(LIBS)
  
-@@ -271,6 +275,7 @@ install-files:
+@@ -281,6 +285,7 @@ install-files:
  		$(INSTALL) -m 0700 ssh-ldap-wrapper $(DESTDIR)$(SSH_LDAP_WRAPPER) ; \
  	fi
  	$(INSTALL) -m 0755 $(STRIP_OPT) ssh-keycat$(EXEEXT) $(DESTDIR)$(libexecdir)/ssh-keycat$(EXEEXT)

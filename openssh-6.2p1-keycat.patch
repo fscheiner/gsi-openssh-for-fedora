@@ -1,7 +1,7 @@
-diff -up openssh-6.1p1/auth2-pubkey.c.keycat openssh-6.1p1/auth2-pubkey.c
---- openssh-6.1p1/auth2-pubkey.c.keycat	2013-02-14 17:39:21.000000000 +0100
-+++ openssh-6.1p1/auth2-pubkey.c	2013-02-14 17:40:42.600050510 +0100
-@@ -571,6 +571,14 @@ user_key_command_allowed2(struct passwd
+diff -up openssh-6.2p1/auth2-pubkey.c.keycat openssh-6.2p1/auth2-pubkey.c
+--- openssh-6.2p1/auth2-pubkey.c.keycat	2013-03-25 21:34:17.779978851 +0100
++++ openssh-6.2p1/auth2-pubkey.c	2013-03-25 21:34:17.798978973 +0100
+@@ -573,6 +573,14 @@ user_key_command_allowed2(struct passwd
  			_exit(1);
  		}
  
@@ -16,9 +16,9 @@ diff -up openssh-6.1p1/auth2-pubkey.c.keycat openssh-6.1p1/auth2-pubkey.c
  		execl(options.authorized_keys_command,
  		    options.authorized_keys_command, user_pw->pw_name, NULL);
  
-diff -up openssh-6.1p1/HOWTO.ssh-keycat.keycat openssh-6.1p1/HOWTO.ssh-keycat
---- openssh-6.1p1/HOWTO.ssh-keycat.keycat	2013-02-14 17:39:21.148382013 +0100
-+++ openssh-6.1p1/HOWTO.ssh-keycat	2013-02-14 17:39:21.148382013 +0100
+diff -up openssh-6.2p1/HOWTO.ssh-keycat.keycat openssh-6.2p1/HOWTO.ssh-keycat
+--- openssh-6.2p1/HOWTO.ssh-keycat.keycat	2013-03-25 21:34:17.798978973 +0100
++++ openssh-6.2p1/HOWTO.ssh-keycat	2013-03-25 21:34:17.798978973 +0100
 @@ -0,0 +1,12 @@
 +The ssh-keycat retrieves the content of the ~/.ssh/authorized_keys
 +of an user in any environment. This includes environments with
@@ -32,9 +32,9 @@ diff -up openssh-6.1p1/HOWTO.ssh-keycat.keycat openssh-6.1p1/HOWTO.ssh-keycat
 +        PubkeyAuthentication yes
 +
 +
-diff -up openssh-6.1p1/Makefile.in.keycat openssh-6.1p1/Makefile.in
---- openssh-6.1p1/Makefile.in.keycat	2013-02-14 17:39:21.143382033 +0100
-+++ openssh-6.1p1/Makefile.in	2013-02-14 17:39:21.148382013 +0100
+diff -up openssh-6.2p1/Makefile.in.keycat openssh-6.2p1/Makefile.in
+--- openssh-6.2p1/Makefile.in.keycat	2013-03-25 21:34:17.793978941 +0100
++++ openssh-6.2p1/Makefile.in	2013-03-25 21:35:48.282559562 +0100
 @@ -27,6 +27,7 @@ SFTP_SERVER=$(libexecdir)/sftp-server
  SSH_KEYSIGN=$(libexecdir)/ssh-keysign
  SSH_LDAP_HELPER=$(libexecdir)/ssh-ldap-helper
@@ -43,16 +43,16 @@ diff -up openssh-6.1p1/Makefile.in.keycat openssh-6.1p1/Makefile.in
  SSH_PKCS11_HELPER=$(libexecdir)/ssh-pkcs11-helper
  PRIVSEP_PATH=@PRIVSEP_PATH@
  SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
-@@ -62,7 +63,7 @@ EXEEXT=@EXEEXT@
+@@ -64,7 +65,7 @@ EXEEXT=@EXEEXT@
  MANFMT=@MANFMT@
  INSTALL_SSH_LDAP_HELPER=@INSTALL_SSH_LDAP_HELPER@
  
 -TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT)
 +TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT)
  
- LIBSSH_OBJS=acss.o authfd.o authfile.o bufaux.o bufbn.o buffer.o \
- 	canohost.o channels.o cipher.o cipher-acss.o cipher-aes.o \
-@@ -168,6 +169,9 @@ ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT)
+ LIBSSH_OBJS=authfd.o authfile.o bufaux.o bufbn.o buffer.o \
+ 	canohost.o channels.o cipher.o cipher-aes.o \
+@@ -170,6 +171,9 @@ ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT)
  ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o
  	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
  
@@ -62,7 +62,7 @@ diff -up openssh-6.1p1/Makefile.in.keycat openssh-6.1p1/Makefile.in
  ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o roaming_dummy.o
  	$(LD) -o $@ ssh-keyscan.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
  
-@@ -267,6 +271,7 @@ install-files:
+@@ -276,6 +280,7 @@ install-files:
  		$(INSTALL) -m 0700 $(STRIP_OPT) ssh-ldap-helper $(DESTDIR)$(SSH_LDAP_HELPER) ; \
  		$(INSTALL) -m 0700 ssh-ldap-wrapper $(DESTDIR)$(SSH_LDAP_WRAPPER) ; \
  	fi
@@ -70,9 +70,9 @@ diff -up openssh-6.1p1/Makefile.in.keycat openssh-6.1p1/Makefile.in
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp$(EXEEXT) $(DESTDIR)$(bindir)/sftp$(EXEEXT)
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp-server$(EXEEXT) $(DESTDIR)$(SFTP_SERVER)$(EXEEXT)
  	$(INSTALL) -m 644 ssh.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
-diff -up openssh-6.1p1/openbsd-compat/port-linux.c.keycat openssh-6.1p1/openbsd-compat/port-linux.c
---- openssh-6.1p1/openbsd-compat/port-linux.c.keycat	2013-02-14 17:39:21.126382101 +0100
-+++ openssh-6.1p1/openbsd-compat/port-linux.c	2013-02-14 17:39:21.149382009 +0100
+diff -up openssh-6.2p1/openbsd-compat/port-linux.c.keycat openssh-6.2p1/openbsd-compat/port-linux.c
+--- openssh-6.2p1/openbsd-compat/port-linux.c.keycat	2013-03-25 21:34:17.785978890 +0100
++++ openssh-6.2p1/openbsd-compat/port-linux.c	2013-03-25 21:34:17.800978986 +0100
 @@ -315,7 +315,7 @@ ssh_selinux_getctxbyname(char *pwname,
  
  /* Setup environment variables for pam_selinux */
@@ -127,9 +127,9 @@ diff -up openssh-6.1p1/openbsd-compat/port-linux.c.keycat openssh-6.1p1/openbsd-
  /* Set the execution context to the default for the specified user */
  void
  ssh_selinux_setup_exec_context(char *pwname)
-diff -up openssh-6.1p1/ssh-keycat.c.keycat openssh-6.1p1/ssh-keycat.c
---- openssh-6.1p1/ssh-keycat.c.keycat	2013-02-14 17:39:21.149382009 +0100
-+++ openssh-6.1p1/ssh-keycat.c	2013-02-14 17:39:21.149382009 +0100
+diff -up openssh-6.2p1/ssh-keycat.c.keycat openssh-6.2p1/ssh-keycat.c
+--- openssh-6.2p1/ssh-keycat.c.keycat	2013-03-25 21:34:17.800978986 +0100
++++ openssh-6.2p1/ssh-keycat.c	2013-03-25 21:34:17.800978986 +0100
 @@ -0,0 +1,238 @@
 +/*
 + * Redistribution and use in source and binary forms, with or without
