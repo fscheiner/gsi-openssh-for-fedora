@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 6.2p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -130,6 +130,8 @@ Patch901: openssh-6.2p1-kuserok.patch
 Patch905: openssh-6.2p1-modpipe-cflags.patch
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2084
 Patch906: openssh-6.2p1-track-IdentifyFile.patch
+# add latest config.{sub,guess} to support aarch64 (#926284)
+Patch907: openssh-6.2p1-aarch64.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p1.patch
@@ -197,10 +199,6 @@ Requires: fipscheck-lib%{_isa} >= 1.3.0
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
-# This is actually needed for the %triggerun script but Requires(triggerun)
-# is not valid.  We can use %post because this particular %triggerun script
-# should fire just after this package is installed.
-Requires(post): systemd-sysv
 
 %description
 SSH (Secure SHell) is a program for logging into and executing
@@ -284,6 +282,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch901 -p1 -b .kuserok
 %patch905 -p1 -b .modpipe-cflags
 %patch906 -p1 -b .identityfile
+%patch907 -p1 -b .aarch64
 
 %patch98 -p1 -b .gsi
 
@@ -497,6 +496,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Wed Apr 17 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p1-2
+-  Based on openssh-6.2p1-3.fc19
+
 * Wed Apr 10 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p1-1
 - Based on openssh-6.2p1-2.fc19
 
