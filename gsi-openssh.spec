@@ -28,11 +28,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-# Whether or not /sbin/nologin exists.
-%global nologin 1
-
 %global openssh_ver 6.2p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -140,9 +137,7 @@ Patch98: openssh-6.2p1-gsissh.patch
 License: BSD
 Group: Applications/Internet
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-%if %{nologin}
 Requires: /sbin/nologin
-%endif
 
 %if %{ldap}
 BuildRequires: openldap-devel
@@ -426,15 +421,9 @@ getent group ssh_keys >/dev/null || groupadd -r ssh_keys || :
 
 %pre server
 getent group sshd >/dev/null || groupadd -g %{sshd_uid} -r sshd || :
-%if %{nologin}
 getent passwd sshd >/dev/null || \
   useradd -c "Privilege-separated SSH" -u %{sshd_uid} -g sshd \
   -s /sbin/nologin -r -d /var/empty/sshd sshd 2> /dev/null || :
-%else
-getent passwd sshd >/dev/null || \
-  useradd -c "Privilege-separated SSH" -u %{sshd_uid} -g sshd \
-  -s /dev/null -r -d /var/empty/sshd sshd 2> /dev/null || :
-%endif
 
 %post server
 %systemd_post gsisshd.service
@@ -496,8 +485,11 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Fri Apr 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p1-3
+- Based on openssh-6.2p1-4.fc19
+
 * Wed Apr 17 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p1-2
--  Based on openssh-6.2p1-3.fc19
+- Based on openssh-6.2p1-3.fc19
 
 * Wed Apr 10 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p1-1
 - Based on openssh-6.2p1-2.fc19
