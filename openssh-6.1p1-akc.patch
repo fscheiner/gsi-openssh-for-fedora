@@ -119,20 +119,20 @@ diff -up openssh-6.1p1/auth2-pubkey.c.akc openssh-6.1p1/auth2-pubkey.c
 +		return 0;
 +
 +	if (options.authorized_keys_command_user == NULL) {
-+		error("No user for AuthorizedKeysCommand specified, skipping");
-+		return 0;
++		pw = user_pw;
 +	}
-+
-+	username = percent_expand(options.authorized_keys_command_user,
-+	    "u", user_pw->pw_name, (char *)NULL);
-+	pw = getpwnam(username);
-+	if (pw == NULL) {
-+		error("AuthorizedKeyCommandUser \"%s\" not found: %s",
-+		    username, strerror(errno));
++	else {
++		username = percent_expand(options.authorized_keys_command_user,
++		    "u", user_pw->pw_name, (char *)NULL);
++		pw = getpwnam(username);
++		if (pw == NULL) {
++			error("AuthorizedKeyCommandUser \"%s\" not found: %s",
++			    username, strerror(errno));
++			free(username);
++			return 0;
++		}
 +		free(username);
-+		return 0;
 +	}
-+	free(username);
 +
 +	temporarily_use_uid(pw);
 +
