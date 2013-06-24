@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 6.1p1
-%global openssh_rel 6
+%global openssh_rel 7
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -153,6 +153,8 @@ Patch902: openssh-6.1p1-man-moduli.patch
 Patch903: openssh-6.1p1-required-authentications.patch
 # change default value of MaxStartups - CVE-2010-5107 - #908707
 Patch904: openssh-6.1p1-change-max-startups.patch
+# make sftp's libedit interface marginally multibyte aware (#841771)
+Patch908: openssh-6.1p1-sftp-multibyte.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.1p1.patch
@@ -316,6 +318,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch902 -p1 -b .man-moduli
 %patch903 -p1 -b .required-authentication
 %patch904 -p1 -b .max-startups
+%patch908 -p1 -b .sftp-multibyte
 
 %patch98 -p1 -b .gsi
 
@@ -529,6 +532,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Mon Jun 24 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-7
+- Based on openssh-6.1p1-9.fc18
+
 * Fri Apr 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-6
 - Based on openssh-6.1p1-8.fc18
 

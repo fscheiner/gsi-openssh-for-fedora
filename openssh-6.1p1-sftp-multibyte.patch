@@ -1,0 +1,59 @@
+diff -U0 openssh-6.1p1/ChangeLog.sftp-multibyte openssh-6.1p1/ChangeLog
+--- openssh-6.1p1/ChangeLog.sftp-multibyte	2013-06-19 17:32:22.527999462 +0200
++++ openssh-6.1p1/ChangeLog	2013-06-19 17:34:12.236533762 +0200
+@@ -0,0 +1,8 @@
++20130605
++   - dtucker@cvs.openbsd.org 2013/06/04 20:42:36
++     [sftp.c]
++     Make sftp's libedit interface marginally multibyte aware by building up
++     the quoted string by character instead of by byte.  Prevents failures
++     when linked against a libedit built with wide character support (bz#1990).
++     "looks ok" djm
++
+diff -up openssh-6.1p1/sftp.c.sftp-multibyte openssh-6.1p1/sftp.c
+--- openssh-6.1p1/sftp.c.sftp-multibyte	2013-06-19 17:32:22.353000206 +0200
++++ openssh-6.1p1/sftp.c	2013-06-19 17:36:46.947876920 +0200
+@@ -38,6 +38,7 @@
+ #ifdef HAVE_LIBGEN_H
+ #include <libgen.h>
+ #endif
++#include <locale.h>
+ #ifdef USE_LIBEDIT
+ #include <histedit.h>
+ #else
+@@ -1694,8 +1695,9 @@ complete_match(EditLine *el, struct sftp
+     char *file, int remote, int lastarg, char quote, int terminated)
+ {
+ 	glob_t g;
+-	char *tmp, *tmp2, ins[3];
++	char *tmp, *tmp2, ins[8];
+ 	u_int i, hadglob, pwdlen, len, tmplen, filelen;
++	int clen;
+ 	const LineInfo *lf;
+ 	
+ 	/* Glob from "file" location */
+@@ -1751,10 +1753,13 @@ complete_match(EditLine *el, struct sftp
+ 		tmp2 = tmp + filelen;
+ 		len = strlen(tmp2); 
+ 		/* quote argument on way out */
+-		for (i = 0; i < len; i++) {
++		for (i = 0; i < len; i += clen) {
++			if ((clen = mblen(tmp2 + i, len - i)) < 0 ||
++			    (size_t)clen > sizeof(ins) - 2)
++				fatal("invalid multibyte character");
+ 			ins[0] = '\\';
+-			ins[1] = tmp2[i];
+-			ins[2] = '\0';
++			memcpy(ins + 1, tmp2 + i, clen);
++			ins[clen + 1] = '\0';
+ 			switch (tmp2[i]) {
+ 			case '\'':
+ 			case '"':
+@@ -2096,6 +2101,7 @@ main(int argc, char **argv)
+ 
+ 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
+ 	sanitise_stdfd();
++	setlocale(LC_CTYPE, "");
+ 
+ 	__progname = ssh_get_progname(argv[0]);
+ 	memset(&args, '\0', sizeof(args));
