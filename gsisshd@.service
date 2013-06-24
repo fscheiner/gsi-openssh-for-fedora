@@ -1,0 +1,9 @@
+[Unit]
+Description=gsissh per-connection server daemon
+Wants=gsisshd-keygen.service
+After=auditd.service gsisshd-keygen.service
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/gsisshd
+ExecStart=-/usr/sbin/gsisshd -i $OPTIONS
+StandardInput=socket

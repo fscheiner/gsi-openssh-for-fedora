@@ -28,8 +28,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 6.2p1
-%global openssh_rel 3
+%global openssh_ver 6.2p2
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -41,7 +41,10 @@ URL: http://www.openssh.com/portable.html
 Source0: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{version}.tar.gz
 Source2: gsisshd.pam
 Source7: gsisshd.sysconfig
+Source9: gsisshd@.service
+Source10: gsisshd.socket
 Source11: gsisshd.service
+Source12: gsisshd-keygen.service
 Source13: gsisshd-keygen
 Source99: README.sshd-and-gsisshd
 
@@ -125,14 +128,14 @@ Patch901: openssh-6.2p1-kuserok.patch
 # build regress/modpipe tests with $(CFLAGS), based on
 # http://lists.mindrot.org/pipermail/openssh-unix-dev/2013-March/031167.html
 Patch905: openssh-6.2p1-modpipe-cflags.patch
-# https://bugzilla.mindrot.org/show_bug.cgi?id=2084
-Patch906: openssh-6.2p1-track-IdentifyFile.patch
 # add latest config.{sub,guess} to support aarch64 (#926284)
 Patch907: openssh-6.2p1-aarch64.patch
+# make sftp's libedit interface marginally multibyte aware (#841771)
+Patch908: openssh-6.2p2-sftp-multibyte.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p1.patch
-Patch98: openssh-6.2p1-gsissh.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p2.patch
+Patch98: openssh-6.2p2-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -276,8 +279,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
 %patch905 -p1 -b .modpipe-cflags
-%patch906 -p1 -b .identityfile
 %patch907 -p1 -b .aarch64
+%patch908 -p1 -b .sftp-multibyte
 
 %patch98 -p1 -b .gsi
 
@@ -387,7 +390,10 @@ install -m644 %{SOURCE2} $RPM_BUILD_ROOT/etc/pam.d/gsisshd
 install -m644 %{SOURCE7} $RPM_BUILD_ROOT/etc/sysconfig/gsisshd
 install -m755 %{SOURCE13} $RPM_BUILD_ROOT/%{_sbindir}/sshd-keygen
 install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
+install -m644 %{SOURCE9} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd@.service
+install -m644 %{SOURCE10} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.socket
 install -m644 %{SOURCE11} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.service
+install -m644 %{SOURCE12} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd-keygen.service
 
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-add
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-agent
@@ -429,10 +435,10 @@ getent passwd sshd >/dev/null || \
 %systemd_post gsisshd.service
 
 %preun server
-%systemd_preun gsisshd.service
+%systemd_preun gsisshd.service gsisshd.socket
 
 %postun server
-%systemd_postun_with_restart gsisshd.service
+%systemd_postun_with_restart gsisshd.service gsisshd.socket
 
 %triggerun server -- gsi-openssh-server < 5.8p2-1
 /usr/bin/systemd-sysv-convert --save gsisshd >/dev/null 2>&1 || :
@@ -483,8 +489,14 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %config(noreplace) /etc/pam.d/gsisshd
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
+%attr(0644,root,root) %{_unitdir}/gsisshd@.service
+%attr(0644,root,root) %{_unitdir}/gsisshd.socket
+%attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Mon Jun 24 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-1
+- Based on openssh-6.2p2-3.fc19
+
 * Fri Apr 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p1-3
 - Based on openssh-6.2p1-4.fc19
 
