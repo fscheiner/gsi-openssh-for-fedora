@@ -29,12 +29,12 @@
 %global ldap 1
 
 %global openssh_ver 6.2p2
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -132,6 +132,8 @@ Patch905: openssh-6.2p1-modpipe-cflags.patch
 Patch907: openssh-6.2p1-aarch64.patch
 # make sftp's libedit interface marginally multibyte aware (#841771)
 Patch908: openssh-6.2p2-sftp-multibyte.patch
+# don't show Success for EAI_SYSTEM (#985964)
+Patch909: openssh-6.2p2-ssh_gai_strerror.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p2.patch
@@ -281,6 +283,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch905 -p1 -b .modpipe-cflags
 %patch907 -p1 -b .aarch64
 %patch908 -p1 -b .sftp-multibyte
+%patch909 -p1 -b .ssh_gai_strerror
 
 %patch98 -p1 -b .gsi
 
@@ -494,6 +497,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Fri Aug 23 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-2
+- Based on openssh-6.2p2-5.fc19
+
 * Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 6.2p2-1.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
 
