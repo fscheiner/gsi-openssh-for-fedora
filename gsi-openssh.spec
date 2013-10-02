@@ -29,7 +29,9 @@
 %global ldap 1
 
 %global openssh_ver 6.2p2
-%global openssh_rel 2
+%global openssh_rel 3
+
+%define hmac_suffix .%{openssh_ver}-%{openssh_rel}%{?dist}.hmac
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -46,6 +48,8 @@ Source10: gsisshd.socket
 Source11: gsisshd.service
 Source12: gsisshd-keygen.service
 Source13: gsisshd-keygen
+Source14: gsissh-clients-fips.conf
+Source15: gsissh-server-fips.conf
 Source99: README.sshd-and-gsisshd
 
 #?
@@ -152,7 +156,7 @@ BuildRequires: audit-libs-devel >= 2.0.5
 BuildRequires: util-linux, groff
 BuildRequires: pam-devel
 BuildRequires: tcp_wrappers-devel
-BuildRequires: fipscheck-devel >= 1.3.0
+BuildRequires: fipscheck-devel >= 1.4.1
 BuildRequires: openssl-devel >= 0.9.8j
 
 %if %{kerberos5}
@@ -185,7 +189,13 @@ Provides: gsissh-clients = %{version}-%{release}
 Obsoletes: gsissh-clients < 5.8p2-2
 Group: Applications/Internet
 Requires: %{name} = %{version}-%{release}
-Requires: fipscheck-lib%{_isa} >= 1.3.0
+
+%package clients-fips
+Summary: The FIPS module package for the gsissh client
+Group: Applications/Internet
+Requires: gsi-openssh-clients = %{version}-%{release}
+Requires: fipscheck-lib%{_isa} >= 1.4.1
+Requires: openssl-fips
 
 %package server
 Summary: SSH server daemon with GSI authentication
@@ -195,10 +205,16 @@ Group: System Environment/Daemons
 Requires: %{name} = %{version}-%{release}
 Requires(pre): /usr/sbin/useradd
 Requires: pam >= 1.0.1-3
-Requires: fipscheck-lib%{_isa} >= 1.3.0
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
+
+%package server-fips
+Summary: The FIPS module package for the gsissh server daemon
+Group: System Environment/Daemons
+Requires: gsi-openssh-server = %{version}-%{release}
+Requires: fipscheck-lib%{_isa} >= 1.4.1
+Requires: openssl-fips
 
 %description
 SSH (Secure SHell) is a program for logging into and executing
@@ -223,11 +239,27 @@ the clients necessary to make encrypted connections to SSH servers.
 
 This version of OpenSSH has been modified to support GSI authentication.
 
+%description clients-fips
+OpenSSH is a free version of SSH (Secure SHell), a program for logging
+into and executing commands on a remote machine. This package includes
+the files that complete the installation of the OpenSSH client FIPS
+module.
+
+This version of OpenSSH has been modified to support GSI authentication.
+
 %description server
 OpenSSH is a free version of SSH (Secure SHell), a program for logging
 into and executing commands on a remote machine. This package contains
 the secure shell daemon (sshd). The sshd daemon allows SSH clients to
 securely connect to your SSH server.
+
+This version of OpenSSH has been modified to support GSI authentication.
+
+%description server-fips
+OpenSSH is a free version of SSH (Secure SHell), a program for logging
+into and executing commands on a remote machine. This package contains
+the files that complete the installation of the OpenSSH server FIPS
+module.
 
 This version of OpenSSH has been modified to support GSI authentication.
 
@@ -361,10 +393,11 @@ fi
 	--without-gsi \
 %endif
 %if %{libedit}
-	--with-libedit
+	--with-libedit \
 %else
-	--without-libedit
+	--without-libedit \
 %endif
+	--enable-hmac-suffix=%{hmac_suffix}
 
 make SSH_PROGRAM=%{_bindir}/gsissh \
      ASKPASS_PROGRAM=%{_libexecdir}/openssh/ssh-askpass
@@ -375,6 +408,8 @@ make SSH_PROGRAM=%{_bindir}/gsissh \
     %{__arch_install_post} \
     %{__os_install_post} \
     fipshmac -d $RPM_BUILD_ROOT%{_libdir}/fipscheck $RPM_BUILD_ROOT%{_bindir}/gsissh $RPM_BUILD_ROOT%{_sbindir}/gsisshd \
+    mv $RPM_BUILD_ROOT%{_libdir}/fipscheck/gsissh.hmac $RPM_BUILD_ROOT%{_libdir}/fipscheck/gsissh%{hmac_suffix} \
+    mv $RPM_BUILD_ROOT%{_libdir}/fipscheck/gsisshd.hmac $RPM_BUILD_ROOT%{_libdir}/fipscheck/gsisshd%{hmac_suffix} \
 %{nil}
 
 %install
@@ -397,6 +432,11 @@ install -m644 %{SOURCE9} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd@.service
 install -m644 %{SOURCE10} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.socket
 install -m644 %{SOURCE11} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.service
 install -m644 %{SOURCE12} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd-keygen.service
+
+#install prelink blacklists
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/prelink.conf.d
+install -m644 %{SOURCE14} %{SOURCE15} \
+	$RPM_BUILD_ROOT/%{_sysconfdir}/prelink.conf.d
 
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-add
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-agent
@@ -434,8 +474,14 @@ getent passwd sshd >/dev/null || \
   useradd -c "Privilege-separated SSH" -u %{sshd_uid} -g sshd \
   -s /sbin/nologin -r -d /var/empty/sshd sshd 2> /dev/null || :
 
+%pre clients-fips
+prelink -u %{_bindir}/gsissh 2>/dev/null || :
+
 %post server
-%systemd_post gsisshd.service
+%systemd_post gsisshd.service gsisshd.socket
+
+%pre server-fips
+prelink -u %{_sbindir}/gsisshd 2>/dev/null || :
 
 %preun server
 %systemd_preun gsisshd.service gsisshd.socket
@@ -466,7 +512,6 @@ getent passwd sshd >/dev/null || \
 %files clients
 %defattr(-,root,root)
 %attr(0755,root,root) %{_bindir}/gsissh
-%attr(0644,root,root) %{_libdir}/fipscheck/gsissh.hmac
 %attr(0644,root,root) %{_mandir}/man1/gsissh.1*
 %attr(0755,root,root) %{_bindir}/gsiscp
 %attr(0644,root,root) %{_mandir}/man1/gsiscp.1*
@@ -477,12 +522,18 @@ getent passwd sshd >/dev/null || \
 %attr(0755,root,root) %{_bindir}/gsisftp
 %attr(0644,root,root) %{_mandir}/man1/gsisftp.1*
 
+%files clients-fips
+%defattr(-,root,root)
+%attr(0644,root,root) %{_libdir}/fipscheck/gsissh%{hmac_suffix}
+# We don't want to depend on prelink for this directory
+%dir %{_sysconfdir}/prelink.conf.d
+%{_sysconfdir}/prelink.conf.d/gsissh-clients-fips.conf
+
 %files server
 %defattr(-,root,root)
 %dir %attr(0711,root,root) %{_var}/empty/gsisshd
 %attr(0755,root,root) %{_sbindir}/gsisshd
 %attr(0755,root,root) %{_sbindir}/gsisshd-keygen
-%attr(0644,root,root) %{_libdir}/fipscheck/gsisshd.hmac
 %attr(0755,root,root) %{_libexecdir}/gsissh/sftp-server
 %attr(0644,root,root) %{_mandir}/man5/gsisshd_config.5*
 %attr(0644,root,root) %{_mandir}/man5/gsimoduli.5*
@@ -496,7 +547,17 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.socket
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
+%files server-fips
+%defattr(-,root,root)
+%attr(0644,root,root) %{_libdir}/fipscheck/gsisshd%{hmac_suffix}
+# We don't want to depend on prelink for this directory
+%dir %{_sysconfdir}/prelink.conf.d
+%{_sysconfdir}/prelink.conf.d/gsissh-server-fips.conf
+
 %changelog
+* Wed Oct 02 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-3
+- Based on openssh-6.2p2-8.fc20
+
 * Fri Aug 23 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-2
 - Based on openssh-6.2p2-5.fc19
 

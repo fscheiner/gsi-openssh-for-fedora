@@ -375,12 +375,13 @@ diff -up openssh-6.2p1/ssh.c.fips openssh-6.2p1/ssh.c
  #include "openbsd-compat/openssl-compat.h"
  #include "openbsd-compat/sys-queue.h"
  
-@@ -253,6 +255,10 @@ main(int ac, char **av)
+@@ -253,6 +255,11 @@ main(int ac, char **av)
  	sanitise_stdfd();
  
  	__progname = ssh_get_progname(av[0]);
 +        SSLeay_add_all_algorithms();
-+        if (FIPS_mode() && !FIPSCHECK_verify(NULL, NULL)) {
++
++        if (!FIPSCHECK_verify_ex(NULL, NULL, HMAC_SUFFIX, 0)) {
 +                fatal("FIPS integrity verification test failed.");
 +        }
  
@@ -475,12 +476,13 @@ diff -up openssh-6.2p1/sshd.c.fips openssh-6.2p1/sshd.c
  #include "openbsd-compat/openssl-compat.h"
  
  #ifdef HAVE_SECUREWARE
-@@ -1423,6 +1425,11 @@ main(int ac, char **av)
+@@ -1423,6 +1425,12 @@ main(int ac, char **av)
  #endif
  	__progname = ssh_get_progname(av[0]);
  
 +        SSLeay_add_all_algorithms();
-+        if (FIPS_mode() && !FIPSCHECK_verify(NULL, NULL)) {
++
++        if (!FIPSCHECK_verify_ex(NULL, NULL, HMAC_SUFFIX, 0)) {
 +                fatal("FIPS integrity verification test failed.");
 +        }
 +
@@ -538,3 +540,19 @@ diff -up openssh-6.2p1/sshd.c.fips openssh-6.2p1/sshd.c
  	}
  	if (options.compression == COMP_NONE) {
  		myproposal[PROPOSAL_COMP_ALGS_CTOS] =
+diff -up openssh-6.2p2/configure.ac.fips openssh-6.2p2/configure.ac
+--- openssh-6.2p2/configure.ac.fips	2013-09-10 17:54:55.092279052 +0200
++++ openssh-6.2p2/configure.ac	2013-09-10 17:55:18.021172145 +0200
+@@ -4421,6 +4421,12 @@ AC_ARG_WITH([lastlog],
+ 	]
+ )
+ 
++AC_ARG_ENABLE(hmac-suffix,
++  [  --enable-hmac-suffix=suffix specify the full hmac_suffix for fipscheck library],
++  [AC_DEFINE_UNQUOTED(HMAC_SUFFIX,["$enableval"],[Define to %{version}-%{release}.hmac])],
++  [AC_DEFINE(HMAC_SUFFIX, NULL)]
++)
++
+ dnl lastlog, [uw]tmpx? detection
+ dnl  NOTE: set the paths in the platform section to avoid the
+ dnl   need for command-line parameters

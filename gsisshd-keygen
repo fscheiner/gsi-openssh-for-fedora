@@ -4,6 +4,7 @@
 #
 # The creation is controlled by the $AUTOCREATE_SERVER_KEYS environment
 # variable.
+AUTOCREATE_SERVER_KEYS=RSAONLY
 
 # source function library
 . /etc/rc.d/init.d/functions
