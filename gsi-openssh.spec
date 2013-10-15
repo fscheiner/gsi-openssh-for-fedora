@@ -28,10 +28,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 6.2p2
-%global openssh_rel 3
-
-%define hmac_suffix .%{openssh_ver}-%{openssh_rel}%{?dist}.hmac
+%global openssh_ver 6.3p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -48,14 +46,12 @@ Source10: gsisshd.socket
 Source11: gsisshd.service
 Source12: gsisshd-keygen.service
 Source13: gsisshd-keygen
-Source14: gsissh-clients-fips.conf
-Source15: gsissh-server-fips.conf
 Source99: README.sshd-and-gsisshd
 
 #?
-Patch100: openssh-6.2p1-coverity.patch
+Patch100: openssh-6.3p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1872
-Patch101: openssh-6.2p1-fingerprint.patch
+Patch101: openssh-6.3p1-fingerprint.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
 #https://bugzilla.redhat.com/show_bug.cgi?id=735889
 Patch102: openssh-5.8p1-getaddrinfo.patch
@@ -63,17 +59,17 @@ Patch102: openssh-5.8p1-getaddrinfo.patch
 Patch103: openssh-5.8p1-packet.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
-Patch200: openssh-6.2p1-audit.patch
+Patch200: openssh-6.3p1-audit.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
-Patch400: openssh-6.2p1-role-mls.patch
+Patch400: openssh-6.3p1-role-mls.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=781634
-Patch404: openssh-6.1p1-privsep-selinux.patch
+Patch404: openssh-6.3p1-privsep-selinux.patch
 
 #?-- unwanted child :(
-Patch501: openssh-6.2p1-ldap.patch
+Patch501: openssh-6.3p1-ldap.patch
 #?
-Patch502: openssh-6.2p1-keycat.patch
+Patch502: openssh-6.3p1-keycat.patch
 
 #http6://bugzilla.mindrot.org/show_bug.cgi?id=1644
 Patch601: openssh-5.2p1-allow-ip-opts.patch
@@ -95,7 +91,7 @@ Patch608: openssh-6.1p1-askpass-ld.patch
 Patch609: openssh-5.5p1-x11.patch
 
 #?
-Patch700: openssh-6.2p1-fips.patch
+Patch700: openssh-6.3p1-fips.patch
 #?
 Patch701: openssh-5.6p1-exit-deadlock.patch
 #?
@@ -109,7 +105,7 @@ Patch705: openssh-5.1p1-scp-manpage.patch
 #?
 Patch706: openssh-5.8p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
-Patch707: openssh-6.1p1-redhat.patch
+Patch707: openssh-6.3p1-redhat.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
 Patch708: openssh-6.2p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
@@ -117,31 +113,22 @@ Patch709: openssh-6.2p1-vendor.patch
 # warn users for unsupported UsePAM=no (#757545)
 Patch711: openssh-6.1p1-log-usepam-no.patch
 # make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
-Patch712: openssh-5.9p1-ctr-evp-fast.patch
+Patch712: openssh-6.3p1-ctr-evp-fast.patch
 # add cavs test binary for the aes-ctr
-Patch713: openssh-6.2p1-ctr-cavstest.patch
+Patch713: openssh-6.3p1-ctr-cavstest.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 #changed cache storage type - #848228
-Patch800: openssh-6.2p1-gsskex.patch
+Patch800: openssh-6.3p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
-Patch801: openssh-6.2p1-force_krb.patch
+Patch801: openssh-6.3p1-force_krb.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
-Patch901: openssh-6.2p1-kuserok.patch
-# build regress/modpipe tests with $(CFLAGS), based on
-# http://lists.mindrot.org/pipermail/openssh-unix-dev/2013-March/031167.html
-Patch905: openssh-6.2p1-modpipe-cflags.patch
-# add latest config.{sub,guess} to support aarch64 (#926284)
-Patch907: openssh-6.2p1-aarch64.patch
-# make sftp's libedit interface marginally multibyte aware (#841771)
-Patch908: openssh-6.2p2-sftp-multibyte.patch
-# don't show Success for EAI_SYSTEM (#985964)
-Patch909: openssh-6.2p2-ssh_gai_strerror.patch
+Patch901: openssh-6.3p1-kuserok.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p2.patch
-Patch98: openssh-6.2p2-gsissh.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.3p1.patch
+Patch98: openssh-6.3p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -156,7 +143,7 @@ BuildRequires: audit-libs-devel >= 2.0.5
 BuildRequires: util-linux, groff
 BuildRequires: pam-devel
 BuildRequires: tcp_wrappers-devel
-BuildRequires: fipscheck-devel >= 1.4.1
+BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
 
 %if %{kerberos5}
@@ -189,13 +176,7 @@ Provides: gsissh-clients = %{version}-%{release}
 Obsoletes: gsissh-clients < 5.8p2-2
 Group: Applications/Internet
 Requires: %{name} = %{version}-%{release}
-
-%package clients-fips
-Summary: The FIPS module package for the gsissh client
-Group: Applications/Internet
-Requires: gsi-openssh-clients = %{version}-%{release}
-Requires: fipscheck-lib%{_isa} >= 1.4.1
-Requires: openssl-fips
+Requires: fipscheck-lib%{_isa} >= 1.3.0
 
 %package server
 Summary: SSH server daemon with GSI authentication
@@ -205,16 +186,10 @@ Group: System Environment/Daemons
 Requires: %{name} = %{version}-%{release}
 Requires(pre): /usr/sbin/useradd
 Requires: pam >= 1.0.1-3
+Requires: fipscheck-lib%{_isa} >= 1.3.0
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
-
-%package server-fips
-Summary: The FIPS module package for the gsissh server daemon
-Group: System Environment/Daemons
-Requires: gsi-openssh-server = %{version}-%{release}
-Requires: fipscheck-lib%{_isa} >= 1.4.1
-Requires: openssl-fips
 
 %description
 SSH (Secure SHell) is a program for logging into and executing
@@ -239,27 +214,11 @@ the clients necessary to make encrypted connections to SSH servers.
 
 This version of OpenSSH has been modified to support GSI authentication.
 
-%description clients-fips
-OpenSSH is a free version of SSH (Secure SHell), a program for logging
-into and executing commands on a remote machine. This package includes
-the files that complete the installation of the OpenSSH client FIPS
-module.
-
-This version of OpenSSH has been modified to support GSI authentication.
-
 %description server
 OpenSSH is a free version of SSH (Secure SHell), a program for logging
 into and executing commands on a remote machine. This package contains
 the secure shell daemon (sshd). The sshd daemon allows SSH clients to
 securely connect to your SSH server.
-
-This version of OpenSSH has been modified to support GSI authentication.
-
-%description server-fips
-OpenSSH is a free version of SSH (Secure SHell), a program for logging
-into and executing commands on a remote machine. This package contains
-the files that complete the installation of the OpenSSH server FIPS
-module.
 
 This version of OpenSSH has been modified to support GSI authentication.
 
@@ -312,10 +271,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
-%patch905 -p1 -b .modpipe-cflags
-%patch907 -p1 -b .aarch64
-%patch908 -p1 -b .sftp-multibyte
-%patch909 -p1 -b .ssh_gai_strerror
 
 %patch98 -p1 -b .gsi
 
@@ -393,11 +348,10 @@ fi
 	--without-gsi \
 %endif
 %if %{libedit}
-	--with-libedit \
+	--with-libedit
 %else
-	--without-libedit \
+	--without-libedit
 %endif
-	--enable-hmac-suffix=%{hmac_suffix}
 
 make SSH_PROGRAM=%{_bindir}/gsissh \
      ASKPASS_PROGRAM=%{_libexecdir}/openssh/ssh-askpass
@@ -408,8 +362,6 @@ make SSH_PROGRAM=%{_bindir}/gsissh \
     %{__arch_install_post} \
     %{__os_install_post} \
     fipshmac -d $RPM_BUILD_ROOT%{_libdir}/fipscheck $RPM_BUILD_ROOT%{_bindir}/gsissh $RPM_BUILD_ROOT%{_sbindir}/gsisshd \
-    mv $RPM_BUILD_ROOT%{_libdir}/fipscheck/gsissh.hmac $RPM_BUILD_ROOT%{_libdir}/fipscheck/gsissh%{hmac_suffix} \
-    mv $RPM_BUILD_ROOT%{_libdir}/fipscheck/gsisshd.hmac $RPM_BUILD_ROOT%{_libdir}/fipscheck/gsisshd%{hmac_suffix} \
 %{nil}
 
 %install
@@ -432,11 +384,6 @@ install -m644 %{SOURCE9} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd@.service
 install -m644 %{SOURCE10} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.socket
 install -m644 %{SOURCE11} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.service
 install -m644 %{SOURCE12} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd-keygen.service
-
-#install prelink blacklists
-mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/prelink.conf.d
-install -m644 %{SOURCE14} %{SOURCE15} \
-	$RPM_BUILD_ROOT/%{_sysconfdir}/prelink.conf.d
 
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-add
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-agent
@@ -474,14 +421,8 @@ getent passwd sshd >/dev/null || \
   useradd -c "Privilege-separated SSH" -u %{sshd_uid} -g sshd \
   -s /sbin/nologin -r -d /var/empty/sshd sshd 2> /dev/null || :
 
-%pre clients-fips
-prelink -u %{_bindir}/gsissh 2>/dev/null || :
-
 %post server
 %systemd_post gsisshd.service gsisshd.socket
-
-%pre server-fips
-prelink -u %{_sbindir}/gsisshd 2>/dev/null || :
 
 %preun server
 %systemd_preun gsisshd.service gsisshd.socket
@@ -512,6 +453,7 @@ prelink -u %{_sbindir}/gsisshd 2>/dev/null || :
 %files clients
 %defattr(-,root,root)
 %attr(0755,root,root) %{_bindir}/gsissh
+%attr(0644,root,root) %{_libdir}/fipscheck/gsissh.hmac
 %attr(0644,root,root) %{_mandir}/man1/gsissh.1*
 %attr(0755,root,root) %{_bindir}/gsiscp
 %attr(0644,root,root) %{_mandir}/man1/gsiscp.1*
@@ -522,18 +464,12 @@ prelink -u %{_sbindir}/gsisshd 2>/dev/null || :
 %attr(0755,root,root) %{_bindir}/gsisftp
 %attr(0644,root,root) %{_mandir}/man1/gsisftp.1*
 
-%files clients-fips
-%defattr(-,root,root)
-%attr(0644,root,root) %{_libdir}/fipscheck/gsissh%{hmac_suffix}
-# We don't want to depend on prelink for this directory
-%dir %{_sysconfdir}/prelink.conf.d
-%{_sysconfdir}/prelink.conf.d/gsissh-clients-fips.conf
-
 %files server
 %defattr(-,root,root)
 %dir %attr(0711,root,root) %{_var}/empty/gsisshd
 %attr(0755,root,root) %{_sbindir}/gsisshd
 %attr(0755,root,root) %{_sbindir}/gsisshd-keygen
+%attr(0644,root,root) %{_libdir}/fipscheck/gsisshd.hmac
 %attr(0755,root,root) %{_libexecdir}/gsissh/sftp-server
 %attr(0644,root,root) %{_mandir}/man5/gsisshd_config.5*
 %attr(0644,root,root) %{_mandir}/man5/gsimoduli.5*
@@ -547,14 +483,10 @@ prelink -u %{_sbindir}/gsisshd 2>/dev/null || :
 %attr(0644,root,root) %{_unitdir}/gsisshd.socket
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
-%files server-fips
-%defattr(-,root,root)
-%attr(0644,root,root) %{_libdir}/fipscheck/gsisshd%{hmac_suffix}
-# We don't want to depend on prelink for this directory
-%dir %{_sysconfdir}/prelink.conf.d
-%{_sysconfdir}/prelink.conf.d/gsissh-server-fips.conf
-
 %changelog
+* Tue Oct 15 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.3p1-1
+- Based on openssh-6.3p1-1.fc21
+
 * Wed Oct 02 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-3
 - Based on openssh-6.2p2-8.fc20
 

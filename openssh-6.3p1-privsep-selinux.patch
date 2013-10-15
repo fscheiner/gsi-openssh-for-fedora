@@ -1,8 +1,8 @@
-diff -up openssh-6.1p1/openbsd-compat/port-linux.c.privsep-selinux openssh-6.1p1/openbsd-compat/port-linux.c
---- openssh-6.1p1/openbsd-compat/port-linux.c.privsep-selinux	2012-11-05 14:46:39.334809203 +0100
-+++ openssh-6.1p1/openbsd-compat/port-linux.c	2012-11-05 14:54:32.614504884 +0100
-@@ -505,6 +505,25 @@ ssh_selinux_change_context(const char *n
- 	xfree(newctx);
+diff -up openssh-6.3p1/openbsd-compat/port-linux.c.privsep-selinux openssh-6.3p1/openbsd-compat/port-linux.c
+--- openssh-6.3p1/openbsd-compat/port-linux.c.privsep-selinux	2013-10-10 14:58:20.634762245 +0200
++++ openssh-6.3p1/openbsd-compat/port-linux.c	2013-10-10 15:13:57.864306950 +0200
+@@ -503,6 +503,25 @@ ssh_selinux_change_context(const char *n
+ 	free(newctx);
  }
  
 +void
@@ -27,9 +27,9 @@ diff -up openssh-6.1p1/openbsd-compat/port-linux.c.privsep-selinux openssh-6.1p1
  #endif /* WITH_SELINUX */
  
  #ifdef LINUX_OOM_ADJUST
-diff -up openssh-6.1p1/openbsd-compat/port-linux.h.privsep-selinux openssh-6.1p1/openbsd-compat/port-linux.h
---- openssh-6.1p1/openbsd-compat/port-linux.h.privsep-selinux	2011-01-25 02:16:18.000000000 +0100
-+++ openssh-6.1p1/openbsd-compat/port-linux.h	2012-11-05 14:46:39.339809234 +0100
+diff -up openssh-6.3p1/openbsd-compat/port-linux.h.privsep-selinux openssh-6.3p1/openbsd-compat/port-linux.h
+--- openssh-6.3p1/openbsd-compat/port-linux.h.privsep-selinux	2011-01-25 02:16:18.000000000 +0100
++++ openssh-6.3p1/openbsd-compat/port-linux.h	2013-10-10 14:58:20.634762245 +0200
 @@ -24,6 +24,7 @@ int ssh_selinux_enabled(void);
  void ssh_selinux_setup_pty(char *, const char *);
  void ssh_selinux_setup_exec_context(char *);
@@ -38,10 +38,10 @@ diff -up openssh-6.1p1/openbsd-compat/port-linux.h.privsep-selinux openssh-6.1p1
  void ssh_selinux_setfscreatecon(const char *);
  #endif
  
-diff -up openssh-6.1p1/session.c.privsep-selinux openssh-6.1p1/session.c
---- openssh-6.1p1/session.c.privsep-selinux	2012-12-03 09:43:11.727505761 +0100
-+++ openssh-6.1p1/session.c	2012-12-03 09:54:50.455688902 +0100
-@@ -1519,6 +1519,9 @@ do_setusercontext(struct passwd *pw)
+diff -up openssh-6.3p1/session.c.privsep-selinux openssh-6.3p1/session.c
+--- openssh-6.3p1/session.c.privsep-selinux	2013-10-10 14:58:20.617762326 +0200
++++ openssh-6.3p1/session.c	2013-10-10 15:13:16.520503590 +0200
+@@ -1522,6 +1522,9 @@ do_setusercontext(struct passwd *pw)
  			    pw->pw_uid);
  			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
  			    "u", pw->pw_name, (char *)NULL);
@@ -51,7 +51,7 @@ diff -up openssh-6.1p1/session.c.privsep-selinux openssh-6.1p1/session.c
  			safely_chroot(chroot_path, pw->pw_uid);
  			free(tmp);
  			free(chroot_path);
-@@ -1533,6 +1536,12 @@ do_setusercontext(struct passwd *pw)
+@@ -1544,6 +1547,12 @@ do_setusercontext(struct passwd *pw)
  		/* Permanently switch to the desired uid. */
  		permanently_set_uid(pw);
  #endif
@@ -61,10 +61,10 @@ diff -up openssh-6.1p1/session.c.privsep-selinux openssh-6.1p1/session.c
 +		    strcasecmp(options.chroot_directory, "none") == 0)
 +			ssh_selinux_copy_context();
 +#endif
- 	}
- 
- 	if (getuid() != pw->pw_uid || geteuid() != pw->pw_uid)
-@@ -1787,9 +1796,6 @@ do_child(Session *s, const char *command
+ 	} else if (options.chroot_directory != NULL &&
+ 	    strcasecmp(options.chroot_directory, "none") != 0) {
+ 		fatal("server lacks privileges to chroot to ChrootDirectory");
+@@ -1808,9 +1817,6 @@ do_child(Session *s, const char *command
  		argv[i] = NULL;
  		optind = optreset = 1;
  		__progname = argv[0];
@@ -74,10 +74,10 @@ diff -up openssh-6.1p1/session.c.privsep-selinux openssh-6.1p1/session.c
  		exit(sftp_server_main(i, argv, s->pw));
  	}
  
-diff -up openssh-6.1p1/sshd.c.privsep-selinux openssh-6.1p1/sshd.c
---- openssh-6.1p1/sshd.c.privsep-selinux	2013-02-24 11:29:32.997823377 +0100
-+++ openssh-6.1p1/sshd.c	2013-02-24 11:43:34.171182720 +0100
-@@ -653,6 +653,10 @@ privsep_preauth_child(void)
+diff -up openssh-6.3p1/sshd.c.privsep-selinux openssh-6.3p1/sshd.c
+--- openssh-6.3p1/sshd.c.privsep-selinux	2013-10-10 14:58:20.632762255 +0200
++++ openssh-6.3p1/sshd.c	2013-10-10 14:58:20.635762241 +0200
+@@ -668,6 +668,10 @@ privsep_preauth_child(void)
  	/* Demote the private keys to public keys. */
  	demote_sensitive_data();
  
@@ -88,7 +88,7 @@ diff -up openssh-6.1p1/sshd.c.privsep-selinux openssh-6.1p1/sshd.c
  	/* Change our root directory */
  	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
  		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
-@@ -794,6 +798,13 @@ privsep_postauth(Authctxt *authctxt)
+@@ -811,6 +815,13 @@ privsep_postauth(Authctxt *authctxt)
  	do_setusercontext(authctxt->pw);
  
   skip:

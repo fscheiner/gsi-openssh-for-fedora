@@ -1,10 +1,10 @@
-diff -up openssh-6.1p1/ssh_config.redhat openssh-6.1p1/ssh_config
---- openssh-6.1p1/ssh_config.redhat	2010-01-12 09:40:27.000000000 +0100
-+++ openssh-6.1p1/ssh_config	2012-10-26 16:28:51.820340584 +0200
-@@ -45,3 +45,14 @@
- #   PermitLocalCommand no
+diff -up openssh-6.3p1/ssh_config.redhat openssh-6.3p1/ssh_config
+--- openssh-6.3p1/ssh_config.redhat	2013-10-11 14:51:18.345876648 +0200
++++ openssh-6.3p1/ssh_config	2013-10-11 15:13:05.429829266 +0200
+@@ -46,3 +46,14 @@
  #   VisualHostKey no
  #   ProxyCommand ssh -q -W %h:%p gateway.example.com
+ #   RekeyLimit 1G 1h
 +Host *
 +	GSSAPIAuthentication yes
 +# If this option is set to yes then remote X11 clients will have full access
@@ -12,14 +12,14 @@ diff -up openssh-6.1p1/ssh_config.redhat openssh-6.1p1/ssh_config
 +# mode correctly we set this to yes.
 +	ForwardX11Trusted yes
 +# Send locale-related environment variables
-+	SendEnv LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES 
-+	SendEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT 
++	SendEnv LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES
++	SendEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT
 +	SendEnv LC_IDENTIFICATION LC_ALL LANGUAGE
 +	SendEnv XMODIFIERS
-diff -up openssh-6.1p1/sshd_config.0.redhat openssh-6.1p1/sshd_config.0
---- openssh-6.1p1/sshd_config.0.redhat	2012-10-26 16:28:51.762340584 +0200
-+++ openssh-6.1p1/sshd_config.0	2012-10-26 16:28:51.821340584 +0200
-@@ -583,9 +583,9 @@ DESCRIPTION
+diff -up openssh-6.3p1/sshd_config.0.redhat openssh-6.3p1/sshd_config.0
+--- openssh-6.3p1/sshd_config.0.redhat	2013-09-13 08:20:43.000000000 +0200
++++ openssh-6.3p1/sshd_config.0	2013-10-11 14:51:18.345876648 +0200
+@@ -653,9 +653,9 @@ DESCRIPTION
  
       SyslogFacility
               Gives the facility code that is used when logging messages from
@@ -32,10 +32,10 @@ diff -up openssh-6.1p1/sshd_config.0.redhat openssh-6.1p1/sshd_config.0
  
       TCPKeepAlive
               Specifies whether the system should send TCP keepalive messages
-diff -up openssh-6.1p1/sshd_config.5.redhat openssh-6.1p1/sshd_config.5
---- openssh-6.1p1/sshd_config.5.redhat	2012-10-26 16:28:51.763340584 +0200
-+++ openssh-6.1p1/sshd_config.5	2012-10-26 16:28:51.822340584 +0200
-@@ -1015,7 +1015,7 @@ Note that this option applies to protoco
+diff -up openssh-6.3p1/sshd_config.5.redhat openssh-6.3p1/sshd_config.5
+--- openssh-6.3p1/sshd_config.5.redhat	2013-07-20 05:21:53.000000000 +0200
++++ openssh-6.3p1/sshd_config.5	2013-10-11 14:51:18.346876643 +0200
+@@ -1095,7 +1095,7 @@ Note that this option applies to protoco
  .It Cm SyslogFacility
  Gives the facility code that is used when logging messages from
  .Xr sshd 8 .
@@ -44,9 +44,9 @@ diff -up openssh-6.1p1/sshd_config.5.redhat openssh-6.1p1/sshd_config.5
  LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.
  The default is AUTH.
  .It Cm TCPKeepAlive
-diff -up openssh-6.1p1/sshd_config.redhat openssh-6.1p1/sshd_config
---- openssh-6.1p1/sshd_config.redhat	2012-10-26 16:28:51.819340584 +0200
-+++ openssh-6.1p1/sshd_config	2012-10-26 16:31:44.773340564 +0200
+diff -up openssh-6.3p1/sshd_config.redhat openssh-6.3p1/sshd_config
+--- openssh-6.3p1/sshd_config.redhat	2013-10-11 14:51:18.343876657 +0200
++++ openssh-6.3p1/sshd_config	2013-10-11 14:51:18.346876643 +0200
 @@ -10,6 +10,10 @@
  # possible, but leave them commented.  Uncommented options override the
  # default value.
@@ -58,7 +58,7 @@ diff -up openssh-6.1p1/sshd_config.redhat openssh-6.1p1/sshd_config
  #Port 22
  #AddressFamily any
  #ListenAddress 0.0.0.0
-@@ -32,6 +36,7 @@
+@@ -35,6 +39,7 @@
  # Logging
  # obsoletes QuietMode and FascistLogging
  #SyslogFacility AUTH
@@ -66,7 +66,7 @@ diff -up openssh-6.1p1/sshd_config.redhat openssh-6.1p1/sshd_config
  #LogLevel INFO
  
  # Authentication:
-@@ -67,9 +72,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -70,9 +75,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # To disable tunneled clear text passwords, change to no here!
  #PasswordAuthentication yes
  #PermitEmptyPasswords no
@@ -78,7 +78,7 @@ diff -up openssh-6.1p1/sshd_config.redhat openssh-6.1p1/sshd_config
  
  # Kerberos options
  #KerberosAuthentication no
-@@ -79,7 +86,9 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -82,7 +89,9 @@ AuthorizedKeysFile	.ssh/authorized_keys
  
  # GSSAPI options
  #GSSAPIAuthentication no
@@ -88,7 +88,7 @@ diff -up openssh-6.1p1/sshd_config.redhat openssh-6.1p1/sshd_config
  
  # Set this to 'yes' to enable PAM authentication, account processing, 
  # and session processing. If this is enabled, PAM authentication will 
-@@ -91,11 +100,13 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -94,11 +103,13 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # PAM authentication, then enable this but set PasswordAuthentication
  # and ChallengeResponseAuthentication to 'no'.
  #UsePAM no
@@ -102,7 +102,7 @@ diff -up openssh-6.1p1/sshd_config.redhat openssh-6.1p1/sshd_config
  #X11DisplayOffset 10
  #X11UseLocalhost yes
  #PrintMotd yes
-@@ -117,6 +128,12 @@ UsePrivilegeSeparation sandbox		# Defaul
+@@ -120,6 +131,12 @@ UsePrivilegeSeparation sandbox		# Defaul
  # no default banner path
  #Banner none
  
