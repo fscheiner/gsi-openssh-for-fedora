@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.3p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -134,6 +134,7 @@ License: BSD
 Group: Applications/Internet
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires: /sbin/nologin
+Obsoletes: %{name}-clients-fips, %{name}-server-fips
 
 %if %{ldap}
 BuildRequires: openldap-devel
@@ -484,8 +485,11 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Mon Oct 21 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.3p1-2
+- Add obsoletes for -fips packages
+
 * Tue Oct 15 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.3p1-1
-- Based on openssh-6.3p1-1.fc21
+- Based on openssh-6.3p1-1.fc20
 
 * Wed Oct 02 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-3
 - Based on openssh-6.2p2-8.fc20
