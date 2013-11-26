@@ -1,6 +1,6 @@
 diff -Nur openssh-6.2p2.orig/auth2.c openssh-6.2p2/auth2.c
---- openssh-6.2p2.orig/auth2.c	2013-06-24 05:46:18.228123474 +0200
-+++ openssh-6.2p2/auth2.c	2013-06-24 05:47:42.363821161 +0200
+--- openssh-6.2p2.orig/auth2.c	2013-11-26 15:56:01.605180150 +0100
++++ openssh-6.2p2/auth2.c	2013-11-26 15:53:39.586900362 +0100
 @@ -231,7 +231,27 @@
  	user = packet_get_cstring(NULL);
  	service = packet_get_cstring(NULL);
@@ -97,8 +97,8 @@ diff -Nur openssh-6.2p2.orig/auth2.c openssh-6.2p2/auth2.c
  		    authctxt->user, authctxt->service, user, service);
  	}
 diff -Nur openssh-6.2p2.orig/auth2-gss.c openssh-6.2p2/auth2-gss.c
---- openssh-6.2p2.orig/auth2-gss.c	2013-06-24 05:46:18.228123474 +0200
-+++ openssh-6.2p2/auth2-gss.c	2013-06-24 05:47:42.364821170 +0200
+--- openssh-6.2p2.orig/auth2-gss.c	2013-11-26 15:56:01.605180150 +0100
++++ openssh-6.2p2/auth2-gss.c	2013-11-26 15:53:39.586900362 +0100
 @@ -47,6 +47,7 @@
  
  extern ServerOptions options;
@@ -280,8 +280,8 @@ diff -Nur openssh-6.2p2.orig/auth2-gss.c openssh-6.2p2/auth2-gss.c
  	"gssapi-keyex",
  	userauth_gsskeyex,
 diff -Nur openssh-6.2p2.orig/auth.c openssh-6.2p2/auth.c
---- openssh-6.2p2.orig/auth.c	2013-06-24 05:46:18.050122003 +0200
-+++ openssh-6.2p2/auth.c	2013-06-24 05:47:42.364821170 +0200
+--- openssh-6.2p2.orig/auth.c	2013-11-26 15:56:01.606180138 +0100
++++ openssh-6.2p2/auth.c	2013-11-26 15:53:39.586900362 +0100
 @@ -73,6 +73,9 @@
  #include "monitor_wrap.h"
  #include "krl.h"
@@ -346,8 +346,8 @@ diff -Nur openssh-6.2p2.orig/auth.c openssh-6.2p2/auth.c
  		record_failed_login(user,
  		    get_canonical_hostname(options.use_dns), "ssh");
 diff -Nur openssh-6.2p2.orig/auth.h openssh-6.2p2/auth.h
---- openssh-6.2p2.orig/auth.h	2013-06-24 05:46:18.085122292 +0200
-+++ openssh-6.2p2/auth.h	2013-06-24 05:47:42.365821178 +0200
+--- openssh-6.2p2.orig/auth.h	2013-11-26 15:56:01.606180138 +0100
++++ openssh-6.2p2/auth.h	2013-11-26 15:53:39.586900362 +0100
 @@ -155,6 +155,7 @@
      const char *);
  void	userauth_finish(Authctxt *, int, const char *, const char *);
@@ -357,8 +357,8 @@ diff -Nur openssh-6.2p2.orig/auth.h openssh-6.2p2/auth.h
  void	userauth_send_banner(const char *);
  
 diff -Nur openssh-6.2p2.orig/auth-pam.c openssh-6.2p2/auth-pam.c
---- openssh-6.2p2.orig/auth-pam.c	2013-06-24 05:46:18.086122301 +0200
-+++ openssh-6.2p2/auth-pam.c	2013-06-24 05:47:42.366821186 +0200
+--- openssh-6.2p2.orig/auth-pam.c	2013-11-26 15:56:01.606180138 +0100
++++ openssh-6.2p2/auth-pam.c	2013-11-26 15:53:39.587900350 +0100
 @@ -122,6 +122,10 @@
   */
  typedef pthread_t sp_pthread_t;
@@ -509,8 +509,8 @@ diff -Nur openssh-6.2p2.orig/auth-pam.c openssh-6.2p2/auth-pam.c
  	if (sshpam_err == PAM_SUCCESS && authctxt->valid) {
  		debug("PAM: password authentication accepted for %.100s",
 diff -Nur openssh-6.2p2.orig/auth-pam.h openssh-6.2p2/auth-pam.h
---- openssh-6.2p2.orig/auth-pam.h	2013-06-24 05:46:18.086122301 +0200
-+++ openssh-6.2p2/auth-pam.h	2013-06-24 05:47:42.366821186 +0200
+--- openssh-6.2p2.orig/auth-pam.h	2013-11-26 15:56:01.607180126 +0100
++++ openssh-6.2p2/auth-pam.h	2013-11-26 15:53:39.587900350 +0100
 @@ -46,5 +46,6 @@
  void sshpam_cleanup(void);
  int sshpam_auth_passwd(Authctxt *, const char *);
@@ -519,8 +519,8 @@ diff -Nur openssh-6.2p2.orig/auth-pam.h openssh-6.2p2/auth-pam.h
  
  #endif /* USE_PAM */
 diff -Nur openssh-6.2p2.orig/canohost.c openssh-6.2p2/canohost.c
---- openssh-6.2p2.orig/canohost.c	2013-06-24 05:46:18.124122615 +0200
-+++ openssh-6.2p2/canohost.c	2013-06-24 05:47:42.367821195 +0200
+--- openssh-6.2p2.orig/canohost.c	2013-11-26 15:56:01.607180126 +0100
++++ openssh-6.2p2/canohost.c	2013-11-26 15:53:39.587900350 +0100
 @@ -16,6 +16,7 @@
  
  #include <sys/types.h>
@@ -564,8 +564,8 @@ diff -Nur openssh-6.2p2.orig/canohost.c openssh-6.2p2/canohost.c
 +	}
 +}
 diff -Nur openssh-6.2p2.orig/canohost.h openssh-6.2p2/canohost.h
---- openssh-6.2p2.orig/canohost.h	2009-06-21 11:50:08.000000000 +0200
-+++ openssh-6.2p2/canohost.h	2013-06-24 05:47:42.367821195 +0200
+--- openssh-6.2p2.orig/canohost.h	2013-11-26 15:56:01.607180126 +0100
++++ openssh-6.2p2/canohost.h	2013-11-26 15:53:39.587900350 +0100
 @@ -26,4 +26,6 @@
  int		 get_sock_port(int, int);
  void		 clear_cached_addr(void);
@@ -574,8 +574,8 @@ diff -Nur openssh-6.2p2.orig/canohost.h openssh-6.2p2/canohost.h
 +
  void		 ipv64_normalise_mapped(struct sockaddr_storage *, socklen_t *);
 diff -Nur openssh-6.2p2.orig/configure.ac openssh-6.2p2/configure.ac
---- openssh-6.2p2.orig/configure.ac	2013-06-24 05:46:18.232123507 +0200
-+++ openssh-6.2p2/configure.ac	2013-06-24 05:47:42.369821211 +0200
+--- openssh-6.2p2.orig/configure.ac	2013-11-26 15:56:01.608180114 +0100
++++ openssh-6.2p2/configure.ac	2013-11-26 15:53:39.588900338 +0100
 @@ -3867,6 +3867,14 @@
  			AC_CHECK_HEADER([gssapi_krb5.h], ,
  					[ CPPFLAGS="$oldCPP" ])
@@ -643,8 +643,8 @@ diff -Nur openssh-6.2p2.orig/configure.ac openssh-6.2p2/configure.ac
  
  PRIVSEP_PATH=/var/empty
 diff -Nur openssh-6.2p2.orig/gss-genr.c openssh-6.2p2/gss-genr.c
---- openssh-6.2p2.orig/gss-genr.c	2013-06-24 05:46:18.233123515 +0200
-+++ openssh-6.2p2/gss-genr.c	2013-06-24 05:47:42.370821220 +0200
+--- openssh-6.2p2.orig/gss-genr.c	2013-11-26 15:56:01.608180114 +0100
++++ openssh-6.2p2/gss-genr.c	2013-11-26 15:53:39.589900326 +0100
 @@ -38,6 +38,7 @@
  #include "xmalloc.h"
  #include "buffer.h"
@@ -682,9 +682,9 @@ diff -Nur openssh-6.2p2.orig/gss-genr.c openssh-6.2p2/gss-genr.c
  	return (ctx->major);
  }
 diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
---- openssh-6.2p2.orig/gss-serv.c	2013-06-24 05:46:18.234123524 +0200
-+++ openssh-6.2p2/gss-serv.c	2013-06-24 05:47:42.370821220 +0200
-@@ -52,6 +52,7 @@
+--- openssh-6.2p2.orig/gss-serv.c	2013-11-26 15:56:01.609180102 +0100
++++ openssh-6.2p2/gss-serv.c	2013-11-26 15:58:39.853264390 +0100
+@@ -52,10 +52,12 @@
  #include "monitor_wrap.h"
  
  extern ServerOptions options;
@@ -692,7 +692,13 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  
  static ssh_gssapi_client gssapi_client =
      { GSS_C_EMPTY_BUFFER, GSS_C_EMPTY_BUFFER,
-@@ -63,14 +64,23 @@
+-    GSS_C_NO_CREDENTIAL, GSS_C_NO_NAME,  NULL, {NULL, NULL, NULL}, 0, 0};
++      GSS_C_NO_CREDENTIAL, GSS_C_NO_NAME, NULL, {NULL, NULL, NULL, NULL, NULL},
++      GSS_C_NO_CONTEXT, 0, 0};
+ 
+ ssh_gssapi_mech gssapi_null_mech =
+     { NULL, NULL, {0, NULL}, NULL, NULL, NULL, NULL, NULL};
+@@ -63,14 +65,23 @@
  #ifdef KRB5
  extern ssh_gssapi_mech gssapi_kerberos_mech;
  #endif
@@ -716,7 +722,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  
  /*
   * Acquire credentials for a server running on the current host.
-@@ -159,7 +169,8 @@
+@@ -159,7 +170,8 @@
  
  	gss_create_empty_oid_set(&min_status, oidset);
  
@@ -726,7 +732,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  		return;
  
  	while (supported_mechs[i]->name != NULL) {
-@@ -212,6 +223,10 @@
+@@ -212,6 +224,10 @@
  	    (*flags & GSS_C_INTEG_FLAG))) && (ctx->major == GSS_S_COMPLETE)) {
  		if (ssh_gssapi_getclient(ctx, &gssapi_client))
  			fatal("Couldn't convert client name");
@@ -737,7 +743,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  	}
  
  	return (status);
-@@ -231,6 +246,17 @@
+@@ -231,6 +247,17 @@
  
  	tok = ename->value;
  
@@ -755,7 +761,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  	/*
  	 * Check that ename is long enough for all of the fixed length
  	 * header, and that the initial ID bytes are correct
-@@ -298,8 +324,11 @@
+@@ -298,8 +325,11 @@
  			return GSS_S_COMPLETE;
  		}
  
@@ -769,7 +775,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  		    NULL, NULL, NULL))) {
  			ssh_gssapi_error(ctx);
  			return (ctx->major);
-@@ -342,9 +371,12 @@
+@@ -342,9 +372,12 @@
  	if (client->mech == NULL)
  		return GSS_S_FAILURE;
  
@@ -784,7 +790,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  		ssh_gssapi_error(ctx);
  		return (ctx->major);
  	}
-@@ -371,6 +403,10 @@
+@@ -371,6 +404,10 @@
  	/* We can't copy this structure, so we just move the pointer to it */
  	client->creds = ctx->client_creds;
  	ctx->client_creds = GSS_C_NO_CREDENTIAL;
@@ -795,7 +801,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  	return (ctx->major);
  }
  
-@@ -413,6 +449,11 @@
+@@ -413,6 +450,11 @@
  ssh_gssapi_storecreds(void)
  {
  	if (gssapi_client.mech && gssapi_client.mech->storecreds) {
@@ -807,7 +813,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  		(*gssapi_client.mech->storecreds)(&gssapi_client);
  	} else
  		debug("ssh_gssapi_storecreds: Not a GSSAPI mechanism");
-@@ -436,8 +477,9 @@
+@@ -436,8 +478,9 @@
  }
  
  /* Privileged */
@@ -818,7 +824,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  {
  	OM_uint32 lmin;
  
-@@ -446,6 +488,12 @@
+@@ -446,6 +489,12 @@
  		debug("No suitable client data");
  		return 0;
  	}
@@ -831,7 +837,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  	if (gssapi_client.mech && gssapi_client.mech->userok)
  		if ((*gssapi_client.mech->userok)(&gssapi_client, user)) {
  			gssapi_client.used = 1;
-@@ -464,6 +512,24 @@
+@@ -464,6 +513,24 @@
  	return (0);
  }
  
@@ -856,7 +862,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  /* These bits are only used for rekeying. The unpriviledged child is running 
   * as the user, the monitor is root.
   *
-@@ -490,6 +556,7 @@
+@@ -490,6 +557,7 @@
  	pam_handle_t *pamh = NULL;
  	struct pam_conv pamconv = {ssh_gssapi_simple_conv, NULL};
  	char *envstr;
@@ -864,7 +870,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  #endif
  
  	if (gssapi_client.store.filename == NULL && 
-@@ -519,6 +586,18 @@
+@@ -519,6 +587,18 @@
  	if (ret)
  		return;
  
@@ -883,7 +889,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  	xasprintf(&envstr, "%s=%s", gssapi_client.store.envvar, 
  	    gssapi_client.store.envval);
  
-@@ -550,4 +629,13 @@
+@@ -550,4 +630,13 @@
  	return ok;
  }
  
@@ -899,7 +905,7 @@ diff -Nur openssh-6.2p2.orig/gss-serv.c openssh-6.2p2/gss-serv.c
  #endif
 diff -Nur openssh-6.2p2.orig/gss-serv-gsi.c openssh-6.2p2/gss-serv-gsi.c
 --- openssh-6.2p2.orig/gss-serv-gsi.c	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-6.2p2/gss-serv-gsi.c	2013-06-24 05:47:42.371821228 +0200
++++ openssh-6.2p2/gss-serv-gsi.c	2013-11-26 15:53:39.589900326 +0100
 @@ -0,0 +1,238 @@
 +/*
 + * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
@@ -1140,8 +1146,8 @@ diff -Nur openssh-6.2p2.orig/gss-serv-gsi.c openssh-6.2p2/gss-serv-gsi.c
 +#endif /* GSI */
 +#endif /* GSSAPI */
 diff -Nur openssh-6.2p2.orig/gss-serv-krb5.c openssh-6.2p2/gss-serv-krb5.c
---- openssh-6.2p2.orig/gss-serv-krb5.c	2013-06-24 05:46:18.255123697 +0200
-+++ openssh-6.2p2/gss-serv-krb5.c	2013-06-24 05:47:42.372821236 +0200
+--- openssh-6.2p2.orig/gss-serv-krb5.c	2013-11-26 15:56:01.609180102 +0100
++++ openssh-6.2p2/gss-serv-krb5.c	2013-11-26 15:53:39.589900326 +0100
 @@ -262,6 +262,34 @@
  	return found_principal;
  }
@@ -1196,8 +1202,8 @@ diff -Nur openssh-6.2p2.orig/gss-serv-krb5.c openssh-6.2p2/gss-serv-krb5.c
  	&ssh_gssapi_krb5_updatecreds
  };
 diff -Nur openssh-6.2p2.orig/kexgsss.c openssh-6.2p2/kexgsss.c
---- openssh-6.2p2.orig/kexgsss.c	2013-06-24 05:46:18.237123548 +0200
-+++ openssh-6.2p2/kexgsss.c	2013-06-24 05:47:42.373821245 +0200
+--- openssh-6.2p2.orig/kexgsss.c	2013-11-26 15:56:01.610180090 +0100
++++ openssh-6.2p2/kexgsss.c	2013-11-26 15:53:39.590900314 +0100
 @@ -44,6 +44,7 @@
  #include "monitor_wrap.h"
  #include "servconf.h"
@@ -1259,7 +1265,7 @@ diff -Nur openssh-6.2p2.orig/kexgsss.c openssh-6.2p2/kexgsss.c
  #endif /* GSSAPI */
 diff -Nur openssh-6.2p2.orig/LICENSE.globus_usage openssh-6.2p2/LICENSE.globus_usage
 --- openssh-6.2p2.orig/LICENSE.globus_usage	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-6.2p2/LICENSE.globus_usage	2013-06-24 05:47:42.373821245 +0200
++++ openssh-6.2p2/LICENSE.globus_usage	2013-11-26 15:53:39.590900314 +0100
 @@ -0,0 +1,18 @@
 +/*
 + * Portions of the Usage Metrics suport code are derived from the
@@ -1280,8 +1286,8 @@ diff -Nur openssh-6.2p2.orig/LICENSE.globus_usage openssh-6.2p2/LICENSE.globus_u
 + * limitations under the License.
 + */
 diff -Nur openssh-6.2p2.orig/Makefile.in openssh-6.2p2/Makefile.in
---- openssh-6.2p2.orig/Makefile.in	2013-06-24 05:46:18.288123970 +0200
-+++ openssh-6.2p2/Makefile.in	2013-06-24 05:47:42.374821253 +0200
+--- openssh-6.2p2.orig/Makefile.in	2013-11-26 15:56:01.610180090 +0100
++++ openssh-6.2p2/Makefile.in	2013-11-26 15:53:39.602900168 +0100
 @@ -95,8 +95,10 @@
  	monitor_mm.o monitor.o monitor_wrap.o kexdhs.o kexgexs.o kexecdhs.o \
  	auth-krb5.o \
@@ -1294,8 +1300,8 @@ diff -Nur openssh-6.2p2.orig/Makefile.in openssh-6.2p2/Makefile.in
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
  	sandbox-seccomp-filter.o
 diff -Nur openssh-6.2p2.orig/misc.c openssh-6.2p2/misc.c
---- openssh-6.2p2.orig/misc.c	2013-06-24 05:46:18.089122325 +0200
-+++ openssh-6.2p2/misc.c	2013-06-24 05:47:42.375821261 +0200
+--- openssh-6.2p2.orig/misc.c	2013-11-26 15:56:01.610180090 +0100
++++ openssh-6.2p2/misc.c	2013-11-26 15:53:39.590900314 +0100
 @@ -158,11 +158,14 @@
  #define WHITESPACE " \t\r\n"
  #define QUOTE	"\""
@@ -1356,8 +1362,8 @@ diff -Nur openssh-6.2p2.orig/misc.c openssh-6.2p2/misc.c
   * Convert ASCII string to TCP/IP port number.
   * Port must be >=0 and <=65535.
 diff -Nur openssh-6.2p2.orig/misc.h openssh-6.2p2/misc.h
---- openssh-6.2p2.orig/misc.h	2011-05-05 06:14:34.000000000 +0200
-+++ openssh-6.2p2/misc.h	2013-06-24 05:47:42.375821261 +0200
+--- openssh-6.2p2.orig/misc.h	2013-11-26 15:56:01.610180090 +0100
++++ openssh-6.2p2/misc.h	2013-11-26 15:53:39.590900314 +0100
 @@ -38,6 +38,7 @@
  void	 sock_set_v6only(int);
  
@@ -1367,8 +1373,8 @@ diff -Nur openssh-6.2p2.orig/misc.h openssh-6.2p2/misc.h
  
  typedef struct arglist arglist;
 diff -Nur openssh-6.2p2.orig/monitor.c openssh-6.2p2/monitor.c
---- openssh-6.2p2.orig/monitor.c	2013-06-24 05:46:18.239123565 +0200
-+++ openssh-6.2p2/monitor.c	2013-06-24 05:47:42.377821278 +0200
+--- openssh-6.2p2.orig/monitor.c	2013-11-26 15:56:01.611180078 +0100
++++ openssh-6.2p2/monitor.c	2013-11-26 15:53:39.591900302 +0100
 @@ -187,6 +187,9 @@
  int mm_answer_gss_userok(int, Buffer *);
  int mm_answer_gss_checkmic(int, Buffer *);
@@ -1561,8 +1567,8 @@ diff -Nur openssh-6.2p2.orig/monitor.c openssh-6.2p2/monitor.c
  mm_answer_gss_sign(int socket, Buffer *m)
  {
 diff -Nur openssh-6.2p2.orig/monitor.h openssh-6.2p2/monitor.h
---- openssh-6.2p2.orig/monitor.h	2013-06-24 05:46:18.239123565 +0200
-+++ openssh-6.2p2/monitor.h	2013-06-24 05:47:42.377821278 +0200
+--- openssh-6.2p2.orig/monitor.h	2013-11-26 15:56:01.611180078 +0100
++++ openssh-6.2p2/monitor.h	2013-11-26 15:53:39.591900302 +0100
 @@ -79,8 +79,10 @@
  	MONITOR_REQ_AUDIT_UNSUPPORTED = 118, MONITOR_ANS_AUDIT_UNSUPPORTED = 119,
  	MONITOR_REQ_AUDIT_KEX = 120, MONITOR_ANS_AUDIT_KEX = 121,
@@ -1577,8 +1583,8 @@ diff -Nur openssh-6.2p2.orig/monitor.h openssh-6.2p2/monitor.h
  
  struct mm_master;
 diff -Nur openssh-6.2p2.orig/monitor_wrap.c openssh-6.2p2/monitor_wrap.c
---- openssh-6.2p2.orig/monitor_wrap.c	2013-06-24 05:46:18.240123573 +0200
-+++ openssh-6.2p2/monitor_wrap.c	2013-06-24 05:47:42.377821278 +0200
+--- openssh-6.2p2.orig/monitor_wrap.c	2013-11-26 15:56:01.612180066 +0100
++++ openssh-6.2p2/monitor_wrap.c	2013-11-26 15:53:39.592900290 +0100
 @@ -1327,12 +1327,13 @@
  }
  
@@ -1679,8 +1685,8 @@ diff -Nur openssh-6.2p2.orig/monitor_wrap.c openssh-6.2p2/monitor_wrap.c
  mm_ssh_gssapi_sign(Gssctxt *ctx, gss_buffer_desc *data, gss_buffer_desc *hash)
  {
 diff -Nur openssh-6.2p2.orig/monitor_wrap.h openssh-6.2p2/monitor_wrap.h
---- openssh-6.2p2.orig/monitor_wrap.h	2013-06-24 05:46:18.240123573 +0200
-+++ openssh-6.2p2/monitor_wrap.h	2013-06-24 05:47:42.377821278 +0200
+--- openssh-6.2p2.orig/monitor_wrap.h	2013-11-26 15:56:01.612180066 +0100
++++ openssh-6.2p2/monitor_wrap.h	2013-11-26 15:53:39.592900290 +0100
 @@ -62,9 +62,13 @@
  OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
  OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *,
@@ -1697,8 +1703,8 @@ diff -Nur openssh-6.2p2.orig/monitor_wrap.h openssh-6.2p2/monitor_wrap.h
  #endif
  
 diff -Nur openssh-6.2p2.orig/readconf.c openssh-6.2p2/readconf.c
---- openssh-6.2p2.orig/readconf.c	2013-06-24 05:46:18.240123573 +0200
-+++ openssh-6.2p2/readconf.c	2013-06-24 05:47:42.378821286 +0200
+--- openssh-6.2p2.orig/readconf.c	2013-11-26 15:56:01.612180066 +0100
++++ openssh-6.2p2/readconf.c	2013-11-26 15:53:39.592900290 +0100
 @@ -1293,13 +1293,13 @@
  	if (options->challenge_response_authentication == -1)
  		options->challenge_response_authentication = 1;
@@ -1718,8 +1724,8 @@ diff -Nur openssh-6.2p2.orig/readconf.c openssh-6.2p2/readconf.c
  		options->gss_renewal_rekey = 0;
  	if (options->password_authentication == -1)
 diff -Nur openssh-6.2p2.orig/readconf.h openssh-6.2p2/readconf.h
---- openssh-6.2p2.orig/readconf.h	2013-06-24 05:46:18.240123573 +0200
-+++ openssh-6.2p2/readconf.h	2013-06-24 05:47:42.378821286 +0200
+--- openssh-6.2p2.orig/readconf.h	2013-11-26 15:56:01.613180053 +0100
++++ openssh-6.2p2/readconf.h	2013-11-26 15:53:39.592900290 +0100
 @@ -88,6 +88,8 @@
  	char   *host_key_alias;	/* hostname alias for .ssh/known_hosts */
  	char   *proxy_command;	/* Proxy command for connecting the host. */
@@ -1730,8 +1736,8 @@ diff -Nur openssh-6.2p2.orig/readconf.h openssh-6.2p2/readconf.h
  
  	u_int	num_system_hostfiles;	/* Paths for /etc/ssh/ssh_known_hosts */
 diff -Nur openssh-6.2p2.orig/servconf.c openssh-6.2p2/servconf.c
---- openssh-6.2p2.orig/servconf.c	2013-06-24 05:46:18.256123705 +0200
-+++ openssh-6.2p2/servconf.c	2013-06-24 05:47:42.379821294 +0200
+--- openssh-6.2p2.orig/servconf.c	2013-11-26 15:56:01.613180053 +0100
++++ openssh-6.2p2/servconf.c	2013-11-26 15:53:39.593900277 +0100
 @@ -67,6 +67,7 @@
  
  	/* Portable-specific options */
@@ -1935,8 +1941,8 @@ diff -Nur openssh-6.2p2.orig/servconf.c openssh-6.2p2/servconf.c
  	M_CP_INTOPT(pubkey_authentication);
  	M_CP_INTOPT(kerberos_authentication);
 diff -Nur openssh-6.2p2.orig/servconf.h openssh-6.2p2/servconf.h
---- openssh-6.2p2.orig/servconf.h	2013-06-24 05:46:18.256123705 +0200
-+++ openssh-6.2p2/servconf.h	2013-06-24 05:47:42.379821294 +0200
+--- openssh-6.2p2.orig/servconf.h	2013-11-26 15:56:01.613180053 +0100
++++ openssh-6.2p2/servconf.h	2013-11-26 15:53:39.593900277 +0100
 @@ -109,9 +109,12 @@
  						 * file on logout. */
  	int     kerberos_get_afs_token;		/* If true, try to get AFS token if
@@ -1970,8 +1976,8 @@ diff -Nur openssh-6.2p2.orig/servconf.h openssh-6.2p2/servconf.h
  	char   *trusted_user_ca_keys;
  	char   *authorized_principals_file;
 diff -Nur openssh-6.2p2.orig/ssh.1 openssh-6.2p2/ssh.1
---- openssh-6.2p2.orig/ssh.1	2013-06-24 05:46:18.202123259 +0200
-+++ openssh-6.2p2/ssh.1	2013-06-24 05:47:42.380821303 +0200
+--- openssh-6.2p2.orig/ssh.1	2013-11-26 15:56:01.614180041 +0100
++++ openssh-6.2p2/ssh.1	2013-11-26 15:53:39.593900277 +0100
 @@ -1263,6 +1263,18 @@
  on to new connections).
  .It Ev USER
@@ -1992,8 +1998,8 @@ diff -Nur openssh-6.2p2.orig/ssh.1 openssh-6.2p2/ssh.1
  .Pp
  Additionally,
 diff -Nur openssh-6.2p2.orig/ssh.c openssh-6.2p2/ssh.c
---- openssh-6.2p2.orig/ssh.c	2013-06-24 05:46:18.163122937 +0200
-+++ openssh-6.2p2/ssh.c	2013-06-24 05:47:42.380821303 +0200
+--- openssh-6.2p2.orig/ssh.c	2013-11-26 15:56:01.614180041 +0100
++++ openssh-6.2p2/ssh.c	2013-11-26 15:53:39.594900265 +0100
 @@ -686,6 +686,32 @@
  			fatal("Can't open user config file %.100s: "
  			    "%.100s", config, strerror(errno));
@@ -2042,8 +2048,8 @@ diff -Nur openssh-6.2p2.orig/ssh.c openssh-6.2p2/ssh.c
  	/* Get default port if port has not been set. */
  	if (options.port == 0) {
 diff -Nur openssh-6.2p2.orig/ssh_config openssh-6.2p2/ssh_config
---- openssh-6.2p2.orig/ssh_config	2013-06-24 05:46:18.242123590 +0200
-+++ openssh-6.2p2/ssh_config	2013-06-24 05:47:42.380821303 +0200
+--- openssh-6.2p2.orig/ssh_config	2013-11-26 15:56:01.615180029 +0100
++++ openssh-6.2p2/ssh_config	2013-11-26 15:53:39.594900265 +0100
 @@ -24,10 +24,10 @@
  #   RSAAuthentication yes
  #   PasswordAuthentication yes
@@ -2060,8 +2066,8 @@ diff -Nur openssh-6.2p2.orig/ssh_config openssh-6.2p2/ssh_config
  #   CheckHostIP yes
  #   AddressFamily any
 diff -Nur openssh-6.2p2.orig/ssh_config.5 openssh-6.2p2/ssh_config.5
---- openssh-6.2p2.orig/ssh_config.5	2013-06-24 05:46:18.242123590 +0200
-+++ openssh-6.2p2/ssh_config.5	2013-06-24 05:47:42.381821311 +0200
+--- openssh-6.2p2.orig/ssh_config.5	2013-11-26 15:56:01.615180029 +0100
++++ openssh-6.2p2/ssh_config.5	2013-11-26 15:53:39.594900265 +0100
 @@ -55,6 +55,12 @@
  user's configuration file
  .Pq Pa ~/.ssh/config
@@ -2076,8 +2082,8 @@ diff -Nur openssh-6.2p2.orig/ssh_config.5 openssh-6.2p2/ssh_config.5
  .Pq Pa /etc/ssh/ssh_config
  .El
 diff -Nur openssh-6.2p2.orig/sshconnect2.c openssh-6.2p2/sshconnect2.c
---- openssh-6.2p2.orig/sshconnect2.c	2013-06-24 05:46:18.251123664 +0200
-+++ openssh-6.2p2/sshconnect2.c	2013-06-24 05:47:42.381821311 +0200
+--- openssh-6.2p2.orig/sshconnect2.c	2013-11-26 15:56:01.615180029 +0100
++++ openssh-6.2p2/sshconnect2.c	2013-11-26 15:53:39.595900253 +0100
 @@ -702,6 +702,11 @@
  	int ok = 0;
  	const char *gss_host = NULL;
@@ -2140,8 +2146,8 @@ diff -Nur openssh-6.2p2.orig/sshconnect2.c openssh-6.2p2/sshconnect2.c
  	packet_put_cstring(authctxt->method->name);
  	packet_put_string(mic.value, mic.length);
 diff -Nur openssh-6.2p2.orig/sshd.8 openssh-6.2p2/sshd.8
---- openssh-6.2p2.orig/sshd.8	2013-06-24 05:46:18.247123631 +0200
-+++ openssh-6.2p2/sshd.8	2013-06-24 05:47:42.382821319 +0200
+--- openssh-6.2p2.orig/sshd.8	2013-11-26 15:56:01.616180017 +0100
++++ openssh-6.2p2/sshd.8	2013-11-26 15:53:39.595900253 +0100
 @@ -762,6 +762,44 @@
  # A CA key, accepted for any host in *.mydomain.com or *.mydomain.org
  @cert-authority *.mydomain.org,*.mydomain.com ssh-rsa AAAAB5W...
@@ -2188,8 +2194,8 @@ diff -Nur openssh-6.2p2.orig/sshd.8 openssh-6.2p2/sshd.8
  .Bl -tag -width Ds -compact
  .It Pa ~/.hushlogin
 diff -Nur openssh-6.2p2.orig/sshd.c openssh-6.2p2/sshd.c
---- openssh-6.2p2.orig/sshd.c	2013-06-24 05:46:18.243123598 +0200
-+++ openssh-6.2p2/sshd.c	2013-06-24 05:47:42.383821328 +0200
+--- openssh-6.2p2.orig/sshd.c	2013-11-26 15:56:01.616180017 +0100
++++ openssh-6.2p2/sshd.c	2013-11-26 15:53:39.596900241 +0100
 @@ -123,6 +123,7 @@
  #include "audit.h"
  #include "ssh-sandbox.h"
@@ -2222,8 +2228,8 @@ diff -Nur openssh-6.2p2.orig/sshd.c openssh-6.2p2/sshd.c
  		ssh_gssapi_storecreds();
  		restore_uid();
 diff -Nur openssh-6.2p2.orig/sshd_config openssh-6.2p2/sshd_config
---- openssh-6.2p2.orig/sshd_config	2013-06-24 05:46:18.256123705 +0200
-+++ openssh-6.2p2/sshd_config	2013-06-24 05:47:42.383821328 +0200
+--- openssh-6.2p2.orig/sshd_config	2013-11-26 15:56:01.617180005 +0100
++++ openssh-6.2p2/sshd_config	2013-11-26 15:53:39.596900241 +0100
 @@ -86,12 +86,11 @@
  #KerberosUseKuserok yes
  
@@ -2260,8 +2266,8 @@ diff -Nur openssh-6.2p2.orig/sshd_config openssh-6.2p2/sshd_config
 +#UsageStatsTargets usage-stats.cilogon.org:4810
 +#DisableUsageStats no
 diff -Nur openssh-6.2p2.orig/sshd_config.5 openssh-6.2p2/sshd_config.5
---- openssh-6.2p2.orig/sshd_config.5	2013-06-24 05:46:18.257123714 +0200
-+++ openssh-6.2p2/sshd_config.5	2013-06-24 05:47:42.383821328 +0200
+--- openssh-6.2p2.orig/sshd_config.5	2013-11-26 15:56:01.617180005 +0100
++++ openssh-6.2p2/sshd_config.5	2013-11-26 15:53:39.596900241 +0100
 @@ -437,6 +437,15 @@
  in
  .Xr ssh_config 5
@@ -2449,7 +2455,7 @@ diff -Nur openssh-6.2p2.orig/sshd_config.5 openssh-6.2p2/sshd_config.5
  .Xr sshd 8
 diff -Nur openssh-6.2p2.orig/ssh-globus-usage.c openssh-6.2p2/ssh-globus-usage.c
 --- openssh-6.2p2.orig/ssh-globus-usage.c	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-6.2p2/ssh-globus-usage.c	2013-06-24 05:47:42.384821336 +0200
++++ openssh-6.2p2/ssh-globus-usage.c	2013-11-26 15:53:39.597900229 +0100
 @@ -0,0 +1,396 @@
 +/*
 + * Copyright 2009 The Board of Trustees of the University
@@ -2849,7 +2855,7 @@ diff -Nur openssh-6.2p2.orig/ssh-globus-usage.c openssh-6.2p2/ssh-globus-usage.c
 +}
 diff -Nur openssh-6.2p2.orig/ssh-globus-usage.h openssh-6.2p2/ssh-globus-usage.h
 --- openssh-6.2p2.orig/ssh-globus-usage.h	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-6.2p2/ssh-globus-usage.h	2013-06-24 05:47:42.384821336 +0200
++++ openssh-6.2p2/ssh-globus-usage.h	2013-11-26 15:53:39.597900229 +0100
 @@ -0,0 +1,46 @@
 +/*
 + * Copyright 2009 The Board of Trustees of the University
@@ -2898,8 +2904,8 @@ diff -Nur openssh-6.2p2.orig/ssh-globus-usage.h openssh-6.2p2/ssh-globus-usage.h
 +
 +#endif /* __SSH_GLOBUS_USAGE_H */
 diff -Nur openssh-6.2p2.orig/ssh-gss.h openssh-6.2p2/ssh-gss.h
---- openssh-6.2p2.orig/ssh-gss.h	2013-06-24 05:46:18.247123631 +0200
-+++ openssh-6.2p2/ssh-gss.h	2013-06-24 05:47:42.384821336 +0200
+--- openssh-6.2p2.orig/ssh-gss.h	2013-11-26 15:56:01.618179993 +0100
++++ openssh-6.2p2/ssh-gss.h	2013-11-26 15:53:39.597900229 +0100
 @@ -91,6 +91,7 @@
  	gss_name_t name;
  	struct ssh_gssapi_mech_struct *mech;
@@ -2945,8 +2951,8 @@ diff -Nur openssh-6.2p2.orig/ssh-gss.h openssh-6.2p2/ssh-gss.h
  
  #endif /* _SSH_GSS_H */
 diff -Nur openssh-6.2p2.orig/version.h openssh-6.2p2/version.h
---- openssh-6.2p2.orig/version.h	2013-05-10 08:02:21.000000000 +0200
-+++ openssh-6.2p2/version.h	2013-06-24 05:47:42.384821336 +0200
+--- openssh-6.2p2.orig/version.h	2013-11-26 15:56:01.618179993 +0100
++++ openssh-6.2p2/version.h	2013-11-26 15:53:39.597900229 +0100
 @@ -1,6 +1,21 @@
  /* $OpenBSD: version.h,v 1.66 2013/02/10 21:19:34 markus Exp $ */
  

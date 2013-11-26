@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.2p2
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -134,6 +134,8 @@ Patch907: openssh-6.2p1-aarch64.patch
 Patch908: openssh-6.2p2-sftp-multibyte.patch
 # don't show Success for EAI_SYSTEM (#985964)
 Patch909: openssh-6.2p2-ssh_gai_strerror.patch
+# increase the size of the Diffie-Hellman groups (#1010607)
+Patch910: openssh-6.2p2-increase-size-of-DF-groups.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p2.patch
@@ -284,6 +286,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch907 -p1 -b .aarch64
 %patch908 -p1 -b .sftp-multibyte
 %patch909 -p1 -b .ssh_gai_strerror
+%patch910 -p1 -b .dh
 
 %patch98 -p1 -b .gsi
 
@@ -497,6 +500,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Tue Nov 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-3
+- Based on openssh-6.2p2-6.fc19
+
 * Fri Aug 23 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-2
 - Based on openssh-6.2p2-5.fc19
 
