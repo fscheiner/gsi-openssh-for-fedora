@@ -389,18 +389,28 @@ diff -up openssh-5.3p1/ssh.c.fips openssh-5.3p1/ssh.c
  #include "openbsd-compat/openssl-compat.h"
  #include "openbsd-compat/sys-queue.h"
  
-@@ -221,6 +223,10 @@ main(int ac, char **av)
+@@ -216,11 +218,20 @@ main(int ac, char **av)
+ 	extern char *optarg;
+ 	struct servent *sp;
+ 	Forward fwd;
++	int fips;
+ 
+ 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
  	sanitise_stdfd();
  
  	__progname = ssh_get_progname(av[0]);
++
 +        SSLeay_add_all_algorithms();
-+        if (FIPS_mode() && !FIPSCHECK_verify(NULL, NULL)) {
-+                fatal("FIPS integrity verification test failed.");
-+        }
++	fips = 0;
++	if (access("/usr/share/dracut/modules.d/01fips", F_OK) == 0)
++		fips = FIPSCHECK_verify(NULL, NULL);
++	if (FIPS_mode() && !fips)
++		fatal("FIPS integrity verification test failed.");
++
  	init_rng();
  
  	/*
-@@ -281,6 +287,9 @@ main(int ac, char **av)
+@@ -281,6 +292,9 @@ main(int ac, char **av)
  	    "ACD:F:I:KL:MNO:PR:S:TVw:XYy")) != -1) {
  		switch (opt) {
  		case '1':
@@ -410,7 +420,7 @@ diff -up openssh-5.3p1/ssh.c.fips openssh-5.3p1/ssh.c
  			options.protocol = SSH_PROTO_1;
  			break;
  		case '2':
-@@ -552,7 +561,6 @@ main(int ac, char **av)
+@@ -552,7 +566,6 @@ main(int ac, char **av)
  	if (!host)
  		usage();
  
@@ -418,7 +428,7 @@ diff -up openssh-5.3p1/ssh.c.fips openssh-5.3p1/ssh.c
  	ERR_load_crypto_strings();
  
  	/* Initialize the command to execute on remote host. */
-@@ -638,6 +646,10 @@ main(int ac, char **av)
+@@ -638,6 +651,10 @@ main(int ac, char **av)
  
  	seed_rng();
  
@@ -429,7 +439,7 @@ diff -up openssh-5.3p1/ssh.c.fips openssh-5.3p1/ssh.c
  	if (options.user == NULL)
  		options.user = xstrdup(pw->pw_name);
  
-@@ -704,6 +716,12 @@ main(int ac, char **av)
+@@ -704,6 +721,12 @@ main(int ac, char **av)
  
  	timeout_ms = options.connection_timeout * 1000;
  
@@ -589,20 +599,28 @@ diff -up openssh-5.3p1/sshd.c.fips openssh-5.3p1/sshd.c
  #include "openbsd-compat/openssl-compat.h"
  
  #ifdef HAVE_SECUREWARE
-@@ -1261,6 +1263,12 @@ main(int ac, char **av)
+@@ -1256,11 +1258,20 @@ main(int ac, char **av)
+ 	mode_t new_umask;
+ 	Key *key;
+ 	Authctxt *authctxt;
++	int fips;
+ 
+ #ifdef HAVE_SECUREWARE
  	(void)set_auth_parameters(ac, av);
  #endif
  	__progname = ssh_get_progname(av[0]);
 +
 +        SSLeay_add_all_algorithms();
-+        if (FIPS_mode() && !FIPSCHECK_verify(NULL, NULL)) {
-+                fatal("FIPS integrity verification test failed.");
-+        }
++	fips = 0;
++	if (access("/usr/share/dracut/modules.d/01fips", F_OK) == 0)
++		fips = FIPSCHECK_verify(NULL, NULL);
++	if (FIPS_mode() && !fips)
++		fatal("FIPS integrity verification test failed.");
 +
  	init_rng();
  
  	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
-@@ -1413,8 +1421,6 @@ main(int ac, char **av)
+@@ -1413,8 +1424,6 @@ main(int ac, char **av)
  	else
  		closefrom(REEXEC_DEVCRYPTO_RESERVED_FD);
  
@@ -611,7 +629,7 @@ diff -up openssh-5.3p1/sshd.c.fips openssh-5.3p1/sshd.c
  	/*
  	 * Force logging to stderr until we have loaded the private host
  	 * key (unless started from inetd)
-@@ -1532,6 +1538,10 @@ main(int ac, char **av)
+@@ -1532,6 +1541,10 @@ main(int ac, char **av)
  		debug("private host key: #%d type %d %s", i, key->type,
  		    key_type(key));
  	}
@@ -622,7 +640,7 @@ diff -up openssh-5.3p1/sshd.c.fips openssh-5.3p1/sshd.c
  	if ((options.protocol & SSH_PROTO_1) && !sensitive_data.have_ssh1_key) {
  		logit("Disabling protocol version 1. Could not load host key");
  		options.protocol &= ~SSH_PROTO_1;
-@@ -1656,6 +1666,10 @@ main(int ac, char **av)
+@@ -1656,6 +1669,10 @@ main(int ac, char **av)
  	/* Initialize the random number generator. */
  	arc4random_stir();
  
@@ -633,7 +651,7 @@ diff -up openssh-5.3p1/sshd.c.fips openssh-5.3p1/sshd.c
  	/* Chdir to the root directory so that the current disk can be
  	   unmounted if desired. */
  	chdir("/");
-@@ -2183,6 +2197,9 @@ do_ssh2_kex(void)
+@@ -2187,6 +2204,9 @@ do_ssh2_kex(void)
  	if (options.ciphers != NULL) {
  		myproposal[PROPOSAL_ENC_ALGS_CTOS] =
  		myproposal[PROPOSAL_ENC_ALGS_STOC] = options.ciphers;
@@ -643,7 +661,7 @@ diff -up openssh-5.3p1/sshd.c.fips openssh-5.3p1/sshd.c
  	}
  	myproposal[PROPOSAL_ENC_ALGS_CTOS] =
  	    compat_cipher_proposal(myproposal[PROPOSAL_ENC_ALGS_CTOS]);
-@@ -2192,6 +2209,9 @@ do_ssh2_kex(void)
+@@ -2196,6 +2216,9 @@ do_ssh2_kex(void)
  	if (options.macs != NULL) {
  		myproposal[PROPOSAL_MAC_ALGS_CTOS] =
  		myproposal[PROPOSAL_MAC_ALGS_STOC] = options.macs;

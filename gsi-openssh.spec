@@ -34,10 +34,13 @@
 # Whether or not /sbin/nologin exists.
 %global nologin 1
 
+%global openssh_ver 5.3p1
+%global openssh_rel 10
+
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
-Version: 5.3p1
-Release: 9%{?dist}
+Version: %{openssh_ver}
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.3p1-3
 URL: http://www.openssh.com/portable.html
@@ -110,6 +113,29 @@ Patch98: openssh-5.3p1-prevent-post-auth-resource-exhaustion.patch
 Patch99: openssh-5.3p1-v6only.patch
 # Add a 'netcat mode' (ssh -W) (#860809)
 Patch100: openssh-5.3p1-netcat-mode.patch
+# change the bad key permissions error message (#880575)
+Patch101: openssh-5.3p1-880575.patch
+# fix a race condition in ssh-agent (#896561)
+Patch102: openssh-5.3p1-ssh-agent-fix-race.patch
+# backport support for PKCS11 from openssh-5.4p1 (#908038)
+# https://bugzilla.mindrot.org/show_bug.cgi?id=1371
+Patch103: openssh-5.3p1-pkcs11-support.patch
+# add a KexAlgorithms knob to the client and server configuration (#951704)
+Patch104: openssh-5.3p1-KexAlgorithms.patch
+# Add HMAC-SHA2 algorithm support (#969565)
+Patch105: openssh-5.3p1-hmac-sha2.patch
+# Fix man page typos (#896547)
+Patch106: openssh-5.3p1-fix-manpage-typos.patch
+# Add support for certificate key types for users and hosts (#906872)
+Patch107: openssh-5.3p1-ssh-certificates.patch
+# Apply RFC3454 stringprep to banners when possible (#955792)
+Patch108: openssh-5.3p1-utf8-banner-message.patch
+# Abort non-subsystem sessions to forced internal sftp-server (#993509)
+Patch109: openssh-5.3p1-drop-internal-sftp-connections.patch
+# Do ssh_gssapi_krb5_storecreds() twice - before and after pam sesssion (#974096)
+Patch110: openssh-5.3p1-gssapi-with-poly-tmp.patch
+# Change default of MaxStartups to 10:30:100 (#908707)
+Patch111: openssh-5.3p1-change-max-startups.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
@@ -270,6 +296,17 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch98 -p1 -b .postauth-exhaustion
 %patch99 -p1 -b .v6only
 %patch100 -p1 -b .netcat
+%patch101 -p1 -b .key-perm-message
+%patch102 -p1 -b .fix-race
+%patch103 -p1 -b .pkcs11
+%patch104 -p1 -b .KexAlgorithms
+%patch105 -p1 -b .hmac-sha2
+%patch106 -p1 -b .man
+%patch107 -p1 -b .certificates
+%patch108 -p1 -b .utf8-banner
+%patch109 -p1 -b .drop-internal-sftp
+%patch110 -p1 -b .gssapi-poly-tmp
+%patch111 -p1 -b .max-startups
 
 %patch200 -p1 -b .gsi
 
@@ -383,6 +420,7 @@ rm $RPM_BUILD_ROOT%{_bindir}/ssh-keyscan
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-keycat
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-ldap-helper
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-ldap-wrapper
+rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-pkcs11-helper
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-add.1*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-agent.1*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-keyscan.1*
@@ -435,7 +473,7 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc CREDITS ChangeLog INSTALL LICENCE LICENSE.globus_usage OVERVIEW PROTOCOL* README* TODO WARNING*
+%doc CREDITS ChangeLog INSTALL LICENCE LICENSE.globus_usage OVERVIEW PROTOCOL PROTOCOL.agent PROTOCOL.certkeys README* TODO WARNING*
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
 %attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
@@ -474,6 +512,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Tue Nov 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-10
+- Based on openssh-5.3p1-94.el6
+
 * Sat Apr 06 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-9
 - Security fix for vulnerability
     http://grid.ncsa.illinois.edu/ssh/pamuserchange-2013-01.adv

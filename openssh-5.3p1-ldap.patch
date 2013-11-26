@@ -763,9 +763,9 @@ diff -up openssh-5.3p1/ldapbody.h.ldap openssh-5.3p1/ldapbody.h
 +#endif /* LDAPBODY_H */
 +
 diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
---- openssh-5.3p1/ldapconf.c.ldap	2011-05-28 09:22:53.182919207 +0200
-+++ openssh-5.3p1/ldapconf.c	2011-05-28 09:22:53.189922758 +0200
-@@ -0,0 +1,682 @@
+--- openssh-5.3p1/ldapconf.c.ldap	2013-05-03 14:19:52.897815889 +0200
++++ openssh-5.3p1/ldapconf.c	2013-05-03 15:27:21.782124232 +0200
+@@ -0,0 +1,711 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
 + * Copyright (c) 2009 Jan F. Chadima.  All rights reserved.
@@ -888,6 +888,35 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +	return lBadOption;
 +}
 +
++/* Characters considered whitespace in strsep calls. */
++#define WHITESPACE " \t\r\n"
++
++/* return next token in configuration line */
++static char *
++ldap_strdelim(char **s)
++{
++	char *old;
++	int wspace = 0;
++
++	if (*s == NULL)
++		return NULL;
++
++	old = *s;
++
++	*s = strpbrk(*s, WHITESPACE);
++	if (*s == NULL)
++		return (old);
++
++	*s[0] = '\0';
++
++	/* Skip any extra whitespace after first token */
++	*s += strspn(*s + 1, WHITESPACE) + 1;
++	if (*s[0] == '=' && !wspace)
++		*s += strspn(*s + 1, WHITESPACE) + 1;
++
++	return (old);
++}
++
 +/*
 + * Processes a single option line as used in the configuration files. This
 + * only sets those values that have not already been set.
@@ -911,11 +940,11 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +
 +	s = line;
 +	/* Get the keyword. (Each line is supposed to begin with a keyword). */
-+	if ((keyword = strdelim(&s)) == NULL)
++	if ((keyword = ldap_strdelim(&s)) == NULL)
 +		return 0;
 +	/* Ignore leading whitespace. */
 +	if (*keyword == '\0')
-+		keyword = strdelim(&s);
++		keyword = ldap_strdelim(&s);
 +	if (keyword == NULL || !*keyword || *keyword == '\n' || *keyword == '#')
 +		return 0;
 +
@@ -951,7 +980,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +	case lBindPW:
 +		charptr = &options.bindpw;
 +parse_string:
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing argument.", filename, linenum);
 +		if (*charptr == NULL)
@@ -964,7 +993,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +
 +	case lScope:
 +		intptr = &options.scope;
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing sub/one/base argument.", filename, linenum);
 +		value = 0;	/* To avoid compiler warning... */
@@ -982,7 +1011,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +
 +	case lDeref:
 +		intptr = &options.scope;
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing never/searching/finding/always argument.", filename, linenum);
 +		value = 0;	/* To avoid compiler warning... */
@@ -1003,7 +1032,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +	case lPort:
 +		intptr = &options.port;
 +parse_int:
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing argument.", filename, linenum);
 +		if (arg[0] < '0' || arg[0] > '9')
@@ -1020,7 +1049,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +	case lTimeLimit:
 +		intptr = &options.timelimit;
 +parse_time:
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%s line %d: missing time value.",
 +			    filename, linenum);
@@ -1041,7 +1070,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +
 +	case lBind_Policy:
 +		intptr = &options.bind_policy;
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing soft/hard argument.", filename, linenum);
 +		value = 0;	/* To avoid compiler warning... */
@@ -1060,7 +1089,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +
 +	case lSSL:
 +		intptr = &options.ssl;
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing yes/no/start_tls argument.", filename, linenum);
 +		value = 0;	/* To avoid compiler warning... */
@@ -1079,7 +1108,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +	case lReferrals:
 +		intptr = &options.referrals;
 +parse_flag:
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing yes/no argument.", filename, linenum);
 +		value = 0;	/* To avoid compiler warning... */
@@ -1099,7 +1128,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +
 +	case lTLS_CheckPeer:
 +		intptr = &options.tls_checkpeer;
-+		arg = strdelim(&s);
++		arg = ldap_strdelim(&s);
 +		if (!arg || *arg == '\0')
 +			fatal("%.200s line %d: Missing never/hard/demand/alow/try argument.", filename, linenum);
 +		value = 0;	/* To avoid compiler warning... */
@@ -1169,7 +1198,7 @@ diff -up openssh-5.3p1/ldapconf.c.ldap openssh-5.3p1/ldapconf.c
 +	}
 +
 +	/* Check that there is no garbage at end of line. */
-+	if ((arg = strdelim(&s)) != NULL && *arg != '\0') {
++	if ((arg = ldap_strdelim(&s)) != NULL && *arg != '\0') {
 +		fatal("%.200s line %d: garbage at end of line; \"%.200s\".",
 +		    filename, linenum, arg);
 +	}

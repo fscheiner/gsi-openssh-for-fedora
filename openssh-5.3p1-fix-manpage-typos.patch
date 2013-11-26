@@ -1,0 +1,79 @@
+diff -up openssh-5.3p1/moduli.5.man openssh-5.3p1/moduli.5
+--- openssh-5.3p1/moduli.5.man	2013-07-18 14:28:56.723256301 +0200
++++ openssh-5.3p1/moduli.5	2013-07-18 14:30:40.266807266 +0200
+@@ -68,7 +68,7 @@ Sophie Germain; (p+1)*2 is also prime.
+ Moduli candidates initially produced by
+ .Xr ssh-keygen 1
+ are Sophie Germain primes (type 4).
+-Futher primality testing with
++Further primality testing with
+ .Xr ssh-keygen 1
+ produces safe prime moduli (type 2) that are ready for use in
+ .Xr sshd 8 .
+@@ -85,7 +85,7 @@ Composite number - not prime.
+ .It 0x02
+ Sieve of Eratosthenes
+ .It 0x04
+-Probabalistic Miller-Rabin primality tests.
++Probabilistic Miller-Rabin primality tests.
+ .El
+ .Pp
+ The
+@@ -95,7 +95,7 @@ Subsequent
+ .Xr ssh-keygen 1
+ primality tests are Miller-Rabin tests (flag 0x04).
+ .It trials
+-Decimal number indicating of primaility trials that have been performed
++Decimal number indicating of primality trials that have been performed
+ on the modulus.
+ .It size
+ Decimal number indicating the size of the prime in bits.
+diff -up openssh-5.3p1/ssh-ldap.conf.5.man openssh-5.3p1/ssh-ldap.conf.5
+--- openssh-5.3p1/ssh-ldap.conf.5.man	2013-07-18 14:34:56.235699000 +0200
++++ openssh-5.3p1/ssh-ldap.conf.5	2013-07-18 14:36:33.506279196 +0200
+@@ -77,7 +77,7 @@ Specifies the default password to use wh
+ .Cm BindDN .
+ There is no default.
+ .It Cm RootBindDN
+-Intentionaly does nothing. Recognized for compatibility reasons.
++Intentionally does nothing. Recognized for compatibility reasons.
+ .It Cm Host
+ The argument(s) specifies the name(s) of an LDAP server(s) to which the
+ .Xr ssh-ldap-helper 8
+@@ -177,15 +177,15 @@ and
+ .Dq hard_init .
+ The value
+ .Dq hard
+-means that reconects that the
++means that reconnects that the
+ .Xr ssh-ldap-helper 8
+ tries to reconnect to the LDAP server 5 times before failure. There is exponential backoff before retrying.
+ The value
+ .Dq soft
+ means that
+ .Xr ssh-ldap-helper 8
+-fails immediately when it cannot connect to the LDAP seerver.
+-The deault is
++fails immediately when it cannot connect to the LDAP server.
++The default is
+ .Dq hard .
+ .It Cm SSLPath
+ Specifies the path to the X.509 certificate database.
+@@ -299,7 +299,7 @@ The value
+ .Dq hard
+ is the same as
+ .Dq demand .
+-It requires an SSL connection. In the case of the plain conection the
++It requires an SSL connection. In the case of the plain connection the
+ session is immediately terminated.
+ The default is
+ .Dq hard .
+@@ -356,7 +356,7 @@ There is no default.
+ Specifies the debug level used for logging by the LDAP client library.
+ There is no default.
+ .It Cm SSH_Filter
+-Specifies the user filter applied on the LDAP serch.
++Specifies the user filter applied on the LDAP search.
+ The default is no filter.
+ .El
+ .Sh FILES

@@ -1,0 +1,44 @@
+diff --git a/gss-serv-krb5.c b/gss-serv-krb5.c
+index dc71a3a..a7f6aca 100644
+--- a/gss-serv-krb5.c
++++ b/gss-serv-krb5.c
+@@ -33,6 +33,7 @@
+ 
+ #include <stdarg.h>
+ #include <string.h>
++#include <unistd.h>
+ 
+ #include "xmalloc.h"
+ #include "key.h"
+@@ -123,6 +124,13 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
+ 	int len;
+ 	const char *new_ccname;
+ 
++	if (client->store.envvar != NULL && client->store.envval != NULL && client->store.filename != NULL) {
++		if (! access(client->store.filename, F_OK)) {
++			debug("Credentials are already stored in %s=%s", client->store.envvar, client->store.envval);
++			return;
++		}
++	}
++
+ 	if (client->creds == NULL) {
+ 		debug("No credentials stored");
+ 		return;
+diff --git a/sshd.c b/sshd.c
+index 95cd1a2..a492ff2 100644
+--- a/sshd.c
++++ b/sshd.c
+@@ -2148,6 +2148,13 @@ main(int ac, char **av)
+ 		do_pam_session();
+ 	}
+ #endif
++#ifdef GSSAPI
++	if (options.gss_authentication) {
++		temporarily_use_uid(authctxt->pw);
++		ssh_gssapi_storecreds();
++		restore_uid();
++	}
++#endif
+ 
+ 	/*
+ 	 * In privilege separation, we fork another child and prepare

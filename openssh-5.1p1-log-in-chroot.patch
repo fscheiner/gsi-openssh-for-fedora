@@ -12,9 +12,9 @@ diff -up openssh-5.1p1/sshd.c.log-chroot openssh-5.1p1/sshd.c
  	/* Change our root directory */
  	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
  		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
-diff -up openssh-5.1p1/log.c.log-chroot openssh-5.1p1/log.c
---- openssh-5.1p1/log.c.log-chroot	2008-06-10 15:01:51.000000000 +0200
-+++ openssh-5.1p1/log.c	2008-07-23 15:18:52.000000000 +0200
+diff -up openssh-5.3p1/log.c.log-chroot openssh-5.3p1/log.c
+--- openssh-5.3p1/log.c.log-chroot	2008-06-10 15:01:51.000000000 +0200
++++ openssh-5.3p1/log.c	2013-04-12 16:46:11.441039273 +0200
 @@ -45,6 +45,7 @@
  #include <syslog.h>
  #include <unistd.h>
@@ -23,7 +23,7 @@ diff -up openssh-5.1p1/log.c.log-chroot openssh-5.1p1/log.c
  #if defined(HAVE_STRNVIS) && defined(HAVE_VIS_H)
  # include <vis.h>
  #endif
-@@ -56,6 +57,7 @@
+@@ -56,6 +57,7 @@ static LogLevel log_level = SYSLOG_LEVEL
  static int log_on_stderr = 1;
  static int log_facility = LOG_AUTH;
  static char *argv0;
@@ -31,7 +31,7 @@ diff -up openssh-5.1p1/log.c.log-chroot openssh-5.1p1/log.c
  
  extern char *__progname;
  
-@@ -310,6 +312,8 @@
+@@ -310,6 +312,8 @@ log_init(char *av0, LogLevel level, Sysl
  		exit(1);
  	}
  
@@ -40,7 +40,7 @@ diff -up openssh-5.1p1/log.c.log-chroot openssh-5.1p1/log.c
  	/*
  	 * If an external library (eg libwrap) attempts to use syslog
  	 * immediately after reexec, syslog may be pointing to the wrong
-@@ -392,10 +396,33 @@
+@@ -392,10 +396,34 @@ do_log(LogLevel level, const char *fmt,
  		syslog_r(pri, &sdata, "%.500s", fmtbuf);
  		closelog_r(&sdata);
  #else
@@ -61,23 +61,24 @@ diff -up openssh-5.1p1/log.c.log-chroot openssh-5.1p1/log.c
 +{
 +	int temp1, temp2;
 +
++	closelog();
 +	temp1 = open("/dev/null", O_RDONLY);
 +	openlog(argv0 ? argv0 : __progname, LOG_PID|LOG_NDELAY, log_facility);
 +	temp2 = open("/dev/null", O_RDONLY);
-+	if (temp1 + 2 ==  temp2)
-+		log_fd_keep = temp1 + 1;
++	if (temp1 + 2 <=  temp2)
++		log_fd_keep = temp2 - 1;
 +	else 
-+		log_fd_keep = -1;
++		log_fd_keep = 0;
 +
 +	if (temp1 != -1)
 +		close(temp1);
 +	if (temp2 != -1)
 +		close(temp2);
 +}
-diff -up openssh-5.1p1/log.h.log-chroot openssh-5.1p1/log.h
---- openssh-5.1p1/log.h.log-chroot	2008-06-13 02:22:54.000000000 +0200
-+++ openssh-5.1p1/log.h	2008-07-23 15:20:11.000000000 +0200
-@@ -46,6 +46,9 @@
+diff -up openssh-5.3p1/log.h.log-chroot openssh-5.3p1/log.h
+--- openssh-5.3p1/log.h.log-chroot	2008-06-13 02:22:54.000000000 +0200
++++ openssh-5.3p1/log.h	2013-04-12 16:46:11.441039273 +0200
+@@ -46,6 +46,9 @@ typedef enum {
  	SYSLOG_LEVEL_NOT_SET = -1
  }       LogLevel;
  
@@ -87,24 +88,26 @@ diff -up openssh-5.1p1/log.h.log-chroot openssh-5.1p1/log.h
  void     log_init(char *, LogLevel, SyslogFacility, int);
  
  SyslogFacility	log_facility_number(char *);
-@@ -66,4 +69,6 @@
+@@ -66,4 +69,6 @@ void     debug3(const char *, ...) __att
  
  void	 do_log(LogLevel, const char *, va_list);
  void	 cleanup_exit(int) __attribute__((noreturn));
 +
 +void     open_log(void);
  #endif
---- openssh-5.2p1/session.c.	2009-03-20 18:32:01.004151364 +0100
-+++ openssh-5.2p1/session.c	2009-03-20 19:00:28.328742384 +0100
-@@ -1445,6 +1456,7 @@
+diff -up openssh-5.3p1/session.c.log-chroot openssh-5.3p1/session.c
+--- openssh-5.3p1/session.c.log-chroot	2013-04-16 15:19:36.348871199 +0200
++++ openssh-5.3p1/session.c	2013-04-16 15:19:36.355871167 +0200
+@@ -1440,6 +1440,8 @@ safely_chroot(const char *path, uid_t ui
+ 
+ 	}
+ 
++	open_log ();
++
  	if (chdir(path) == -1)
  		fatal("Unable to chdir to chroot path \"%s\": "
  		    "%s", path, strerror(errno));
-+	open_log ();
- 	if (chroot(path) == -1)
- 		fatal("chroot(\"%s\"): %s", path, strerror(errno));
- 	if (chdir("/") == -1)
-@@ -1632,7 +1644,8 @@
+@@ -1630,7 +1632,8 @@ child_close_fds(void)
  	 * descriptors open.
  	 */
  	for (i = 3; i < 64; i++)
@@ -114,3 +117,34 @@ diff -up openssh-5.1p1/log.h.log-chroot openssh-5.1p1/log.h
  }
  
  /*
+@@ -1720,14 +1723,6 @@ do_child(Session *s, const char *command
+ 	if (options.use_login)
+ 		hostname = get_remote_name_or_ip(utmp_len,
+ 		    options.use_dns);
+-	/*
+-	 * Close the connection descriptors; note that this is the child, and
+-	 * the server will still have the socket open, and it is important
+-	 * that we do not shutdown it.  Note that the descriptors cannot be
+-	 * closed before building the environment, as we call
+-	 * get_remote_ipaddr there.
+-	 */
+-	child_close_fds();
+ 
+ 	/*
+ 	 * Must take new environment into use so that .ssh/rc,
+@@ -1775,7 +1770,14 @@ do_child(Session *s, const char *command
+ 			exit(1);
+ 	}
+ 
+-	closefrom(STDERR_FILENO + 1);
++	/*
++	 * Close the connection descriptors; note that this is the child, and
++	 * the server will still have the socket open, and it is important
++	 * that we do not shutdown it.  Note that the descriptors cannot be
++	 * closed before building the environment, as we call
++	 * get_remote_ipaddr there.
++	 */
++	child_close_fds();
+ 
+ 	if (!options.use_login)
+ 		do_rc_files(s, shell);

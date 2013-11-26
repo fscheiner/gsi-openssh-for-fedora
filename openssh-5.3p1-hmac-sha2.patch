@@ -1,0 +1,173 @@
+diff -U0 openssh-5.3p1/ChangeLog.hmac-sha2 openssh-5.3p1/ChangeLog
+--- openssh-5.3p1/ChangeLog.hmac-sha2	2009-09-26 08:26:50.000000000 +0200
++++ openssh-5.3p1/ChangeLog	2013-05-29 19:10:45.333919295 +0200
+@@ -1 +1,13 @@
+-20090926
++20110817
++   - djm@cvs.openbsd.org 2011/08/02 01:23:41
++     [regress/cipher-speed.sh regress/try-ciphers.sh]
++     add SHA256/SHA512 based HMAC modes
++ 
++20110805
++   - djm@cvs.openbsd.org 2011/08/02 01:22:11
++     [mac.c myproposal.h ssh.1 ssh_config.5 sshd.8 sshd_config.5]
++     Add new SHA256 and SHA512 based HMAC modes from
++     http://www.ietf.org/id/draft-dbider-sha2-mac-for-ssh-02.txt
++     Patch from mdb AT juniper.net; feedback and ok markus@
++
++20090925
+diff -up openssh-5.3p1/mac.c.hmac-sha2 openssh-5.3p1/mac.c
+--- openssh-5.3p1/mac.c.hmac-sha2	2013-05-29 19:10:45.248919639 +0200
++++ openssh-5.3p1/mac.c	2013-05-29 19:11:34.353720381 +0200
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: mac.c,v 1.15 2008/06/13 00:51:47 dtucker Exp $ */
++/* $OpenBSD: mac.c,v 1.16 2011/08/02 01:22:11 djm Exp $ */
+ /*
+  * Copyright (c) 2001 Markus Friedl.  All rights reserved.
+  *
+@@ -58,6 +58,8 @@ struct Macs {
+ } all_macs[] = {
+ 	{ "hmac-sha1",			SSH_EVP, EVP_sha1, 0, -1, -1 },
+ 	{ "hmac-sha1-96",		SSH_EVP, EVP_sha1, 96, -1, -1 },
++	{ "hmac-sha2-256",		SSH_EVP, EVP_sha256, 0, -1, -1 },
++	{ "hmac-sha2-512",		SSH_EVP, EVP_sha512, 0, -1, -1 },
+ 	{ "hmac-md5",			SSH_EVP, EVP_md5, 0, -1, -1 },
+ 	{ "hmac-md5-96",		SSH_EVP, EVP_md5, 96, -1, -1 },
+ 	{ "hmac-ripemd160",		SSH_EVP, EVP_ripemd160, 0, -1, -1 },
+@@ -68,6 +70,8 @@ struct Macs {
+ 
+ struct Macs fips_macs[] = {
+ 	{ "hmac-sha1",			SSH_EVP, EVP_sha1, 0, -1, -1 },
++	{ "hmac-sha2-256",		SSH_EVP, EVP_sha256, 0, -1, -1 },
++	{ "hmac-sha2-512",		SSH_EVP, EVP_sha512, 0, -1, -1 },
+ 	{ NULL,				0, NULL, 0, -1, -1 }
+ };
+ 
+diff -up openssh-5.3p1/myproposal.h.hmac-sha2 openssh-5.3p1/myproposal.h
+--- openssh-5.3p1/myproposal.h.hmac-sha2	2013-05-29 19:10:45.198919842 +0200
++++ openssh-5.3p1/myproposal.h	2013-05-29 19:11:55.905632558 +0200
+@@ -48,9 +48,16 @@
+ 	"aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc," \
+ 	"aes192-cbc,aes256-cbc,arcfour,rijndael-cbc@lysator.liu.se"
+ #define	KEX_DEFAULT_MAC \
+-	"hmac-md5,hmac-sha1,umac-64@openssh.com,hmac-ripemd160," \
++	"hmac-md5," \
++	"hmac-sha1," \
++	"umac-64@openssh.com," \
++	"hmac-sha2-256," \
++	"hmac-sha2-512," \
++	"hmac-ripemd160," \
+ 	"hmac-ripemd160@openssh.com," \
+-	"hmac-sha1-96,hmac-md5-96"
++	"hmac-sha1-96," \
++	"hmac-md5-96"
++
+ #define	KEX_DEFAULT_COMP	"none,zlib@openssh.com,zlib"
+ #define	KEX_DEFAULT_LANG	""
+ #define	KEX_FIPS_ENCRYPT \
+@@ -58,7 +65,8 @@
+ 	"aes128-cbc,3des-cbc," \
+ 	"aes192-cbc,aes256-cbc,rijndael-cbc@lysator.liu.se"
+ #define	KEX_FIPS_MAC \
+-	"hmac-sha1"
++	"hmac-sha1," \
++	"hmac-sha2-256,hmac-sha2-512"
+ 
+ static char *myproposal[PROPOSAL_MAX] = {
+ 	KEX_DEFAULT_KEX,
+diff -up openssh-5.3p1/regress/cipher-speed.sh.hmac-sha2 openssh-5.3p1/regress/cipher-speed.sh
+--- openssh-5.3p1/regress/cipher-speed.sh.hmac-sha2	2013-05-29 19:21:43.497165629 +0200
++++ openssh-5.3p1/regress/cipher-speed.sh	2013-05-29 19:14:19.673041793 +0200
+@@ -1,4 +1,4 @@
+-#	$OpenBSD: cipher-speed.sh,v 1.3 2007/06/07 19:41:46 pvalchev Exp $
++#	$OpenBSD: cipher-speed.sh,v 1.4 2011/08/02 01:23:41 djm Exp $
+ #	Placed in the Public Domain.
+ 
+ tid="cipher speed"
+@@ -12,9 +12,12 @@ tries="1 2"
+ DATA=/bin/ls
+ DATA=/bsd
+ 
+-macs="hmac-sha1 hmac-md5 umac-64@openssh.com hmac-sha1-96 hmac-md5-96"
+ ciphers="aes128-cbc 3des-cbc blowfish-cbc cast128-cbc 
+-	arcfour128 arcfour256 arcfour aes192-cbc aes256-cbc aes128-ctr"
++	arcfour128 arcfour256 arcfour 
++	aes192-cbc aes256-cbc rijndael-cbc@lysator.liu.se
++	aes128-ctr aes192-ctr aes256-ctr"
++macs="hmac-sha1 hmac-md5 umac-64@openssh.com hmac-sha1-96 hmac-md5-96
++	hmac-sha2-256 hmac-sha2-512"
+ 
+ for c in $ciphers; do for m in $macs; do
+ 	trace "proto 2 cipher $c mac $m"
+diff -up openssh-5.3p1/regress/try-ciphers.sh.hmac-sha2 openssh-5.3p1/regress/try-ciphers.sh
+--- openssh-5.3p1/regress/try-ciphers.sh.hmac-sha2	2013-05-29 19:21:25.221245044 +0200
++++ openssh-5.3p1/regress/try-ciphers.sh	2013-05-29 19:14:56.207890463 +0200
+@@ -1,4 +1,4 @@
+-#	$OpenBSD: try-ciphers.sh,v 1.11 2007/06/07 19:41:46 pvalchev Exp $
++#	$OpenBSD: try-ciphers.sh,v 1.12 2011/08/02 01:23:41 djm Exp $
+ #	Placed in the Public Domain.
+ 
+ tid="try ciphers"
+@@ -7,7 +7,8 @@ ciphers="aes128-cbc 3des-cbc blowfish-cb
+ 	arcfour128 arcfour256 arcfour 
+ 	aes192-cbc aes256-cbc rijndael-cbc@lysator.liu.se
+ 	aes128-ctr aes192-ctr aes256-ctr"
+-macs="hmac-sha1 hmac-md5 umac-64@openssh.com hmac-sha1-96 hmac-md5-96"
++macs="hmac-sha1 hmac-md5 umac-64@openssh.com hmac-sha1-96 hmac-md5-96
++	hmac-sha2-256 hmac-sha2-512"
+ 
+ for c in $ciphers; do
+ 	for m in $macs; do
+diff -up openssh-5.3p1/ssh.1.hmac-sha2 openssh-5.3p1/ssh.1
+--- openssh-5.3p1/ssh.1.hmac-sha2	2013-05-29 19:10:45.325919328 +0200
++++ openssh-5.3p1/ssh.1	2013-05-29 19:10:45.329919312 +0200
+@@ -694,7 +694,9 @@ Both protocols support similar authentic
+ but protocol 2 is preferred since
+ it provides additional mechanisms for confidentiality
+ (the traffic is encrypted using AES, 3DES, Blowfish, CAST128, or Arcfour)
+-and integrity (hmac-md5, hmac-sha1, umac-64, hmac-ripemd160).
++and integrity (hmac-md5, hmac-sha1,
++hmac-sha2-256, hmac-sha2-512,
++umac-64, hmac-ripemd160).
+ Protocol 1 lacks a strong mechanism for ensuring the
+ integrity of the connection.
+ .Pp
+diff -up openssh-5.3p1/ssh_config.5.hmac-sha2 openssh-5.3p1/ssh_config.5
+--- openssh-5.3p1/ssh_config.5.hmac-sha2	2013-05-29 19:10:45.221919748 +0200
++++ openssh-5.3p1/ssh_config.5	2013-05-29 19:13:24.719268551 +0200
+@@ -694,7 +694,8 @@ Multiple algorithms must be comma-separa
+ The default is:
+ .Bd -literal -offset indent
+ hmac-md5,hmac-sha1,umac-64@openssh.com,
+-hmac-ripemd160,hmac-sha1-96,hmac-md5-96
++hmac-ripemd160,hmac-sha1-96,hmac-md5-96,
++hmac-sha2-256,hmac-sha2-512
+ .Ed
+ .It Cm NoHostAuthenticationForLocalhost
+ This option can be used if the home directory is shared across machines.
+diff -up openssh-5.3p1/sshd.8.hmac-sha2 openssh-5.3p1/sshd.8
+--- openssh-5.3p1/sshd.8.hmac-sha2	2013-05-29 19:10:45.297919441 +0200
++++ openssh-5.3p1/sshd.8	2013-05-29 19:10:45.330919307 +0200
+@@ -304,7 +304,8 @@ The client selects the encryption algori
+ to use from those offered by the server.
+ Additionally, session integrity is provided
+ through a cryptographic message authentication code
+-(hmac-md5, hmac-sha1, umac-64 or hmac-ripemd160).
++(hmac-md5, hmac-sha1, umac-64, hmac-ripemd160,
++hmac-sha2-256 or hmac-sha2-512).
+ .Pp
+ Finally, the server and the client enter an authentication dialog.
+ The client tries to authenticate itself using
+diff -up openssh-5.3p1/sshd_config.5.hmac-sha2 openssh-5.3p1/sshd_config.5
+--- openssh-5.3p1/sshd_config.5.hmac-sha2	2013-05-29 19:10:45.313919376 +0200
++++ openssh-5.3p1/sshd_config.5	2013-05-29 19:13:48.966168634 +0200
+@@ -584,7 +584,8 @@ Multiple algorithms must be comma-separa
+ The default is:
+ .Bd -literal -offset indent
+ hmac-md5,hmac-sha1,umac-64@openssh.com,
+-hmac-ripemd160,hmac-sha1-96,hmac-md5-96
++hmac-ripemd160,hmac-sha1-96,hmac-md5-96,
++hmac-sha2-256,hmac-sha2-512
+ .Ed
+ .It Cm Match
+ Introduces a conditional block.

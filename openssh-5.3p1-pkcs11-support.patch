@@ -1,0 +1,3536 @@
+diff -U0 openssh-5.3p1/ChangeLog.pkcs11 openssh-5.3p1/ChangeLog
+--- openssh-5.3p1/ChangeLog.pkcs11	2009-09-26 08:26:50.000000000 +0200
++++ openssh-5.3p1/ChangeLog	2013-07-10 14:34:46.492673757 +0200
+@@ -0,0 +1,21 @@
++20100211
++  - markus@cvs.openbsd.org 2010/02/08 10:50:20
++    [pathnames.h readconf.c readconf.h scp.1 sftp.1 ssh-add.1 ssh-add.c]
++    [ssh-agent.c ssh-keygen.1 ssh-keygen.c ssh.1 ssh.c ssh_config.5]
++    replace our obsolete smartcard code with PKCS#11.
++       ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-20/pkcs-11v2-20.pdf
++    ssh(1) and ssh-keygen(1) use dlopen(3) directly to talk to a PKCS#11
++    provider (shared library) while ssh-agent(1) delegates PKCS#11 to
++    a forked a ssh-pkcs11-helper process.
++    PKCS#11 is currently a compile time option.
++    feedback and ok djm@; inspired by patches from Alon Bar-Lev
++  - jmc@cvs.openbsd.org 2010/02/08 22:03:05
++    [ssh-add.1 ssh-keygen.1 ssh.1 ssh.c]
++    tweak previous; ok markus
++  - djm@cvs.openbsd.org 2010/02/09 00:50:36
++    [ssh-agent.c]
++    fallout from PKCS#11: unbreak -D
++  - djm@cvs.openbsd.org 2010/02/09 00:50:59
++    [ssh-keygen.c]
++    fix -Wall
++
+diff -up openssh-5.3p1/configure.ac.pkcs11 openssh-5.3p1/configure.ac
+--- openssh-5.3p1/configure.ac.pkcs11	2013-07-10 14:34:46.437673757 +0200
++++ openssh-5.3p1/configure.ac	2013-07-10 14:34:46.494673757 +0200
+@@ -15,7 +15,7 @@
+ # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ 
+ AC_INIT(OpenSSH, Portable, openssh-unix-dev@mindrot.org)
+-AC_REVISION($Revision: 1.427 $)
++AC_REVISION($Revision: 1.441 $)
+ AC_CONFIG_SRCDIR([ssh.c])
+ 
+ AC_CONFIG_HEADER(config.h)
+@@ -4350,6 +4350,10 @@ else
+ 	AC_SUBST(TEST_SSH_IPV6, yes)
+ fi
+ 
++if test "x$enable_pkcs11" != "xno" ; then
++	AC_DEFINE([ENABLE_PKCS11], [], [Enable for PKCS#11 support])
++fi
++
+ AC_EXEEXT
+ AC_CONFIG_FILES([Makefile buildpkg.sh opensshd.init openssh.xml \
+ 	openbsd-compat/Makefile openbsd-compat/regress/Makefile \
+diff -up openssh-5.3p1/Makefile.in.pkcs11 openssh-5.3p1/Makefile.in
+--- openssh-5.3p1/Makefile.in.pkcs11	2013-07-10 14:34:46.391673757 +0200
++++ openssh-5.3p1/Makefile.in	2013-07-10 14:38:30.906673739 +0200
+@@ -25,6 +25,7 @@ SSH_PROGRAM=@bindir@/ssh
+ ASKPASS_PROGRAM=$(libexecdir)/ssh-askpass
+ SFTP_SERVER=$(libexecdir)/sftp-server
+ SSH_KEYSIGN=$(libexecdir)/ssh-keysign
++SSH_PKCS11_HELPER=$(libexecdir)/ssh-pkcs11-helper
+ SSH_LDAP_HELPER=$(libexecdir)/ssh-ldap-helper
+ SSH_LDAP_WRAPPER=$(libexecdir)/ssh-ldap-wrapper
+ SSH_KEYCAT=$(libexecdir)/ssh-keycat
+@@ -38,6 +39,7 @@ PATHS= -DSSHDIR=\"$(sysconfdir)\" \
+ 	-D_PATH_SSH_ASKPASS_DEFAULT=\"$(ASKPASS_PROGRAM)\" \
+ 	-D_PATH_SFTP_SERVER=\"$(SFTP_SERVER)\" \
+ 	-D_PATH_SSH_KEY_SIGN=\"$(SSH_KEYSIGN)\" \
++	-D_PATH_SSH_PKCS11_HELPER=\"$(SSH_PKCS11_HELPER)\" \
+ 	-D_PATH_SSH_PIDDIR=\"$(piddir)\" \
+ 	-D_PATH_PRIVSEP_CHROOT_DIR=\"$(PRIVSEP_PATH)\" \
+ 	-DSSH_RAND_HELPER=\"$(RAND_HELPER)\"
+@@ -64,7 +66,7 @@ INSTALL_SSH_PRNG_CMDS=@INSTALL_SSH_PRNG_
+ INSTALL_SSH_RAND_HELPER=@INSTALL_SSH_RAND_HELPER@
+ INSTALL_SSH_LDAP_HELPER=@INSTALL_SSH_LDAP_HELPER@
+ 
+-TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-agent$(EXEEXT) scp$(EXEEXT) ssh-rand-helper${EXEEXT} sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT)
++TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) ssh-rand-helper${EXEEXT} sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT)
+ 
+ LIBSSH_OBJS=acss.o authfd.o authfile.o bufaux.o bufbn.o buffer.o \
+ 	canohost.o channels.o cipher.o cipher-acss.o cipher-aes.o \
+@@ -76,7 +78,7 @@ LIBSSH_OBJS=acss.o authfd.o authfile.o b
+ 	monitor_fdpass.o rijndael.o ssh-dss.o ssh-rsa.o dh.o kexdh.o \
+ 	kexgex.o kexdhc.o kexgexc.o scard.o msg.o progressmeter.o dns.o \
+ 	entropy.o scard-opensc.o gss-genr.o umac.o jpake.o schnorr.o nsskeys.o \
+-	kexgssc.o auditstub.o
++	kexgssc.o auditstub.o ssh-pkcs11.o
+ 
+ SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
+ 	sshconnect.o sshconnect1.o sshconnect2.o mux.o \
+@@ -152,8 +154,8 @@ scp$(EXEEXT): $(LIBCOMPAT) libssh.a scp.
+ ssh-add$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-add.o
+ 	$(LD) -o $@ ssh-add.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
+ 
+-ssh-agent$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-agent.o
+-	$(LD) -o $@ ssh-agent.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
++ssh-agent$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-agent.o ssh-pkcs11-client.o
++	$(LD) -o $@ ssh-agent.o ssh-pkcs11-client.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
+ 
+ ssh-keygen$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keygen.o
+ 	$(LD) -o $@ ssh-keygen.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
+@@ -161,6 +163,9 @@ ssh-keygen$(EXEEXT): $(LIBCOMPAT) libssh
+ ssh-keysign$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keysign.o roaming_dummy.o
+ 	$(LD) -o $@ ssh-keysign.o readconf.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
+ 
++ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-pkcs11-helper.o ssh-pkcs11.o
++	$(LD) -o $@ ssh-pkcs11-helper.o ssh-pkcs11.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
++
+ ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o roaming_dummy.o
+ 	$(LD) -o $@ ssh-keyscan.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(LIBS)
+ 
+@@ -276,6 +281,7 @@ install-files: scard-install
+ 		$(INSTALL) -m 0755 $(STRIP_OPT) ssh-rand-helper $(DESTDIR)$(libexecdir)/ssh-rand-helper ; \
+ 	fi
+ 	$(INSTALL) -m 4711 $(STRIP_OPT) ssh-keysign $(DESTDIR)$(SSH_KEYSIGN)
++	$(INSTALL) -m 0755 $(STRIP_OPT) ssh-pkcs11-helper $(DESTDIR)$(SSH_PKCS11_HELPER)
+ 	if test ! -z "$(INSTALL_SSH_LDAP_HELPER)" ; then \
+ 		$(INSTALL) -m 0700 $(STRIP_OPT) ssh-ldap-helper $(DESTDIR)$(SSH_LDAP_HELPER) ; \
+ 		$(INSTALL) -m 0700 ssh-ldap-wrapper $(DESTDIR)$(SSH_LDAP_WRAPPER) ; \
+@@ -395,6 +401,7 @@ uninstall:
+ 	-rm -f $(DESTDIR)$(sbindir)/sshd$(EXEEXT)
+ 	-rm -r $(DESTDIR)$(SFTP_SERVER)$(EXEEXT)
+ 	-rm -f $(DESTDIR)$(SSH_KEYSIGN)$(EXEEXT)
++	-rm -f $(DESTDIR)$(SSH_PKCS11_HELPER)$(EXEEXT)
+ 	-rm -f $(DESTDIR)$(RAND_HELPER)$(EXEEXT)
+ 	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
+ 	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/scp.1
+@@ -421,6 +428,7 @@ tests interop-tests:	$(TARGETS)
+ 	TEST_SSH_SSHAGENT="$${BUILDDIR}/ssh-agent"; \
+ 	TEST_SSH_SSHADD="$${BUILDDIR}/ssh-add"; \
+ 	TEST_SSH_SSHKEYGEN="$${BUILDDIR}/ssh-keygen"; \
++	TEST_SSH_SSHPKCS11HELPER="$${BUILDDIR}/ssh-pkcs11-helper"; \
+ 	TEST_SSH_SSHKEYSCAN="$${BUILDDIR}/ssh-keyscan"; \
+ 	TEST_SSH_SFTP="$${BUILDDIR}/sftp"; \
+ 	TEST_SSH_SFTPSERVER="$${BUILDDIR}/sftp-server"; \
+@@ -441,6 +449,7 @@ tests interop-tests:	$(TARGETS)
+ 		TEST_SSH_SSHAGENT="$${TEST_SSH_SSHAGENT}" \
+ 		TEST_SSH_SSHADD="$${TEST_SSH_SSHADD}" \
+ 		TEST_SSH_SSHKEYGEN="$${TEST_SSH_SSHKEYGEN}" \
++		TEST_SSH_SSHPKCS11HELPER="$${TEST_SSH_SSHPKCS11HELPER}" \
+ 		TEST_SSH_SSHKEYSCAN="$${TEST_SSH_SSHKEYSCAN}" \
+ 		TEST_SSH_SFTP="$${TEST_SSH_SFTP}" \
+ 		TEST_SSH_SFTPSERVER="$${TEST_SSH_SFTPSERVER}" \
+diff -up openssh-5.3p1/pathnames.h.pkcs11 openssh-5.3p1/pathnames.h
+--- openssh-5.3p1/pathnames.h.pkcs11	2009-01-28 06:19:52.000000000 +0100
++++ openssh-5.3p1/pathnames.h	2013-07-10 14:34:46.496673758 +0200
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: pathnames.h,v 1.17 2008/12/29 02:23:26 stevesk Exp $ */
++/* $OpenBSD: pathnames.h,v 1.18 2010/02/08 10:50:20 markus Exp $ */
+ 
+ /*
+  * Author: Tatu Ylonen <ylo@cs.hut.fi>
+@@ -125,6 +125,11 @@
+ #define _PATH_SSH_KEY_SIGN		"/usr/libexec/ssh-keysign"
+ #endif
+ 
++/* Location of ssh-keysign for hostbased authentication */
++#ifndef _PATH_SSH_PKCS11_HELPER
++#define _PATH_SSH_PKCS11_HELPER		"/usr/libexec/ssh-pkcs11-helper"
++#endif
++
+ /* xauth for X11 forwarding */
+ #ifndef _PATH_XAUTH
+ #define _PATH_XAUTH			"/usr/X11R6/bin/xauth"
+diff -up openssh-5.3p1/pkcs11.h.pkcs11 openssh-5.3p1/pkcs11.h
+--- openssh-5.3p1/pkcs11.h.pkcs11	2013-07-10 14:34:46.499673758 +0200
++++ openssh-5.3p1/pkcs11.h	2013-07-10 14:34:46.499673758 +0200
+@@ -0,0 +1,1357 @@
++/* $OpenBSD: pkcs11.h,v 1.2 2010/02/24 06:12:53 djm Exp $ */
++/* pkcs11.h
++   Copyright 2006, 2007 g10 Code GmbH
++   Copyright 2006 Andreas Jellinghaus
++
++   This file is free software; as a special exception the author gives
++   unlimited permission to copy and/or distribute it, with or without
++   modifications, as long as this notice is preserved.
++
++   This file is distributed in the hope that it will be useful, but
++   WITHOUT ANY WARRANTY, to the extent permitted by law; without even
++   the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++   PURPOSE.  */
++
++/* Please submit changes back to the Scute project at
++   http://www.scute.org/ (or send them to marcus@g10code.com), so that
++   they can be picked up by other projects from there as well.  */
++
++/* This file is a modified implementation of the PKCS #11 standard by
++   RSA Security Inc.  It is mostly a drop-in replacement, with the
++   following change:
++
++   This header file does not require any macro definitions by the user
++   (like CK_DEFINE_FUNCTION etc).  In fact, it defines those macros
++   for you (if useful, some are missing, let me know if you need
++   more).
++
++   There is an additional API available that does comply better to the
++   GNU coding standard.  It can be switched on by defining
++   CRYPTOKI_GNU before including this header file.  For this, the
++   following changes are made to the specification:
++
++   All structure types are changed to a "struct ck_foo" where CK_FOO
++   is the type name in PKCS #11.
++
++   All non-structure types are changed to ck_foo_t where CK_FOO is the
++   lowercase version of the type name in PKCS #11.  The basic types
++   (CK_ULONG et al.) are removed without substitute.
++
++   All members of structures are modified in the following way: Type
++   indication prefixes are removed, and underscore characters are
++   inserted before words.  Then the result is lowercased.
++
++   Note that function names are still in the original case, as they
++   need for ABI compatibility.
++
++   CK_FALSE, CK_TRUE and NULL_PTR are removed without substitute.  Use
++   <stdbool.h>.
++
++   If CRYPTOKI_COMPAT is defined before including this header file,
++   then none of the API changes above take place, and the API is the
++   one defined by the PKCS #11 standard.  */
++
++#ifndef PKCS11_H
++#define PKCS11_H 1
++
++#if defined(__cplusplus)
++extern "C" {
++#endif
++
++
++/* The version of cryptoki we implement.  The revision is changed with
++   each modification of this file.  If you do not use the "official"
++   version of this file, please consider deleting the revision macro
++   (you may use a macro with a different name to keep track of your
++   versions).  */
++#define CRYPTOKI_VERSION_MAJOR		2
++#define CRYPTOKI_VERSION_MINOR		20
++#define CRYPTOKI_VERSION_REVISION	6
++
++
++/* Compatibility interface is default, unless CRYPTOKI_GNU is
++   given.  */
++#ifndef CRYPTOKI_GNU
++#ifndef CRYPTOKI_COMPAT
++#define CRYPTOKI_COMPAT 1
++#endif
++#endif
++
++/* System dependencies.  */
++
++#if defined(_WIN32) || defined(CRYPTOKI_FORCE_WIN32)
++
++/* There is a matching pop below.  */
++#pragma pack(push, cryptoki, 1)
++
++#ifdef CRYPTOKI_EXPORTS
++#define CK_SPEC __declspec(dllexport)
++#else
++#define CK_SPEC __declspec(dllimport)
++#endif
++
++#else
++
++#define CK_SPEC
++
++#endif
++
++
++#ifdef CRYPTOKI_COMPAT
++  /* If we are in compatibility mode, switch all exposed names to the
++     PKCS #11 variant.  There are corresponding #undefs below.  */
++
++#define ck_flags_t CK_FLAGS
++#define ck_version _CK_VERSION
++
++#define ck_info _CK_INFO
++#define cryptoki_version cryptokiVersion
++#define manufacturer_id manufacturerID
++#define library_description libraryDescription
++#define library_version libraryVersion
++
++#define ck_notification_t CK_NOTIFICATION
++#define ck_slot_id_t CK_SLOT_ID
++
++#define ck_slot_info _CK_SLOT_INFO
++#define slot_description slotDescription
++#define hardware_version hardwareVersion
++#define firmware_version firmwareVersion
++
++#define ck_token_info _CK_TOKEN_INFO
++#define serial_number serialNumber
++#define max_session_count ulMaxSessionCount
++#define session_count ulSessionCount
++#define max_rw_session_count ulMaxRwSessionCount
++#define rw_session_count ulRwSessionCount
++#define max_pin_len ulMaxPinLen
++#define min_pin_len ulMinPinLen
++#define total_public_memory ulTotalPublicMemory
++#define free_public_memory ulFreePublicMemory
++#define total_private_memory ulTotalPrivateMemory
++#define free_private_memory ulFreePrivateMemory
++#define utc_time utcTime
++
++#define ck_session_handle_t CK_SESSION_HANDLE
++#define ck_user_type_t CK_USER_TYPE
++#define ck_state_t CK_STATE
++
++#define ck_session_info _CK_SESSION_INFO
++#define slot_id slotID
++#define device_error ulDeviceError
++
++#define ck_object_handle_t CK_OBJECT_HANDLE
++#define ck_object_class_t CK_OBJECT_CLASS
++#define ck_hw_feature_type_t CK_HW_FEATURE_TYPE
++#define ck_key_type_t CK_KEY_TYPE
++#define ck_certificate_type_t CK_CERTIFICATE_TYPE
++#define ck_attribute_type_t CK_ATTRIBUTE_TYPE
++
++#define ck_attribute _CK_ATTRIBUTE
++#define value pValue
++#define value_len ulValueLen
++
++#define ck_date _CK_DATE
++
++#define ck_mechanism_type_t CK_MECHANISM_TYPE
++
++#define ck_mechanism _CK_MECHANISM
++#define parameter pParameter
++#define parameter_len ulParameterLen
++
++#define ck_mechanism_info _CK_MECHANISM_INFO
++#define min_key_size ulMinKeySize
++#define max_key_size ulMaxKeySize
++
++#define ck_rv_t CK_RV
++#define ck_notify_t CK_NOTIFY
++
++#define ck_function_list _CK_FUNCTION_LIST
++
++#define ck_createmutex_t CK_CREATEMUTEX
++#define ck_destroymutex_t CK_DESTROYMUTEX
++#define ck_lockmutex_t CK_LOCKMUTEX
++#define ck_unlockmutex_t CK_UNLOCKMUTEX
++
++#define ck_c_initialize_args _CK_C_INITIALIZE_ARGS
++#define create_mutex CreateMutex
++#define destroy_mutex DestroyMutex
++#define lock_mutex LockMutex
++#define unlock_mutex UnlockMutex
++#define reserved pReserved
++
++#endif	/* CRYPTOKI_COMPAT */
++
++
++
++typedef unsigned long ck_flags_t;
++
++struct ck_version
++{
++  unsigned char major;
++  unsigned char minor;
++};
++
++
++struct ck_info
++{
++  struct ck_version cryptoki_version;
++  unsigned char manufacturer_id[32];
++  ck_flags_t flags;
++  unsigned char library_description[32];
++  struct ck_version library_version;
++};
++
++
++typedef unsigned long ck_notification_t;
++
++#define CKN_SURRENDER	(0)
++
++
++typedef unsigned long ck_slot_id_t;
++
++
++struct ck_slot_info
++{
++  unsigned char slot_description[64];
++  unsigned char manufacturer_id[32];
++  ck_flags_t flags;
++  struct ck_version hardware_version;
++  struct ck_version firmware_version;
++};
++
++
++#define CKF_TOKEN_PRESENT	(1 << 0)
++#define CKF_REMOVABLE_DEVICE	(1 << 1)
++#define CKF_HW_SLOT		(1 << 2)
++#define CKF_ARRAY_ATTRIBUTE	(1 << 30)
++
++
++struct ck_token_info
++{
++  unsigned char label[32];
++  unsigned char manufacturer_id[32];
++  unsigned char model[16];
++  unsigned char serial_number[16];
++  ck_flags_t flags;
++  unsigned long max_session_count;
++  unsigned long session_count;
++  unsigned long max_rw_session_count;
++  unsigned long rw_session_count;
++  unsigned long max_pin_len;
++  unsigned long min_pin_len;
++  unsigned long total_public_memory;
++  unsigned long free_public_memory;
++  unsigned long total_private_memory;
++  unsigned long free_private_memory;
++  struct ck_version hardware_version;
++  struct ck_version firmware_version;
++  unsigned char utc_time[16];
++};
++
++
++#define CKF_RNG					(1 << 0)
++#define CKF_WRITE_PROTECTED			(1 << 1)
++#define CKF_LOGIN_REQUIRED			(1 << 2)
++#define CKF_USER_PIN_INITIALIZED		(1 << 3)
++#define CKF_RESTORE_KEY_NOT_NEEDED		(1 << 5)
++#define CKF_CLOCK_ON_TOKEN			(1 << 6)
++#define CKF_PROTECTED_AUTHENTICATION_PATH	(1 << 8)
++#define CKF_DUAL_CRYPTO_OPERATIONS		(1 << 9)
++#define CKF_TOKEN_INITIALIZED			(1 << 10)
++#define CKF_SECONDARY_AUTHENTICATION		(1 << 11)
++#define CKF_USER_PIN_COUNT_LOW			(1 << 16)
++#define CKF_USER_PIN_FINAL_TRY			(1 << 17)
++#define CKF_USER_PIN_LOCKED			(1 << 18)
++#define CKF_USER_PIN_TO_BE_CHANGED		(1 << 19)
++#define CKF_SO_PIN_COUNT_LOW			(1 << 20)
++#define CKF_SO_PIN_FINAL_TRY			(1 << 21)
++#define CKF_SO_PIN_LOCKED			(1 << 22)
++#define CKF_SO_PIN_TO_BE_CHANGED		(1 << 23)
++
++#define CK_UNAVAILABLE_INFORMATION	((unsigned long) -1)
++#define CK_EFFECTIVELY_INFINITE		(0)
++
++
++typedef unsigned long ck_session_handle_t;
++
++#define CK_INVALID_HANDLE	(0)
++
++
++typedef unsigned long ck_user_type_t;
++
++#define CKU_SO			(0)
++#define CKU_USER		(1)
++#define CKU_CONTEXT_SPECIFIC	(2)
++
++
++typedef unsigned long ck_state_t;
++
++#define CKS_RO_PUBLIC_SESSION	(0)
++#define CKS_RO_USER_FUNCTIONS	(1)
++#define CKS_RW_PUBLIC_SESSION	(2)
++#define CKS_RW_USER_FUNCTIONS	(3)
++#define CKS_RW_SO_FUNCTIONS	(4)
++
++
++struct ck_session_info
++{
++  ck_slot_id_t slot_id;
++  ck_state_t state;
++  ck_flags_t flags;
++  unsigned long device_error;
++};
++
++#define CKF_RW_SESSION		(1 << 1)
++#define CKF_SERIAL_SESSION	(1 << 2)
++
++
++typedef unsigned long ck_object_handle_t;
++
++
++typedef unsigned long ck_object_class_t;
++
++#define CKO_DATA		(0)
++#define CKO_CERTIFICATE		(1)
++#define CKO_PUBLIC_KEY		(2)
++#define CKO_PRIVATE_KEY		(3)
++#define CKO_SECRET_KEY		(4)
++#define CKO_HW_FEATURE		(5)
++#define CKO_DOMAIN_PARAMETERS	(6)
++#define CKO_MECHANISM		(7)
++#define CKO_VENDOR_DEFINED	((unsigned long) (1 << 31))
++
++
++typedef unsigned long ck_hw_feature_type_t;
++
++#define CKH_MONOTONIC_COUNTER	(1)
++#define CKH_CLOCK		(2)
++#define CKH_USER_INTERFACE	(3)
++#define CKH_VENDOR_DEFINED	((unsigned long) (1 << 31))
++
++
++typedef unsigned long ck_key_type_t;
++
++#define CKK_RSA			(0)
++#define CKK_DSA			(1)
++#define CKK_DH			(2)
++#define CKK_ECDSA		(3)
++#define CKK_EC			(3)
++#define CKK_X9_42_DH		(4)
++#define CKK_KEA			(5)
++#define CKK_GENERIC_SECRET	(0x10)
++#define CKK_RC2			(0x11)
++#define CKK_RC4			(0x12)
++#define CKK_DES			(0x13)
++#define CKK_DES2		(0x14)
++#define CKK_DES3		(0x15)
++#define CKK_CAST		(0x16)
++#define CKK_CAST3		(0x17)
++#define CKK_CAST128		(0x18)
++#define CKK_RC5			(0x19)
++#define CKK_IDEA		(0x1a)
++#define CKK_SKIPJACK		(0x1b)
++#define CKK_BATON		(0x1c)
++#define CKK_JUNIPER		(0x1d)
++#define CKK_CDMF		(0x1e)
++#define CKK_AES			(0x1f)
++#define CKK_BLOWFISH		(0x20)
++#define CKK_TWOFISH		(0x21)
++#define CKK_VENDOR_DEFINED	((unsigned long) (1 << 31))
++
++typedef unsigned long ck_certificate_type_t;
++
++#define CKC_X_509		(0)
++#define CKC_X_509_ATTR_CERT	(1)
++#define CKC_WTLS		(2)
++#define CKC_VENDOR_DEFINED	((unsigned long) (1 << 31))
++
++
++typedef unsigned long ck_attribute_type_t;
++
++#define CKA_CLASS			(0)
++#define CKA_TOKEN			(1)
++#define CKA_PRIVATE			(2)
++#define CKA_LABEL			(3)
++#define CKA_APPLICATION			(0x10)
++#define CKA_VALUE			(0x11)
++#define CKA_OBJECT_ID			(0x12)
++#define CKA_CERTIFICATE_TYPE		(0x80)
++#define CKA_ISSUER			(0x81)
++#define CKA_SERIAL_NUMBER		(0x82)
++#define CKA_AC_ISSUER			(0x83)
++#define CKA_OWNER			(0x84)
++#define CKA_ATTR_TYPES			(0x85)
++#define CKA_TRUSTED			(0x86)
++#define CKA_CERTIFICATE_CATEGORY	(0x87)
++#define CKA_JAVA_MIDP_SECURITY_DOMAIN	(0x88)
++#define CKA_URL				(0x89)
++#define CKA_HASH_OF_SUBJECT_PUBLIC_KEY	(0x8a)
++#define CKA_HASH_OF_ISSUER_PUBLIC_KEY	(0x8b)
++#define CKA_CHECK_VALUE			(0x90)
++#define CKA_KEY_TYPE			(0x100)
++#define CKA_SUBJECT			(0x101)
++#define CKA_ID				(0x102)
++#define CKA_SENSITIVE			(0x103)
++#define CKA_ENCRYPT			(0x104)
++#define CKA_DECRYPT			(0x105)
++#define CKA_WRAP			(0x106)
++#define CKA_UNWRAP			(0x107)
++#define CKA_SIGN			(0x108)
++#define CKA_SIGN_RECOVER		(0x109)
++#define CKA_VERIFY			(0x10a)
++#define CKA_VERIFY_RECOVER		(0x10b)
++#define CKA_DERIVE			(0x10c)
++#define CKA_START_DATE			(0x110)
++#define CKA_END_DATE			(0x111)
++#define CKA_MODULUS			(0x120)
++#define CKA_MODULUS_BITS		(0x121)
++#define CKA_PUBLIC_EXPONENT		(0x122)
++#define CKA_PRIVATE_EXPONENT		(0x123)
++#define CKA_PRIME_1			(0x124)
++#define CKA_PRIME_2			(0x125)
++#define CKA_EXPONENT_1			(0x126)
++#define CKA_EXPONENT_2			(0x127)
++#define CKA_COEFFICIENT			(0x128)
++#define CKA_PRIME			(0x130)
++#define CKA_SUBPRIME			(0x131)
++#define CKA_BASE			(0x132)
++#define CKA_PRIME_BITS			(0x133)
++#define CKA_SUB_PRIME_BITS		(0x134)
++#define CKA_VALUE_BITS			(0x160)
++#define CKA_VALUE_LEN			(0x161)
++#define CKA_EXTRACTABLE			(0x162)
++#define CKA_LOCAL			(0x163)
++#define CKA_NEVER_EXTRACTABLE		(0x164)
++#define CKA_ALWAYS_SENSITIVE		(0x165)
++#define CKA_KEY_GEN_MECHANISM		(0x166)
++#define CKA_MODIFIABLE			(0x170)
++#define CKA_ECDSA_PARAMS		(0x180)
++#define CKA_EC_PARAMS			(0x180)
++#define CKA_EC_POINT			(0x181)
++#define CKA_SECONDARY_AUTH		(0x200)
++#define CKA_AUTH_PIN_FLAGS		(0x201)
++#define CKA_ALWAYS_AUTHENTICATE		(0x202)
++#define CKA_WRAP_WITH_TRUSTED		(0x210)
++#define CKA_HW_FEATURE_TYPE		(0x300)
++#define CKA_RESET_ON_INIT		(0x301)
++#define CKA_HAS_RESET			(0x302)
++#define CKA_PIXEL_X			(0x400)
++#define CKA_PIXEL_Y			(0x401)
++#define CKA_RESOLUTION			(0x402)
++#define CKA_CHAR_ROWS			(0x403)
++#define CKA_CHAR_COLUMNS		(0x404)
++#define CKA_COLOR			(0x405)
++#define CKA_BITS_PER_PIXEL		(0x406)
++#define CKA_CHAR_SETS			(0x480)
++#define CKA_ENCODING_METHODS		(0x481)
++#define CKA_MIME_TYPES			(0x482)
++#define CKA_MECHANISM_TYPE		(0x500)
++#define CKA_REQUIRED_CMS_ATTRIBUTES	(0x501)
++#define CKA_DEFAULT_CMS_ATTRIBUTES	(0x502)
++#define CKA_SUPPORTED_CMS_ATTRIBUTES	(0x503)
++#define CKA_WRAP_TEMPLATE		(CKF_ARRAY_ATTRIBUTE | 0x211)
++#define CKA_UNWRAP_TEMPLATE		(CKF_ARRAY_ATTRIBUTE | 0x212)
++#define CKA_ALLOWED_MECHANISMS		(CKF_ARRAY_ATTRIBUTE | 0x600)
++#define CKA_VENDOR_DEFINED		((unsigned long) (1 << 31))
++
++
++struct ck_attribute
++{
++  ck_attribute_type_t type;
++  void *value;
++  unsigned long value_len;
++};
++
++
++struct ck_date
++{
++  unsigned char year[4];
++  unsigned char month[2];
++  unsigned char day[2];
++};
++
++
++typedef unsigned long ck_mechanism_type_t;
++
++#define CKM_RSA_PKCS_KEY_PAIR_GEN	(0)
++#define CKM_RSA_PKCS			(1)
++#define CKM_RSA_9796			(2)
++#define CKM_RSA_X_509			(3)
++#define CKM_MD2_RSA_PKCS		(4)
++#define CKM_MD5_RSA_PKCS		(5)
++#define CKM_SHA1_RSA_PKCS		(6)
++#define CKM_RIPEMD128_RSA_PKCS		(7)
++#define CKM_RIPEMD160_RSA_PKCS		(8)
++#define CKM_RSA_PKCS_OAEP		(9)
++#define CKM_RSA_X9_31_KEY_PAIR_GEN	(0xa)
++#define CKM_RSA_X9_31			(0xb)
++#define CKM_SHA1_RSA_X9_31		(0xc)
++#define CKM_RSA_PKCS_PSS		(0xd)
++#define CKM_SHA1_RSA_PKCS_PSS		(0xe)
++#define CKM_DSA_KEY_PAIR_GEN		(0x10)
++#define	CKM_DSA				(0x11)
++#define CKM_DSA_SHA1			(0x12)
++#define CKM_DH_PKCS_KEY_PAIR_GEN	(0x20)
++#define CKM_DH_PKCS_DERIVE		(0x21)
++#define	CKM_X9_42_DH_KEY_PAIR_GEN	(0x30)
++#define CKM_X9_42_DH_DERIVE		(0x31)
++#define CKM_X9_42_DH_HYBRID_DERIVE	(0x32)
++#define CKM_X9_42_MQV_DERIVE		(0x33)
++#define CKM_SHA256_RSA_PKCS		(0x40)
++#define CKM_SHA384_RSA_PKCS		(0x41)
++#define CKM_SHA512_RSA_PKCS		(0x42)
++#define CKM_SHA256_RSA_PKCS_PSS		(0x43)
++#define CKM_SHA384_RSA_PKCS_PSS		(0x44)
++#define CKM_SHA512_RSA_PKCS_PSS		(0x45)
++#define CKM_RC2_KEY_GEN			(0x100)
++#define CKM_RC2_ECB			(0x101)
++#define	CKM_RC2_CBC			(0x102)
++#define	CKM_RC2_MAC			(0x103)
++#define CKM_RC2_MAC_GENERAL		(0x104)
++#define CKM_RC2_CBC_PAD			(0x105)
++#define CKM_RC4_KEY_GEN			(0x110)
++#define CKM_RC4				(0x111)
++#define CKM_DES_KEY_GEN			(0x120)
++#define CKM_DES_ECB			(0x121)
++#define CKM_DES_CBC			(0x122)
++#define CKM_DES_MAC			(0x123)
++#define CKM_DES_MAC_GENERAL		(0x124)
++#define CKM_DES_CBC_PAD			(0x125)
++#define CKM_DES2_KEY_GEN		(0x130)
++#define CKM_DES3_KEY_GEN		(0x131)
++#define CKM_DES3_ECB			(0x132)
++#define CKM_DES3_CBC			(0x133)
++#define CKM_DES3_MAC			(0x134)
++#define CKM_DES3_MAC_GENERAL		(0x135)
++#define CKM_DES3_CBC_PAD		(0x136)
++#define CKM_CDMF_KEY_GEN		(0x140)
++#define CKM_CDMF_ECB			(0x141)
++#define CKM_CDMF_CBC			(0x142)
++#define CKM_CDMF_MAC			(0x143)
++#define CKM_CDMF_MAC_GENERAL		(0x144)
++#define CKM_CDMF_CBC_PAD		(0x145)
++#define CKM_MD2				(0x200)
++#define CKM_MD2_HMAC			(0x201)
++#define CKM_MD2_HMAC_GENERAL		(0x202)
++#define CKM_MD5				(0x210)
++#define CKM_MD5_HMAC			(0x211)
++#define CKM_MD5_HMAC_GENERAL		(0x212)
++#define CKM_SHA_1			(0x220)
++#define CKM_SHA_1_HMAC			(0x221)
++#define CKM_SHA_1_HMAC_GENERAL		(0x222)
++#define CKM_RIPEMD128			(0x230)
++#define CKM_RIPEMD128_HMAC		(0x231)
++#define CKM_RIPEMD128_HMAC_GENERAL	(0x232)
++#define CKM_RIPEMD160			(0x240)
++#define CKM_RIPEMD160_HMAC		(0x241)
++#define CKM_RIPEMD160_HMAC_GENERAL	(0x242)
++#define CKM_SHA256			(0x250)
++#define CKM_SHA256_HMAC			(0x251)
++#define CKM_SHA256_HMAC_GENERAL		(0x252)
++#define CKM_SHA384			(0x260)
++#define CKM_SHA384_HMAC			(0x261)
++#define CKM_SHA384_HMAC_GENERAL		(0x262)
++#define CKM_SHA512			(0x270)
++#define CKM_SHA512_HMAC			(0x271)
++#define CKM_SHA512_HMAC_GENERAL		(0x272)
++#define CKM_CAST_KEY_GEN		(0x300)
++#define CKM_CAST_ECB			(0x301)
++#define CKM_CAST_CBC			(0x302)
++#define CKM_CAST_MAC			(0x303)
++#define CKM_CAST_MAC_GENERAL		(0x304)
++#define CKM_CAST_CBC_PAD		(0x305)
++#define CKM_CAST3_KEY_GEN		(0x310)
++#define CKM_CAST3_ECB			(0x311)
++#define CKM_CAST3_CBC			(0x312)
++#define CKM_CAST3_MAC			(0x313)
++#define CKM_CAST3_MAC_GENERAL		(0x314)
++#define CKM_CAST3_CBC_PAD		(0x315)
++#define CKM_CAST5_KEY_GEN		(0x320)
++#define CKM_CAST128_KEY_GEN		(0x320)
++#define CKM_CAST5_ECB			(0x321)
++#define CKM_CAST128_ECB			(0x321)
++#define CKM_CAST5_CBC			(0x322)
++#define CKM_CAST128_CBC			(0x322)
++#define CKM_CAST5_MAC			(0x323)
++#define	CKM_CAST128_MAC			(0x323)
++#define CKM_CAST5_MAC_GENERAL		(0x324)
++#define CKM_CAST128_MAC_GENERAL		(0x324)
++#define CKM_CAST5_CBC_PAD		(0x325)
++#define CKM_CAST128_CBC_PAD		(0x325)
++#define CKM_RC5_KEY_GEN			(0x330)
++#define CKM_RC5_ECB			(0x331)
++#define CKM_RC5_CBC			(0x332)
++#define CKM_RC5_MAC			(0x333)
++#define CKM_RC5_MAC_GENERAL		(0x334)
++#define CKM_RC5_CBC_PAD			(0x335)
++#define CKM_IDEA_KEY_GEN		(0x340)
++#define CKM_IDEA_ECB			(0x341)
++#define	CKM_IDEA_CBC			(0x342)
++#define CKM_IDEA_MAC			(0x343)
++#define CKM_IDEA_MAC_GENERAL		(0x344)
++#define CKM_IDEA_CBC_PAD		(0x345)
++#define CKM_GENERIC_SECRET_KEY_GEN	(0x350)
++#define CKM_CONCATENATE_BASE_AND_KEY	(0x360)
++#define CKM_CONCATENATE_BASE_AND_DATA	(0x362)
++#define CKM_CONCATENATE_DATA_AND_BASE	(0x363)
++#define CKM_XOR_BASE_AND_DATA		(0x364)
++#define CKM_EXTRACT_KEY_FROM_KEY	(0x365)
++#define CKM_SSL3_PRE_MASTER_KEY_GEN	(0x370)
++#define CKM_SSL3_MASTER_KEY_DERIVE	(0x371)
++#define CKM_SSL3_KEY_AND_MAC_DERIVE	(0x372)
++#define CKM_SSL3_MASTER_KEY_DERIVE_DH	(0x373)
++#define CKM_TLS_PRE_MASTER_KEY_GEN	(0x374)
++#define CKM_TLS_MASTER_KEY_DERIVE	(0x375)
++#define CKM_TLS_KEY_AND_MAC_DERIVE	(0x376)
++#define CKM_TLS_MASTER_KEY_DERIVE_DH	(0x377)
++#define CKM_SSL3_MD5_MAC		(0x380)
++#define CKM_SSL3_SHA1_MAC		(0x381)
++#define CKM_MD5_KEY_DERIVATION		(0x390)
++#define CKM_MD2_KEY_DERIVATION		(0x391)
++#define CKM_SHA1_KEY_DERIVATION		(0x392)
++#define CKM_PBE_MD2_DES_CBC		(0x3a0)
++#define CKM_PBE_MD5_DES_CBC		(0x3a1)
++#define CKM_PBE_MD5_CAST_CBC		(0x3a2)
++#define CKM_PBE_MD5_CAST3_CBC		(0x3a3)
++#define CKM_PBE_MD5_CAST5_CBC		(0x3a4)
++#define CKM_PBE_MD5_CAST128_CBC		(0x3a4)
++#define CKM_PBE_SHA1_CAST5_CBC		(0x3a5)
++#define CKM_PBE_SHA1_CAST128_CBC	(0x3a5)
++#define CKM_PBE_SHA1_RC4_128		(0x3a6)
++#define CKM_PBE_SHA1_RC4_40		(0x3a7)
++#define CKM_PBE_SHA1_DES3_EDE_CBC	(0x3a8)
++#define CKM_PBE_SHA1_DES2_EDE_CBC	(0x3a9)
++#define CKM_PBE_SHA1_RC2_128_CBC	(0x3aa)
++#define CKM_PBE_SHA1_RC2_40_CBC		(0x3ab)
++#define CKM_PKCS5_PBKD2			(0x3b0)
++#define CKM_PBA_SHA1_WITH_SHA1_HMAC	(0x3c0)
++#define CKM_KEY_WRAP_LYNKS		(0x400)
++#define CKM_KEY_WRAP_SET_OAEP		(0x401)
++#define CKM_SKIPJACK_KEY_GEN		(0x1000)
++#define CKM_SKIPJACK_ECB64		(0x1001)
++#define CKM_SKIPJACK_CBC64		(0x1002)
++#define CKM_SKIPJACK_OFB64		(0x1003)
++#define CKM_SKIPJACK_CFB64		(0x1004)
++#define CKM_SKIPJACK_CFB32		(0x1005)
++#define CKM_SKIPJACK_CFB16		(0x1006)
++#define CKM_SKIPJACK_CFB8		(0x1007)
++#define CKM_SKIPJACK_WRAP		(0x1008)
++#define CKM_SKIPJACK_PRIVATE_WRAP	(0x1009)
++#define CKM_SKIPJACK_RELAYX		(0x100a)
++#define CKM_KEA_KEY_PAIR_GEN		(0x1010)
++#define CKM_KEA_KEY_DERIVE		(0x1011)
++#define CKM_FORTEZZA_TIMESTAMP		(0x1020)
++#define CKM_BATON_KEY_GEN		(0x1030)
++#define CKM_BATON_ECB128		(0x1031)
++#define CKM_BATON_ECB96			(0x1032)
++#define CKM_BATON_CBC128		(0x1033)
++#define CKM_BATON_COUNTER		(0x1034)
++#define CKM_BATON_SHUFFLE		(0x1035)
++#define CKM_BATON_WRAP			(0x1036)
++#define CKM_ECDSA_KEY_PAIR_GEN		(0x1040)
++#define CKM_EC_KEY_PAIR_GEN		(0x1040)
++#define CKM_ECDSA			(0x1041)
++#define CKM_ECDSA_SHA1			(0x1042)
++#define CKM_ECDH1_DERIVE		(0x1050)
++#define CKM_ECDH1_COFACTOR_DERIVE	(0x1051)
++#define CKM_ECMQV_DERIVE		(0x1052)
++#define CKM_JUNIPER_KEY_GEN		(0x1060)
++#define CKM_JUNIPER_ECB128		(0x1061)
++#define CKM_JUNIPER_CBC128		(0x1062)
++#define CKM_JUNIPER_COUNTER		(0x1063)
++#define CKM_JUNIPER_SHUFFLE		(0x1064)
++#define CKM_JUNIPER_WRAP		(0x1065)
++#define CKM_FASTHASH			(0x1070)
++#define CKM_AES_KEY_GEN			(0x1080)
++#define CKM_AES_ECB			(0x1081)
++#define CKM_AES_CBC			(0x1082)
++#define CKM_AES_MAC			(0x1083)
++#define CKM_AES_MAC_GENERAL		(0x1084)
++#define CKM_AES_CBC_PAD			(0x1085)
++#define CKM_DSA_PARAMETER_GEN		(0x2000)
++#define CKM_DH_PKCS_PARAMETER_GEN	(0x2001)
++#define CKM_X9_42_DH_PARAMETER_GEN	(0x2002)
++#define CKM_VENDOR_DEFINED		((unsigned long) (1 << 31))
++
++
++struct ck_mechanism
++{
++  ck_mechanism_type_t mechanism;
++  void *parameter;
++  unsigned long parameter_len;
++};
++
++
++struct ck_mechanism_info
++{
++  unsigned long min_key_size;
++  unsigned long max_key_size;
++  ck_flags_t flags;
++};
++
++#define CKF_HW			(1 << 0)
++#define CKF_ENCRYPT		(1 << 8)
++#define CKF_DECRYPT		(1 << 9)
++#define CKF_DIGEST		(1 << 10)
++#define CKF_SIGN		(1 << 11)
++#define CKF_SIGN_RECOVER	(1 << 12)
++#define CKF_VERIFY		(1 << 13)
++#define CKF_VERIFY_RECOVER	(1 << 14)
++#define CKF_GENERATE		(1 << 15)
++#define CKF_GENERATE_KEY_PAIR	(1 << 16)
++#define CKF_WRAP		(1 << 17)
++#define CKF_UNWRAP		(1 << 18)
++#define CKF_DERIVE		(1 << 19)
++#define CKF_EXTENSION		((unsigned long) (1 << 31))
++
++
++/* Flags for C_WaitForSlotEvent.  */
++#define CKF_DONT_BLOCK				(1)
++
++
++typedef unsigned long ck_rv_t;
++
++
++typedef ck_rv_t (*ck_notify_t) (ck_session_handle_t session,
++				ck_notification_t event, void *application);
++
++/* Forward reference.  */
++struct ck_function_list;
++
++#define _CK_DECLARE_FUNCTION(name, args)	\
++typedef ck_rv_t (*CK_ ## name) args;		\
++ck_rv_t CK_SPEC name args
++
++_CK_DECLARE_FUNCTION (C_Initialize, (void *init_args));
++_CK_DECLARE_FUNCTION (C_Finalize, (void *reserved));
++_CK_DECLARE_FUNCTION (C_GetInfo, (struct ck_info *info));
++_CK_DECLARE_FUNCTION (C_GetFunctionList,
++		      (struct ck_function_list **function_list));
++
++_CK_DECLARE_FUNCTION (C_GetSlotList,
++		      (unsigned char token_present, ck_slot_id_t *slot_list,
++		       unsigned long *count));
++_CK_DECLARE_FUNCTION (C_GetSlotInfo,
++		      (ck_slot_id_t slot_id, struct ck_slot_info *info));
++_CK_DECLARE_FUNCTION (C_GetTokenInfo,
++		      (ck_slot_id_t slot_id, struct ck_token_info *info));
++_CK_DECLARE_FUNCTION (C_WaitForSlotEvent,
++		      (ck_flags_t flags, ck_slot_id_t *slot, void *reserved));
++_CK_DECLARE_FUNCTION (C_GetMechanismList,
++		      (ck_slot_id_t slot_id,
++		       ck_mechanism_type_t *mechanism_list,
++		       unsigned long *count));
++_CK_DECLARE_FUNCTION (C_GetMechanismInfo,
++		      (ck_slot_id_t slot_id, ck_mechanism_type_t type,
++		       struct ck_mechanism_info *info));
++_CK_DECLARE_FUNCTION (C_InitToken,
++		      (ck_slot_id_t slot_id, unsigned char *pin,
++		       unsigned long pin_len, unsigned char *label));
++_CK_DECLARE_FUNCTION (C_InitPIN,
++		      (ck_session_handle_t session, unsigned char *pin,
++		       unsigned long pin_len));
++_CK_DECLARE_FUNCTION (C_SetPIN,
++		      (ck_session_handle_t session, unsigned char *old_pin,
++		       unsigned long old_len, unsigned char *new_pin,
++		       unsigned long new_len));
++
++_CK_DECLARE_FUNCTION (C_OpenSession,
++		      (ck_slot_id_t slot_id, ck_flags_t flags,
++		       void *application, ck_notify_t notify,
++		       ck_session_handle_t *session));
++_CK_DECLARE_FUNCTION (C_CloseSession, (ck_session_handle_t session));
++_CK_DECLARE_FUNCTION (C_CloseAllSessions, (ck_slot_id_t slot_id));
++_CK_DECLARE_FUNCTION (C_GetSessionInfo,
++		      (ck_session_handle_t session,
++		       struct ck_session_info *info));
++_CK_DECLARE_FUNCTION (C_GetOperationState,
++		      (ck_session_handle_t session,
++		       unsigned char *operation_state,
++		       unsigned long *operation_state_len));
++_CK_DECLARE_FUNCTION (C_SetOperationState,
++		      (ck_session_handle_t session,
++		       unsigned char *operation_state,
++		       unsigned long operation_state_len,
++		       ck_object_handle_t encryption_key,
++		       ck_object_handle_t authentiation_key));
++_CK_DECLARE_FUNCTION (C_Login,
++		      (ck_session_handle_t session, ck_user_type_t user_type,
++		       unsigned char *pin, unsigned long pin_len));
++_CK_DECLARE_FUNCTION (C_Logout, (ck_session_handle_t session));
++
++_CK_DECLARE_FUNCTION (C_CreateObject,
++		      (ck_session_handle_t session,
++		       struct ck_attribute *templ,
++		       unsigned long count, ck_object_handle_t *object));
++_CK_DECLARE_FUNCTION (C_CopyObject,
++		      (ck_session_handle_t session, ck_object_handle_t object,
++		       struct ck_attribute *templ, unsigned long count,
++		       ck_object_handle_t *new_object));
++_CK_DECLARE_FUNCTION (C_DestroyObject,
++		      (ck_session_handle_t session,
++		       ck_object_handle_t object));
++_CK_DECLARE_FUNCTION (C_GetObjectSize,
++		      (ck_session_handle_t session,
++		       ck_object_handle_t object,
++		       unsigned long *size));
++_CK_DECLARE_FUNCTION (C_GetAttributeValue,
++		      (ck_session_handle_t session,
++		       ck_object_handle_t object,
++		       struct ck_attribute *templ,
++		       unsigned long count));
++_CK_DECLARE_FUNCTION (C_SetAttributeValue,
++		      (ck_session_handle_t session,
++		       ck_object_handle_t object,
++		       struct ck_attribute *templ,
++		       unsigned long count));
++_CK_DECLARE_FUNCTION (C_FindObjectsInit,
++		      (ck_session_handle_t session,
++		       struct ck_attribute *templ,
++		       unsigned long count));
++_CK_DECLARE_FUNCTION (C_FindObjects,
++		      (ck_session_handle_t session,
++		       ck_object_handle_t *object,
++		       unsigned long max_object_count,
++		       unsigned long *object_count));
++_CK_DECLARE_FUNCTION (C_FindObjectsFinal,
++		      (ck_session_handle_t session));
++
++_CK_DECLARE_FUNCTION (C_EncryptInit,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t key));
++_CK_DECLARE_FUNCTION (C_Encrypt,
++		      (ck_session_handle_t session,
++		       unsigned char *data, unsigned long data_len,
++		       unsigned char *encrypted_data,
++		       unsigned long *encrypted_data_len));
++_CK_DECLARE_FUNCTION (C_EncryptUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *part, unsigned long part_len,
++		       unsigned char *encrypted_part,
++		       unsigned long *encrypted_part_len));
++_CK_DECLARE_FUNCTION (C_EncryptFinal,
++		      (ck_session_handle_t session,
++		       unsigned char *last_encrypted_part,
++		       unsigned long *last_encrypted_part_len));
++
++_CK_DECLARE_FUNCTION (C_DecryptInit,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t key));
++_CK_DECLARE_FUNCTION (C_Decrypt,
++		      (ck_session_handle_t session,
++		       unsigned char *encrypted_data,
++		       unsigned long encrypted_data_len,
++		       unsigned char *data, unsigned long *data_len));
++_CK_DECLARE_FUNCTION (C_DecryptUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *encrypted_part,
++		       unsigned long encrypted_part_len,
++		       unsigned char *part, unsigned long *part_len));
++_CK_DECLARE_FUNCTION (C_DecryptFinal,
++		      (ck_session_handle_t session,
++		       unsigned char *last_part,
++		       unsigned long *last_part_len));
++
++_CK_DECLARE_FUNCTION (C_DigestInit,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism));
++_CK_DECLARE_FUNCTION (C_Digest,
++		      (ck_session_handle_t session,
++		       unsigned char *data, unsigned long data_len,
++		       unsigned char *digest,
++		       unsigned long *digest_len));
++_CK_DECLARE_FUNCTION (C_DigestUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *part, unsigned long part_len));
++_CK_DECLARE_FUNCTION (C_DigestKey,
++		      (ck_session_handle_t session, ck_object_handle_t key));
++_CK_DECLARE_FUNCTION (C_DigestFinal,
++		      (ck_session_handle_t session,
++		       unsigned char *digest,
++		       unsigned long *digest_len));
++
++_CK_DECLARE_FUNCTION (C_SignInit,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t key));
++_CK_DECLARE_FUNCTION (C_Sign,
++		      (ck_session_handle_t session,
++		       unsigned char *data, unsigned long data_len,
++		       unsigned char *signature,
++		       unsigned long *signature_len));
++_CK_DECLARE_FUNCTION (C_SignUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *part, unsigned long part_len));
++_CK_DECLARE_FUNCTION (C_SignFinal,
++		      (ck_session_handle_t session,
++		       unsigned char *signature,
++		       unsigned long *signature_len));
++_CK_DECLARE_FUNCTION (C_SignRecoverInit,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t key));
++_CK_DECLARE_FUNCTION (C_SignRecover,
++		      (ck_session_handle_t session,
++		       unsigned char *data, unsigned long data_len,
++		       unsigned char *signature,
++		       unsigned long *signature_len));
++
++_CK_DECLARE_FUNCTION (C_VerifyInit,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t key));
++_CK_DECLARE_FUNCTION (C_Verify,
++		      (ck_session_handle_t session,
++		       unsigned char *data, unsigned long data_len,
++		       unsigned char *signature,
++		       unsigned long signature_len));
++_CK_DECLARE_FUNCTION (C_VerifyUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *part, unsigned long part_len));
++_CK_DECLARE_FUNCTION (C_VerifyFinal,
++		      (ck_session_handle_t session,
++		       unsigned char *signature,
++		       unsigned long signature_len));
++_CK_DECLARE_FUNCTION (C_VerifyRecoverInit,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t key));
++_CK_DECLARE_FUNCTION (C_VerifyRecover,
++		      (ck_session_handle_t session,
++		       unsigned char *signature,
++		       unsigned long signature_len,
++		       unsigned char *data,
++		       unsigned long *data_len));
++
++_CK_DECLARE_FUNCTION (C_DigestEncryptUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *part, unsigned long part_len,
++		       unsigned char *encrypted_part,
++		       unsigned long *encrypted_part_len));
++_CK_DECLARE_FUNCTION (C_DecryptDigestUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *encrypted_part,
++		       unsigned long encrypted_part_len,
++		       unsigned char *part,
++		       unsigned long *part_len));
++_CK_DECLARE_FUNCTION (C_SignEncryptUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *part, unsigned long part_len,
++		       unsigned char *encrypted_part,
++		       unsigned long *encrypted_part_len));
++_CK_DECLARE_FUNCTION (C_DecryptVerifyUpdate,
++		      (ck_session_handle_t session,
++		       unsigned char *encrypted_part,
++		       unsigned long encrypted_part_len,
++		       unsigned char *part,
++		       unsigned long *part_len));
++
++_CK_DECLARE_FUNCTION (C_GenerateKey,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       struct ck_attribute *templ,
++		       unsigned long count,
++		       ck_object_handle_t *key));
++_CK_DECLARE_FUNCTION (C_GenerateKeyPair,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       struct ck_attribute *public_key_template,
++		       unsigned long public_key_attribute_count,
++		       struct ck_attribute *private_key_template,
++		       unsigned long private_key_attribute_count,
++		       ck_object_handle_t *public_key,
++		       ck_object_handle_t *private_key));
++_CK_DECLARE_FUNCTION (C_WrapKey,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t wrapping_key,
++		       ck_object_handle_t key,
++		       unsigned char *wrapped_key,
++		       unsigned long *wrapped_key_len));
++_CK_DECLARE_FUNCTION (C_UnwrapKey,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t unwrapping_key,
++		       unsigned char *wrapped_key,
++		       unsigned long wrapped_key_len,
++		       struct ck_attribute *templ,
++		       unsigned long attribute_count,
++		       ck_object_handle_t *key));
++_CK_DECLARE_FUNCTION (C_DeriveKey,
++		      (ck_session_handle_t session,
++		       struct ck_mechanism *mechanism,
++		       ck_object_handle_t base_key,
++		       struct ck_attribute *templ,
++		       unsigned long attribute_count,
++		       ck_object_handle_t *key));
++
++_CK_DECLARE_FUNCTION (C_SeedRandom,
++		      (ck_session_handle_t session, unsigned char *seed,
++		       unsigned long seed_len));
++_CK_DECLARE_FUNCTION (C_GenerateRandom,
++		      (ck_session_handle_t session,
++		       unsigned char *random_data,
++		       unsigned long random_len));
++
++_CK_DECLARE_FUNCTION (C_GetFunctionStatus, (ck_session_handle_t session));
++_CK_DECLARE_FUNCTION (C_CancelFunction, (ck_session_handle_t session));
++
++
++struct ck_function_list
++{
++  struct ck_version version;
++  CK_C_Initialize C_Initialize;
++  CK_C_Finalize C_Finalize;
++  CK_C_GetInfo C_GetInfo;
++  CK_C_GetFunctionList C_GetFunctionList;
++  CK_C_GetSlotList C_GetSlotList;
++  CK_C_GetSlotInfo C_GetSlotInfo;
++  CK_C_GetTokenInfo C_GetTokenInfo;
++  CK_C_GetMechanismList C_GetMechanismList;
++  CK_C_GetMechanismInfo C_GetMechanismInfo;
++  CK_C_InitToken C_InitToken;
++  CK_C_InitPIN C_InitPIN;
++  CK_C_SetPIN C_SetPIN;
++  CK_C_OpenSession C_OpenSession;
++  CK_C_CloseSession C_CloseSession;
++  CK_C_CloseAllSessions C_CloseAllSessions;
++  CK_C_GetSessionInfo C_GetSessionInfo;
++  CK_C_GetOperationState C_GetOperationState;
++  CK_C_SetOperationState C_SetOperationState;
++  CK_C_Login C_Login;
++  CK_C_Logout C_Logout;
++  CK_C_CreateObject C_CreateObject;
++  CK_C_CopyObject C_CopyObject;
++  CK_C_DestroyObject C_DestroyObject;
++  CK_C_GetObjectSize C_GetObjectSize;
++  CK_C_GetAttributeValue C_GetAttributeValue;
++  CK_C_SetAttributeValue C_SetAttributeValue;
++  CK_C_FindObjectsInit C_FindObjectsInit;
++  CK_C_FindObjects C_FindObjects;
++  CK_C_FindObjectsFinal C_FindObjectsFinal;
++  CK_C_EncryptInit C_EncryptInit;
++  CK_C_Encrypt C_Encrypt;
++  CK_C_EncryptUpdate C_EncryptUpdate;
++  CK_C_EncryptFinal C_EncryptFinal;
++  CK_C_DecryptInit C_DecryptInit;
++  CK_C_Decrypt C_Decrypt;
++  CK_C_DecryptUpdate C_DecryptUpdate;
++  CK_C_DecryptFinal C_DecryptFinal;
++  CK_C_DigestInit C_DigestInit;
++  CK_C_Digest C_Digest;
++  CK_C_DigestUpdate C_DigestUpdate;
++  CK_C_DigestKey C_DigestKey;
++  CK_C_DigestFinal C_DigestFinal;
++  CK_C_SignInit C_SignInit;
++  CK_C_Sign C_Sign;
++  CK_C_SignUpdate C_SignUpdate;
++  CK_C_SignFinal C_SignFinal;
++  CK_C_SignRecoverInit C_SignRecoverInit;
++  CK_C_SignRecover C_SignRecover;
++  CK_C_VerifyInit C_VerifyInit;
++  CK_C_Verify C_Verify;
++  CK_C_VerifyUpdate C_VerifyUpdate;
++  CK_C_VerifyFinal C_VerifyFinal;
++  CK_C_VerifyRecoverInit C_VerifyRecoverInit;
++  CK_C_VerifyRecover C_VerifyRecover;
++  CK_C_DigestEncryptUpdate C_DigestEncryptUpdate;
++  CK_C_DecryptDigestUpdate C_DecryptDigestUpdate;
++  CK_C_SignEncryptUpdate C_SignEncryptUpdate;
++  CK_C_DecryptVerifyUpdate C_DecryptVerifyUpdate;
++  CK_C_GenerateKey C_GenerateKey;
++  CK_C_GenerateKeyPair C_GenerateKeyPair;
++  CK_C_WrapKey C_WrapKey;
++  CK_C_UnwrapKey C_UnwrapKey;
++  CK_C_DeriveKey C_DeriveKey;
++  CK_C_SeedRandom C_SeedRandom;
++  CK_C_GenerateRandom C_GenerateRandom;
++  CK_C_GetFunctionStatus C_GetFunctionStatus;
++  CK_C_CancelFunction C_CancelFunction;
++  CK_C_WaitForSlotEvent C_WaitForSlotEvent;
++};
++
++
++typedef ck_rv_t (*ck_createmutex_t) (void **mutex);
++typedef ck_rv_t (*ck_destroymutex_t) (void *mutex);
++typedef ck_rv_t (*ck_lockmutex_t) (void *mutex);
++typedef ck_rv_t (*ck_unlockmutex_t) (void *mutex);
++
++
++struct ck_c_initialize_args
++{
++  ck_createmutex_t create_mutex;
++  ck_destroymutex_t destroy_mutex;
++  ck_lockmutex_t lock_mutex;
++  ck_unlockmutex_t unlock_mutex;
++  ck_flags_t flags;
++  void *reserved;
++};
++
++
++#define CKF_LIBRARY_CANT_CREATE_OS_THREADS	(1 << 0)
++#define CKF_OS_LOCKING_OK			(1 << 1)
++
++#define CKR_OK					(0)
++#define CKR_CANCEL				(1)
++#define CKR_HOST_MEMORY				(2)
++#define CKR_SLOT_ID_INVALID			(3)
++#define CKR_GENERAL_ERROR			(5)
++#define CKR_FUNCTION_FAILED			(6)
++#define CKR_ARGUMENTS_BAD			(7)
++#define CKR_NO_EVENT				(8)
++#define CKR_NEED_TO_CREATE_THREADS		(9)
++#define CKR_CANT_LOCK				(0xa)
++#define CKR_ATTRIBUTE_READ_ONLY			(0x10)
++#define CKR_ATTRIBUTE_SENSITIVE			(0x11)
++#define CKR_ATTRIBUTE_TYPE_INVALID		(0x12)
++#define CKR_ATTRIBUTE_VALUE_INVALID		(0x13)
++#define CKR_DATA_INVALID			(0x20)
++#define CKR_DATA_LEN_RANGE			(0x21)
++#define CKR_DEVICE_ERROR			(0x30)
++#define CKR_DEVICE_MEMORY			(0x31)
++#define CKR_DEVICE_REMOVED			(0x32)
++#define CKR_ENCRYPTED_DATA_INVALID		(0x40)
++#define CKR_ENCRYPTED_DATA_LEN_RANGE		(0x41)
++#define CKR_FUNCTION_CANCELED			(0x50)
++#define CKR_FUNCTION_NOT_PARALLEL		(0x51)
++#define CKR_FUNCTION_NOT_SUPPORTED		(0x54)
++#define CKR_KEY_HANDLE_INVALID			(0x60)
++#define CKR_KEY_SIZE_RANGE			(0x62)
++#define CKR_KEY_TYPE_INCONSISTENT		(0x63)
++#define CKR_KEY_NOT_NEEDED			(0x64)
++#define CKR_KEY_CHANGED				(0x65)
++#define CKR_KEY_NEEDED				(0x66)
++#define CKR_KEY_INDIGESTIBLE			(0x67)
++#define CKR_KEY_FUNCTION_NOT_PERMITTED		(0x68)
++#define CKR_KEY_NOT_WRAPPABLE			(0x69)
++#define CKR_KEY_UNEXTRACTABLE			(0x6a)
++#define CKR_MECHANISM_INVALID			(0x70)
++#define CKR_MECHANISM_PARAM_INVALID		(0x71)
++#define CKR_OBJECT_HANDLE_INVALID		(0x82)
++#define CKR_OPERATION_ACTIVE			(0x90)
++#define CKR_OPERATION_NOT_INITIALIZED		(0x91)
++#define CKR_PIN_INCORRECT			(0xa0)
++#define CKR_PIN_INVALID				(0xa1)
++#define CKR_PIN_LEN_RANGE			(0xa2)
++#define CKR_PIN_EXPIRED				(0xa3)
++#define CKR_PIN_LOCKED				(0xa4)
++#define CKR_SESSION_CLOSED			(0xb0)
++#define CKR_SESSION_COUNT			(0xb1)
++#define CKR_SESSION_HANDLE_INVALID		(0xb3)
++#define CKR_SESSION_PARALLEL_NOT_SUPPORTED	(0xb4)
++#define CKR_SESSION_READ_ONLY			(0xb5)
++#define CKR_SESSION_EXISTS			(0xb6)
++#define CKR_SESSION_READ_ONLY_EXISTS		(0xb7)
++#define CKR_SESSION_READ_WRITE_SO_EXISTS	(0xb8)
++#define CKR_SIGNATURE_INVALID			(0xc0)
++#define CKR_SIGNATURE_LEN_RANGE			(0xc1)
++#define CKR_TEMPLATE_INCOMPLETE			(0xd0)
++#define CKR_TEMPLATE_INCONSISTENT		(0xd1)
++#define CKR_TOKEN_NOT_PRESENT			(0xe0)
++#define CKR_TOKEN_NOT_RECOGNIZED		(0xe1)
++#define CKR_TOKEN_WRITE_PROTECTED		(0xe2)
++#define	CKR_UNWRAPPING_KEY_HANDLE_INVALID	(0xf0)
++#define CKR_UNWRAPPING_KEY_SIZE_RANGE		(0xf1)
++#define CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT	(0xf2)
++#define CKR_USER_ALREADY_LOGGED_IN		(0x100)
++#define CKR_USER_NOT_LOGGED_IN			(0x101)
++#define CKR_USER_PIN_NOT_INITIALIZED		(0x102)
++#define CKR_USER_TYPE_INVALID			(0x103)
++#define CKR_USER_ANOTHER_ALREADY_LOGGED_IN	(0x104)
++#define CKR_USER_TOO_MANY_TYPES			(0x105)
++#define CKR_WRAPPED_KEY_INVALID			(0x110)
++#define CKR_WRAPPED_KEY_LEN_RANGE		(0x112)
++#define CKR_WRAPPING_KEY_HANDLE_INVALID		(0x113)
++#define CKR_WRAPPING_KEY_SIZE_RANGE		(0x114)
++#define CKR_WRAPPING_KEY_TYPE_INCONSISTENT	(0x115)
++#define CKR_RANDOM_SEED_NOT_SUPPORTED		(0x120)
++#define CKR_RANDOM_NO_RNG			(0x121)
++#define CKR_DOMAIN_PARAMS_INVALID		(0x130)
++#define CKR_BUFFER_TOO_SMALL			(0x150)
++#define CKR_SAVED_STATE_INVALID			(0x160)
++#define CKR_INFORMATION_SENSITIVE		(0x170)
++#define CKR_STATE_UNSAVEABLE			(0x180)
++#define CKR_CRYPTOKI_NOT_INITIALIZED		(0x190)
++#define CKR_CRYPTOKI_ALREADY_INITIALIZED	(0x191)
++#define CKR_MUTEX_BAD				(0x1a0)
++#define CKR_MUTEX_NOT_LOCKED			(0x1a1)
++#define CKR_FUNCTION_REJECTED			(0x200)
++#define CKR_VENDOR_DEFINED			((unsigned long) (1 << 31))
++
++
++
++/* Compatibility layer.  */
++
++#ifdef CRYPTOKI_COMPAT
++
++#undef CK_DEFINE_FUNCTION
++#define CK_DEFINE_FUNCTION(retval, name) retval CK_SPEC name
++
++/* For NULL.  */
++#include <stddef.h>
++
++typedef unsigned char CK_BYTE;
++typedef unsigned char CK_CHAR;
++typedef unsigned char CK_UTF8CHAR;
++typedef unsigned char CK_BBOOL;
++typedef unsigned long int CK_ULONG;
++typedef long int CK_LONG;
++typedef CK_BYTE *CK_BYTE_PTR;
++typedef CK_CHAR *CK_CHAR_PTR;
++typedef CK_UTF8CHAR *CK_UTF8CHAR_PTR;
++typedef CK_ULONG *CK_ULONG_PTR;
++typedef void *CK_VOID_PTR;
++typedef void **CK_VOID_PTR_PTR;
++#define CK_FALSE 0
++#define CK_TRUE 1
++#ifndef CK_DISABLE_TRUE_FALSE
++#ifndef FALSE
++#define FALSE 0
++#endif
++#ifndef TRUE
++#define TRUE 1
++#endif
++#endif
++
++typedef struct ck_version CK_VERSION;
++typedef struct ck_version *CK_VERSION_PTR;
++
++typedef struct ck_info CK_INFO;
++typedef struct ck_info *CK_INFO_PTR;
++
++typedef ck_slot_id_t *CK_SLOT_ID_PTR;
++
++typedef struct ck_slot_info CK_SLOT_INFO;
++typedef struct ck_slot_info *CK_SLOT_INFO_PTR;
++
++typedef struct ck_token_info CK_TOKEN_INFO;
++typedef struct ck_token_info *CK_TOKEN_INFO_PTR;
++
++typedef ck_session_handle_t *CK_SESSION_HANDLE_PTR;
++
++typedef struct ck_session_info CK_SESSION_INFO;
++typedef struct ck_session_info *CK_SESSION_INFO_PTR;
++
++typedef ck_object_handle_t *CK_OBJECT_HANDLE_PTR;
++
++typedef ck_object_class_t *CK_OBJECT_CLASS_PTR;
++
++typedef struct ck_attribute CK_ATTRIBUTE;
++typedef struct ck_attribute *CK_ATTRIBUTE_PTR;
++
++typedef struct ck_date CK_DATE;
++typedef struct ck_date *CK_DATE_PTR;
++
++typedef ck_mechanism_type_t *CK_MECHANISM_TYPE_PTR;
++
++typedef struct ck_mechanism CK_MECHANISM;
++typedef struct ck_mechanism *CK_MECHANISM_PTR;
++
++typedef struct ck_mechanism_info CK_MECHANISM_INFO;
++typedef struct ck_mechanism_info *CK_MECHANISM_INFO_PTR;
++
++typedef struct ck_function_list CK_FUNCTION_LIST;
++typedef struct ck_function_list *CK_FUNCTION_LIST_PTR;
++typedef struct ck_function_list **CK_FUNCTION_LIST_PTR_PTR;
++
++typedef struct ck_c_initialize_args CK_C_INITIALIZE_ARGS;
++typedef struct ck_c_initialize_args *CK_C_INITIALIZE_ARGS_PTR;
++
++#define NULL_PTR NULL
++
++/* Delete the helper macros defined at the top of the file.  */
++#undef ck_flags_t
++#undef ck_version
++
++#undef ck_info
++#undef cryptoki_version
++#undef manufacturer_id
++#undef library_description
++#undef library_version
++
++#undef ck_notification_t
++#undef ck_slot_id_t
++
++#undef ck_slot_info
++#undef slot_description
++#undef hardware_version
++#undef firmware_version
++
++#undef ck_token_info
++#undef serial_number
++#undef max_session_count
++#undef session_count
++#undef max_rw_session_count
++#undef rw_session_count
++#undef max_pin_len
++#undef min_pin_len
++#undef total_public_memory
++#undef free_public_memory
++#undef total_private_memory
++#undef free_private_memory
++#undef utc_time
++
++#undef ck_session_handle_t
++#undef ck_user_type_t
++#undef ck_state_t
++
++#undef ck_session_info
++#undef slot_id
++#undef device_error
++
++#undef ck_object_handle_t
++#undef ck_object_class_t
++#undef ck_hw_feature_type_t
++#undef ck_key_type_t
++#undef ck_certificate_type_t
++#undef ck_attribute_type_t
++
++#undef ck_attribute
++#undef value
++#undef value_len
++
++#undef ck_date
++
++#undef ck_mechanism_type_t
++
++#undef ck_mechanism
++#undef parameter
++#undef parameter_len
++
++#undef ck_mechanism_info
++#undef min_key_size
++#undef max_key_size
++
++#undef ck_rv_t
++#undef ck_notify_t
++
++#undef ck_function_list
++
++#undef ck_createmutex_t
++#undef ck_destroymutex_t
++#undef ck_lockmutex_t
++#undef ck_unlockmutex_t
++
++#undef ck_c_initialize_args
++#undef create_mutex
++#undef destroy_mutex
++#undef lock_mutex
++#undef unlock_mutex
++#undef reserved
++
++#endif	/* CRYPTOKI_COMPAT */
++
++
++/* System dependencies.  */
++#if defined(_WIN32) || defined(CRYPTOKI_FORCE_WIN32)
++#pragma pack(pop, cryptoki)
++#endif
++
++#if defined(__cplusplus)
++}
++#endif
++
++#endif	/* PKCS11_H */
+diff -up openssh-5.3p1/readconf.c.pkcs11 openssh-5.3p1/readconf.c
+--- openssh-5.3p1/readconf.c.pkcs11	2013-07-10 14:34:46.258673757 +0200
++++ openssh-5.3p1/readconf.c	2013-07-10 14:34:46.500673758 +0200
+@@ -123,7 +123,7 @@ typedef enum {
+ 	oGlobalKnownHostsFile2, oUserKnownHostsFile2, oPubkeyAuthentication,
+ 	oKbdInteractiveAuthentication, oKbdInteractiveDevices, oHostKeyAlias,
+ 	oDynamicForward, oPreferredAuthentications, oHostbasedAuthentication,
+-	oHostKeyAlgorithms, oBindAddress, oSmartcardDevice,
++	oHostKeyAlgorithms, oBindAddress, oPKCS11Provider,
+ 	oUseNSS, oNSSToken, oNSSModule,
+ 	oClearAllForwardings, oNoHostAuthenticationForLocalhost,
+ 	oEnableSSHKeysign, oRekeyLimit, oVerifyHostKeyDNS, oConnectTimeout,
+@@ -215,10 +215,12 @@ static struct {
+ 	{ "preferredauthentications", oPreferredAuthentications },
+ 	{ "hostkeyalgorithms", oHostKeyAlgorithms },
+ 	{ "bindaddress", oBindAddress },
+-#ifdef SMARTCARD
+-	{ "smartcarddevice", oSmartcardDevice },
++#ifdef ENABLE_PKCS11
++	{ "smartcarddevice", oPKCS11Provider },
++	{ "pkcs11provider", oPKCS11Provider },
+ #else
+ 	{ "smartcarddevice", oUnsupported },
++	{ "pkcs11provider", oUnsupported },
+ #endif
+ #ifdef HAVE_LIBNSS
+ 	{ "usenss", oUseNSS },
+@@ -644,8 +646,8 @@ parse_string:
+ 		charptr = &options->bind_address;
+ 		goto parse_string;
+ 
+-	case oSmartcardDevice:
+-		charptr = &options->smartcard_device;
++	case oPKCS11Provider:
++		charptr = &options->pkcs11_provider;
+ 		goto parse_string;
+ 
+ 	case oUseNSS:
+@@ -1112,7 +1114,7 @@ initialize_options(Options * options)
+ 	options->log_level = SYSLOG_LEVEL_NOT_SET;
+ 	options->preferred_authentications = NULL;
+ 	options->bind_address = NULL;
+-	options->smartcard_device = NULL;
++	options->pkcs11_provider = NULL;
+ 	options->use_nss = -1;
+ 	options->nss_token = NULL;
+ 	options->num_nss_modules = 0;
+diff -up openssh-5.3p1/readconf.h.pkcs11 openssh-5.3p1/readconf.h
+--- openssh-5.3p1/readconf.h.pkcs11	2013-07-10 14:34:46.259673757 +0200
++++ openssh-5.3p1/readconf.h	2013-07-10 14:34:46.501673758 +0200
+@@ -88,7 +88,7 @@ typedef struct {
+ 	char   *user_hostfile2;
+ 	char   *preferred_authentications;
+ 	char   *bind_address;	/* local socket address for connection to sshd */
+-	char   *smartcard_device; /* Smartcard reader device */
++	char   *pkcs11_provider; /* PKCS#11 provider */
+ 	int     use_nss;        /* Use NSS library for keys */
+ 	char   *nss_token;      /* Look for NSS keys on token */
+ 	int     num_nss_modules; /* Number of PCKS#11 modules. */
+diff -up openssh-5.3p1/scp.1.pkcs11 openssh-5.3p1/scp.1
+--- openssh-5.3p1/scp.1.pkcs11	2013-07-10 14:34:46.421673756 +0200
++++ openssh-5.3p1/scp.1	2013-07-10 14:34:46.502673758 +0200
+@@ -161,6 +161,7 @@ For full details of the options listed b
+ .It NoHostAuthenticationForLocalhost
+ .It NumberOfPasswordPrompts
+ .It PasswordAuthentication
++.It PKCS11Provider
+ .It Port
+ .It PreferredAuthentications
+ .It Protocol
+@@ -172,7 +173,6 @@ For full details of the options listed b
+ .It SendEnv
+ .It ServerAliveInterval
+ .It ServerAliveCountMax
+-.It SmartcardDevice
+ .It StrictHostKeyChecking
+ .It TCPKeepAlive
+ .It UsePrivilegedPort
+diff -up openssh-5.3p1/sftp.1.pkcs11 openssh-5.3p1/sftp.1
+--- openssh-5.3p1/sftp.1.pkcs11	2013-07-10 14:34:46.422673756 +0200
++++ openssh-5.3p1/sftp.1	2013-07-10 14:34:46.503673758 +0200
+@@ -175,6 +175,7 @@ For full details of the options listed b
+ .It NoHostAuthenticationForLocalhost
+ .It NumberOfPasswordPrompts
+ .It PasswordAuthentication
++.It PKCS11Provider
+ .It Port
+ .It PreferredAuthentications
+ .It Protocol
+@@ -186,7 +187,6 @@ For full details of the options listed b
+ .It SendEnv
+ .It ServerAliveInterval
+ .It ServerAliveCountMax
+-.It SmartcardDevice
+ .It StrictHostKeyChecking
+ .It TCPKeepAlive
+ .It UsePrivilegedPort
+diff -up openssh-5.3p1/ssh.1.pkcs11 openssh-5.3p1/ssh.1
+--- openssh-5.3p1/ssh.1.pkcs11	2013-07-10 14:34:46.479673758 +0200
++++ openssh-5.3p1/ssh.1	2013-07-10 14:34:46.504673758 +0200
+@@ -54,6 +54,7 @@
+ .Oc
+ .Op Fl e Ar escape_char
+ .Op Fl F Ar configfile
++.Op Fl I Ar pkcs11
+ .Bk -words
+ .Op Fl i Ar identity_file
+ .Ek
+@@ -283,12 +284,12 @@ will wait for all remote port forwards t
+ before placing itself in the background.
+ .It Fl g
+ Allows remote hosts to connect to local forwarded ports.
+-.It Fl I Ar smartcard_device
+-Specify the device
++.It Fl I Ar pkcs11
++Specify the PKCS#11 shared libarary
+ .Nm
+-should use to communicate with a smartcard used for storing the user's
++should use to communicate with a PKCS#11 token used for storing the user's
+ private RSA key.
+-This option is only available if support for smartcard devices
++This option is only available if support for PKCS#11
+ is compiled in (default is no support).
+ .It Fl i Ar identity_file
+ Selects a file from which the identity (private key) for
+@@ -468,6 +469,7 @@ For full details of the options listed b
+ .It NumberOfPasswordPrompts
+ .It PasswordAuthentication
+ .It PermitLocalCommand
++.It PKCS11Provider
+ .It Port
+ .It PreferredAuthentications
+ .It Protocol
+@@ -480,7 +482,6 @@ For full details of the options listed b
+ .It SendEnv
+ .It ServerAliveInterval
+ .It ServerAliveCountMax
+-.It SmartcardDevice
+ .It StrictHostKeyChecking
+ .It TCPKeepAlive
+ .It Tunnel
+diff -up openssh-5.3p1/ssh-add.1.pkcs11 openssh-5.3p1/ssh-add.1
+--- openssh-5.3p1/ssh-add.1.pkcs11	2013-07-10 14:34:46.409673758 +0200
++++ openssh-5.3p1/ssh-add.1	2013-07-10 14:34:46.505673758 +0200
+@@ -49,9 +49,9 @@
+ .Op Fl t Ar life
+ .Op Ar
+ .Nm ssh-add
+-.Fl s Ar reader
++.Fl s Ar pkcs11
+ .Nm ssh-add
+-.Fl e Ar reader
++.Fl e Ar pkcs11
+ .Nm ssh-add
+ .Fl n
+ .Op Fl T Ar token
+@@ -104,17 +104,17 @@ If no public key is found at a given pat
+ will append
+ .Pa .pub
+ and retry.
+-.It Fl e Ar reader
+-Remove key in smartcard
+-.Ar reader .
++.It Fl e Ar pkcs11
++Remove key provided by
++.Ar pkcs11 .
+ .It Fl L
+ Lists public key parameters of all identities currently represented
+ by the agent.
+ .It Fl l
+ Lists fingerprints of all identities currently represented by the agent.
+-.It Fl s Ar reader
+-Add key in smartcard
+-.Ar reader .
++.It Fl s Ar pkcs11
++Add key provided by
++.Ar pkcs11 .
+ .It Fl t Ar life
+ Set a maximum lifetime when adding identities to an agent.
+ The lifetime may be specified in seconds or in a time format
+diff -up openssh-5.3p1/ssh-add.c.pkcs11 openssh-5.3p1/ssh-add.c
+--- openssh-5.3p1/ssh-add.c.pkcs11	2013-07-10 14:34:46.210673758 +0200
++++ openssh-5.3p1/ssh-add.c	2013-07-10 14:34:46.506673758 +0200
+@@ -224,7 +224,7 @@ update_card(AuthenticationConnection *ac
+ 	char *pin;
+ 	int ret = -1;
+ 
+-	pin = read_passphrase("Enter passphrase for smartcard: ", RP_ALLOW_STDIN);
++	pin = read_passphrase("Enter passphrase for PKCS#11: ", RP_ALLOW_STDIN);
+ 	if (pin == NULL)
+ 		return -1;
+ 
+@@ -456,12 +456,10 @@ usage(void)
+ 	fprintf(stderr, "  -X          Unlock agent.\n");
+ 	fprintf(stderr, "  -t life     Set lifetime (in seconds) when adding identities.\n");
+ 	fprintf(stderr, "  -c          Require confirmation to sign using identities\n");
+-#ifdef SMARTCARD
+-	fprintf(stderr, "  -s reader   Add key in smartcard reader.\n");
+-	fprintf(stderr, "  -e reader   Remove key in smartcard reader.\n");
++	fprintf(stderr, "  -s pkcs11   Add keys from PKCS#11 provider.\n");
++	fprintf(stderr, "  -e pkcs11   Remove keys provided by PKCS#11 provider.\n");
+ 	fprintf(stderr, "  -n          Add keys in NSS key.\n");
+ 	fprintf(stderr, "  -T          Name NSS key explicitly.\n");
+-#endif
+ }
+ 
+ int
+@@ -470,7 +468,7 @@ main(int argc, char **argv)
+ 	extern char *optarg;
+ 	extern int optind;
+ 	AuthenticationConnection *ac = NULL;
+-	char *sc_reader_id = NULL;
++	char *pkcs11provider = NULL;
+ 	int i, ch, deleting = 0, ret = 0;
+ #ifdef HAVE_LIBNSS
+ 	char *token_id = NULL;
+@@ -521,11 +519,11 @@ main(int argc, char **argv)
+ 			break;
+ #endif
+ 		case 's':
+-			sc_reader_id = optarg;
++			pkcs11provider = optarg;
+ 			break;
+ 		case 'e':
+ 			deleting = 1;
+-			sc_reader_id = optarg;
++			pkcs11provider = optarg;
+ 			break;
+ 		case 't':
+ 			if ((lifetime = convtime(optarg)) == -1) {
+@@ -547,8 +545,8 @@ main(int argc, char **argv)
+ 	}
+ 	argc -= optind;
+ 	argv += optind;
+-	if (sc_reader_id != NULL) {
+-		if (update_card(ac, !deleting, sc_reader_id) == -1)
++	if (pkcs11provider != NULL) {
++		if (update_card(ac, !deleting, pkcs11provider) == -1)
+ 			ret = 1;
+ 		goto done;
+ 	}
+diff -up openssh-5.3p1/ssh-agent.c.pkcs11 openssh-5.3p1/ssh-agent.c
+--- openssh-5.3p1/ssh-agent.c.pkcs11	2013-07-10 14:34:46.487673758 +0200
++++ openssh-5.3p1/ssh-agent.c	2013-07-10 14:34:46.508673758 +0200
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: ssh-agent.c,v 1.162 2009/09/01 14:43:17 djm Exp $ */
++/* $OpenBSD: ssh-agent.c,v 1.164 2010/02/09 00:50:36 djm Exp $ */
+ /*
+  * Author: Tatu Ylonen <ylo@cs.hut.fi>
+  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
+@@ -77,8 +77,8 @@
+ #include "log.h"
+ #include "misc.h"
+ 
+-#ifdef SMARTCARD
+-#include "scard.h"
++#ifdef ENABLE_PKCS11
++#include "ssh-pkcs11.h"
+ #endif
+ 
+ #ifdef HAVE_LIBNSS
+@@ -110,6 +110,7 @@ typedef struct identity {
+ 	TAILQ_ENTRY(identity) next;
+ 	Key *key;
+ 	char *comment;
++	char *provider;
+ 	u_int death;
+ 	u_int confirm;
+ } Identity;
+@@ -176,6 +177,8 @@ static void
+ free_identity(Identity *id)
+ {
+ 	key_free(id->key);
++	if (id->provider != NULL)
++		xfree(id->provider);
+ 	xfree(id->comment);
+ 	xfree(id);
+ }
+@@ -554,7 +557,7 @@ process_add_identity(SocketEntry *e, int
+ 	if (lifetime && !death)
+ 		death = time(NULL) + lifetime;
+ 	if ((id = lookup_identity(k, version)) == NULL) {
+-		id = xmalloc(sizeof(Identity));
++		id = xcalloc(1, sizeof(Identity));
+ 		id->key = k;
+ 		TAILQ_INSERT_TAIL(&tab->idlist, id, next);
+ 		/* Increment the number of identities. */
+@@ -614,17 +617,17 @@ no_identities(SocketEntry *e, u_int type
+ 	buffer_free(&msg);
+ }
+ 
+-#ifdef SMARTCARD
++#ifdef ENABLE_PKCS11
+ static void
+ process_add_smartcard_key(SocketEntry *e)
+ {
+-	char *sc_reader_id = NULL, *pin;
+-	int i, type, version, success = 0, death = 0, confirm = 0;
+-	Key **keys, *k;
++	char *provider = NULL, *pin;
++	int i, type, version, count = 0, success = 0, death = 0, confirm = 0;
++	Key **keys = NULL, *k;
+ 	Identity *id;
+ 	Idtab *tab;
+ 
+-	sc_reader_id = buffer_get_string(&e->request, NULL);
++	provider = buffer_get_string(&e->request, NULL);
+ 	pin = buffer_get_string(&e->request, NULL);
+ 
+ 	while (buffer_len(&e->request)) {
+@@ -638,30 +641,22 @@ process_add_smartcard_key(SocketEntry *e
+ 		default:
+ 			error("process_add_smartcard_key: "
+ 			    "Unknown constraint type %d", type);
+-			xfree(sc_reader_id);
+-			xfree(pin);
+ 			goto send;
+ 		}
+ 	}
+ 	if (lifetime && !death)
+ 		death = time(NULL) + lifetime;
+ 
+-	keys = sc_get_keys(sc_reader_id, pin);
+-	xfree(sc_reader_id);
+-	xfree(pin);
+-
+-	if (keys == NULL || keys[0] == NULL) {
+-		error("sc_get_keys failed");
+-		goto send;
+-	}
+-	for (i = 0; keys[i] != NULL; i++) {
++	count = pkcs11_add_provider(provider, pin, &keys);
++	for (i = 0; i < count; i++) {
+ 		k = keys[i];
+ 		version = k->type == KEY_RSA1 ? 1 : 2;
+ 		tab = idtab_lookup(version);
+ 		if (lookup_identity(k, version) == NULL) {
+-			id = xmalloc(sizeof(Identity));
++			id = xcalloc(1, sizeof(Identity));
+ 			id->key = k;
+-			id->comment = sc_get_key_label(k);
++			id->provider = xstrdup(provider);
++			id->comment = xstrdup(provider); /* XXX */
+ 			id->death = death;
+ 			id->confirm = confirm;
+ 			TAILQ_INSERT_TAIL(&tab->idlist, id, next);
+@@ -672,8 +667,13 @@ process_add_smartcard_key(SocketEntry *e
+ 		}
+ 		keys[i] = NULL;
+ 	}
+-	xfree(keys);
+ send:
++	if (pin)
++		xfree(pin);
++	if (provider)
++		xfree(provider);
++	if (keys)
++		xfree(keys);
+ 	buffer_put_int(&e->output, 1);
+ 	buffer_put_char(&e->output,
+ 	    success ? SSH_AGENT_SUCCESS : SSH_AGENT_FAILURE);
+@@ -682,42 +682,37 @@ send:
+ static void
+ process_remove_smartcard_key(SocketEntry *e)
+ {
+-	char *sc_reader_id = NULL, *pin;
+-	int i, version, success = 0;
+-	Key **keys, *k = NULL;
+-	Identity *id;
++	char *provider = NULL, *pin = NULL;
++	int version, success = 0;
++	Identity *id, *nxt;
+ 	Idtab *tab;
+ 
+-	sc_reader_id = buffer_get_string(&e->request, NULL);
++	provider = buffer_get_string(&e->request, NULL);
+ 	pin = buffer_get_string(&e->request, NULL);
+-	keys = sc_get_keys(sc_reader_id, pin);
+-	xfree(sc_reader_id);
+ 	xfree(pin);
+ 
+-	if (keys == NULL || keys[0] == NULL) {
+-		error("sc_get_keys failed");
+-		goto send;
+-	}
+-	for (i = 0; keys[i] != NULL; i++) {
+-		k = keys[i];
+-		version = k->type == KEY_RSA1 ? 1 : 2;
+-		if ((id = lookup_identity(k, version)) != NULL) {
+-			tab = idtab_lookup(version);
+-			TAILQ_REMOVE(&tab->idlist, id, next);
+-			tab->nentries--;
+-			free_identity(id);
+-			success = 1;
++	for (version = 1; version < 3; version++) {
++		tab = idtab_lookup(version);
++		for (id = TAILQ_FIRST(&tab->idlist); id; id = nxt) {
++			nxt = TAILQ_NEXT(id, next);
++			if (!strcmp(provider, id->provider)) {
++				TAILQ_REMOVE(&tab->idlist, id, next);
++				free_identity(id);
++				tab->nentries--;
++			}
+ 		}
+-		key_free(k);
+-		keys[i] = NULL;
+ 	}
+-	xfree(keys);
+-send:
++	if (pkcs11_del_provider(provider) == 0)
++		success = 1;
++	else
++		error("process_remove_smartcard_key:"
++		    " pkcs11_del_provider failed");
++	xfree(provider);
+ 	buffer_put_int(&e->output, 1);
+ 	buffer_put_char(&e->output,
+ 	    success ? SSH_AGENT_SUCCESS : SSH_AGENT_FAILURE);
+ }
+-#endif /* SMARTCARD */
++#endif /* ENABLE_PKCS11 */
+ 
+ #ifdef HAVE_LIBNSS
+ static void
+@@ -910,7 +905,7 @@ process_message(SocketEntry *e)
+ 	case SSH2_AGENTC_REMOVE_ALL_IDENTITIES:
+ 		process_remove_all_identities(e, 2);
+ 		break;
+-#ifdef SMARTCARD
++#ifdef ENABLE_PKCS11
+ 	case SSH_AGENTC_ADD_SMARTCARD_KEY:
+ 	case SSH_AGENTC_ADD_SMARTCARD_KEY_CONSTRAINED:
+ 		process_add_smartcard_key(e);
+@@ -927,7 +922,7 @@ process_message(SocketEntry *e)
+ 	case SSH_AGENTC_REMOVE_NSS_KEY:
+ 		process_remove_nss_key(e);
+ 		break;
+-#endif /* SMARTCARD */
++#endif /* ENABLE_PKCS11 */
+ 	default:
+ 		/* Unknown message.  Respond with failure. */
+ 		error("Unknown message %d", type);
+@@ -1131,6 +1126,9 @@ static void
+ cleanup_handler(int sig)
+ {
+ 	cleanup_socket();
++#ifdef ENABLE_PKCS11
++	pkcs11_terminate();
++#endif
+ 	_exit(2);
+ }
+ 
+@@ -1377,6 +1375,10 @@ main(int ac, char **av)
+ #endif
+ 
+ skip:
++
++#ifdef ENABLE_PKCS11
++	pkcs11_init(0);
++#endif
+ 	new_socket(AUTH_SOCKET, sock);
+ 	if (ac > 0)
+ 		parent_alive_interval = 10;
+diff -up openssh-5.3p1/ssh_config.5.pkcs11 openssh-5.3p1/ssh_config.5
+--- openssh-5.3p1/ssh_config.5.pkcs11	2013-07-10 14:34:46.262673757 +0200
++++ openssh-5.3p1/ssh_config.5	2013-07-10 14:34:46.509673758 +0200
+@@ -731,6 +731,13 @@ or
+ .Dq no .
+ The default is
+ .Dq no .
++.It Cm PKCS11Provider
++Specifies which PKCS#11 provider to use.
++The argument to this keyword is the PKCS#11 shared libary
++.Xr ssh 1
++should use to communicate with a PKCS#11 token used for storing the user's
++private RSA key.
++By default, no device is specified and PKCS#11 support is not activated.
+ .It Cm Port
+ Specifies the port number to connect on the remote host.
+ The default is 22.
+@@ -945,13 +952,6 @@ channel to request a response from the s
+ The default
+ is 0, indicating that these messages will not be sent to the server.
+ This option applies to protocol version 2 only.
+-.It Cm SmartcardDevice
+-Specifies which smartcard device to use.
+-The argument to this keyword is the device
+-.Xr ssh 1
+-should use to communicate with a smartcard used for storing the user's
+-private RSA key.
+-By default, no device is specified and smartcard support is not activated.
+ .It Cm StrictHostKeyChecking
+ If this flag is set to
+ .Dq yes ,
+diff -up openssh-5.3p1/ssh-keygen.1.pkcs11 openssh-5.3p1/ssh-keygen.1
+--- openssh-5.3p1/ssh-keygen.1.pkcs11	2013-07-10 14:34:46.413673758 +0200
++++ openssh-5.3p1/ssh-keygen.1	2013-07-10 14:34:46.513673757 +0200
+@@ -79,7 +79,7 @@
+ .Fl B
+ .Op Fl f Ar input_keyfile
+ .Nm ssh-keygen
+-.Fl D Ar reader
++.Fl D Ar pkcs11
+ .Nm ssh-keygen
+ .Fl F Ar hostname
+ .Op Fl f Ar known_hosts_file
+@@ -91,9 +91,6 @@
+ .Fl R Ar hostname
+ .Op Fl f Ar known_hosts_file
+ .Nm ssh-keygen
+-.Fl U Ar reader
+-.Op Fl f Ar input_keyfile
+-.Nm ssh-keygen
+ .Fl r Ar hostname
+ .Op Fl f Ar input_keyfile
+ .Op Fl g
+@@ -204,9 +201,10 @@ Requests changing the comment in the pri
+ This operation is only supported for RSA1 keys.
+ The program will prompt for the file containing the private keys, for
+ the passphrase if the key has one, and for the new comment.
+-.It Fl D Ar reader
+-Download the RSA public key stored in the smartcard in
+-.Ar reader .
++.It Fl D Ar pkcs11
++Download the RSA public keys stored in the
++.Ar pkcs11
++provider.
+ .It Fl e
+ This option will read a private or public OpenSSH key file and
+ print the key in
+@@ -318,9 +316,6 @@ for protocol version 1 and
+ or
+ .Dq dsa
+ for protocol version 2.
+-.It Fl U Ar reader
+-Upload an existing RSA private key into the smartcard in
+-.Ar reader .
+ .It Fl v
+ Verbose mode.
+ Causes
+diff -up openssh-5.3p1/ssh-keygen.c.pkcs11 openssh-5.3p1/ssh-keygen.c
+--- openssh-5.3p1/ssh-keygen.c.pkcs11	2013-07-10 14:34:46.219673758 +0200
++++ openssh-5.3p1/ssh-keygen.c	2013-07-10 14:34:46.513673757 +0200
+@@ -50,8 +50,8 @@
+ #include "hostfile.h"
+ #include "dns.h"
+ 
+-#ifdef SMARTCARD
+-#include "scard.h"
++#ifdef ENABLE_PKCS11
++#include "ssh-pkcs11.h"
+ #endif
+ 
+ #ifdef HAVE_LIBNSS
+@@ -461,51 +461,29 @@ do_print_public(struct passwd *pw)
+ 	exit(0);
+ }
+ 
+-#ifdef SMARTCARD
+-static void
+-do_upload(struct passwd *pw, const char *sc_reader_id)
+-{
+-	Key *prv = NULL;
+-	struct stat st;
+-	int ret;
+-
+-	if (!have_identity)
+-		ask_filename(pw, "Enter file in which the key is");
+-	if (stat(identity_file, &st) < 0) {
+-		perror(identity_file);
+-		exit(1);
+-	}
+-	prv = load_identity(identity_file);
+-	if (prv == NULL) {
+-		error("load failed");
+-		exit(1);
+-	}
+-	ret = sc_put_key(prv, sc_reader_id);
+-	key_free(prv);
+-	if (ret < 0)
+-		exit(1);
+-	logit("loading key done");
+-	exit(0);
+-}
+-
+ static void
+-do_download(struct passwd *pw, const char *sc_reader_id)
++do_download(struct passwd *pw, char *pkcs11provider)
+ {
++#ifdef ENABLE_PKCS11
+ 	Key **keys = NULL;
+-	int i;
++	int i, nkeys;
+ 
+-	keys = sc_get_keys(sc_reader_id, NULL);
+-	if (keys == NULL)
+-		fatal("cannot read public key from smartcard");
+-	for (i = 0; keys[i]; i++) {
++	pkcs11_init(0);
++	nkeys = pkcs11_add_provider(pkcs11provider, NULL, &keys);
++	if (nkeys <= 0)
++		fatal("cannot read public key from pkcs11");
++	for (i = 0; i < nkeys; i++) {
+ 		key_write(keys[i], stdout);
+ 		key_free(keys[i]);
+ 		fprintf(stdout, "\n");
+ 	}
+ 	xfree(keys);
++	pkcs11_terminate();
+ 	exit(0);
++#else
++	fatal("no pkcs11 support");
++#endif /* ENABLE_PKCS11 */
+ }
+-#endif /* SMARTCARD */
+ 
+ #ifdef HAVE_LIBNSS
+ static void
+@@ -1066,9 +1044,9 @@ usage(void)
+ 	fprintf(stderr, "  -b bits     Number of bits in the key to create.\n");
+ 	fprintf(stderr, "  -C comment  Provide new comment.\n");
+ 	fprintf(stderr, "  -c          Change comment in private and public key files.\n");
+-#ifdef SMARTCARD
+-	fprintf(stderr, "  -D reader   Download public key from smartcard.\n");
+-#endif /* SMARTCARD */
++#ifdef ENABLE_PKCS11
++	fprintf(stderr, "  -D pkcs11   Download public key from pkcs11 token.\n");
++#endif
+ 	fprintf(stderr, "  -e          Convert OpenSSH to RFC 4716 key file.\n");
+ 	fprintf(stderr, "  -F hostname Find hostname in known hosts file.\n");
+ 	fprintf(stderr, "  -f filename Filename of the key file.\n");
+@@ -1090,9 +1068,6 @@ usage(void)
+ 	fprintf(stderr, "  -S start    Start point (hex) for generating DH-GEX moduli.\n");
+ 	fprintf(stderr, "  -T file     Screen candidates for DH-GEX moduli.\n");
+ 	fprintf(stderr, "  -t type     Specify type of key to create.\n");
+-#ifdef SMARTCARD
+-	fprintf(stderr, "  -U reader   Upload private key to smartcard.\n");
+-#endif /* SMARTCARD */
+ 	fprintf(stderr, "  -v          Verbose.\n");
+ 	fprintf(stderr, "  -W gen      Generator to use for generating DH-GEX moduli.\n");
+ 	fprintf(stderr, "  -y          Read private key file and print public key.\n");
+@@ -1107,7 +1082,7 @@ int
+ main(int argc, char **argv)
+ {
+ 	char dotsshdir[MAXPATHLEN], comment[1024], *passphrase1, *passphrase2;
+-	char out_file[MAXPATHLEN], *reader_id = NULL;
++	char out_file[MAXPATHLEN], *pkcs11provider = NULL;
+ 	char *rr_hostname = NULL;
+ 	Key *private, *public;
+ 	struct passwd *pw;
+@@ -1146,7 +1121,7 @@ main(int argc, char **argv)
+ 	}
+ 
+ 	while ((opt = getopt(argc, argv,
+-	    "degiqpclnBHvxXyF:b:f:t:U:D:P:N:C:r:g:R:T:G:M:S:a:W:")) != -1) {
++	    "degiqpclnBHvxXyF:b:f:t:D:N:P:C:r:g:R:T:G:M:S:a:W:")) != -1) {
+ 		switch (opt) {
+ 		case 'b':
+ 			bits = (u_int32_t)strtonum(optarg, 768, 32768, &errstr);
+@@ -1221,11 +1196,8 @@ main(int argc, char **argv)
+ 		case 't':
+ 			key_type_name = optarg;
+ 			break;
+-		case 'U':
+-			download = 0;
+-			/*FALLTHROUGH*/
+ 		case 'D':
+-			reader_id = optarg;
++			pkcs11provider = optarg;
+ 			break;
+ 		case 'v':
+ 			if (log_level == SYSLOG_LEVEL_INFO)
+@@ -1337,23 +1309,15 @@ main(int argc, char **argv)
+ 	if (use_nss) {
+ #ifdef HAVE_LIBNSS
+ 		if (download)
+-			do_nss_download(pw, reader_id, identity_file);
++			do_nss_download(pw, pkcs11provider, identity_file);
+ 		else
+ 			fatal("no support for NSS key upload.");
+ #else
+ 		fatal("no support for NSS keys.");
+ #endif
+ 	}
+-	if (reader_id != NULL) {
+-#ifdef SMARTCARD
+-		if (download)
+-			do_download(pw, reader_id);
+-		else
+-			do_upload(pw, reader_id);
+-#else /* SMARTCARD */
+-		fatal("no support for smartcards.");
+-#endif /* SMARTCARD */
+-	}
++	if (pkcs11provider != NULL)
++		do_download(pw, pkcs11provider);
+ 
+ 	if (do_gen_candidates) {
+ 		FILE *out = fopen(out_file, "w");
+diff -up openssh-5.3p1/ssh-pkcs11-client.c.pkcs11 openssh-5.3p1/ssh-pkcs11-client.c
+--- openssh-5.3p1/ssh-pkcs11-client.c.pkcs11	2013-07-10 14:34:46.514673757 +0200
++++ openssh-5.3p1/ssh-pkcs11-client.c	2013-07-10 14:34:46.514673757 +0200
+@@ -0,0 +1,229 @@
++/*
++ * Copyright (c) 2010 Markus Friedl.  All rights reserved.
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
++#include <sys/types.h>
++#include <sys/time.h>
++#include <sys/socket.h>
++
++#include <stdarg.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++
++#include "pathnames.h"
++#include "xmalloc.h"
++#include "buffer.h"
++#include "log.h"
++#include "misc.h"
++#include "key.h"
++#include "authfd.h"
++#include "atomicio.h"
++#include "ssh-pkcs11.h"
++
++/* borrows code from sftp-server and ssh-agent */
++
++int fd = -1;
++pid_t pid = -1;
++
++static void
++send_msg(Buffer *m)
++{
++	u_char buf[4];
++	int mlen = buffer_len(m);
++
++	put_u32(buf, mlen);
++	if (atomicio(vwrite, fd, buf, 4) != 4 ||
++	    atomicio(vwrite, fd, buffer_ptr(m),
++	    buffer_len(m)) != buffer_len(m))
++		error("write to helper failed");
++	buffer_consume(m, mlen);
++}
++
++static int
++recv_msg(Buffer *m)
++{
++	u_int l, len;
++	u_char buf[1024];
++
++	if ((len = atomicio(read, fd, buf, 4)) != 4) {
++		error("read from helper failed: %u", len);
++		return (0); /* XXX */
++	}
++	len = get_u32(buf);
++	if (len > 256 * 1024)
++		fatal("response too long: %u", len);
++	/* read len bytes into m */
++	buffer_clear(m);
++	while (len > 0) {
++		l = len;
++		if (l > sizeof(buf))
++			l = sizeof(buf);
++		if (atomicio(read, fd, buf, l) != l) {
++			error("response from helper failed.");
++			return (0); /* XXX */
++		}
++		buffer_append(m, buf, l);
++		len -= l;
++	}
++	return (buffer_get_char(m));
++}
++
++int
++pkcs11_init(int interactive)
++{
++	return (0);
++}
++
++void
++pkcs11_terminate(void)
++{
++	close(fd);
++}
++
++static int
++pkcs11_rsa_private_encrypt(int flen, const u_char *from, u_char *to, RSA *rsa,
++    int padding)
++{
++	Key key;
++	u_char *blob, *signature = NULL;
++	u_int blen, slen = 0;
++	int ret = -1;
++	Buffer msg;
++
++	if (padding != RSA_PKCS1_PADDING)
++		return (-1);
++	key.type = KEY_RSA;
++	key.rsa = rsa;
++	if (key_to_blob(&key, &blob, &blen) == 0)
++		return -1;
++	buffer_init(&msg);
++	buffer_put_char(&msg, SSH2_AGENTC_SIGN_REQUEST);
++	buffer_put_string(&msg, blob, blen);
++	buffer_put_string(&msg, from, flen);
++	buffer_put_int(&msg, 0);
++	xfree(blob);
++	send_msg(&msg);
++
++	if (recv_msg(&msg) == SSH2_AGENT_SIGN_RESPONSE) {
++		signature = buffer_get_string(&msg, &slen);
++		if (slen <= (u_int)RSA_size(rsa)) {
++			memcpy(to, signature, slen);
++			ret = slen;
++		}
++		xfree(signature);
++	}
++	return (ret);
++}
++
++/* redirect the private key encrypt operation to the ssh-pkcs11-helper */
++static int
++wrap_key(RSA *rsa)
++{
++	static RSA_METHOD helper_rsa;
++
++	memcpy(&helper_rsa, RSA_get_default_method(), sizeof(helper_rsa));
++	helper_rsa.name = "ssh-pkcs11-helper";
++	helper_rsa.rsa_priv_enc = pkcs11_rsa_private_encrypt;
++	RSA_set_method(rsa, &helper_rsa);
++	return (0);
++}
++
++static int
++pkcs11_start_helper(void)
++{
++	int pair[2];
++
++	if (socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == -1) {
++		error("socketpair: %s", strerror(errno));
++		return (-1);
++	}
++	if ((pid = fork()) == -1) {
++		error("fork: %s", strerror(errno));
++		return (-1);
++	} else if (pid == 0) {
++		if ((dup2(pair[1], STDIN_FILENO) == -1) ||
++		    (dup2(pair[1], STDOUT_FILENO) == -1)) {
++			fprintf(stderr, "dup2: %s\n", strerror(errno));
++			_exit(1);
++		}
++		close(pair[0]);
++		close(pair[1]);
++		execlp(_PATH_SSH_PKCS11_HELPER, _PATH_SSH_PKCS11_HELPER,
++		    (char *) 0);
++		fprintf(stderr, "exec: %s: %s\n", _PATH_SSH_PKCS11_HELPER,
++		    strerror(errno));
++		_exit(1);
++	}
++	close(pair[1]);
++	fd = pair[0];
++	return (0);
++}
++
++int
++pkcs11_add_provider(char *name, char *pin, Key ***keysp)
++{
++	Key *k;
++	int i, nkeys;
++	u_char *blob;
++	u_int blen;
++	Buffer msg;
++
++	if (fd < 0 && pkcs11_start_helper() < 0)
++		return (-1);
++
++	buffer_init(&msg);
++	buffer_put_char(&msg, SSH_AGENTC_ADD_SMARTCARD_KEY);
++	buffer_put_cstring(&msg, name);
++	buffer_put_cstring(&msg, pin);
++	send_msg(&msg);
++	buffer_clear(&msg);
++
++	if (recv_msg(&msg) == SSH2_AGENT_IDENTITIES_ANSWER) {
++		nkeys = buffer_get_int(&msg);
++		*keysp = xcalloc(nkeys, sizeof(Key *));
++		for (i = 0; i < nkeys; i++) {
++			blob = buffer_get_string(&msg, &blen);
++			xfree(buffer_get_string(&msg, NULL));
++			k = key_from_blob(blob, blen);
++			wrap_key(k->rsa);
++			(*keysp)[i] = k;
++			xfree(blob);
++		}
++	} else {
++		nkeys = -1;
++	}
++	buffer_free(&msg);
++	return (nkeys);
++}
++
++int
++pkcs11_del_provider(char *name)
++{
++	int ret = -1;
++	Buffer msg;
++
++	buffer_init(&msg);
++	buffer_put_char(&msg, SSH_AGENTC_REMOVE_SMARTCARD_KEY);
++	buffer_put_cstring(&msg, name);
++	buffer_put_cstring(&msg, "");
++	send_msg(&msg);
++	buffer_clear(&msg);
++
++	if (recv_msg(&msg) == SSH_AGENT_SUCCESS)
++		ret = 0;
++	buffer_free(&msg);
++	return (ret);
++}
+diff -up openssh-5.3p1/ssh-pkcs11.c.pkcs11 openssh-5.3p1/ssh-pkcs11.c
+--- openssh-5.3p1/ssh-pkcs11.c.pkcs11	2013-07-10 14:34:46.516673757 +0200
++++ openssh-5.3p1/ssh-pkcs11.c	2013-07-10 14:34:46.516673757 +0200
+@@ -0,0 +1,544 @@
++/*
++ * Copyright (c) 2010 Markus Friedl.  All rights reserved.
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
++#include <sys/types.h>
++#include <sys/queue.h>
++#include <stdarg.h>
++#include <stdio.h>
++
++#include <string.h>
++#include <dlfcn.h>
++
++#define CRYPTOKI_COMPAT
++#include "pkcs11.h"
++
++#include "log.h"
++#include "misc.h"
++#include "key.h"
++#include "ssh-pkcs11.h"
++#include "xmalloc.h"
++
++struct pkcs11_slotinfo {
++	CK_TOKEN_INFO		token;
++	CK_SESSION_HANDLE	session;
++	int			logged_in;
++};
++
++struct pkcs11_provider {
++	char			*name;
++	void			*handle;
++	CK_FUNCTION_LIST	*function_list;
++	CK_INFO			info;
++	CK_ULONG		nslots;
++	CK_SLOT_ID		*slotlist;
++	struct pkcs11_slotinfo	*slotinfo;
++	int			valid;
++	int			refcount;
++	TAILQ_ENTRY(pkcs11_provider) next;
++};
++
++TAILQ_HEAD(, pkcs11_provider) pkcs11_providers;
++
++struct pkcs11_key {
++	struct pkcs11_provider	*provider;
++	CK_ULONG		slotidx;
++	int			(*orig_finish)(RSA *rsa);
++	RSA_METHOD		rsa_method;
++	char			*keyid;
++	int			keyid_len;
++};
++
++int pkcs11_interactive = 0;
++
++int
++pkcs11_init(int interactive)
++{
++	pkcs11_interactive = interactive;
++	TAILQ_INIT(&pkcs11_providers);
++	return (0);
++}
++
++/*
++ * finalize a provider shared libarary, it's no longer usable.
++ * however, there might still be keys referencing this provider,
++ * so the actuall freeing of memory is handled by pkcs11_provider_unref().
++ * this is called when a provider gets unregistered.
++ */
++static void
++pkcs11_provider_finalize(struct pkcs11_provider *p)
++{
++	CK_RV rv;
++	CK_ULONG i;
++
++	debug("pkcs11_provider_finalize: %p refcount %d valid %d",
++	    p, p->refcount, p->valid);
++	if (!p->valid)
++		return;
++	for (i = 0; i < p->nslots; i++) {
++		if (p->slotinfo[i].session &&
++		    (rv = p->function_list->C_CloseSession(
++		    p->slotinfo[i].session)) != CKR_OK)
++			error("C_CloseSession failed: %lu", rv);
++	}
++	if ((rv = p->function_list->C_Finalize(NULL)) != CKR_OK)
++		error("C_Finalize failed: %lu", rv);
++	p->valid = 0;
++	p->function_list = NULL;
++	dlclose(p->handle);
++}
++
++/*
++ * remove a reference to the provider.
++ * called when a key gets destroyed or when the provider is unregistered.
++ */
++static void
++pkcs11_provider_unref(struct pkcs11_provider *p)
++{
++	debug("pkcs11_provider_unref: %p refcount %d", p, p->refcount);
++	if (--p->refcount <= 0) {
++		if (p->valid)
++			error("pkcs11_provider_unref: %p still valid", p);
++		xfree(p->slotlist);
++		xfree(p->slotinfo);
++		xfree(p);
++	}
++}
++
++/* unregister all providers, keys might still point to the providers */
++void
++pkcs11_terminate(void)
++{
++	struct pkcs11_provider *p;
++
++	while ((p = TAILQ_FIRST(&pkcs11_providers)) != NULL) {
++		TAILQ_REMOVE(&pkcs11_providers, p, next);
++		pkcs11_provider_finalize(p);
++		pkcs11_provider_unref(p);
++	}
++}
++
++/* lookup provider by name */
++static struct pkcs11_provider *
++pkcs11_provider_lookup(char *provider_id)
++{
++	struct pkcs11_provider *p;
++
++	TAILQ_FOREACH(p, &pkcs11_providers, next) {
++		debug("check %p %s", p, p->name);
++		if (!strcmp(provider_id, p->name))
++			return (p);
++	}
++	return (NULL);
++}
++
++/* unregister provider by name */
++int
++pkcs11_del_provider(char *provider_id)
++{
++	struct pkcs11_provider *p;
++
++	if ((p = pkcs11_provider_lookup(provider_id)) != NULL) {
++		TAILQ_REMOVE(&pkcs11_providers, p, next);
++		pkcs11_provider_finalize(p);
++		pkcs11_provider_unref(p);
++		return (0);
++	}
++	return (-1);
++}
++
++/* openssl callback for freeing an RSA key */
++static int
++pkcs11_rsa_finish(RSA *rsa)
++{
++	struct pkcs11_key	*k11;
++	int rv = -1;
++
++	if ((k11 = RSA_get_app_data(rsa)) != NULL) {
++		if (k11->orig_finish)
++			rv = k11->orig_finish(rsa);
++		if (k11->provider)
++			pkcs11_provider_unref(k11->provider);
++		if (k11->keyid)
++			xfree(k11->keyid);
++		xfree(k11);
++	}
++	return (rv);
++}
++
++/* openssl callback doing the actual signing operation */
++static int
++pkcs11_rsa_private_encrypt(int flen, const u_char *from, u_char *to, RSA *rsa,
++    int padding)
++{
++	struct pkcs11_key	*k11;
++	struct pkcs11_slotinfo	*si;
++	CK_FUNCTION_LIST	*f;
++	CK_OBJECT_HANDLE	obj;
++	CK_ULONG		tlen = 0, nfound = 0;
++	CK_RV			rv;
++	CK_OBJECT_CLASS		private_key_class = CKO_PRIVATE_KEY;
++	CK_BBOOL		true = CK_TRUE;
++	CK_MECHANISM		mech = {
++		CKM_RSA_PKCS, NULL_PTR, 0
++	};
++	CK_ATTRIBUTE		key_filter[] = {
++		{CKA_CLASS, &private_key_class, sizeof(private_key_class) },
++		{CKA_ID, NULL, 0},
++		{CKA_SIGN, &true, sizeof(true) }
++	};
++	char			*pin, prompt[1024];
++	int			rval = -1;
++
++	if ((k11 = RSA_get_app_data(rsa)) == NULL) {
++		error("RSA_get_app_data failed for rsa %p", rsa);
++		return (-1);
++	}
++	if (!k11->provider || !k11->provider->valid) {
++		error("no pkcs11 (valid) provider for rsa %p", rsa);
++		return (-1);
++	}
++	f = k11->provider->function_list;
++	si = &k11->provider->slotinfo[k11->slotidx];
++	if ((si->token.flags & CKF_LOGIN_REQUIRED) && !si->logged_in) {
++		if (!pkcs11_interactive) {
++			error("need pin");
++			return (-1);
++		}
++		snprintf(prompt, sizeof(prompt), "Enter PIN for '%s': ",
++		    si->token.label);
++		pin = read_passphrase(prompt, RP_ALLOW_EOF);
++		if (pin == NULL)
++			return (-1);	/* bail out */
++		if ((rv = f->C_Login(si->session, CKU_USER, pin, strlen(pin)))
++		    != CKR_OK) {
++			xfree(pin);
++			error("C_Login failed: %lu", rv);
++			return (-1);
++		}
++		xfree(pin);
++		si->logged_in = 1;
++	}
++	key_filter[1].pValue = k11->keyid;
++	key_filter[1].ulValueLen = k11->keyid_len;
++	if ((rv = f->C_FindObjectsInit(si->session, key_filter, 3)) != CKR_OK) {
++		error("C_FindObjectsInit failed: %lu", rv);
++		return (-1);
++	}
++	if ((rv = f->C_FindObjects(si->session, &obj, 1, &nfound)) != CKR_OK ||
++	    nfound != 1) {
++		error("C_FindObjects failed (%lu nfound): %lu", nfound, rv);
++	} else if ((rv = f->C_SignInit(si->session, &mech, obj)) != CKR_OK) {
++		error("C_SignInit failed: %lu", rv);
++	} else {
++		/* XXX handle CKR_BUFFER_TOO_SMALL */
++		tlen = RSA_size(rsa);
++		rv = f->C_Sign(si->session, (CK_BYTE *)from, flen, to, &tlen);
++		if (rv == CKR_OK) 
++			rval = tlen;
++		else 
++			error("C_Sign failed: %lu", rv);
++	}
++	if ((rv = f->C_FindObjectsFinal(si->session)) != CKR_OK)
++		error("C_FindObjectsFinal failed: %lu", rv);
++	return (rval);
++}
++
++static int
++pkcs11_rsa_private_decrypt(int flen, const u_char *from, u_char *to, RSA *rsa,
++    int padding)
++{
++	return (-1);
++}
++
++/* redirect private key operations for rsa key to pkcs11 token */
++static int
++pkcs11_rsa_wrap(struct pkcs11_provider *provider, CK_ULONG slotidx,
++    CK_ATTRIBUTE *keyid_attrib, RSA *rsa)
++{
++	struct pkcs11_key	*k11;
++	const RSA_METHOD	*def = RSA_get_default_method();
++
++	k11 = xcalloc(1, sizeof(*k11));
++	k11->provider = provider;
++	provider->refcount++;	/* provider referenced by RSA key */
++	k11->slotidx = slotidx;
++	/* identify key object on smartcard */
++	k11->keyid_len = keyid_attrib->ulValueLen;
++	k11->keyid = xmalloc(k11->keyid_len);
++	memcpy(k11->keyid, keyid_attrib->pValue, k11->keyid_len);
++	k11->orig_finish = def->finish;
++	memcpy(&k11->rsa_method, def, sizeof(k11->rsa_method));
++	k11->rsa_method.name = "pkcs11";
++	k11->rsa_method.rsa_priv_enc = pkcs11_rsa_private_encrypt;
++	k11->rsa_method.rsa_priv_dec = pkcs11_rsa_private_decrypt;
++	k11->rsa_method.finish = pkcs11_rsa_finish;
++	RSA_set_method(rsa, &k11->rsa_method);
++	RSA_set_app_data(rsa, k11);
++	return (0);
++}
++
++/* remove trailing spaces */
++static void
++rmspace(char *buf, size_t len)
++{
++	size_t i;
++
++	if (!len)
++		return;
++	for (i = len - 1;  i > 0; i--)
++		if (i == len - 1 || buf[i] == ' ')
++			buf[i] = '\0';
++		else
++			break;
++}
++
++/*
++ * open a pkcs11 session and login if required.
++ * if pin == NULL we delay login until key use
++ */
++static int
++pkcs11_open_session(struct pkcs11_provider *p, CK_ULONG slotidx, char *pin)
++{
++	CK_RV			rv;
++	CK_FUNCTION_LIST	*f;
++	CK_SESSION_HANDLE	session;
++	int			login_required;
++
++	f = p->function_list;
++	login_required = p->slotinfo[slotidx].token.flags & CKF_LOGIN_REQUIRED;
++	if (pin && login_required && !strlen(pin)) {
++		error("pin required");
++		return (-1);
++	}
++	if ((rv = f->C_OpenSession(p->slotlist[slotidx], CKF_RW_SESSION|
++	    CKF_SERIAL_SESSION, NULL, NULL, &session))
++	    != CKR_OK) {
++		error("C_OpenSession failed: %lu", rv);
++		return (-1);
++	}
++	if (login_required && pin) {
++		if ((rv = f->C_Login(session, CKU_USER, pin, strlen(pin)))
++		    != CKR_OK) {
++			error("C_Login failed: %lu", rv);
++			if ((rv = f->C_CloseSession(session)) != CKR_OK)
++				error("C_CloseSession failed: %lu", rv);
++			return (-1);
++		}
++		p->slotinfo[slotidx].logged_in = 1;
++	}
++	p->slotinfo[slotidx].session = session;
++	return (0);
++}
++
++/*
++ * lookup public keys for token in slot identified by slotidx,
++ * add 'wrapped' public keys to the 'keysp' array and increment nkeys.
++ * keysp points to an (possibly empty) array with *nkeys keys.
++ */
++static int
++pkcs11_fetch_keys(struct pkcs11_provider *p, CK_ULONG slotidx, Key ***keysp,
++    int *nkeys)
++{
++	Key			*key;
++	RSA			*rsa;
++	int			i;
++	CK_RV			rv;
++	CK_OBJECT_HANDLE	obj;
++	CK_ULONG		nfound;
++	CK_SESSION_HANDLE	session;
++	CK_FUNCTION_LIST	*f;
++	CK_OBJECT_CLASS		pubkey_class = CKO_PUBLIC_KEY;
++	CK_ATTRIBUTE		pubkey_filter[] = {
++		{ CKA_CLASS, &pubkey_class, sizeof(pubkey_class) }
++	};
++	CK_ATTRIBUTE		attribs[] = {
++		{ CKA_ID, NULL, 0 },
++		{ CKA_MODULUS, NULL, 0 },
++		{ CKA_PUBLIC_EXPONENT, NULL, 0 }
++	};
++
++	f = p->function_list;
++	session = p->slotinfo[slotidx].session;
++	/* setup a filter the looks for public keys */
++	if ((rv = f->C_FindObjectsInit(session, pubkey_filter, 1)) != CKR_OK) {
++		error("C_FindObjectsInit failed: %lu", rv);
++		return (-1);
++	}
++	while (1) {
++		/* XXX 3 attributes in attribs[] */
++		for (i = 0; i < 3; i++) {
++			attribs[i].pValue = NULL;
++			attribs[i].ulValueLen = 0;
++		}
++		if ((rv = f->C_FindObjects(session, &obj, 1, &nfound)) != CKR_OK
++		    || nfound == 0)
++			break;
++		/* found a key, so figure out size of the attributes */
++		if ((rv = f->C_GetAttributeValue(session, obj, attribs, 3))
++		    != CKR_OK) {
++			error("C_GetAttributeValue failed: %lu", rv);
++			continue;
++		}
++		/* allocate buffers for attributes, XXX check ulValueLen? */
++		for (i = 0; i < 3; i++)
++			attribs[i].pValue = xmalloc(attribs[i].ulValueLen);
++		/* retrieve ID, modulus and public exponent of RSA key */
++		if ((rv = f->C_GetAttributeValue(session, obj, attribs, 3))
++		    != CKR_OK) {
++			error("C_GetAttributeValue failed: %lu", rv);
++		} else if ((rsa = RSA_new()) == NULL) {
++			error("RSA_new failed");
++		} else {
++			rsa->n = BN_bin2bn(attribs[1].pValue,
++			    attribs[1].ulValueLen, NULL);
++			rsa->e = BN_bin2bn(attribs[2].pValue,
++			    attribs[2].ulValueLen, NULL);
++			if (rsa->n && rsa->e &&
++			    pkcs11_rsa_wrap(p, slotidx, &attribs[0], rsa) == 0) {
++				key = key_new(KEY_UNSPEC);
++				key->rsa = rsa;
++				key->type = KEY_RSA;
++				key->flags |= KEY_FLAG_EXT;
++				/* expand key array and add key */
++				*keysp = xrealloc(*keysp, *nkeys + 1,
++				    sizeof(Key *));
++				(*keysp)[*nkeys] = key;
++				*nkeys = *nkeys + 1;
++				debug("have %d keys", *nkeys);
++			} else {
++				RSA_free(rsa);
++			}
++		}
++		for (i = 0; i < 3; i++)
++			xfree(attribs[i].pValue);
++	}
++	if ((rv = f->C_FindObjectsFinal(session)) != CKR_OK)
++		error("C_FindObjectsFinal failed: %lu", rv);
++	return (0);
++}
++
++/* register a new provider, fails if provider already exists */
++int
++pkcs11_add_provider(char *provider_id, char *pin, Key ***keyp)
++{
++	int nkeys, need_finalize = 0;
++	struct pkcs11_provider *p = NULL;
++	void *handle = NULL;
++	CK_RV (*getfunctionlist)(CK_FUNCTION_LIST **);
++	CK_RV rv;
++	CK_FUNCTION_LIST *f = NULL;
++	CK_TOKEN_INFO *token;
++	CK_ULONG i;
++
++	*keyp = NULL;
++	if (pkcs11_provider_lookup(provider_id) != NULL) {
++		error("provider already registered: %s", provider_id);
++		goto fail;
++	}
++	/* open shared pkcs11-libarary */
++	if ((handle = dlopen(provider_id, RTLD_NOW)) == NULL) {
++		error("dlopen %s failed: %s", provider_id, dlerror());
++		goto fail;
++	}
++	if ((getfunctionlist = dlsym(handle, "C_GetFunctionList")) == NULL) {
++		error("dlsym(C_GetFunctionList) failed: %s", dlerror());
++		goto fail;
++	}
++	p = xcalloc(1, sizeof(*p));
++	p->name = xstrdup(provider_id);
++	p->handle = handle;
++	/* setup the pkcs11 callbacks */
++	if ((rv = (*getfunctionlist)(&f)) != CKR_OK) {
++		error("C_GetFunctionList failed: %lu", rv);
++		goto fail;
++	}
++	p->function_list = f;
++	if ((rv = f->C_Initialize(NULL)) != CKR_OK) {
++		error("C_Initialize failed: %lu", rv);
++		goto fail;
++	}
++	need_finalize = 1;
++	if ((rv = f->C_GetInfo(&p->info)) != CKR_OK) {
++		error("C_GetInfo failed: %lu", rv);
++		goto fail;
++	}
++	rmspace(p->info.manufacturerID, sizeof(p->info.manufacturerID));
++	rmspace(p->info.libraryDescription, sizeof(p->info.libraryDescription));
++	debug("manufacturerID <%s> cryptokiVersion %d.%d"
++	    " libraryDescription <%s> libraryVersion %d.%d",
++	    p->info.manufacturerID,
++	    p->info.cryptokiVersion.major,
++	    p->info.cryptokiVersion.minor,
++	    p->info.libraryDescription,
++	    p->info.libraryVersion.major,
++	    p->info.libraryVersion.minor);
++	if ((rv = f->C_GetSlotList(CK_TRUE, NULL, &p->nslots)) != CKR_OK) {
++		error("C_GetSlotList failed: %lu", rv);
++		goto fail;
++	}
++	if (p->nslots == 0) {
++		error("no slots");
++		goto fail;
++	}
++	p->slotlist = xcalloc(p->nslots, sizeof(CK_SLOT_ID));
++	if ((rv = f->C_GetSlotList(CK_TRUE, p->slotlist, &p->nslots))
++	    != CKR_OK) {
++		error("C_GetSlotList failed: %lu", rv);
++		goto fail;
++	}
++	p->slotinfo = xcalloc(p->nslots, sizeof(struct pkcs11_slotinfo));
++	p->valid = 1;
++	nkeys = 0;
++	for (i = 0; i < p->nslots; i++) {
++		token = &p->slotinfo[i].token;
++		if ((rv = f->C_GetTokenInfo(p->slotlist[i], token))
++		    != CKR_OK) {
++			error("C_GetTokenInfo failed: %lu", rv);
++			continue;
++		}
++		rmspace(token->label, sizeof(token->label));
++		rmspace(token->manufacturerID, sizeof(token->manufacturerID));
++		rmspace(token->model, sizeof(token->model));
++		rmspace(token->serialNumber, sizeof(token->serialNumber));
++		debug("label <%s> manufacturerID <%s> model <%s> serial <%s>"
++		    " flags 0x%lx",
++		    token->label, token->manufacturerID, token->model,
++		    token->serialNumber, token->flags);
++		/* open session, login with pin and retrieve public keys */
++		if (pkcs11_open_session(p, i, pin) == 0)
++			pkcs11_fetch_keys(p, i, keyp, &nkeys);
++	}
++	if (nkeys > 0) {
++		TAILQ_INSERT_TAIL(&pkcs11_providers, p, next);
++		p->refcount++;	/* add to provider list */
++		return (nkeys);
++	}
++	error("no keys");
++	/* don't add the provider, since it does not have any keys */
++fail:
++	if (need_finalize && (rv = f->C_Finalize(NULL)) != CKR_OK)
++		error("C_Finalize failed: %lu", rv);
++	if (p) {
++		if (p->slotlist)
++			xfree(p->slotlist);
++		if (p->slotinfo)
++			xfree(p->slotinfo);
++		xfree(p);
++	}
++	if (handle)
++		dlclose(handle);
++	return (-1);
++}
+diff -up openssh-5.3p1/ssh-pkcs11-helper.c.pkcs11 openssh-5.3p1/ssh-pkcs11-helper.c
+--- openssh-5.3p1/ssh-pkcs11-helper.c.pkcs11	2013-07-10 14:34:46.517673757 +0200
++++ openssh-5.3p1/ssh-pkcs11-helper.c	2013-07-10 14:34:46.517673757 +0200
+@@ -0,0 +1,350 @@
++/*
++ * Copyright (c) 2010 Markus Friedl.  All rights reserved.
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
++#include <sys/queue.h>
++#include <sys/types.h>
++#include <sys/time.h>
++
++#include <stdarg.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++
++#include "xmalloc.h"
++#include "buffer.h"
++#include "includes.h"
++#include "log.h"
++#include "misc.h"
++#include "key.h"
++#include "authfd.h"
++#include "ssh-pkcs11.h"
++
++/* borrows code from sftp-server and ssh-agent */
++
++struct pkcs11_keyinfo {
++	Key		*key;
++	char		*providername;
++	TAILQ_ENTRY(pkcs11_keyinfo) next;
++};
++
++TAILQ_HEAD(, pkcs11_keyinfo) pkcs11_keylist;
++
++#define MAX_MSG_LENGTH		10240 /*XXX*/
++
++/* helper */
++#define get_int()			buffer_get_int(&iqueue);
++#define get_string(lenp)		buffer_get_string(&iqueue, lenp);
++
++/* input and output queue */
++Buffer iqueue;
++Buffer oqueue;
++
++static void
++add_key(Key *k, char *name)
++{
++	struct pkcs11_keyinfo *ki;
++
++	ki = xcalloc(1, sizeof(*ki));
++	ki->providername = xstrdup(name);
++	ki->key = k;
++	TAILQ_INSERT_TAIL(&pkcs11_keylist, ki, next);
++}
++
++static void
++del_keys_by_name(char *name)
++{
++	struct pkcs11_keyinfo *ki, *nxt;
++
++	for (ki = TAILQ_FIRST(&pkcs11_keylist); ki; ki = nxt) {
++		nxt = TAILQ_NEXT(ki, next);
++		if (!strcmp(ki->providername, name)) {
++			TAILQ_REMOVE(&pkcs11_keylist, ki, next);
++			xfree(ki->providername);
++			key_free(ki->key);
++			free(ki);
++		}
++	}
++}
++
++/* lookup matching 'private' key */
++static Key *
++lookup_key(Key *k)
++{
++	struct pkcs11_keyinfo *ki;
++
++	TAILQ_FOREACH(ki, &pkcs11_keylist, next) {
++		debug("check %p %s", ki, ki->providername);
++		if (key_equal(k, ki->key))
++			return (ki->key);
++	}
++	return (NULL);
++}
++
++static void
++send_msg(Buffer *m)
++{
++	int mlen = buffer_len(m);
++
++	buffer_put_int(&oqueue, mlen);
++	buffer_append(&oqueue, buffer_ptr(m), mlen);
++	buffer_consume(m, mlen);
++}
++
++static void
++process_add(void)
++{
++	char *name, *pin;
++	Key **keys;
++	int i, nkeys;
++	u_char *blob;
++	u_int blen;
++	Buffer msg;
++
++	buffer_init(&msg);
++	name = get_string(NULL);
++	pin = get_string(NULL);
++	if ((nkeys = pkcs11_add_provider(name, pin, &keys)) > 0) {
++		buffer_put_char(&msg, SSH2_AGENT_IDENTITIES_ANSWER);
++		buffer_put_int(&msg, nkeys);
++		for (i = 0; i < nkeys; i++) {
++			key_to_blob(keys[i], &blob, &blen);
++			buffer_put_string(&msg, blob, blen);
++			buffer_put_cstring(&msg, name);
++			xfree(blob);
++			add_key(keys[i], name);
++		}
++		xfree(keys);
++	} else {
++		buffer_put_char(&msg, SSH_AGENT_FAILURE);
++	}
++	xfree(pin);
++	xfree(name);
++	send_msg(&msg);
++	buffer_free(&msg);
++}
++
++static void
++process_del(void)
++{
++	char *name, *pin;
++	Buffer msg;
++
++	buffer_init(&msg);
++	name = get_string(NULL);
++	pin = get_string(NULL);
++	del_keys_by_name(name);
++	if (pkcs11_del_provider(name) == 0)
++		 buffer_put_char(&msg, SSH_AGENT_SUCCESS);
++	else
++		 buffer_put_char(&msg, SSH_AGENT_FAILURE);
++	xfree(pin);
++	xfree(name);
++	send_msg(&msg);
++	buffer_free(&msg);
++}
++
++static void
++process_sign(void)
++{
++	u_char *blob, *data, *signature = NULL;
++	u_int blen, dlen, slen = 0;
++	int ok = -1, flags, ret;
++	Key *key, *found;
++	Buffer msg;
++
++	blob = get_string(&blen);
++	data = get_string(&dlen);
++	flags = get_int(); /* XXX ignore */
++
++	if ((key = key_from_blob(blob, blen)) != NULL) {
++		if ((found = lookup_key(key)) != NULL) {
++			slen = RSA_size(key->rsa);
++			signature = xmalloc(slen);
++			if ((ret = RSA_private_encrypt(dlen, data, signature,
++			    found->rsa, RSA_PKCS1_PADDING)) != -1) {
++				slen = ret;
++				ok = 0;
++			}
++		}
++		key_free(key);
++	}
++	buffer_init(&msg);
++	if (ok == 0) {
++		buffer_put_char(&msg, SSH2_AGENT_SIGN_RESPONSE);
++		buffer_put_string(&msg, signature, slen);
++	} else {
++		buffer_put_char(&msg, SSH_AGENT_FAILURE);
++	}
++	xfree(data);
++	xfree(blob);
++	if (signature != NULL)
++		xfree(signature);
++	send_msg(&msg);
++	buffer_free(&msg);
++}
++
++static void
++process(void)
++{
++	u_int msg_len;
++	u_int buf_len;
++	u_int consumed;
++	u_int type;
++	u_char *cp;
++
++	buf_len = buffer_len(&iqueue);
++	if (buf_len < 5)
++		return;		/* Incomplete message. */
++	cp = buffer_ptr(&iqueue);
++	msg_len = get_u32(cp);
++	if (msg_len > MAX_MSG_LENGTH) {
++		error("bad message len %d", msg_len);
++		cleanup_exit(11);
++	}
++	if (buf_len < msg_len + 4)
++		return;
++	buffer_consume(&iqueue, 4);
++	buf_len -= 4;
++	type = buffer_get_char(&iqueue);
++	switch (type) {
++	case SSH_AGENTC_ADD_SMARTCARD_KEY:
++		debug("process_add");
++		process_add();
++		break;
++	case SSH_AGENTC_REMOVE_SMARTCARD_KEY:
++		debug("process_del");
++		process_del();
++		break;
++	case SSH2_AGENTC_SIGN_REQUEST:
++		debug("process_sign");
++		process_sign();
++		break;
++	default:
++		error("Unknown message %d", type);
++		break;
++	}
++	/* discard the remaining bytes from the current packet */
++	if (buf_len < buffer_len(&iqueue)) {
++		error("iqueue grew unexpectedly");
++		cleanup_exit(255);
++	}
++	consumed = buf_len - buffer_len(&iqueue);
++	if (msg_len < consumed) {
++		error("msg_len %d < consumed %d", msg_len, consumed);
++		cleanup_exit(255);
++	}
++	if (msg_len > consumed)
++		buffer_consume(&iqueue, msg_len - consumed);
++}
++
++void
++cleanup_exit(int i)
++{
++	/* XXX */
++	_exit(i);
++}
++
++int
++main(int argc, char **argv)
++{
++	fd_set *rset, *wset;
++	int in, out, max, log_stderr = 0;
++	ssize_t len, olen, set_size;
++	SyslogFacility log_facility = SYSLOG_FACILITY_AUTH;
++	LogLevel log_level = SYSLOG_LEVEL_ERROR;
++	char buf[4*4096];
++
++	TAILQ_INIT(&pkcs11_keylist);
++	pkcs11_init(0);
++
++	extern char *optarg;
++	extern char *__progname;
++
++	log_init(__progname, log_level, log_facility, log_stderr);
++
++	in = STDIN_FILENO;
++	out = STDOUT_FILENO;
++
++	max = 0;
++	if (in > max)
++		max = in;
++	if (out > max)
++		max = out;
++
++	buffer_init(&iqueue);
++	buffer_init(&oqueue);
++
++	set_size = howmany(max + 1, NFDBITS) * sizeof(fd_mask);
++	rset = (fd_set *)xmalloc(set_size);
++	wset = (fd_set *)xmalloc(set_size);
++
++	for (;;) {
++		memset(rset, 0, set_size);
++		memset(wset, 0, set_size);
++
++		/*
++		 * Ensure that we can read a full buffer and handle
++		 * the worst-case length packet it can generate,
++		 * otherwise apply backpressure by stopping reads.
++		 */
++		if (buffer_check_alloc(&iqueue, sizeof(buf)) &&
++		    buffer_check_alloc(&oqueue, MAX_MSG_LENGTH))
++			FD_SET(in, rset);
++
++		olen = buffer_len(&oqueue);
++		if (olen > 0)
++			FD_SET(out, wset);
++
++		if (select(max+1, rset, wset, NULL, NULL) < 0) {
++			if (errno == EINTR)
++				continue;
++			error("select: %s", strerror(errno));
++			cleanup_exit(2);
++		}
++
++		/* copy stdin to iqueue */
++		if (FD_ISSET(in, rset)) {
++			len = read(in, buf, sizeof buf);
++			if (len == 0) {
++				debug("read eof");
++				cleanup_exit(0);
++			} else if (len < 0) {
++				error("read: %s", strerror(errno));
++				cleanup_exit(1);
++			} else {
++				buffer_append(&iqueue, buf, len);
++			}
++		}
++		/* send oqueue to stdout */
++		if (FD_ISSET(out, wset)) {
++			len = write(out, buffer_ptr(&oqueue), olen);
++			if (len < 0) {
++				error("write: %s", strerror(errno));
++				cleanup_exit(1);
++			} else {
++				buffer_consume(&oqueue, len);
++			}
++		}
++
++		/*
++		 * Process requests from client if we can fit the results
++		 * into the output buffer, otherwise stop processing input
++		 * and let the output queue drain.
++		 */
++		if (buffer_check_alloc(&oqueue, MAX_MSG_LENGTH))
++			process();
++	}
++}
+diff -up openssh-5.3p1/ssh-pkcs11.h.pkcs11 openssh-5.3p1/ssh-pkcs11.h
+--- openssh-5.3p1/ssh-pkcs11.h.pkcs11	2013-07-10 14:34:46.517673757 +0200
++++ openssh-5.3p1/ssh-pkcs11.h	2013-07-10 14:34:46.518673757 +0200
+@@ -0,0 +1,19 @@
++/*
++ * Copyright (c) 2010 Markus Friedl.  All rights reserved.
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++int	pkcs11_init(int);
++void	pkcs11_terminate(void);
++int	pkcs11_add_provider(char *, char *, Key ***);
++int	pkcs11_del_provider(char *);
+diff -up openssh-5.3p1/ssh.c.pkcs11 openssh-5.3p1/ssh.c
+--- openssh-5.3p1/ssh.c.pkcs11	2013-09-06 16:26:16.469002501 +0200
++++ openssh-5.3p1/ssh.c	2013-09-06 16:44:58.571825806 +0200
+@@ -105,8 +105,8 @@
+ #include "uidswap.h"
+ #include "version.h"
+ 
+-#ifdef SMARTCARD
+-#include "scard.h"
++#ifdef ENABLE_PKCS11
++#include "ssh-pkcs11.h"
+ #endif
+ #ifdef HAVE_LIBNSS
+ #include "nsskeys.h"
+@@ -192,7 +192,8 @@ usage(void)
+ 	fprintf(stderr,
+ "usage: ssh [-1246AaCfgKkMNnqsTtVvXxYy] [-b bind_address] [-c cipher_spec]\n"
+ "           [-D [bind_address:]port] [-e escape_char] [-F configfile]\n"
+-"           [-i identity_file] [-L [bind_address:]port:host:hostport]\n"
++"           [-I pkcs11] [-i identity_file]\n"
++"           [-L [bind_address:]port:host:hostport]\n"
+ "           [-l login_name] [-m mac_spec] [-O ctl_cmd] [-o option] [-p port]\n"
+ "           [-R [bind_address:]port:host:hostport] [-S ctl_path]\n"
+ "           [-W host:port] [-w local_tun[:remote_tun]]\n"
+@@ -369,10 +370,10 @@ main(int ac, char **av)
+ 			    xstrdup(optarg);
+ 			break;
+ 		case 'I':
+-#ifdef SMARTCARD
+-			options.smartcard_device = xstrdup(optarg);
++#ifdef ENABLE_PKCS11
++			options.pkcs11_provider = xstrdup(optarg);
+ #else
+-			fprintf(stderr, "no support for smartcards.\n");
++			fprintf(stderr, "no support for PKCS#11.\n");
+ #endif
+ 			break;
+ 		case 't':
+@@ -1315,52 +1316,51 @@ load_public_identity_files(void)
+ 	int i = 0;
+ 	Key *public;
+ 	struct passwd *pw;
+-#if defined(SMARTCARD) || defined(HAVE_LIBNSS)
++	u_int n_ids;
++	char *identity_files[SSH_MAX_IDENTITY_FILES];
++	Key *identity_keys[SSH_MAX_IDENTITY_FILES];
++#ifdef ENABLE_PKCS11
+ 	Key **keys;
+-#endif
++	int nkeys;
++#endif /* PKCS11 */
++
++	n_ids = 0;
++	bzero(identity_files, sizeof(identity_files));
++	bzero(identity_keys, sizeof(identity_keys));
+ 
+-#ifdef SMARTCARD
+-	if (options.smartcard_device != NULL &&
++#ifdef ENABLE_PKCS11
++	if (options.pkcs11_provider != NULL &&
+ 	    options.num_identity_files < SSH_MAX_IDENTITY_FILES &&
+-	    (keys = sc_get_keys(options.smartcard_device, NULL)) != NULL) {
+-		int count = 0;
+-		for (i = 0; keys[i] != NULL; i++) {
+-			count++;
+-			memmove(&options.identity_files[1],
+-			    &options.identity_files[0],
+-			    sizeof(char *) * (SSH_MAX_IDENTITY_FILES - 1));
+-			memmove(&options.identity_keys[1],
+-			    &options.identity_keys[0],
+-			    sizeof(Key *) * (SSH_MAX_IDENTITY_FILES - 1));
+-			options.num_identity_files++;
+-			options.identity_keys[0] = keys[i];
+-			options.identity_files[0] = sc_get_key_label(keys[i]);
++	    (pkcs11_init(!options.batch_mode) == 0) &&
++	    (nkeys = pkcs11_add_provider(options.pkcs11_provider, NULL,
++	    &keys)) > 0) {
++		for (i = 0; i < nkeys; i++) {
++			if (n_ids >= SSH_MAX_IDENTITY_FILES) {
++				key_free(keys[i]);
++				continue;
++			}
++			identity_keys[n_ids] = keys[i];
++			identity_files[n_ids] =
++			    xstrdup(options.pkcs11_provider); /* XXX */
++			n_ids++;
+ 		}
+-		if (options.num_identity_files > SSH_MAX_IDENTITY_FILES)
+-			options.num_identity_files = SSH_MAX_IDENTITY_FILES;
+-		i = count;
+-		xfree(keys);
++		free(keys);
+ 	}
+-#endif /* SMARTCARD */
++#endif /* ENABLE_PKCS11 */
+ #ifdef HAVE_LIBNSS
+-	if (options.use_nss &&
+-	    options.num_identity_files < SSH_MAX_IDENTITY_FILES &&
++	if (options.use_nss && n_ids < SSH_MAX_IDENTITY_FILES &&
+ 	    (keys = nss_get_keys(options.nss_token, NULL, NULL, 
+ 	    	options.number_of_password_prompts, options.num_nss_modules,
+ 	    	options.nss_modules)) != NULL) {
+-		int count;
+-		for (count = 0; keys[count] != NULL; count++) {
+-			memmove(&options.identity_files[1], &options.identity_files[0],
+-			    sizeof(char *) * (SSH_MAX_IDENTITY_FILES - 1));
+-			memmove(&options.identity_keys[1], &options.identity_keys[0],
+-			    sizeof(Key *) * (SSH_MAX_IDENTITY_FILES - 1));
+-			options.num_identity_files++;
+-			options.identity_keys[0] = keys[count];
+-			options.identity_files[0] = nss_get_key_label(keys[count]);
++		for (i = 0; keys[i] != NULL; i++) {
++			if (n_ids >= SSH_MAX_IDENTITY_FILES) {
++				key_free(keys[i]);
++				continue;
++			}
++			identity_keys[n_ids] = keys[i];
++			identity_files[n_ids] = nss_get_key_label(keys[i]);
++			n_ids++;
+ 		}
+-		if (options.num_identity_files > SSH_MAX_IDENTITY_FILES)
+-			options.num_identity_files = SSH_MAX_IDENTITY_FILES;
+-		i += count;
+ 		xfree(keys);
+ 	}
+ #endif /* HAVE_LIBNSS */
+@@ -1372,7 +1372,12 @@ load_public_identity_files(void)
+ 	if (gethostname(thishost, sizeof(thishost)) == -1)
+ 		fatal("load_public_identity_files: gethostname: %s",
+ 		    strerror(errno));
+-	for (; i < options.num_identity_files; i++) {
++	for (i = 0; i < options.num_identity_files; i++) {
++		if (n_ids >= SSH_MAX_IDENTITY_FILES ||
++		    strcasecmp(options.identity_files[i], "none") == 0) {
++			free(options.identity_files[i]);
++			continue;
++		}
+ 		cp = tilde_expand_filename(options.identity_files[i],
+ 		    original_real_uid);
+ 		filename = percent_expand(cp, "d", pwdir,
+@@ -1383,9 +1388,15 @@ load_public_identity_files(void)
+ 		debug("identity file %s type %d", filename,
+ 		    public ? public->type : -1);
+ 		xfree(options.identity_files[i]);
+-		options.identity_files[i] = filename;
+-		options.identity_keys[i] = public;
+-	}
++		identity_files[n_ids] = filename;
++		identity_keys[n_ids] = public;
++		if (++n_ids >= SSH_MAX_IDENTITY_FILES)
++			continue;
++	}
++	options.num_identity_files = n_ids;
++	memcpy(options.identity_files, identity_files, sizeof(identity_files));
++	memcpy(options.identity_keys, identity_keys, sizeof(identity_keys));
++
+ 	bzero(pwname, strlen(pwname));
+ 	xfree(pwname);
+ 	bzero(pwdir, strlen(pwdir));

@@ -1,0 +1,246 @@
+diff -U0 openssh-5.3p1/ChangeLog.KexAlgorithms openssh-5.3p1/ChangeLog
+--- openssh-5.3p1/ChangeLog.KexAlgorithms	2013-07-12 10:05:17.178031967 +0200
++++ openssh-5.3p1/ChangeLog	2013-07-12 10:05:17.209031967 +0200
+@@ -0,0 +1,9 @@
++20100924
++   - djm@cvs.openbsd.org 2010/09/22 05:01:30
++     [kex.c kex.h kexecdh.c kexecdhc.c kexecdhs.c readconf.c readconf.h]
++     [servconf.c servconf.h ssh_config.5 sshconnect2.c sshd.c sshd_config.5]
++     add a KexAlgorithms knob to the client and server configuration to allow
++     selection of which key exchange methods are used by ssh(1) and sshd(8)
++     and their order of preference.
++     ok markus@
++
+diff -up openssh-5.3p1/kex.c.KexAlgorithms openssh-5.3p1/kex.c
+--- openssh-5.3p1/kex.c.KexAlgorithms	2013-07-12 10:05:17.004031967 +0200
++++ openssh-5.3p1/kex.c	2013-07-12 10:07:55.152031912 +0200
+@@ -66,6 +66,31 @@ extern const EVP_MD *evp_ssh_sha256(void
+ static void kex_kexinit_finish(Kex *);
+ static void kex_choose_conf(Kex *);
+ 
++/* Validate KEX method name list */
++int
++kex_names_valid(const char *names)
++{
++	char *s, *cp, *p;
++
++	if (names == NULL || strcmp(names, "") == 0)
++		return 0;
++	s = cp = xstrdup(names);
++	for ((p = strsep(&cp, ",")); p && *p != '\0';
++	    (p = strsep(&cp, ","))) {
++	    	if (strcmp(p, KEX_DHGEX_SHA256) != 0 &&
++		    strcmp(p, KEX_DHGEX_SHA1) != 0 &&
++		    strcmp(p, KEX_DH14) != 0 &&
++		    strcmp(p, KEX_DH1) != 0 ) {
++			error("Unsupported KEX algorithm \"%.100s\"", p);
++			xfree(s);
++			return 0;
++		}
++	}
++	debug3("kex names ok: [%s]", names);
++	xfree(s);
++	return 1;
++}
++
+ /* put algorithm proposal into buffer */
+ static void
+ kex_prop2buf(Buffer *b, char *proposal[PROPOSAL_MAX])
+diff -up openssh-5.3p1/kex.h.KexAlgorithms openssh-5.3p1/kex.h
+--- openssh-5.3p1/kex.h.KexAlgorithms	2013-07-12 10:05:17.005031967 +0200
++++ openssh-5.3p1/kex.h	2013-07-12 10:05:17.210031967 +0200
+@@ -138,6 +138,8 @@ struct Kex {
+ 	void	(*kex[KEX_MAX])(Kex *);
+ };
+ 
++int	 kex_names_valid(const char *);
++
+ Kex	*kex_setup(char *[PROPOSAL_MAX]);
+ void	 kex_finish(Kex *);
+ 
+diff -up openssh-5.3p1/readconf.c.KexAlgorithms openssh-5.3p1/readconf.c
+--- openssh-5.3p1/readconf.c.KexAlgorithms	2013-07-12 10:05:17.186031967 +0200
++++ openssh-5.3p1/readconf.c	2013-07-12 10:05:17.211031967 +0200
+@@ -133,6 +133,7 @@ typedef enum {
+ 	oSendEnv, oControlPath, oControlMaster, oHashKnownHosts,
+ 	oTunnel, oTunnelDevice, oLocalCommand, oPermitLocalCommand,
+ 	oVisualHostKey, oUseRoaming, oZeroKnowledgePasswordAuthentication,
++	oKexAlgorithms,
+ 	oDeprecated, oUnsupported
+ } OpCodes;
+ 
+@@ -256,6 +257,7 @@ static struct {
+ #else
+ 	{ "zeroknowledgepasswordauthentication", oUnsupported },
+ #endif
++	{ "kexalgorithms", oKexAlgorithms },
+ 
+ 	{ NULL, oBadOption }
+ };
+@@ -738,6 +740,18 @@ parse_int:
+ 			options->macs = xstrdup(arg);
+ 		break;
+ 
++	case oKexAlgorithms:
++		arg = strdelim(&s);
++		if (!arg || *arg == '\0')
++			fatal("%.200s line %d: Missing argument.",
++			    filename, linenum);
++		if (!kex_names_valid(arg))
++			fatal("%.200s line %d: Bad SSH2 KexAlgorithms '%s'.",
++			    filename, linenum, arg ? arg : "<NONE>");
++		if (*activep && options->kex_algorithms == NULL)
++			options->kex_algorithms = xstrdup(arg);
++		break;
++
+ 	case oHostKeyAlgorithms:
+ 		arg = strdelim(&s);
+ 		if (!arg || *arg == '\0')
+@@ -1096,6 +1110,7 @@ initialize_options(Options * options)
+ 	options->cipher = -1;
+ 	options->ciphers = NULL;
+ 	options->macs = NULL;
++	options->kex_algorithms = NULL;
+ 	options->hostkeyalgorithms = NULL;
+ 	options->protocol = SSH_PROTO_UNKNOWN;
+ 	options->num_identity_files = 0;
+@@ -1212,6 +1227,7 @@ fill_default_options(Options * options)
+ 		options->cipher = SSH_CIPHER_NOT_SET;
+ 	/* options->ciphers, default set in myproposals.h */
+ 	/* options->macs, default set in myproposals.h */
++	/* options->kex_algorithms, default set in myproposals.h */
+ 	/* options->hostkeyalgorithms, default set in myproposals.h */
+ 	if (options->protocol == SSH_PROTO_UNKNOWN)
+ 		options->protocol = SSH_PROTO_1|SSH_PROTO_2;
+diff -up openssh-5.3p1/readconf.h.KexAlgorithms openssh-5.3p1/readconf.h
+--- openssh-5.3p1/readconf.h.KexAlgorithms	2013-07-12 10:05:17.187031967 +0200
++++ openssh-5.3p1/readconf.h	2013-07-12 10:05:17.212031967 +0200
+@@ -75,6 +75,7 @@ typedef struct {
+ 	char   *ciphers;	/* SSH2 ciphers in order of preference. */
+ 	char   *macs;		/* SSH2 macs in order of preference. */
+ 	char   *hostkeyalgorithms;	/* SSH2 server key types in order of preference. */
++	char   *kex_algorithms;	/* SSH2 kex methods in order of preference. */
+ 	int	protocol;	/* Protocol in order of preference. */
+ 	char   *hostname;	/* Real host to connect. */
+ 	char   *host_key_alias;	/* hostname alias for .ssh/known_hosts */
+diff -up openssh-5.3p1/servconf.c.KexAlgorithms openssh-5.3p1/servconf.c
+--- openssh-5.3p1/servconf.c.KexAlgorithms	2013-07-12 10:05:17.142031967 +0200
++++ openssh-5.3p1/servconf.c	2013-07-12 10:05:17.214031967 +0200
+@@ -113,6 +113,7 @@ initialize_server_options(ServerOptions 
+ 	options->num_deny_groups = 0;
+ 	options->ciphers = NULL;
+ 	options->macs = NULL;
++	options->kex_algorithms = NULL;
+ 	options->protocol = SSH_PROTO_UNKNOWN;
+ 	options->gateway_ports = -1;
+ 	options->num_subsystems = 0;
+@@ -332,6 +333,7 @@ typedef enum {
+ 	sUsePrivilegeSeparation, sAllowAgentForwarding,
+ 	sZeroKnowledgePasswordAuthentication,
+ 	sAuthorizedKeysCommand, sAuthorizedKeysCommandRunAs,
++	sKexAlgorithms,
+ 	sDeprecated, sUnsupported
+ } ServerOpCodes;
+ 
+@@ -468,6 +470,7 @@ static struct {
+ #endif
+ 	{ "requiredauthentications1", sRequiredAuthentications1, SSHCFG_ALL },
+ 	{ "requiredauthentications2", sRequiredAuthentications2, SSHCFG_ALL },
++	{ "kexalgorithms", sKexAlgorithms, SSHCFG_GLOBAL },
+ 	{ NULL, sBadOption, 0 }
+ };
+ 
+@@ -1154,6 +1157,18 @@ process_server_config_line(ServerOptions
+ 			options->macs = xstrdup(arg);
+ 		break;
+ 
++	case sKexAlgorithms:
++		arg = strdelim(&cp);
++		if (!arg || *arg == '\0')
++			fatal("%s line %d: Missing argument.",
++			    filename, linenum);
++		if (!kex_names_valid(arg))
++			fatal("%s line %d: Bad SSH2 KexAlgorithms '%s'.",
++			    filename, linenum, arg ? arg : "<NONE>");
++		if (options->kex_algorithms == NULL)
++			options->kex_algorithms = xstrdup(arg);
++		break;
++
+ 	case sProtocol:
+ 		intptr = &options->protocol;
+ 		arg = strdelim(&cp);
+diff -up openssh-5.3p1/servconf.h.KexAlgorithms openssh-5.3p1/servconf.h
+--- openssh-5.3p1/servconf.h.KexAlgorithms	2013-07-12 10:05:17.143031967 +0200
++++ openssh-5.3p1/servconf.h	2013-07-12 10:05:17.215031967 +0200
+@@ -69,6 +69,7 @@ typedef struct {
+ 	int     tcp_keep_alive;	/* If true, set SO_KEEPALIVE. */
+ 	char   *ciphers;	/* Supported SSH2 ciphers. */
+ 	char   *macs;		/* Supported SSH2 macs. */
++	char   *kex_algorithms;	/* SSH2 kex methods in order of preference. */
+ 	int	protocol;	/* Supported protocol versions. */
+ 	int     gateway_ports;	/* If true, allow remote connects to forwarded ports. */
+ 	SyslogFacility log_facility;	/* Facility for system logging. */
+diff -up openssh-5.3p1/ssh_config.5.KexAlgorithms openssh-5.3p1/ssh_config.5
+--- openssh-5.3p1/ssh_config.5.KexAlgorithms	2013-07-12 10:05:17.195031967 +0200
++++ openssh-5.3p1/ssh_config.5	2013-07-12 10:05:17.216031967 +0200
+@@ -623,6 +623,17 @@ it may be zero or more of:
+ .Dq pam ,
+ and
+ .Dq skey .
++.It Cm KexAlgorithms
++Specifies the available KEX (Key Exchange) algorithms.
++Multiple algorithms must be comma-separated.
++The default is
++.Dq ecdh-sha2-nistp256 ,
++.Dq ecdh-sha2-nistp384 ,
++.Dq ecdh-sha2-nistp521 ,
++.Dq diffie-hellman-group-exchange-sha256 , 
++.Dq diffie-hellman-group-exchange-sha1 ,
++.Dq diffie-hellman-group14-sha1 ,
++.Dq diffie-hellman-group1-sha1 .
+ .It Cm LocalCommand
+ Specifies a command to execute on the local machine after successfully
+ connecting to the server.
+diff -up openssh-5.3p1/sshconnect2.c.KexAlgorithms openssh-5.3p1/sshconnect2.c
+--- openssh-5.3p1/sshconnect2.c.KexAlgorithms	2013-07-12 10:05:17.153031967 +0200
++++ openssh-5.3p1/sshconnect2.c	2013-07-12 10:05:17.218031967 +0200
+@@ -171,6 +171,9 @@ ssh_kex2(char *host, struct sockaddr *ho
+ 		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] =
+ 		    options.hostkeyalgorithms;
+ 
++	if (options.kex_algorithms != NULL)
++		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
++
+ #ifdef GSSAPI
+ 	/* If we've got GSSAPI algorithms, then we also support the
+ 	 * 'null' hostkey, as a last resort */
+diff -up openssh-5.3p1/sshd.c.KexAlgorithms openssh-5.3p1/sshd.c
+--- openssh-5.3p1/sshd.c.KexAlgorithms	2013-07-12 10:05:17.127031967 +0200
++++ openssh-5.3p1/sshd.c	2013-07-12 10:05:17.220031967 +0200
+@@ -2353,6 +2353,8 @@ do_ssh2_kex(void)
+ 		myproposal[PROPOSAL_COMP_ALGS_CTOS] =
+ 		myproposal[PROPOSAL_COMP_ALGS_STOC] = "none,zlib@openssh.com";
+ 	}
++	if (options.kex_algorithms != NULL)
++		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
+ 
+ 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = list_hostkey_types();
+ 
+diff -up openssh-5.3p1/sshd_config.5.KexAlgorithms openssh-5.3p1/sshd_config.5
+--- openssh-5.3p1/sshd_config.5.KexAlgorithms	2013-07-12 10:05:17.144031967 +0200
++++ openssh-5.3p1/sshd_config.5	2013-07-12 10:05:17.221031967 +0200
+@@ -515,6 +515,14 @@ The default is
+ Specifies whether to look at .k5login file for user's aliases.
+ The default is
+ .Dq yes .
++.It Cm KexAlgorithms
++Specifies the available KEX (Key Exchange) algorithms.
++Multiple algorithms must be comma-separated.
++The default is
++.Dq diffie-hellman-group-exchange-sha256 , 
++.Dq diffie-hellman-group-exchange-sha1 ,
++.Dq diffie-hellman-group14-sha1 ,
++.Dq diffie-hellman-group1-sha1 .
+ .It Cm KeyRegenerationInterval
+ In protocol version 1, the ephemeral server key is automatically regenerated
+ after this many seconds (if it has been used).
