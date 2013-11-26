@@ -42,6 +42,39 @@ diff -up openssh-6.3p1/Makefile.in.fips openssh-6.3p1/Makefile.in
  
  sftp-server$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-common.o sftp-server.o sftp-server-main.o
  	$(LD) -o $@ sftp-server.o sftp-common.o sftp-server-main.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
+diff -up openssh-6.3p1/auth-rsa.c.fips openssh-6.3p1/auth-rsa.c
+--- openssh-6.3p1/auth-rsa.c.fips	2013-10-24 15:43:46.019999906 +0200
++++ openssh-6.3p1/auth-rsa.c	2013-10-24 15:44:09.262890686 +0200
+@@ -240,7 +240,7 @@ rsa_key_allowed_in_file(struct passwd *p
+ 			    "actual %d vs. announced %d.",
+ 			    file, linenum, BN_num_bits(key->rsa->n), bits);
+ 
+-		fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
++		fp = key_fingerprint(key, FIPS_mode() ? SSH_FP_SHA1 : SSH_FP_MD5, SSH_FP_HEX);
+ 		debug("matching key found: file %s, line %lu %s %s",
+ 		    file, linenum, key_type(key), fp);
+ 		free(fp);
+diff -up openssh-6.3p1/auth2-pubkey.c.fips openssh-6.3p1/auth2-pubkey.c
+--- openssh-6.3p1/auth2-pubkey.c.fips	2013-10-24 15:39:05.008319990 +0200
++++ openssh-6.3p1/auth2-pubkey.c	2013-10-24 15:39:05.029319892 +0200
+@@ -209,7 +209,7 @@ pubkey_auth_info(Authctxt *authctxt, con
+ 
+ 	if (key_is_cert(key)) {
+ 		fp = key_fingerprint(key->cert->signature_key,
+-		    SSH_FP_MD5, SSH_FP_HEX);
++		    FIPS_mode() ? SSH_FP_SHA1 : SSH_FP_MD5, SSH_FP_HEX);
+ 		auth_info(authctxt, "%s ID %s (serial %llu) CA %s %s%s%s", 
+ 		    key_type(key), key->cert->key_id,
+ 		    (unsigned long long)key->cert->serial,
+@@ -217,7 +217,7 @@ pubkey_auth_info(Authctxt *authctxt, con
+ 		    extra == NULL ? "" : ", ", extra == NULL ? "" : extra);
+ 		free(fp);
+ 	} else {
+-		fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
++		fp = key_fingerprint(key, FIPS_mode() ? SSH_FP_SHA1 : SSH_FP_MD5, SSH_FP_HEX);
+ 		auth_info(authctxt, "%s %s%s%s", key_type(key), fp,
+ 		    extra == NULL ? "" : ", ", extra == NULL ? "" : extra);
+ 		free(fp);
 diff -up openssh-6.3p1/authfile.c.fips openssh-6.3p1/authfile.c
 --- openssh-6.3p1/authfile.c.fips	2013-10-11 22:24:32.857031153 +0200
 +++ openssh-6.3p1/authfile.c	2013-10-11 22:24:32.870031092 +0200
@@ -370,6 +403,27 @@ diff -up openssh-6.3p1/openbsd-compat/bsd-arc4random.c.fips openssh-6.3p1/openbs
  }
  #endif /* !HAVE_ARC4RANDOM */
  
+diff -up openssh-6.3p1/ssh-keygen.c.fips openssh-6.3p1/ssh-keygen.c
+--- openssh-6.3p1/ssh-keygen.c.fips	2013-10-24 15:45:06.055623916 +0200
++++ openssh-6.3p1/ssh-keygen.c	2013-10-24 15:45:36.906478986 +0200
+@@ -730,7 +730,7 @@ do_download(struct passwd *pw)
+ 	enum fp_type fptype;
+ 	char *fp, *ra;
+ 
+-	fptype = print_bubblebabble ? SSH_FP_SHA1 : SSH_FP_MD5;
++	fptype = print_bubblebabble ? SSH_FP_SHA1 : (FIPS_mode() ? SSH_FP_SHA1 : SSH_FP_MD5);
+ 	rep =    print_bubblebabble ? SSH_FP_BUBBLEBABBLE : SSH_FP_HEX;
+ 
+ 	pkcs11_init(0);
+@@ -740,7 +740,7 @@ do_download(struct passwd *pw)
+ 	for (i = 0; i < nkeys; i++) {
+ 		if (print_fingerprint) {
+ 			fp = key_fingerprint(keys[i], fptype, rep);
+-			ra = key_fingerprint(keys[i], SSH_FP_MD5,
++			ra = key_fingerprint(keys[i], FIPS_mode() ? SSH_FP_SHA1 : SSH_FP_MD5,
+ 			    SSH_FP_RANDOMART);
+ 			printf("%u %s %s (PKCS11 key)\n", key_size(keys[i]),
+ 			    fp, key_type(keys[i]));
 diff -up openssh-6.3p1/ssh.c.fips openssh-6.3p1/ssh.c
 --- openssh-6.3p1/ssh.c.fips	2013-07-25 03:55:53.000000000 +0200
 +++ openssh-6.3p1/ssh.c	2013-10-11 22:24:32.872031082 +0200

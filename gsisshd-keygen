@@ -14,6 +14,7 @@ KEYGEN=/usr/bin/gsissh-keygen
 RSA1_KEY=/etc/gsissh/ssh_host_key
 RSA_KEY=/etc/gsissh/ssh_host_rsa_key
 DSA_KEY=/etc/gsissh/ssh_host_dsa_key
+ECDSA_KEY=/etc/gsissh/ssh_host_ecdsa_key
 
 # pull in sysconfig settings
 [ -f /etc/sysconfig/gsisshd ] && . /etc/sysconfig/gsisshd
@@ -89,11 +90,33 @@ do_dsa_keygen() {
 	fi
 }
 
+do_ecdsa_keygen() {
+	if [ ! -s $ECDSA_KEY ]; then
+		echo -n $"Generating SSH2 ECDSA host key: "
+		rm -f $ECDSA_KEY
+		if test ! -f $ECDSA_KEY && $KEYGEN -q -t ecdsa -f $ECDSA_KEY -C '' -N '' >&/dev/null; then
+			chgrp ssh_keys $ECDSA_KEY
+			chmod 600 $ECDSA_KEY
+			chmod 644 $ECDSA_KEY.pub
+			if [ -x /sbin/restorecon ]; then
+			    /sbin/restorecon $ECDSA_KEY.pub
+			fi
+			success $"ECDSA key generation"
+			echo
+		else
+			failure $"ECDSA key generation"
+			echo
+			exit 1
+		fi
+	fi
+}
+
 # Create keys if necessary
 if [ "x${AUTOCREATE_SERVER_KEYS}" != xNO ]; then
 	do_rsa_keygen
 	if [ "x${AUTOCREATE_SERVER_KEYS}" != xRSAONLY ]; then
 		do_rsa1_keygen
 		do_dsa_keygen
+		do_ecdsa_keygen
 	fi
 fi

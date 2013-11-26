@@ -135,147 +135,6 @@ diff -up openssh-6.3p1/Makefile.in.gsskex openssh-6.3p1/Makefile.in
  	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
  	sftp-server.o sftp-common.o \
  	roaming_common.o roaming_serv.o \
-diff -up openssh-6.3p1/auth-krb5.c.gsskex openssh-6.3p1/auth-krb5.c
---- openssh-6.3p1/auth-krb5.c.gsskex	2013-08-04 13:48:41.000000000 +0200
-+++ openssh-6.3p1/auth-krb5.c	2013-10-11 15:43:50.261299742 +0200
-@@ -50,6 +50,7 @@
- #include <errno.h>
- #include <unistd.h>
- #include <string.h>
-+#include <sys/stat.h>
- #include <krb5.h>
- 
- extern ServerOptions	 options;
-@@ -77,6 +78,7 @@ auth_krb5_password(Authctxt *authctxt, c
- #endif
- 	krb5_error_code problem;
- 	krb5_ccache ccache = NULL;
-+	const char *ccache_type;
- 	int len;
- 	char *client, *platform_client;
- 	const char *errmsg;
-@@ -177,12 +179,30 @@ auth_krb5_password(Authctxt *authctxt, c
- 		goto out;
- #endif
- 
-+	ccache_type = krb5_cc_get_type(authctxt->krb5_ctx, authctxt->krb5_fwd_ccache);
- 	authctxt->krb5_ticket_file = (char *)krb5_cc_get_name(authctxt->krb5_ctx, authctxt->krb5_fwd_ccache);
- 
--	len = strlen(authctxt->krb5_ticket_file) + 6;
-+	if (authctxt->krb5_ticket_file[0] == ':')
-+		authctxt->krb5_ticket_file++;
-+
-+	len = strlen(authctxt->krb5_ticket_file) + strlen(ccache_type);
- 	authctxt->krb5_ccname = xmalloc(len);
--	snprintf(authctxt->krb5_ccname, len, "FILE:%s",
-+
-+#ifdef USE_CCAPI
-+	snprintf(authctxt->krb5_ccname, len, "API:%s",
- 	    authctxt->krb5_ticket_file);
-+#else
-+	snprintf(authctxt->krb5_ccname, len, "%s:%s",
-+	    ccache_type, authctxt->krb5_ticket_file);
-+#endif
-+
-+	if (strcmp(ccache_type, "DIR") == 0) {
-+		char *p;
-+		p = strrchr(authctxt->krb5_ccname, '/');
-+		if (p)
-+			*p = '\0';
-+	}
-+
- 
- #ifdef USE_PAM
- 	if (options.use_pam)
-@@ -221,10 +241,30 @@ auth_krb5_password(Authctxt *authctxt, c
- void
- krb5_cleanup_proc(Authctxt *authctxt)
- {
-+	struct stat krb5_ccname_stat;
-+	char krb5_ccname[128], *krb5_ccname_dir_start, *krb5_ccname_dir_end;
-+
- 	debug("krb5_cleanup_proc called");
- 	if (authctxt->krb5_fwd_ccache) {
- 		krb5_cc_destroy(authctxt->krb5_ctx, authctxt->krb5_fwd_ccache);
- 		authctxt->krb5_fwd_ccache = NULL;
-+
-+		strncpy(krb5_ccname, authctxt->krb5_ccname, sizeof(krb5_ccname) - 10);
-+		krb5_ccname_dir_start = strchr(krb5_ccname, ':') + 1;
-+		strcat(krb5_ccname_dir_start, "/primary");
-+
-+		if (stat(krb5_ccname_dir_start, &krb5_ccname_stat) == 0) {
-+			if (unlink(krb5_ccname_dir_start) == 0) {
-+				krb5_ccname_dir_end = strrchr(krb5_ccname_dir_start, '/');
-+				*krb5_ccname_dir_end = '\0';
-+				if (rmdir(krb5_ccname_dir_start) == -1)
-+					debug("cache dir '%s' remove failed: %s", krb5_ccname_dir_start, strerror(errno));
-+			}
-+			else
-+				debug("cache primary file '%s', remove failed: %s",
-+					krb5_ccname_dir_start, strerror(errno)
-+					);
-+		}
- 	}
- 	if (authctxt->krb5_user) {
- 		krb5_free_principal(authctxt->krb5_ctx, authctxt->krb5_user);
-@@ -239,31 +279,45 @@ krb5_cleanup_proc(Authctxt *authctxt)
- #ifndef HEIMDAL
- krb5_error_code
- ssh_krb5_cc_gen(krb5_context ctx, krb5_ccache *ccache) {
--	int tmpfd, ret, oerrno;
--	char ccname[40];
-+	int ret, oerrno;
-+	char ccname[128];
-+#ifdef USE_CCAPI
-+	char cctemplate[] = "API:krb5cc_%d";
-+#else
- 	mode_t old_umask;
-+	char cctemplate[] = "DIR:/run/user/%d/krb5cc_XXXXXXXXXX";
-+	char *tmpdir;
-+#endif
- 
--	ret = snprintf(ccname, sizeof(ccname),
--	    "FILE:/tmp/krb5cc_%d_XXXXXXXXXX", geteuid());
-+	ret = snprintf(ccname, sizeof(ccname), cctemplate, geteuid());
- 	if (ret < 0 || (size_t)ret >= sizeof(ccname))
- 		return ENOMEM;
- 
--	old_umask = umask(0177);
--	tmpfd = mkstemp(ccname + strlen("FILE:"));
-+#ifndef USE_CCAPI
-+	old_umask = umask(0077);
-+	tmpdir = mkdtemp(ccname + strlen("DIR:"));
- 	oerrno = errno;
-+	if (tmpdir == NULL && errno == ENOENT) {
-+		/* /run/user/uid doesn't exist -> fallback to /tmp */
-+		ret = snprintf(ccname, sizeof(ccname), "DIR:/tmp/krb5cc_%d_XXXXXXXXXX", geteuid());
-+		if (ret < 0 || (size_t)ret >= sizeof(ccname))
-+			return ENOMEM;
-+		tmpdir = mkdtemp(ccname + strlen("DIR:"));
-+		oerrno = errno;
-+	}
-+
- 	umask(old_umask);
--	if (tmpfd == -1) {
--		logit("mkstemp(): %.100s", strerror(oerrno));
-+	if (tmpdir == NULL) {
-+		logit("mkdtemp(): %s - %.100s", ccname, strerror(oerrno));
- 		return oerrno;
- 	}
- 
--	if (fchmod(tmpfd,S_IRUSR | S_IWUSR) == -1) {
-+	if (chmod(tmpdir, S_IRUSR | S_IWUSR | S_IXUSR) == -1) {
- 		oerrno = errno;
--		logit("fchmod(): %.100s", strerror(oerrno));
--		close(tmpfd);
-+		logit("chmod(): %s - %.100s", ccname, strerror(oerrno));
- 		return oerrno;
- 	}
--	close(tmpfd);
-+#endif
- 
- 	return (krb5_cc_resolve(ctx, ccname, ccache));
- }
 diff -up openssh-6.3p1/auth2-gss.c.gsskex openssh-6.3p1/auth2-gss.c
 --- openssh-6.3p1/auth2-gss.c.gsskex	2013-10-11 15:15:17.213216506 +0200
 +++ openssh-6.3p1/auth2-gss.c	2013-10-11 15:15:17.283216181 +0200
@@ -779,7 +638,7 @@ diff -up openssh-6.3p1/gss-genr.c.gsskex openssh-6.3p1/gss-genr.c
  #endif /* GSSAPI */
 diff -up openssh-6.3p1/gss-serv-krb5.c.gsskex openssh-6.3p1/gss-serv-krb5.c
 --- openssh-6.3p1/gss-serv-krb5.c.gsskex	2013-07-20 05:35:45.000000000 +0200
-+++ openssh-6.3p1/gss-serv-krb5.c	2013-10-11 15:26:02.165189578 +0200
++++ openssh-6.3p1/gss-serv-krb5.c	2013-10-23 21:48:20.558346236 +0200
 @@ -120,7 +120,7 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
  	krb5_error_code problem;
  	krb5_principal princ;
@@ -789,7 +648,7 @@ diff -up openssh-6.3p1/gss-serv-krb5.c.gsskex openssh-6.3p1/gss-serv-krb5.c
  	const char *errmsg;
  
  	if (client->creds == NULL) {
-@@ -174,11 +174,25 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
+@@ -174,11 +174,26 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
  		return;
  	}
  
@@ -814,12 +673,18 @@ diff -up openssh-6.3p1/gss-serv-krb5.c.gsskex openssh-6.3p1/gss-serv-krb5.c
 +		if (p)
 +			*p = '\0';
 +	}
-+	client->store.filename = xstrdup(new_ccname);
++	if ((strcmp(new_cctype, "FILE") == 0) || (strcmp(new_cctype, "DIR") == 0))
++		client->store.filename = xstrdup(new_ccname);
 +#endif
  
  #ifdef USE_PAM
  	if (options.use_pam)
-@@ -190,6 +204,71 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
+@@ -187,9 +202,76 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
+ 
+ 	krb5_cc_close(krb_context, ccache);
+ 
++	client->store.data = krb_context;
++
  	return;
  }
  
@@ -891,7 +756,7 @@ diff -up openssh-6.3p1/gss-serv-krb5.c.gsskex openssh-6.3p1/gss-serv-krb5.c
  ssh_gssapi_mech gssapi_kerberos_mech = {
  	"toWM5Slw5Ew8Mqkay+al2g==",
  	"Kerberos",
-@@ -197,7 +276,8 @@ ssh_gssapi_mech gssapi_kerberos_mech = {
+@@ -197,7 +279,8 @@ ssh_gssapi_mech gssapi_kerberos_mech = {
  	NULL,
  	&ssh_gssapi_krb5_userok,
  	NULL,
@@ -903,7 +768,7 @@ diff -up openssh-6.3p1/gss-serv-krb5.c.gsskex openssh-6.3p1/gss-serv-krb5.c
  #endif /* KRB5 */
 diff -up openssh-6.3p1/gss-serv.c.gsskex openssh-6.3p1/gss-serv.c
 --- openssh-6.3p1/gss-serv.c.gsskex	2013-07-20 05:35:45.000000000 +0200
-+++ openssh-6.3p1/gss-serv.c	2013-10-11 15:27:32.889763132 +0200
++++ openssh-6.3p1/gss-serv.c	2013-10-23 21:51:52.212347754 +0200
 @@ -45,15 +45,20 @@
  #include "channels.h"
  #include "session.h"
@@ -1037,11 +902,11 @@ diff -up openssh-6.3p1/gss-serv.c.gsskex openssh-6.3p1/gss-serv.c
 +			ssh_gssapi_error(ctx);
 +			return (ctx->major);
 +		}
- 
--	gss_buffer_desc ename;
++
 +		ctx->major = gss_compare_name(&ctx->minor, client->name, 
 +		    new_name, &equal);
-+
+ 
+-	gss_buffer_desc ename;
 +		if (GSS_ERROR(ctx->major)) {
 +			ssh_gssapi_error(ctx);
 +			return (ctx->major);
@@ -1088,41 +953,33 @@ diff -up openssh-6.3p1/gss-serv.c.gsskex openssh-6.3p1/gss-serv.c
  	/* We can't copy this structure, so we just move the pointer to it */
  	client->creds = ctx->client_creds;
  	ctx->client_creds = GSS_C_NO_CREDENTIAL;
-@@ -292,11 +378,33 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_g
+@@ -292,11 +378,20 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_g
  void
  ssh_gssapi_cleanup_creds(void)
  {
-+	struct stat krb5_ccname_stat;
-+	char krb5_ccname[128], *krb5_ccname_dir_end;
+-	if (gssapi_client.store.filename != NULL) {
+-		/* Unlink probably isn't sufficient */
+-		debug("removing gssapi cred file\"%s\"",
+-		    gssapi_client.store.filename);
+-		unlink(gssapi_client.store.filename);
++	krb5_ccache ccache = NULL;
++	krb5_error_code problem;
 +
- 	if (gssapi_client.store.filename != NULL) {
- 		/* Unlink probably isn't sufficient */
- 		debug("removing gssapi cred file\"%s\"",
- 		    gssapi_client.store.filename);
- 		unlink(gssapi_client.store.filename);
-+
-+		/* Ticket cache: DIR::/run/user/13558/krb5cc_T9eDKSQvzb/tkt */
-+		/* same code as in auth-krb5.c:krb5_cleanup_proc */
-+		strncpy(krb5_ccname, gssapi_client.store.filename, sizeof(krb5_ccname) - 10);
-+		krb5_ccname_dir_end = strrchr(krb5_ccname, '/');
-+		if (krb5_ccname_dir_end != NULL)
-+			strcpy(krb5_ccname_dir_end, "/primary");
-+
-+		if (stat(krb5_ccname, &krb5_ccname_stat) == 0) {
-+			if (unlink(krb5_ccname) == 0) {
-+				*krb5_ccname_dir_end = '\0';
-+				if (rmdir(krb5_ccname) == -1)
-+					debug("cache dir '%s' remove failed: %s", krb5_ccname, strerror(errno));
-+			}
-+			else
-+				debug("cache primary file '%s', remove failed: %s",
-+					krb5_ccname, strerror(errno)
-+				);
++	if (gssapi_client.store.data != NULL) {
++		if ((problem = krb5_cc_resolve(gssapi_client.store.data, gssapi_client.store.envval, &ccache))) {
++			debug("%s: krb5_cc_resolve(): %.100s", __func__,
++				krb5_get_err_text(gssapi_client.store.data, problem));
++		} else if ((problem = krb5_cc_destroy(gssapi_client.store.data, ccache))) {
++			debug("%s: krb5_cc_resolve(): %.100s", __func__,
++				krb5_get_err_text(gssapi_client.store.data, problem));
++		} else {
++			krb5_free_context(gssapi_client.store.data);
++			gssapi_client.store.data = NULL;
 +		}
  	}
  }
  
-@@ -329,7 +437,7 @@ ssh_gssapi_do_child(char ***envp, u_int
+@@ -329,7 +424,7 @@ ssh_gssapi_do_child(char ***envp, u_int
  
  /* Privileged */
  int
@@ -1131,7 +988,7 @@ diff -up openssh-6.3p1/gss-serv.c.gsskex openssh-6.3p1/gss-serv.c
  {
  	OM_uint32 lmin;
  
-@@ -339,9 +447,11 @@ ssh_gssapi_userok(char *user)
+@@ -339,9 +434,11 @@ ssh_gssapi_userok(char *user)
  		return 0;
  	}
  	if (gssapi_client.mech && gssapi_client.mech->userok)
@@ -1145,7 +1002,7 @@ diff -up openssh-6.3p1/gss-serv.c.gsskex openssh-6.3p1/gss-serv.c
  			/* Destroy delegated credentials if userok fails */
  			gss_release_buffer(&lmin, &gssapi_client.displayname);
  			gss_release_buffer(&lmin, &gssapi_client.exportedname);
-@@ -354,14 +464,90 @@ ssh_gssapi_userok(char *user)
+@@ -354,14 +451,90 @@ ssh_gssapi_userok(char *user)
  	return (0);
  }
  
@@ -1243,8 +1100,8 @@ diff -up openssh-6.3p1/gss-serv.c.gsskex openssh-6.3p1/gss-serv.c
  
  #endif
 diff -up openssh-6.3p1/kex.c.gsskex openssh-6.3p1/kex.c
---- openssh-6.3p1/kex.c.gsskex	2013-10-11 15:15:17.197216581 +0200
-+++ openssh-6.3p1/kex.c	2013-10-11 15:47:41.629242975 +0200
+--- openssh-6.3p1/kex.c.gsskex	2013-10-30 15:26:39.339608716 +0100
++++ openssh-6.3p1/kex.c	2013-10-31 10:50:41.254535382 +0100
 @@ -51,6 +51,10 @@
  #include "roaming.h"
  #include "audit.h"
@@ -1256,16 +1113,31 @@ diff -up openssh-6.3p1/kex.c.gsskex openssh-6.3p1/kex.c
  #if OPENSSL_VERSION_NUMBER >= 0x00907000L
  # if defined(HAVE_EVP_SHA256)
  # define evp_ssh_sha256 EVP_sha256
-@@ -81,6 +85,9 @@ static const struct kexalg kexalgs[] = {
+@@ -81,6 +85,11 @@ static const struct kexalg kexalgs[] = {
  	{ KEX_ECDH_SHA2_NISTP384, KEX_ECDH_SHA2, NID_secp384r1, EVP_sha384 },
  	{ KEX_ECDH_SHA2_NISTP521, KEX_ECDH_SHA2, NID_secp521r1, EVP_sha512 },
  #endif
++#ifdef GSSAPI
 +	{ KEX_GSS_GEX_SHA1_ID, KEX_GSS_GEX_SHA1, 0, EVP_sha1 },
 +	{ KEX_GSS_GRP1_SHA1_ID, KEX_GSS_GRP1_SHA1, 0, EVP_sha1 },
 +	{ KEX_GSS_GRP14_SHA1_ID, KEX_GSS_GRP14_SHA1, 0, EVP_sha1 },
++#endif
  	{ NULL, -1, -1, NULL},
  };
  
+@@ -110,6 +119,12 @@ kex_alg_by_name(const char *name)
+ 	for (k = kexalgs; k->name != NULL; k++) {
+ 		if (strcmp(k->name, name) == 0)
+ 			return k;
++#ifdef GSSAPI
++		if (strncmp(name, "gss-", 4) == 0) {
++			if (strncmp(k->name, name, strlen(k->name)) == 0)
++				return k;
++		}
++#endif
+ 	}
+ 	return NULL;
+ }
 diff -up openssh-6.3p1/kex.h.gsskex openssh-6.3p1/kex.h
 --- openssh-6.3p1/kex.h.gsskex	2013-10-11 15:15:17.197216581 +0200
 +++ openssh-6.3p1/kex.h	2013-10-11 15:43:21.757429309 +0200
