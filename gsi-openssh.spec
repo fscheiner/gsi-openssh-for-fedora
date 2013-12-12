@@ -32,7 +32,7 @@
 %global nologin 1
 
 %global openssh_ver 6.1p1
-%global openssh_rel 8
+%global openssh_rel 9
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -538,6 +538,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 
 %changelog
+* Thu Dec 12 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-9
+- Based on openssh-6.1p1-11.fc18
+
 * Tue Nov 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.1p1-8
 - Based on openssh-6.1p1-10.fc18
 
