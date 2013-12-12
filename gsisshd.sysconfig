@@ -1,9 +1,11 @@
 # Configuration file for the sshd service.
 
-# The server keys are automatically generated if they ommited
-# to change the automatic creation uncomment the approprite 
-# line. The default is RSAONLY
+# The server keys are automatically generated if they omitted
+# to change the automatic creation uncomment the appropriate
+# line. The default is NODSA which means rsa and ecdsa keys are
+# generated.
 
+# AUTOCREATE_SERVER_KEYS=NODSA
 # AUTOCREATE_SERVER_KEYS=RSAONLY
 # AUTOCREATE_SERVER_KEYS=NO
 # AUTOCREATE_SERVER_KEYS=YES
