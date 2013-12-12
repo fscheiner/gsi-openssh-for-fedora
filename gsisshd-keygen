@@ -95,7 +95,7 @@ do_ecdsa_keygen() {
 		rm -f $ECDSA_KEY
 		if test ! -f $ECDSA_KEY && $KEYGEN -q -t ecdsa -f $ECDSA_KEY -C '' -N '' >&/dev/null; then
 			chgrp ssh_keys $ECDSA_KEY
-			chmod 600 $ECDSA_KEY
+			chmod 640 $ECDSA_KEY
 			chmod 644 $ECDSA_KEY.pub
 			if [ -x /sbin/restorecon ]; then
 			    /sbin/restorecon $ECDSA_KEY.pub
