@@ -5,9 +5,9 @@ diff -up openssh-6.1p1/sshd.c.log-usepam-no openssh-6.1p1/sshd.c
  	parse_server_config(&options, rexeced_flag ? "rexec" : config_file_name,
  	    &cfg, NULL);
  
-+	/* 'UsePAM no' is not supported in Fedora */
++	/* 'UsePAM no' is not supported in Red Hat Enterprise Linux */
 +	if (! options.use_pam)
-+		logit("WARNING: 'UsePAM no' is not supported in Fedora and may cause several problems.");
++		logit("WARNING: 'UsePAM no' is not supported in Red Hat Enterprise Linux and may cause several problems.");
 +
  	seed_rng();
  
@@ -19,7 +19,7 @@ diff -up openssh-6.1p1/sshd_config.log-usepam-no openssh-6.1p1/sshd_config
  # If you just want the PAM account and session checks to run without
  # PAM authentication, then enable this but set PasswordAuthentication
  # and ChallengeResponseAuthentication to 'no'.
-+# WARNING: 'UsePAM no' is not supported in Fedora and may cause several
++# WARNING: 'UsePAM no' is not supported in Red Hat Enterprise Linux and may cause several
 +# problems.
  #UsePAM no
  UsePAM yes

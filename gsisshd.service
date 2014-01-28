@@ -8,6 +8,8 @@ ExecStartPre=/usr/sbin/gsisshd-keygen
 ExecStart=/usr/sbin/gsisshd -D $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
+Restart=on-failure
+RestartSec=42s
 
 [Install]
 WantedBy=multi-user.target

@@ -185,8 +185,8 @@ diff -up openssh-6.2p1/ctr-cavstest.c.ctr-cavs openssh-6.2p1/ctr-cavstest.c
 +
 +	cipher_init(&cc, c, key, keylen, iv, ivlen, encrypt);
 +
-+        xfree(key);
-+        xfree(iv);
++        free(key);
++        free(iv);
 +
 +	outdata = malloc(datalen);
 +	if(outdata == NULL) {
@@ -196,7 +196,7 @@ diff -up openssh-6.2p1/ctr-cavstest.c.ctr-cavs openssh-6.2p1/ctr-cavstest.c
 +
 +	cipher_crypt(&cc, outdata, data, datalen, 0, 0);
 +
-+        xfree(data);
++        free(data);
 +
 +	cipher_cleanup(&cc);
 +
@@ -204,7 +204,7 @@ diff -up openssh-6.2p1/ctr-cavstest.c.ctr-cavs openssh-6.2p1/ctr-cavstest.c
 +		printf("%02X", (unsigned char)*p);
 +	}
 +
-+        xfree(outdata);
++        free(outdata);
 +
 +        printf("\n");
 +        return 0;

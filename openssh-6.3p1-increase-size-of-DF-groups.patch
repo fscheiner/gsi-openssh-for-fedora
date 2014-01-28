@@ -1,6 +1,6 @@
-diff -U0 openssh-6.2p2/ChangeLog.dh openssh-6.2p2/ChangeLog
---- openssh-6.2p2/ChangeLog.dh	2013-11-18 12:14:09.662240103 +0100
-+++ openssh-6.2p2/ChangeLog	2013-11-18 12:14:09.665240089 +0100
+diff -U0 openssh-6.3p1/ChangeLog.df openssh-6.3p1/ChangeLog
+--- openssh-6.3p1/ChangeLog.df	2013-10-23 22:38:03.476272461 +0200
++++ openssh-6.3p1/ChangeLog	2013-10-23 22:39:46.051788366 +0200
 @@ -0,0 +1,8 @@
 +20131010
 + - dtucker@cvs.openbsd.org 2013/10/08 11:42:13
@@ -10,10 +10,16 @@ diff -U0 openssh-6.2p2/ChangeLog.dh openssh-6.2p2/ChangeLog
 +   the upper limit specified by RFC4419.  Pointed out by Peter Backes, ok
 +   djm@.
 +
-diff -up openssh-6.2p2/dh.c.dh openssh-6.2p2/dh.c
---- openssh-6.2p2/dh.c.dh	2011-12-19 00:52:52.000000000 +0100
-+++ openssh-6.2p2/dh.c	2013-11-18 12:14:09.665240089 +0100
-@@ -332,17 +332,20 @@ dh_new_group14(void)
+diff -up openssh-6.3p1/dh.c.df openssh-6.3p1/dh.c
+--- openssh-6.3p1/dh.c.df	2013-07-18 08:12:07.000000000 +0200
++++ openssh-6.3p1/dh.c	2013-10-23 22:38:03.476272461 +0200
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: dh.c,v 1.51 2013/07/02 12:31:43 markus Exp $ */
++/* $OpenBSD: dh.c,v 1.52 2013/10/08 11:42:13 dtucker Exp $ */
+ /*
+  * Copyright (c) 2000 Niels Provos.  All rights reserved.
+  *
+@@ -352,17 +352,20 @@ dh_new_group14(void)
  
  /*
   * Estimates the group order for a Diffie-Hellman group that has an
@@ -40,9 +46,9 @@ diff -up openssh-6.2p2/dh.c.dh openssh-6.2p2/dh.c
 +		return 7680;
 +	return 8192;
  }
-diff -up openssh-6.2p2/dh.h.dh openssh-6.2p2/dh.h
---- openssh-6.2p2/dh.h.dh	2008-06-29 14:47:04.000000000 +0200
-+++ openssh-6.2p2/dh.h	2013-11-18 12:14:09.665240089 +0100
+diff -up openssh-6.3p1/dh.h.df openssh-6.3p1/dh.h
+--- openssh-6.3p1/dh.h.df	2008-06-29 14:47:04.000000000 +0200
++++ openssh-6.3p1/dh.h	2013-10-23 22:38:03.476272461 +0200
 @@ -1,4 +1,4 @@
 -/* $OpenBSD: dh.h,v 1.10 2008/06/26 09:19:40 djm Exp $ */
 +/* $OpenBSD: dh.h,v 1.11 2013/10/08 11:42:13 dtucker Exp $ */

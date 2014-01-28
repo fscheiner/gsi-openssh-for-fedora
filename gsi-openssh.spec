@@ -28,8 +28,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 6.2p2
-%global openssh_rel 4
+%global openssh_ver 6.4p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -49,9 +49,9 @@ Source13: gsisshd-keygen
 Source99: README.sshd-and-gsisshd
 
 #?
-Patch100: openssh-6.2p1-coverity.patch
+Patch100: openssh-6.3p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1872
-Patch101: openssh-6.2p1-fingerprint.patch
+Patch101: openssh-6.3p1-fingerprint.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
 #https://bugzilla.redhat.com/show_bug.cgi?id=735889
 Patch102: openssh-5.8p1-getaddrinfo.patch
@@ -59,17 +59,17 @@ Patch102: openssh-5.8p1-getaddrinfo.patch
 Patch103: openssh-5.8p1-packet.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
-Patch200: openssh-6.2p1-audit.patch
+Patch200: openssh-6.4p1-audit.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
-Patch400: openssh-6.2p1-role-mls.patch
+Patch400: openssh-6.3p1-role-mls.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=781634
-Patch404: openssh-6.1p1-privsep-selinux.patch
+Patch404: openssh-6.3p1-privsep-selinux.patch
 
 #?-- unwanted child :(
-Patch501: openssh-6.2p1-ldap.patch
+Patch501: openssh-6.3p1-ldap.patch
 #?
-Patch502: openssh-6.2p1-keycat.patch
+Patch502: openssh-6.3p1-keycat.patch
 
 #http6://bugzilla.mindrot.org/show_bug.cgi?id=1644
 Patch601: openssh-5.2p1-allow-ip-opts.patch
@@ -91,7 +91,7 @@ Patch608: openssh-6.1p1-askpass-ld.patch
 Patch609: openssh-5.5p1-x11.patch
 
 #?
-Patch700: openssh-6.2p1-fips.patch
+Patch700: openssh-6.3p1-fips.patch
 #?
 Patch701: openssh-5.6p1-exit-deadlock.patch
 #?
@@ -105,7 +105,7 @@ Patch705: openssh-5.1p1-scp-manpage.patch
 #?
 Patch706: openssh-5.8p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
-Patch707: openssh-6.1p1-redhat.patch
+Patch707: openssh-6.3p1-redhat.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
 Patch708: openssh-6.2p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
@@ -113,33 +113,28 @@ Patch709: openssh-6.2p1-vendor.patch
 # warn users for unsupported UsePAM=no (#757545)
 Patch711: openssh-6.1p1-log-usepam-no.patch
 # make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
-Patch712: openssh-5.9p1-ctr-evp-fast.patch
+Patch712: openssh-6.3p1-ctr-evp-fast.patch
 # add cavs test binary for the aes-ctr
-Patch713: openssh-6.2p1-ctr-cavstest.patch
+Patch713: openssh-6.3p1-ctr-cavstest.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 #changed cache storage type - #848228
-Patch800: openssh-6.2p1-gsskex.patch
+Patch800: openssh-6.3p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
-Patch801: openssh-6.2p1-force_krb.patch
+Patch801: openssh-6.3p1-force_krb.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
-Patch901: openssh-6.2p1-kuserok.patch
-# build regress/modpipe tests with $(CFLAGS), based on
-# http://lists.mindrot.org/pipermail/openssh-unix-dev/2013-March/031167.html
-Patch905: openssh-6.2p1-modpipe-cflags.patch
-# add latest config.{sub,guess} to support aarch64 (#926284)
-Patch907: openssh-6.2p1-aarch64.patch
-# make sftp's libedit interface marginally multibyte aware (#841771)
-Patch908: openssh-6.2p2-sftp-multibyte.patch
-# don't show Success for EAI_SYSTEM (#985964)
-Patch909: openssh-6.2p2-ssh_gai_strerror.patch
+Patch901: openssh-6.3p1-kuserok.patch
+# use default_ccache_name from /etc/krb5.conf (#991186)
+Patch902: openssh-6.3p1-krb5-use-default_ccache_name.patch
 # increase the size of the Diffie-Hellman groups (#1010607)
-Patch910: openssh-6.2p2-increase-size-of-DF-groups.patch
+Patch903: openssh-6.3p1-increase-size-of-DF-groups.patch
+# don't test ecdsa-521 keys (#969342)
+Patch1000: openssh-6.2p2-dont-test-ecdsa-521-keys.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p2.patch
-Patch98: openssh-6.2p2-gsissh.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
+Patch98: openssh-6.4p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -282,11 +277,9 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
-%patch905 -p1 -b .modpipe-cflags
-%patch907 -p1 -b .aarch64
-%patch908 -p1 -b .sftp-multibyte
-%patch909 -p1 -b .ssh_gai_strerror
-%patch910 -p1 -b .dh
+%patch902 -p1 -b .ccache_name
+%patch903 -p1 -b .dh
+%patch1000 -p1 -b .ecc
 
 %patch98 -p1 -b .gsi
 
@@ -438,7 +431,7 @@ getent passwd sshd >/dev/null || \
   -s /sbin/nologin -r -d /var/empty/sshd sshd 2> /dev/null || :
 
 %post server
-%systemd_post gsisshd.service
+%systemd_post gsisshd.service gsisshd.socket
 
 %preun server
 %systemd_preun gsisshd.service gsisshd.socket
@@ -500,6 +493,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Tue Jan 28 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-1
+- Based on openssh-6.4p1-1.el7
+
 * Thu Dec 12 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-4
 - Based on openssh-6.2p2-7.fc19
 
