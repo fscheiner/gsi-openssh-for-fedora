@@ -96,7 +96,7 @@ diff -up openssh-6.3p1/sshd_config.redhat openssh-6.3p1/sshd_config
  #GSSAPIAuthentication no
 +GSSAPIAuthentication yes
  #GSSAPICleanupCredentials yes
-+GSSAPICleanupCredentials yes
++GSSAPICleanupCredentials no
  
  # Set this to 'yes' to enable PAM authentication, account processing, 
  # and session processing. If this is enabled, PAM authentication will 

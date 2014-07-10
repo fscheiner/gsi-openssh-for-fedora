@@ -15,7 +15,7 @@ diff -up openssh-6.1p1/sshd.c.log-usepam-no openssh-6.1p1/sshd.c
 diff -up openssh-6.1p1/sshd_config.log-usepam-no openssh-6.1p1/sshd_config
 --- openssh-6.1p1/sshd_config.log-usepam-no	2012-09-14 20:54:58.514255748 +0200
 +++ openssh-6.1p1/sshd_config	2012-09-14 20:54:58.551255954 +0200
-@@ -95,6 +95,8 @@ GSSAPICleanupCredentials yes
+@@ -95,6 +95,8 @@ GSSAPICleanupCredentials no
  # If you just want the PAM account and session checks to run without
  # PAM authentication, then enable this but set PasswordAuthentication
  # and ChallengeResponseAuthentication to 'no'.

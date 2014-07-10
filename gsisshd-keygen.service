@@ -1,7 +1,7 @@
 [Unit]
 Description=gsissh Server Key Generation
 ConditionPathExists=|!/etc/gsissh/ssh_host_rsa_key
-ConditionPathExists=|!/etc/gsissh/ssh_host_dsa_key
+ConditionPathExists=|!/etc/gsissh/ssh_host_ecdsa_key
 
 [Service]
 ExecStart=/usr/sbin/gsisshd-keygen

@@ -29,12 +29,12 @@
 %global ldap 1
 
 %global openssh_ver 6.4p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -129,6 +129,19 @@ Patch901: openssh-6.3p1-kuserok.patch
 Patch902: openssh-6.3p1-krb5-use-default_ccache_name.patch
 # increase the size of the Diffie-Hellman groups (#1010607)
 Patch903: openssh-6.3p1-increase-size-of-DF-groups.patch
+# FIPS mode - adjust the key echange DH groups and ssh-keygen according to SP800-131A (#1001748)
+Patch904: openssh-6.4p1-FIPS-mode-SP800-131A.patch
+# Run ssh-copy-id in the legacy mode when SSH_COPY_ID_LEGACY variable is set (#969375
+Patch905: openssh-6.4p1-legacy-ssh-copy-id.patch
+# Use tty allocation for a remote scp (#985650)
+Patch906: openssh-6.4p1-fromto-remote.patch
+# Try CLOCK_BOOTTIME with fallback (#1091992)
+Patch907: openssh-6.4p1-CLOCK_BOOTTIME.patch
+# Prevents a server from skipping SSHFP lookup and forcing a new-hostkey
+# dialog by offering only certificate keys. (#1081338)
+Patch908: openssh-6.4p1-CVE-2014-2653.patch
+# ignore environment variables with embedded '=' or '\0' characters (#1077843)
+Patch909: openssh-6.4p1-ignore-bad-env-var.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
@@ -278,6 +291,12 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch901 -p1 -b .kuserok
 %patch902 -p1 -b .ccache_name
 %patch903 -p1 -b .dh
+%patch904 -p1 -b .SP800-131A
+%patch905 -p1 -b .legacy-ssh-copy-id
+%patch906 -p1 -b .fromto-remote
+%patch907 -p1 -b .CLOCK_BOOTTIME
+%patch908 -p1 -b .CVE-2014-2653
+%patch909 -p1 -b .bad-env-var
 
 %patch98 -p1 -b .gsi
 
@@ -449,7 +468,7 @@ getent passwd sshd >/dev/null || \
 %defattr(-,root,root)
 %doc CREDITS ChangeLog INSTALL LICENCE LICENSE.globus_usage OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
-%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
+%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
 %attr(0644,root,root) %{_mandir}/man1/gsissh-keygen.1*
 %attr(0755,root,root) %dir %{_libexecdir}/gsissh
@@ -491,6 +510,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Thu Jul 10 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-3
+- Based on openssh-6.4p1-4.fc20
+
 * Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 6.4p1-2.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
 

@@ -2892,7 +2892,7 @@ diff -up openssh-6.3p1/sshd_config.gsskex openssh-6.3p1/sshd_config
 @@ -92,6 +92,8 @@ ChallengeResponseAuthentication no
  GSSAPIAuthentication yes
  #GSSAPICleanupCredentials yes
- GSSAPICleanupCredentials yes
+ GSSAPICleanupCredentials no
 +#GSSAPIStrictAcceptorCheck yes
 +#GSSAPIKeyExchange no
  

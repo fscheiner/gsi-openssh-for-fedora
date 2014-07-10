@@ -2253,7 +2253,7 @@ diff -Nur openssh-6.4p1.orig/sshd.c openssh-6.4p1/sshd.c
 diff -Nur openssh-6.4p1.orig/sshd_config openssh-6.4p1/sshd_config
 --- openssh-6.4p1.orig/sshd_config	2013-11-26 14:25:47.983371579 +0100
 +++ openssh-6.4p1/sshd_config	2013-11-26 14:26:35.183803047 +0100
-@@ -89,12 +89,11 @@
+@@ -89,12 +89,12 @@
  #KerberosUseKuserok yes
  
  # GSSAPI options
@@ -2262,7 +2262,7 @@ diff -Nur openssh-6.4p1.orig/sshd_config openssh-6.4p1/sshd_config
 +#GSSAPIAuthentication yes
 +#GSSAPIDelegateCredentials yes
  #GSSAPICleanupCredentials yes
--GSSAPICleanupCredentials yes
+ GSSAPICleanupCredentials no
  #GSSAPIStrictAcceptorCheck yes
 -#GSSAPIKeyExchange no
 +#GSSAPIKeyExchange yes
