@@ -1,0 +1,23 @@
+diff -U0 openssh-6.4p1/ChangeLog.ssh-keygen-V openssh-6.4p1/ChangeLog
+--- openssh-6.4p1/ChangeLog.ssh-keygen-V	2014-01-28 11:07:41.374758458 +0100
++++ openssh-6.4p1/ChangeLog	2014-01-28 11:14:38.172631130 +0100
+@@ -0,0 +1,7 @@
++20131023
++   - djm@cvs.openbsd.org 2013/10/23 04:16:22
++     [ssh-keygen.c]
++     Make code match documentation: relative-specified certificate expiry time
++     should be relative to current time and not the validity start time.
++     Reported by Petr Lautrbach; ok deraadt@
++
+diff -up openssh-6.4p1/ssh-keygen.c.ssh-keygen-V openssh-6.4p1/ssh-keygen.c
+--- openssh-6.4p1/ssh-keygen.c.ssh-keygen-V	2014-01-28 11:07:41.365758505 +0100
++++ openssh-6.4p1/ssh-keygen.c	2014-01-28 11:07:41.375758453 +0100
+@@ -1747,7 +1747,7 @@ parse_cert_times(char *timespec)
+ 		cert_valid_from = parse_absolute_time(from);
+ 
+ 	if (*to == '-' || *to == '+')
+-		cert_valid_to = parse_relative_time(to, cert_valid_from);
++		cert_valid_to = parse_relative_time(to, now);
+ 	else
+ 		cert_valid_to = parse_absolute_time(to);
+ 

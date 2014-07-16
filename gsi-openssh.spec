@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.4p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -129,8 +129,19 @@ Patch901: openssh-6.3p1-kuserok.patch
 Patch902: openssh-6.3p1-krb5-use-default_ccache_name.patch
 # increase the size of the Diffie-Hellman groups (#1010607)
 Patch903: openssh-6.3p1-increase-size-of-DF-groups.patch
-# don't test ecdsa-521 keys (#969342)
-Patch1000: openssh-6.2p2-dont-test-ecdsa-521-keys.patch
+# FIPS mode - adjust the key echange DH groups and ssh-keygen according to SP800-131A (#1001748)
+Patch904: openssh-6.4p1-FIPS-mode-SP800-131A.patch
+# Run ssh-copy-id in the legacy mode when SSH_COPY_ID_LEGACY variable is set (#969375
+Patch905: openssh-6.4p1-legacy-ssh-copy-id.patch
+# Use tty allocation for a remote scp (#985650)
+Patch906: openssh-6.4p1-fromto-remote.patch
+# ssh-keygen - relative-specified certificate expiry time should be relative to current time and
+# not the validity start time (#1058234)
+Patch907: openssh-6.4p1-ssh-keygen-V.patch
+# use the size of security of 3des for DH (#1053107)
+Patch908: openssh-6.4p1-3des-dh-size.patch
+# ignore environment variables with embedded '=' or '\0' characters (#1077843)
+Patch909: openssh-6.4p1-ignore-bad-env-var.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
@@ -279,7 +290,12 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch901 -p1 -b .kuserok
 %patch902 -p1 -b .ccache_name
 %patch903 -p1 -b .dh
-%patch1000 -p1 -b .ecc
+%patch904 -p1 -b .SP800-131A
+%patch905 -p1 -b .legacy-ssh-copy-id
+%patch906 -p1 -b .fromto-remote
+%patch907 -p1 -b .ssh-keygen-V
+%patch908 -p1 -b .3des-dh-size
+%patch909 -p1 -b .bad-env-var
 
 %patch98 -p1 -b .gsi
 
@@ -493,6 +509,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Wed Jul 16 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-2
+- Based on openssh-6.4p1-8.el7
+
 * Tue Jan 28 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-1
 - Based on openssh-6.4p1-1.el7
 

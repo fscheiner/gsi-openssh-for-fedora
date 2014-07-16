@@ -4,7 +4,7 @@
 #
 # The creation is controlled by the $AUTOCREATE_SERVER_KEYS environment
 # variable.
-AUTOCREATE_SERVER_KEYS=RSAONLY
+AUTOCREATE_SERVER_KEYS=NODSA
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -115,8 +115,9 @@ do_ecdsa_keygen() {
 if [ "x${AUTOCREATE_SERVER_KEYS}" != xNO ]; then
 	do_rsa_keygen
 	if [ "x${AUTOCREATE_SERVER_KEYS}" != xRSAONLY ]; then
-		do_rsa1_keygen
-		do_dsa_keygen
 		do_ecdsa_keygen
+		if [ "x${AUTOCREATE_SERVER_KEYS}" != xNODSA ]; then
+			do_dsa_keygen
+		fi
 	fi
 fi

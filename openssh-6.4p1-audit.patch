@@ -2148,6 +2148,15 @@ diff -up openssh-6.3p1/sshd.c.audit openssh-6.3p1/sshd.c
  		}
  		/* Certs do not need demotion */
  	}
+@@ -652,7 +703,7 @@ privsep_preauth(Authctxt *authctxt)
+ 
+ 	if (use_privsep == PRIVSEP_ON)
+ 		box = ssh_sandbox_init();
+-	pid = fork();
++	pmonitor->m_pid = pid = fork();
+ 	if (pid == -1) {
+ 		fatal("fork of unprivileged child failed");
+ 	} else if (pid != 0) {
 @@ -708,6 +759,8 @@ privsep_preauth(Authctxt *authctxt)
  	}
  }
@@ -2244,7 +2253,7 @@ diff -up openssh-6.3p1/sshd.c.audit openssh-6.3p1/sshd.c
  				    pmonitor->m_pid, strerror(errno));
  		}
  	}
-+	is_privsep_child = use_privsep && pmonitor != NULL && !mm_is_monitor();
++	is_privsep_child = use_privsep && pmonitor != NULL && pmonitor->m_pid == 0;
 +	if (sensitive_data.host_keys != NULL)
 +		destroy_sensitive_data(is_privsep_child);
 +	packet_destroy_all(1, is_privsep_child);
