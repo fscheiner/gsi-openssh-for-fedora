@@ -1,0 +1,37 @@
+diff -U0 openssh-6.4p1/ChangeLog.bad-env-var openssh-6.4p1/ChangeLog
+--- openssh-6.4p1/ChangeLog.bad-env-var	2014-03-19 21:37:36.270509907 +0100
++++ openssh-6.4p1/ChangeLog	2014-03-19 21:37:36.276509878 +0100
+@@ -0,0 +1,7 @@
++20140304
++ - OpenBSD CVS Sync
++   - djm@cvs.openbsd.org 2014/03/03 22:22:30
++     [session.c]
++     ignore enviornment variables with embedded '=' or '\0' characters;
++     spotted by Jann Horn; ok deraadt@
++
+diff -up openssh-6.4p1/session.c.bad-env-var openssh-6.4p1/session.c
+--- openssh-6.4p1/session.c.bad-env-var	2014-03-19 21:37:36.233510090 +0100
++++ openssh-6.4p1/session.c	2014-03-19 21:37:36.277509873 +0100
+@@ -990,6 +990,11 @@ child_set_env(char ***envp, u_int *envsi
+ 	u_int envsize;
+ 	u_int i, namelen;
+ 
++	if (strchr(name, '=') != NULL) {
++		error("Invalid environment variable \"%.100s\"", name);
++		return;
++	}
++
+ 	/*
+ 	 * If we're passed an uninitialized list, allocate a single null
+ 	 * entry before continuing.
+@@ -2255,8 +2260,8 @@ session_env_req(Session *s)
+ 	char *name, *val;
+ 	u_int name_len, val_len, i;
+ 
+-	name = packet_get_string(&name_len);
+-	val = packet_get_string(&val_len);
++	name = packet_get_cstring(&name_len);
++	val = packet_get_cstring(&val_len);
+ 	packet_check_eom();
+ 
+ 	/* Don't set too many environment variables */

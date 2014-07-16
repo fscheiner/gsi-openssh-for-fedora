@@ -1670,7 +1670,7 @@ index 0c7f2e3..f47c7df 100644
  
  struct Session;
 diff --git a/packet.c b/packet.c
-index a51c1f2..faa3a85 100644
+index 06406dc..0e58db3 100644
 --- a/packet.c
 +++ b/packet.c
 @@ -60,6 +60,7 @@
@@ -1780,7 +1780,7 @@ index a51c1f2..faa3a85 100644
  	}
  	active_state->newkeys[mode] = kex_get_newkeys(mode);
  	if (active_state->newkeys[mode] == NULL)
-@@ -1971,6 +1989,47 @@ packet_get_newkeys(int mode)
+@@ -1975,6 +1993,47 @@ packet_get_newkeys(int mode)
  	return (void *)active_state->newkeys[mode];
  }
  
@@ -1828,7 +1828,7 @@ index a51c1f2..faa3a85 100644
  /*
   * Save the state for the real connection, and use a separate state when
   * resuming a suspended connection.
-@@ -1978,18 +2037,12 @@ packet_get_newkeys(int mode)
+@@ -1982,18 +2041,12 @@ packet_get_newkeys(int mode)
  void
  packet_backup_state(void)
  {
@@ -1848,7 +1848,7 @@ index a51c1f2..faa3a85 100644
  }
  
  /*
-@@ -2006,9 +2059,7 @@ packet_restore_state(void)
+@@ -2010,9 +2063,7 @@ packet_restore_state(void)
  	backup_state = active_state;
  	active_state = tmp;
  	active_state->connection_in = backup_state->connection_in;
@@ -1858,7 +1858,7 @@ index a51c1f2..faa3a85 100644
  	len = buffer_len(&backup_state->input);
  	if (len > 0) {
  		buf = buffer_ptr(&backup_state->input);
-@@ -2016,4 +2067,10 @@ packet_restore_state(void)
+@@ -2020,4 +2071,10 @@ packet_restore_state(void)
  		buffer_clear(&backup_state->input);
  		add_recv_bytes(len);
  	}
@@ -2063,7 +2063,7 @@ index cbb8e3a..fc6a7d3 100644
  void	 session_close(Session *);
  void	 do_setusercontext(struct passwd *);
 diff --git a/sshd.c b/sshd.c
-index 740ef4b..9aff64c 100644
+index 740ef4b..61ab3f5 100644
 --- a/sshd.c
 +++ b/sshd.c
 @@ -118,6 +118,7 @@
@@ -2187,6 +2187,15 @@ index 740ef4b..9aff64c 100644
  		}
  		/* Certs do not need demotion */
  	}
+@@ -646,7 +697,7 @@ privsep_preauth(Authctxt *authctxt)
+ 
+ 	if (use_privsep == PRIVSEP_ON)
+ 		box = ssh_sandbox_init();
+-	pid = fork();
++	pmonitor->m_pid = pid = fork();
+ 	if (pid == -1) {
+ 		fatal("fork of unprivileged child failed");
+ 	} else if (pid != 0) {
 @@ -700,6 +751,8 @@ privsep_preauth(Authctxt *authctxt)
  	}
  }
@@ -2283,7 +2292,7 @@ index 740ef4b..9aff64c 100644
  				    pmonitor->m_pid, strerror(errno));
  		}
  	}
-+	is_privsep_child = use_privsep && pmonitor != NULL && !mm_is_monitor();
++	is_privsep_child = use_privsep && pmonitor != NULL && pmonitor->m_pid == 0;
 +	if (sensitive_data.host_keys != NULL)
 +		destroy_sensitive_data(is_privsep_child);
 +	packet_destroy_all(1, is_privsep_child);

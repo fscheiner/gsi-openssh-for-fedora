@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.2p2
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -136,6 +136,16 @@ Patch908: openssh-6.2p2-sftp-multibyte.patch
 Patch909: openssh-6.2p2-ssh_gai_strerror.patch
 # increase the size of the Diffie-Hellman groups (#1010607)
 Patch910: openssh-6.2p2-increase-size-of-DF-groups.patch
+# Run ssh-copy-id in the legacy mode when SSH_COPY_ID_LEGACY variable is set
+# http://bugzilla.mindrot.org/show_bug.cgi?id=2110
+Patch911: openssh-6.2p2-legacy-ssh-copy-id.patch
+# Use tty allocation for a remote scp (#985650)
+Patch912: openssh-6.2p2-fromto-remote.patch
+# Prevents a server from skipping SSHFP lookup and forcing a new-hostkey
+# dialog by offering only certificate keys. (#1081338)
+Patch913: openssh-6.2p2-CVE-2014-2653.patch
+# ignore environment variables with embedded '=' or '\0' characters (#1077843)
+Patch914: openssh-6.2p2-ignore-bad-env-var.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.2p2.patch
@@ -287,6 +297,10 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch908 -p1 -b .sftp-multibyte
 %patch909 -p1 -b .ssh_gai_strerror
 %patch910 -p1 -b .dh
+%patch911 -p1 -b .legacy-ssh-copy-id
+%patch912 -p1 -b .fromto-remote
+%patch913 -p1 -b .CVE-2014-2653
+%patch914 -p1 -b .bad-env-var
 
 %patch98 -p1 -b .gsi
 
@@ -458,7 +472,7 @@ getent passwd sshd >/dev/null || \
 %defattr(-,root,root)
 %doc CREDITS ChangeLog INSTALL LICENCE LICENSE.globus_usage OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
-%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
+%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
 %attr(0644,root,root) %{_mandir}/man1/gsissh-keygen.1*
 %attr(0755,root,root) %dir %{_libexecdir}/gsissh
@@ -500,6 +514,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Wed Jul 16 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-5
+- Based on openssh-6.2p2-8.fc19
+
 * Thu Dec 12 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.2p2-4
 - Based on openssh-6.2p2-7.fc19
 
