@@ -1,6 +1,7 @@
-diff -up openssh-6.3p1/gss-serv-krb5.c.force_krb openssh-6.3p1/gss-serv-krb5.c
---- openssh-6.3p1/gss-serv-krb5.c.force_krb	2013-10-11 18:58:51.553948159 +0200
-+++ openssh-6.3p1/gss-serv-krb5.c	2013-10-11 21:40:49.972337025 +0200
+diff --git a/gss-serv-krb5.c b/gss-serv-krb5.c
+index 42de994..60de320 100644
+--- a/gss-serv-krb5.c
++++ b/gss-serv-krb5.c
 @@ -32,7 +32,9 @@
  #include <sys/types.h>
  
@@ -38,7 +39,7 @@ diff -up openssh-6.3p1/gss-serv-krb5.c.force_krb openssh-6.3p1/gss-serv-krb5.c
  static krb5_context krb_context = NULL;
  
  /* Initialise the krb5 library, for the stuff that GSSAPI won't do */
-@@ -87,6 +98,7 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client
+@@ -87,6 +98,7 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
  	krb5_principal princ;
  	int retval;
  	const char *errmsg;
@@ -46,7 +47,7 @@ diff -up openssh-6.3p1/gss-serv-krb5.c.force_krb openssh-6.3p1/gss-serv-krb5.c
  
  	if (ssh_gssapi_krb5_init() == 0)
  		return 0;
-@@ -98,10 +110,22 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client
+@@ -98,10 +110,22 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
  		krb5_free_error_message(krb_context, errmsg);
  		return 0;
  	}
@@ -70,7 +71,7 @@ diff -up openssh-6.3p1/gss-serv-krb5.c.force_krb openssh-6.3p1/gss-serv-krb5.c
  	} else
  		retval = 0;
  
-@@ -109,6 +133,135 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client
+@@ -109,6 +133,135 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
  	return retval;
  }
  
@@ -206,19 +207,20 @@ diff -up openssh-6.3p1/gss-serv-krb5.c.force_krb openssh-6.3p1/gss-serv-krb5.c
  
  /* This writes out any forwarded credentials from the structure populated
   * during userauth. Called after we have setuid to the user */
-diff -up openssh-6.3p1/session.c.force_krb openssh-6.3p1/session.c
---- openssh-6.3p1/session.c.force_krb	2013-10-11 18:58:51.487948468 +0200
-+++ openssh-6.3p1/session.c	2013-10-11 18:58:51.563948112 +0200
-@@ -823,6 +823,29 @@ do_exec(Session *s, const char *command)
- 		debug("Forced command (key option) '%.900s'", command);
+diff --git a/session.c b/session.c
+index b5dc144..ba4589b 100644
+--- a/session.c
++++ b/session.c
+@@ -806,6 +806,29 @@ do_exec(Session *s, const char *command)
+ 		command = forced_command;
+ 		forced = "(key-option)";
  	}
- 
 +#ifdef GSSAPI
 +#ifdef KRB5 /* k5users_allowed_cmds only available w/ GSSAPI+KRB5 */
 +	else if (k5users_allowed_cmds) {
 +		const char *match = command;
 +		int allowed = 0, i = 0;
-+ 
++
 +		if (!match)
 +			match = s->pw->pw_shell;
 +		while (k5users_allowed_cmds[i]) {
@@ -236,12 +238,13 @@ diff -up openssh-6.3p1/session.c.force_krb openssh-6.3p1/session.c
 +#endif
 +#endif
 +
- #ifdef SSH_AUDIT_EVENTS
- 	if (s->command != NULL || s->command_handle != -1)
- 		fatal("do_exec: command already set");
-diff -up openssh-6.3p1/ssh-gss.h.force_krb openssh-6.3p1/ssh-gss.h
---- openssh-6.3p1/ssh-gss.h.force_krb	2013-10-11 18:58:51.558948136 +0200
-+++ openssh-6.3p1/ssh-gss.h	2013-10-11 18:58:51.563948112 +0200
+ 	if (forced != NULL) {
+ 		if (IS_INTERNAL_SFTP(command)) {
+ 			s->is_subsystem = s->is_subsystem ?
+diff --git a/ssh-gss.h b/ssh-gss.h
+index 0374c88..509109a 100644
+--- a/ssh-gss.h
++++ b/ssh-gss.h
 @@ -49,6 +49,10 @@
  #  endif /* !HAVE_DECL_GSS_C_NT_... */
  
@@ -253,10 +256,11 @@ diff -up openssh-6.3p1/ssh-gss.h.force_krb openssh-6.3p1/ssh-gss.h
  #endif /* KRB5 */
  
  /* draft-ietf-secsh-gsskeyex-06 */
-diff -up openssh-6.3p1/sshd.8.force_krb openssh-6.3p1/sshd.8
---- openssh-6.3p1/sshd.8.force_krb	2013-10-11 18:58:51.537948234 +0200
-+++ openssh-6.3p1/sshd.8	2013-10-11 18:58:51.563948112 +0200
-@@ -326,6 +326,7 @@ Finally, the server and the client enter
+diff --git a/sshd.8 b/sshd.8
+index 058d37a..5c4f15b 100644
+--- a/sshd.8
++++ b/sshd.8
+@@ -327,6 +327,7 @@ Finally, the server and the client enter an authentication dialog.
  The client tries to authenticate itself using
  host-based authentication,
  public key authentication,
@@ -264,7 +268,7 @@ diff -up openssh-6.3p1/sshd.8.force_krb openssh-6.3p1/sshd.8
  challenge-response authentication,
  or password authentication.
  .Pp
-@@ -797,6 +798,12 @@ This file is used in exactly the same wa
+@@ -800,6 +801,12 @@ This file is used in exactly the same way as
  but allows host-based authentication without permitting login with
  rlogin/rsh.
  .Pp

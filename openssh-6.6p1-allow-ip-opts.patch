@@ -1,7 +1,8 @@
-diff -up openssh-5.2p1/canohost.c.ip-opts openssh-5.2p1/canohost.c
---- openssh-5.2p1/canohost.c.ip-opts	2009-02-14 06:28:21.000000000 +0100
-+++ openssh-5.2p1/canohost.c	2009-09-01 15:31:29.000000000 +0200
-@@ -169,12 +169,27 @@ check_ip_options(int sock, char *ipaddr)
+diff --git a/canohost.c b/canohost.c
+index a61a8c9..97ce58c 100644
+--- a/canohost.c
++++ b/canohost.c
+@@ -165,12 +165,29 @@ check_ip_options(int sock, char *ipaddr)
  	option_size = sizeof(options);
  	if (getsockopt(sock, ipproto, IP_OPTIONS, options,
  	    &option_size) >= 0 && option_size != 0) {
@@ -18,8 +19,12 @@ diff -up openssh-5.2p1/canohost.c.ip-opts openssh-5.2p1/canohost.c
 +				case 1:
 +					++i;
 +					break;
-+				case 131:
-+				case 137:
++				case 130:
++				case 133:
++				case 134:
++					i += options[i + 1];
++					break;
++				default:
 +				/* Fail, fatally, if we detect either loose or strict
 +			 	 * source routing options. */
 +					text[0] = '\0';
@@ -28,8 +33,6 @@ diff -up openssh-5.2p1/canohost.c.ip-opts openssh-5.2p1/canohost.c
 +							" %2.2x", options[i]);
 +					fatal("Connection from %.100s with IP options:%.800s",
 +						ipaddr, text);
-+				default:
-+					i += options[i + 1];
 +			}
 +		} while (i < option_size);
  	}

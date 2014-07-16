@@ -1,10 +1,9 @@
 [Unit]
 Description=gsissh server daemon
-After=syslog.target network.target auditd.service
+After=network.target gsisshd-keygen.service
 
 [Service]
 EnvironmentFile=/etc/sysconfig/gsisshd
-ExecStartPre=/usr/sbin/gsisshd-keygen
 ExecStart=/usr/sbin/gsisshd -D $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process

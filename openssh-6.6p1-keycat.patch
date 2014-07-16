@@ -1,6 +1,8 @@
-diff -up openssh-6.3p1/HOWTO.ssh-keycat.keycat openssh-6.3p1/HOWTO.ssh-keycat
---- openssh-6.3p1/HOWTO.ssh-keycat.keycat	2013-10-10 15:16:33.445566916 +0200
-+++ openssh-6.3p1/HOWTO.ssh-keycat	2013-10-10 15:16:33.445566916 +0200
+diff --git a/HOWTO.ssh-keycat b/HOWTO.ssh-keycat
+new file mode 100644
+index 0000000..630ec62
+--- /dev/null
++++ b/HOWTO.ssh-keycat
 @@ -0,0 +1,12 @@
 +The ssh-keycat retrieves the content of the ~/.ssh/authorized_keys
 +of an user in any environment. This includes environments with
@@ -14,9 +16,10 @@ diff -up openssh-6.3p1/HOWTO.ssh-keycat.keycat openssh-6.3p1/HOWTO.ssh-keycat
 +        PubkeyAuthentication yes
 +
 +
-diff -up openssh-6.3p1/Makefile.in.keycat openssh-6.3p1/Makefile.in
---- openssh-6.3p1/Makefile.in.keycat	2013-10-10 15:16:33.442566930 +0200
-+++ openssh-6.3p1/Makefile.in	2013-10-10 15:16:33.445566916 +0200
+diff --git a/Makefile.in b/Makefile.in
+index 411eadb..4ab6717 100644
+--- a/Makefile.in
++++ b/Makefile.in
 @@ -27,6 +27,7 @@ SFTP_SERVER=$(libexecdir)/sftp-server
  SSH_KEYSIGN=$(libexecdir)/ssh-keysign
  SSH_LDAP_HELPER=$(libexecdir)/ssh-ldap-helper
@@ -34,17 +37,17 @@ diff -up openssh-6.3p1/Makefile.in.keycat openssh-6.3p1/Makefile.in
  
  LIBSSH_OBJS=authfd.o authfile.o bufaux.o bufbn.o buffer.o \
  	canohost.o channels.o cipher.o cipher-aes.o \
-@@ -172,6 +173,9 @@ ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT)
+@@ -176,6 +177,9 @@ ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-pkcs11-helper.o ssh-pkcs11
  ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o
  	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
  
-+ssh-keycat$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keycat.o
-+	$(LD) -o $@ ssh-keycat.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(SSHDLIBS)
++ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o
++	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(SSHDLIBS) $(SSHLIBS)
 +
  ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o roaming_dummy.o
  	$(LD) -o $@ ssh-keyscan.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
  
-@@ -279,6 +283,7 @@ install-files:
+@@ -283,6 +287,7 @@ install-files:
  		$(INSTALL) -m 0700 $(STRIP_OPT) ssh-ldap-helper $(DESTDIR)$(SSH_LDAP_HELPER) ; \
  		$(INSTALL) -m 0700 ssh-ldap-wrapper $(DESTDIR)$(SSH_LDAP_WRAPPER) ; \
  	fi
@@ -52,15 +55,16 @@ diff -up openssh-6.3p1/Makefile.in.keycat openssh-6.3p1/Makefile.in
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp$(EXEEXT) $(DESTDIR)$(bindir)/sftp$(EXEEXT)
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp-server$(EXEEXT) $(DESTDIR)$(SFTP_SERVER)$(EXEEXT)
  	$(INSTALL) -m 644 ssh.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
-diff -up openssh-6.3p1/auth2-pubkey.c.keycat openssh-6.3p1/auth2-pubkey.c
---- openssh-6.3p1/auth2-pubkey.c.keycat	2013-10-10 15:16:33.429566992 +0200
-+++ openssh-6.3p1/auth2-pubkey.c	2013-10-10 15:16:33.445566916 +0200
-@@ -606,6 +606,14 @@ user_key_command_allowed2(struct passwd
+diff --git a/auth2-pubkey.c b/auth2-pubkey.c
+index c0ae0d4..cb0f931 100644
+--- a/auth2-pubkey.c
++++ b/auth2-pubkey.c
+@@ -600,6 +600,14 @@ user_key_command_allowed2(struct passwd *user_pw, Key *key)
  			_exit(1);
  		}
  
 +#ifdef WITH_SELINUX
-+		if (ssh_selinux_setup_env_variables() < 0) {
++		if (sshd_selinux_setup_env_variables() < 0) {
 +			error ("failed to copy environment:  %s",
 +			    strerror(errno));
 +			_exit(127);
@@ -70,19 +74,41 @@ diff -up openssh-6.3p1/auth2-pubkey.c.keycat openssh-6.3p1/auth2-pubkey.c
  		execl(options.authorized_keys_command,
  		    options.authorized_keys_command, user_pw->pw_name, NULL);
  
-diff -up openssh-6.3p1/openbsd-compat/port-linux.c.keycat openssh-6.3p1/openbsd-compat/port-linux.c
---- openssh-6.3p1/openbsd-compat/port-linux.c.keycat	2013-10-10 15:16:33.435566964 +0200
-+++ openssh-6.3p1/openbsd-compat/port-linux.c	2013-10-10 15:32:19.946065189 +0200
-@@ -313,7 +313,7 @@ ssh_selinux_getctxbyname(char *pwname,
+diff --git a/openbsd-compat/port-linux-sshd.c b/openbsd-compat/port-linux-sshd.c
+index d04f4ed..0077dd7 100644
+--- a/openbsd-compat/port-linux-sshd.c
++++ b/openbsd-compat/port-linux-sshd.c
+@@ -53,6 +53,20 @@ extern Authctxt *the_authctxt;
+ extern int inetd_flag;
+ extern int rexeced_flag;
+ 
++/* Wrapper around is_selinux_enabled() to log its return value once only */
++int
++sshd_selinux_enabled(void)
++{
++	static int enabled = -1;
++
++	if (enabled == -1) {
++		enabled = (is_selinux_enabled() == 1);
++		debug("SELinux support %s", enabled ? "enabled" : "disabled");
++	}
++
++	return (enabled);
++}
++
+ /* Send audit message */
+ static int
+ sshd_selinux_send_audit_message(int success, security_context_t default_context,
+@@ -307,7 +321,7 @@ sshd_selinux_getctxbyname(char *pwname,
  
  /* Setup environment variables for pam_selinux */
  static int
--ssh_selinux_setup_pam_variables(void)
-+ssh_selinux_setup_variables(int(*set_it)(const char *, const char *))
+-sshd_selinux_setup_pam_variables(void)
++sshd_selinux_setup_variables(int(*set_it)(char *, const char *))
  {
  	const char *reqlvl;
  	char *role;
-@@ -324,16 +324,16 @@ ssh_selinux_setup_pam_variables(void)
+@@ -318,16 +332,16 @@ sshd_selinux_setup_pam_variables(void)
  
  	ssh_selinux_get_role_level(&role, &reqlvl);
  
@@ -102,34 +128,82 @@ diff -up openssh-6.3p1/openbsd-compat/port-linux.c.keycat openssh-6.3p1/openbsd-
  
  	if (role != NULL)
  		free(role);
-@@ -341,6 +341,24 @@ ssh_selinux_setup_pam_variables(void)
+@@ -335,6 +349,24 @@ sshd_selinux_setup_pam_variables(void)
  	return rv;
  }
  
 +static int
-+ssh_selinux_setup_pam_variables(void)
++sshd_selinux_setup_pam_variables(void)
 +{
-+	return ssh_selinux_setup_variables(do_pam_putenv);
++	return sshd_selinux_setup_variables(do_pam_putenv);
 +}
 +
 +static int
-+do_setenv(char *name, char *value)
++do_setenv(char *name, const char *value)
 +{
 +	return setenv(name, value, 1);
 +}
 +
 +int
-+ssh_selinux_setup_env_variables(void)
++sshd_selinux_setup_env_variables(void)
 +{
-+	return ssh_selinux_setup_variables(do_setenv);
++	return sshd_selinux_setup_variables(do_setenv);
 +}
 +
  /* Set the execution context to the default for the specified user */
  void
- ssh_selinux_setup_exec_context(char *pwname)
-diff -up openssh-6.3p1/ssh-keycat.c.keycat openssh-6.3p1/ssh-keycat.c
---- openssh-6.3p1/ssh-keycat.c.keycat	2013-10-10 15:16:33.446566911 +0200
-+++ openssh-6.3p1/ssh-keycat.c	2013-10-10 15:16:33.446566911 +0200
+ sshd_selinux_setup_exec_context(char *pwname)
+@@ -343,7 +375,7 @@ sshd_selinux_setup_exec_context(char *pwname)
+ 	int r = 0;
+ 	security_context_t default_ctx = NULL;
+ 
+-	if (!ssh_selinux_enabled())
++	if (!sshd_selinux_enabled())
+ 		return;
+ 
+ 	if (options.use_pam) {
+@@ -414,7 +446,7 @@ sshd_selinux_copy_context(void)
+ {
+ 	security_context_t *ctx;
+ 
+-	if (!ssh_selinux_enabled())
++	if (!sshd_selinux_enabled())
+ 		return;
+ 
+ 	if (getexeccon((security_context_t *)&ctx) != 0) {
+diff --git a/openbsd-compat/port-linux.h b/openbsd-compat/port-linux.h
+index b18893c..cb51f99 100644
+--- a/openbsd-compat/port-linux.h
++++ b/openbsd-compat/port-linux.h
+@@ -25,8 +25,10 @@ void ssh_selinux_setup_pty(char *, const char *);
+ void ssh_selinux_change_context(const char *);
+ void ssh_selinux_setfscreatecon(const char *);
+ 
++int sshd_selinux_enabled(void);
+ void sshd_selinux_copy_context(void);
+ void sshd_selinux_setup_exec_context(char *);
++int sshd_selinux_setup_env_variables(void);
+ #endif
+ 
+ #ifdef LINUX_OOM_ADJUST
+diff --git a/platform.c b/platform.c
+index 0d39ab2..0dae387 100644
+--- a/platform.c
++++ b/platform.c
+@@ -102,7 +102,7 @@ platform_setusercontext(struct passwd *pw)
+ {
+ #ifdef WITH_SELINUX
+ 	/* Cache selinux status for later use */
+-	(void)ssh_selinux_enabled();
++	(void)sshd_selinux_enabled();
+ #endif
+ 
+ #ifdef USE_SOLARIS_PROJECTS
+diff --git a/ssh-keycat.c b/ssh-keycat.c
+new file mode 100644
+index 0000000..f8ed7af
+--- /dev/null
++++ b/ssh-keycat.c
 @@ -0,0 +1,238 @@
 +/*
 + * Redistribution and use in source and binary forms, with or without
