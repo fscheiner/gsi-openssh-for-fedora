@@ -34,7 +34,7 @@
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}
+Release: %{openssh_rel}%{?dist}.1
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -501,6 +501,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Sat Aug 16 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 6.6.1p1-1.1
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
+
 * Wed Jul 16 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-1
 - Based on openssh-6.6.1p1-2.fc21
 
