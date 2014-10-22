@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.4p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -142,6 +142,8 @@ Patch907: openssh-6.4p1-CLOCK_BOOTTIME.patch
 Patch908: openssh-6.4p1-CVE-2014-2653.patch
 # ignore environment variables with embedded '=' or '\0' characters (#1077843)
 Patch909: openssh-6.4p1-ignore-bad-env-var.patch
+# standardise on NI_MAXHOST for gethostname() string lengths (#1051490)
+Patch910: openssh-6.4p1-NI_MAXHOST.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
@@ -297,6 +299,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch907 -p1 -b .CLOCK_BOOTTIME
 %patch908 -p1 -b .CVE-2014-2653
 %patch909 -p1 -b .bad-env-var
+%patch910 -p1 -b .NI_MAXHOST
 
 %patch98 -p1 -b .gsi
 
@@ -510,6 +513,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Wed Oct 22 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-4
+- Based on openssh-6.4p1-5.fc20
+
 * Thu Jul 10 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-3
 - Based on openssh-6.4p1-4.fc20
 
