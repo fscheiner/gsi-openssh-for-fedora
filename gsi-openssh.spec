@@ -29,12 +29,12 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -136,6 +136,18 @@ Patch908: openssh-6.6p1-CVE-2014-2653.patch
 # OpenSSH 6.5 and 6.6 sometimes encode a value used in the curve25519 key exchange incorrectly
 # Disable the curve25519 KEX when speaking to OpenSSH 6.5 or 6.6
 Patch909: openssh-5618210618256bbf5f4f71b2887ff186fd451736.patch
+# standardise on NI_MAXHOST for gethostname() string lengths (#1051490)
+Patch910: openssh-6.6.1p1-NI_MAXHOST.patch
+# set a client's address right after a connection is set
+# http://bugzilla.mindrot.org/show_bug.cgi?id=2257
+Patch911: openssh-6.6p1-set_remote_ipaddr.patch
+# apply RFC3454 stringprep to banners when possible
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2058
+# slightly changed patch from comment 10
+Patch912: openssh-6.6.1p1-utf8-banner.patch
+# don't consider a partial success as a failure
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2270
+Patch913: openssh-6.6.1p1-partial-success.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
@@ -285,6 +297,10 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch907 -p1 -b .CLOCK_BOOTTIME
 %patch908 -p1 -b .CVE-2014-2653
 %patch909 -p1 -b .6.6.1
+%patch910 -p1 -b .NI_MAXHOST
+%patch911 -p1 -b .set_remote_ipaddr
+%patch912 -p1 -b .utf8-banner
+%patch913 -p1 -b .partial-success
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
@@ -457,7 +473,9 @@ getent passwd sshd >/dev/null || \
 
 %files
 %defattr(-,root,root)
-%doc CREDITS ChangeLog INSTALL LICENCE LICENSE.globus_usage OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
+%{!?_licensedir:%global license %%doc}
+%license LICENCE LICENSE.globus_usage
+%doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
@@ -501,6 +519,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Wed Oct 22 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-2
+- Based on openssh-6.6.1p1-5.fc21
+
 * Sat Aug 16 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 6.6.1p1-1.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
 

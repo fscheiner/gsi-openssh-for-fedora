@@ -366,7 +366,7 @@ index 770ad28..9d4fc6d 100644
  		break;
  	default:
 diff --git a/key.c b/key.c
-index 62f3edb..c13b644 100644
+index 62f3edb..a2050f6 100644
 --- a/key.c
 +++ b/key.c
 @@ -42,6 +42,7 @@
@@ -394,6 +394,19 @@ index 62f3edb..c13b644 100644
  		rv_defined = 1;
  	}
  	return rv;
+@@ -1168,8 +1173,11 @@ rsa_generate_private_key(u_int bits)
+ 		fatal("%s: BN_new failed", __func__);
+ 	if (!BN_set_word(f4, RSA_F4))
+ 		fatal("%s: BN_new failed", __func__);
+-	if (!RSA_generate_key_ex(private, bits, f4, NULL))
++	if (!RSA_generate_key_ex(private, bits, f4, NULL)) {
++		if (FIPS_mode())
++			logit("%s: the key length might be unsupported by FIPS mode approved key generation method", __func__);
+ 		fatal("%s: key generation failed.", __func__);
++	}
+ 	BN_free(f4);
+ 	return private;
+ }
 diff --git a/mac.c b/mac.c
 index 9388af4..cd7b034 100644
 --- a/mac.c
@@ -500,25 +513,23 @@ index 3a0f5ae..4f35a44 100644
  static char *myproposal[PROPOSAL_MAX] = {
  	KEX_DEFAULT_KEX,
 diff --git a/ssh-keygen.c b/ssh-keygen.c
-index 482dc1c..fd2eb94 100644
+index 66198e6..ccf22c8 100644
 --- a/ssh-keygen.c
 +++ b/ssh-keygen.c
-@@ -195,6 +195,14 @@ type_bits_valid(int type, u_int32_t *bitsp)
+@@ -195,6 +195,12 @@ type_bits_valid(int type, u_int32_t *bitsp)
  		fprintf(stderr, "key bits exceeds maximum %d\n", maxbits);
  		exit(1);
  	}
 +	if (FIPS_mode()) {
 +		if (type == KEY_DSA)
 +			fatal("DSA keys are not allowed in FIPS mode");
-+		if (type == KEY_RSA && bits != 2048 && bits != 3072)
-+			fatal("RSA keys must be either 2048 bits or 3072 bits in FIPS mode");
 +		if (type == KEY_ED25519)
 +			fatal("ED25519 keys are not allowed in FIPS mode");
 +	}
  	if (type == KEY_DSA && *bitsp != 1024)
  		fatal("DSA keys must be 1024 bits");
  	else if (type != KEY_ECDSA && type != KEY_ED25519 && *bitsp < 768)
-@@ -746,7 +754,7 @@ do_download(struct passwd *pw)
+@@ -746,7 +752,7 @@ do_download(struct passwd *pw)
  	enum fp_type fptype;
  	char *fp, *ra;
  
@@ -527,7 +538,7 @@ index 482dc1c..fd2eb94 100644
  	rep =    print_bubblebabble ? SSH_FP_BUBBLEBABBLE : SSH_FP_HEX;
  
  	pkcs11_init(0);
-@@ -756,8 +764,7 @@ do_download(struct passwd *pw)
+@@ -756,8 +762,7 @@ do_download(struct passwd *pw)
  	for (i = 0; i < nkeys; i++) {
  		if (print_fingerprint) {
  			fp = key_fingerprint(keys[i], fptype, rep);

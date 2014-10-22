@@ -1,11 +1,11 @@
 diff --git a/Makefile.in b/Makefile.in
-index 2ad26ff..3bb7f00 100644
+index 0f0d39f..9d8c2eb 100644
 --- a/Makefile.in
 +++ b/Makefile.in
 @@ -82,7 +82,8 @@ LIBSSH_OBJS=authfd.o authfile.o bufaux.o bufbn.o buffer.o \
  	ssh-pkcs11.o krl.o smult_curve25519_ref.o \
  	kexc25519.o kexc25519c.o poly1305.o chacha.o cipher-chachapoly.o \
- 	ssh-ed25519.o digest-openssl.o hmac.o \
+ 	ssh-ed25519.o digest-openssl.o hmac.o utf8_stringprep.o \
 -	sc25519.o ge25519.o fe25519.o ed25519.o verify.o hash.o blocks.o
 +	sc25519.o ge25519.o fe25519.o ed25519.o verify.o hash.o blocks.o \
 +	auditstub.o
@@ -1860,10 +1860,10 @@ index f8edf85..c36c812 100644
 +void	 packet_destroy_all(int, int);
  #endif				/* PACKET_H */
 diff --git a/session.c b/session.c
-index ba4589b..4a297f1 100644
+index e4add93..626a642 100644
 --- a/session.c
 +++ b/session.c
-@@ -137,7 +137,7 @@ extern int log_stderr;
+@@ -138,7 +138,7 @@ extern int log_stderr;
  extern int debug_flag;
  extern u_int utmp_len;
  extern int startup_pipe;
@@ -1872,7 +1872,7 @@ index ba4589b..4a297f1 100644
  extern Buffer loginmsg;
  
  /* original command from peer. */
-@@ -745,6 +745,14 @@ do_exec_pty(Session *s, const char *command)
+@@ -746,6 +746,14 @@ do_exec_pty(Session *s, const char *command)
  	/* Parent.  Close the slave side of the pseudo tty. */
  	close(ttyfd);
  
@@ -1887,7 +1887,7 @@ index ba4589b..4a297f1 100644
  	/* Enter interactive session. */
  	s->ptymaster = ptymaster;
  	packet_set_interactive(1, 
-@@ -862,15 +870,19 @@ do_exec(Session *s, const char *command)
+@@ -863,15 +871,19 @@ do_exec(Session *s, const char *command)
  	    get_remote_port());
  
  #ifdef SSH_AUDIT_EVENTS
@@ -1909,7 +1909,7 @@ index ba4589b..4a297f1 100644
  #endif
  	if (s->ttyfd != -1)
  		ret = do_exec_pty(s, command);
-@@ -1707,7 +1719,10 @@ do_child(Session *s, const char *command)
+@@ -1708,7 +1720,10 @@ do_child(Session *s, const char *command)
  	int r = 0;
  
  	/* remove hostkey from the child's memory */
@@ -1921,7 +1921,7 @@ index ba4589b..4a297f1 100644
  
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
-@@ -1931,6 +1946,7 @@ session_unused(int id)
+@@ -1932,6 +1947,7 @@ session_unused(int id)
  	sessions[id].ttyfd = -1;
  	sessions[id].ptymaster = -1;
  	sessions[id].x11_chanids = NULL;
@@ -1929,7 +1929,7 @@ index ba4589b..4a297f1 100644
  	sessions[id].next_unused = sessions_first_unused;
  	sessions_first_unused = id;
  }
-@@ -2013,6 +2029,19 @@ session_open(Authctxt *authctxt, int chanid)
+@@ -2014,6 +2030,19 @@ session_open(Authctxt *authctxt, int chanid)
  }
  
  Session *
@@ -1949,7 +1949,7 @@ index ba4589b..4a297f1 100644
  session_by_tty(char *tty)
  {
  	int i;
-@@ -2529,6 +2558,30 @@ session_exit_message(Session *s, int status)
+@@ -2530,6 +2559,30 @@ session_exit_message(Session *s, int status)
  		chan_write_failed(c);
  }
  
@@ -1980,7 +1980,7 @@ index ba4589b..4a297f1 100644
  void
  session_close(Session *s)
  {
-@@ -2537,6 +2590,10 @@ session_close(Session *s)
+@@ -2538,6 +2591,10 @@ session_close(Session *s)
  	debug("session_close: session %d pid %ld", s->self, (long)s->pid);
  	if (s->ttyfd != -1)
  		session_pty_cleanup(s);
@@ -1991,7 +1991,7 @@ index ba4589b..4a297f1 100644
  	free(s->term);
  	free(s->display);
  	free(s->x11_chanids);
-@@ -2751,6 +2808,15 @@ do_authenticated2(Authctxt *authctxt)
+@@ -2752,6 +2809,15 @@ do_authenticated2(Authctxt *authctxt)
  	server_loop2(authctxt);
  }
  
@@ -2007,7 +2007,7 @@ index ba4589b..4a297f1 100644
  void
  do_cleanup(Authctxt *authctxt)
  {
-@@ -2799,5 +2865,5 @@ do_cleanup(Authctxt *authctxt)
+@@ -2800,5 +2866,5 @@ do_cleanup(Authctxt *authctxt)
  	 * or if running in monitor.
  	 */
  	if (!use_privsep || mm_is_monitor())
