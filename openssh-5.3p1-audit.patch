@@ -2109,7 +2109,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
  #endif
  	if (s->ttyfd != -1)
  		ret = do_exec_pty(s, command);
-@@ -1675,7 +1687,10 @@ do_child(Session *s, const char *command
+@@ -1680,7 +1692,10 @@ do_child(Session *s, const char *command
  	int r = 0;
  
  	/* remove hostkey from the child's memory */
@@ -2121,7 +2121,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
  
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
-@@ -1895,6 +1910,7 @@ session_unused(int id)
+@@ -1896,6 +1911,7 @@ session_unused(int id)
  	sessions[id].ttyfd = -1;
  	sessions[id].ptymaster = -1;
  	sessions[id].x11_chanids = NULL;
@@ -2129,7 +2129,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
  	sessions[id].next_unused = sessions_first_unused;
  	sessions_first_unused = id;
  }
-@@ -1977,6 +1993,19 @@ session_open(Authctxt *authctxt, int cha
+@@ -1978,6 +1994,19 @@ session_open(Authctxt *authctxt, int cha
  }
  
  Session *
@@ -2149,7 +2149,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
  session_by_tty(char *tty)
  {
  	int i;
-@@ -2500,6 +2529,30 @@ session_exit_message(Session *s, int sta
+@@ -2501,6 +2530,30 @@ session_exit_message(Session *s, int sta
  		chan_write_failed(c);
  }
  
@@ -2180,7 +2180,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
  void
  session_close(Session *s)
  {
-@@ -2508,6 +2561,10 @@ session_close(Session *s)
+@@ -2509,6 +2562,10 @@ session_close(Session *s)
  	debug("session_close: session %d pid %ld", s->self, (long)s->pid);
  	if (s->ttyfd != -1)
  		session_pty_cleanup(s);
@@ -2191,7 +2191,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
  	if (s->term)
  		xfree(s->term);
  	if (s->display)
-@@ -2727,6 +2784,15 @@ do_authenticated2(Authctxt *authctxt)
+@@ -2728,6 +2785,15 @@ do_authenticated2(Authctxt *authctxt)
  	server_loop2(authctxt);
  }
  
@@ -2207,7 +2207,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
  void
  do_cleanup(Authctxt *authctxt)
  {
-@@ -2775,5 +2841,5 @@ do_cleanup(Authctxt *authctxt)
+@@ -2776,5 +2842,5 @@ do_cleanup(Authctxt *authctxt)
  	 * or if running in monitor.
  	 */
  	if (!use_privsep || mm_is_monitor())
@@ -2242,8 +2242,8 @@ diff -up openssh-5.3p1/session.h.audit openssh-5.3p1/session.h
  void	 session_close(Session *);
  void	 do_setusercontext(struct passwd *);
 diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
---- openssh-5.3p1/sshd.c.audit	2011-04-04 20:10:06.631648733 +0200
-+++ openssh-5.3p1/sshd.c	2011-04-04 20:10:09.464661420 +0200
+--- openssh-5.3p1/sshd.c.audit	2013-11-12 15:58:33.887318203 +0100
++++ openssh-5.3p1/sshd.c	2013-11-12 16:27:07.664020662 +0100
 @@ -120,6 +120,7 @@
  #endif
  #include "monitor_wrap.h"
@@ -2363,6 +2363,15 @@ diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
  		}
  	}
  
+@@ -633,7 +683,7 @@ privsep_preauth(Authctxt *authctxt)
+ 	/* Store a pointer to the kex for later rekeying */
+ 	pmonitor->m_pkex = &xxx_kex;
+ 
+-	pid = fork();
++	pmonitor->m_pid = pid = fork();
+ 	if (pid == -1) {
+ 		fatal("fork of unprivileged child failed");
+ 	} else if (pid != 0) {
 @@ -665,6 +715,8 @@ privsep_preauth(Authctxt *authctxt)
  	return (0);
  }
@@ -2391,7 +2400,7 @@ diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
  			close_listen_socks();
  			unlink(options.pid_file);
  			exit(255);
-@@ -1952,6 +2009,7 @@ main(int ac, char **av)
+@@ -1955,6 +2012,7 @@ main(int ac, char **av)
  	 */
  	if (use_privsep) {
  		mm_send_keystate(pmonitor);
@@ -2399,7 +2408,7 @@ diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
  		exit(0);
  	}
  
-@@ -1996,8 +2054,9 @@ main(int ac, char **av)
+@@ -1999,8 +2057,9 @@ main(int ac, char **av)
  	if (use_privsep) {
  		privsep_postauth(authctxt);
  		/* the monitor process [priv] will not return */
@@ -2411,7 +2420,7 @@ diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
  	}
  
  	packet_set_timeout(options.client_alive_interval,
-@@ -2007,6 +2066,9 @@ main(int ac, char **av)
+@@ -2010,6 +2069,9 @@ main(int ac, char **av)
  	do_authenticated(authctxt);
  
  	/* The connection has been terminated. */
@@ -2421,7 +2430,7 @@ diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
  	packet_get_state(MODE_IN, NULL, NULL, NULL, &ibytes);
  	packet_get_state(MODE_OUT, NULL, NULL, NULL, &obytes);
  	verbose("Transferred: sent %llu, received %llu bytes", obytes, ibytes);
-@@ -2163,6 +2225,10 @@ do_ssh1_kex(void)
+@@ -2166,6 +2228,10 @@ do_ssh1_kex(void)
  		if (cookie[i] != packet_get_char())
  			packet_disconnect("IP Spoofing check bytes do not match.");
  
@@ -2432,7 +2441,7 @@ diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
  	debug("Encryption type: %.200s", cipher_name(cipher_type));
  
  	/* Get the encrypted integer. */
-@@ -2229,7 +2295,7 @@ do_ssh1_kex(void)
+@@ -2232,7 +2298,7 @@ do_ssh1_kex(void)
  			session_id[i] = session_key[i] ^ session_key[i + 16];
  	}
  	/* Destroy the private and public keys. No longer. */
@@ -2441,7 +2450,7 @@ diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
  
  	if (use_privsep)
  		mm_ssh1_session_id(session_id);
-@@ -2370,11 +2436,27 @@ do_ssh2_kex(void)
+@@ -2373,11 +2439,27 @@ do_ssh2_kex(void)
  void
  cleanup_exit(int i)
  {
@@ -2458,7 +2467,7 @@ diff -up openssh-5.3p1/sshd.c.audit openssh-5.3p1/sshd.c
 +
  	if (the_authctxt)
  		do_cleanup(the_authctxt);
-+	is_privsep_child = use_privsep && pmonitor != NULL && !mm_is_monitor();
++	is_privsep_child = use_privsep && pmonitor != NULL && pmonitor->m_pid == 0;
 +	if (sensitive_data.host_keys != NULL)
 +		destroy_sensitive_data(is_privsep_child);
 +	packet_destroy_all(1, is_privsep_child);

@@ -1,0 +1,24 @@
+diff -up openssh-5.3p1/sshd.c.fips-syslog openssh-5.3p1/sshd.c
+--- openssh-5.3p1/sshd.c.fips-syslog	2014-03-20 08:06:34.779972343 +0100
++++ openssh-5.3p1/sshd.c	2014-03-20 08:08:55.468263792 +0100
+@@ -1383,11 +1383,15 @@ main(int ac, char **av)
+ 	__progname = ssh_get_progname(av[0]);
+ 
+         SSLeay_add_all_algorithms();
+-	if (access("/etc/system-fips", F_OK) == 0 && (fips = FIPSCHECK_verify(NULL, NULL)) == 0)
+-		if (FIPS_mode())
+-			fatal("FIPS integrity verification test failed.");
+-		else
+-			logit("FIPS integrity verification test failed.");
++	if (access("/etc/system-fips", F_OK) == 0 && (fips = FIPSCHECK_verify(NULL, NULL)) == 0) {
++		openlog(__progname, LOG_PID, LOG_AUTHPRIV);
++		if (FIPS_mode()) {
++			syslog(LOG_CRIT, "FIPS integrity verification test failed.");
++			cleanup_exit(255);
++		} else
++			syslog(LOG_INFO, "FIPS integrity verification test failed.");
++		closelog();
++	}
+ 
+ 	init_rng();
+ 

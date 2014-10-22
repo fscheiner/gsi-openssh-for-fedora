@@ -1,0 +1,17 @@
+diff --git a/channels.c b/channels.c
+index 23faae0..9ecee35 100644
+--- a/channels.c
++++ b/channels.c
+@@ -3362,10 +3362,8 @@ static int
+ connect_local_xsocket(u_int dnr)
+ {
+ 	char buf[1024];
+-	int len;
+-#ifdef linux
+-	int ret;
+-#endif
++	int len, ret;
++
+ 	len = snprintf(buf + 1, sizeof (buf) - 1, _PATH_UNIX_X, dnr);
+ #ifdef linux
+ 	/* try abstract socket first */

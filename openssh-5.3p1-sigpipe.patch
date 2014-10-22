@@ -1,0 +1,13 @@
+diff --git a/ssh-keyscan.c b/ssh-keyscan.c
+index c98f44f..9dcee73 100644
+--- a/ssh-keyscan.c
++++ b/ssh-keyscan.c
+@@ -828,6 +828,8 @@ main(int argc, char **argv)
+ 		fdlim_set(maxfd);
+ 	fdcon = xcalloc(maxfd, sizeof(con));
+ 
++	signal(SIGPIPE, SIG_IGN);
++
+ 	read_wait_nfdset = howmany(maxfd, NFDBITS);
+ 	read_wait = xcalloc(read_wait_nfdset, sizeof(fd_mask));
+ 

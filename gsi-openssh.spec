@@ -35,7 +35,7 @@
 %global nologin 1
 
 %global openssh_ver 5.3p1
-%global openssh_rel 10
+%global openssh_rel 11
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -136,6 +136,43 @@ Patch109: openssh-5.3p1-drop-internal-sftp-connections.patch
 Patch110: openssh-5.3p1-gssapi-with-poly-tmp.patch
 # Change default of MaxStartups to 10:30:100 (#908707)
 Patch111: openssh-5.3p1-change-max-startups.patch
+# FIPS mode - adjust the key echange DH groups and ssh-keygen according to SP800-131A (#993580)
+Patch120: openssh-5.3p1-FIPS-mode-SP800-131A.patch
+# ECDSA and ECDH support (#1028335)
+Patch121: openssh-5.3p1-ecdsa-ecdh.patch
+# fix segfault in GSSAPI key exchange in FIPS mode
+Patch122: openssh-5.3p1-gsskex-fips.patch
+# log fipscheck verification message into syslog authpriv (#1020803)
+Patch123: openssh-5.3p1-fips-syslog.patch
+# Prevents a server from skipping SSHFP lookup and forcing a new-hostkey
+# dialog by offering only certificate keys. (#1081338)
+Patch124: openssh-5.3p1-CVE-2014-2653.patch
+# ignore environment variables with embedded '=' or '\0' characters (#1077843)
+Patch125: openssh-5.3p1-ignore-bad-env-var.patch
+# backport ControlPersist option (#953088)
+Patch126: openssh-5.3p1-ControlPersist.patch
+# log when a client requests an interactive session and only sftp is allowed (#997377)
+Patch127: openssh-5.3p1-log-sftp-only-connections.patch
+# don't try to load RSA1 host key in FIPS mode (#1009959)
+Patch128: openssh-5.3p1-fips-dont-load-rsa1-keys.patch
+# restore Linux oom_adj setting when handling SIGHUP to maintain behaviour over restart (#1010429)
+Patch129: openssh-5.3p1-restore-oom-after-restart.patch
+# ssh-keygen -V - relative-specified certificate expiry time should be relative to current time (#1022459)
+Patch130: openssh-5.3p1-ssh-keygen-V-fix.patch
+# look for x11 forward sockets with AI_ADDRCONFIG flag getaddrinfo (#1027197)
+Patch131: openssh-5.3p1-x11-getaddrinfo.patch
+# fix openssh-5.3p1-x11.patch for non-linux platforms (#1100913)
+Patch132: openssh-5.3p1-x11-for-non-linux-platforms.patch
+# fix several coverity issue (#876544)
+Patch133: openssh-5.3p1-fix-several-coverity-issues.patch
+# skip requesting smartcard PIN when removing keys from agent (#1042519)
+Patch134: openssh-5.3p1-skip-pin-for-ssh-add-e.patch
+# fix race in backported ControlPersist patch (#953088)
+Patch135: openssh-5.3p1-ControlPersist-avoid-race-between-bind-and-listen.patch
+# ignore SIGPIPE in ssh-keyscan (#1108836)
+Patch136: openssh-5.3p1-sigpipe.patch
+# Ignore SIGXFSZ in postauth monitor child (#1133906)
+Patch137: openssh-5.3p1-ignore-SIGXFSZ.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
@@ -307,6 +344,24 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch109 -p1 -b .drop-internal-sftp
 %patch110 -p1 -b .gssapi-poly-tmp
 %patch111 -p1 -b .max-startups
+%patch120 -p1 -b .SP800-131A
+%patch121 -p1 -b .ecdsa-ecdh
+%patch122 -p1 -b .gsskex-fips
+%patch123 -p1 -b .fips-syslog
+%patch124 -p1 -b .CVE-2014-2653
+%patch125 -p1 -b .bad-env-var
+%patch126 -p1 -b .ControlPersist
+%patch127 -p1 -b .997377
+%patch128 -p1 -b .1009959
+%patch129 -p1 -b .1010429
+%patch130 -p1 -b .1022459
+%patch131 -p1 -b .1027197
+%patch132 -p1 -b .1100913
+%patch133 -p1 -b .876544
+%patch134 -p1 -b .1042519
+%patch135 -p1 -b .ControlPersist-race
+%patch136 -p1 -b .sigpipe
+%patch137 -p1 -b .SIGXFSZ
 
 %patch200 -p1 -b .gsi
 
@@ -512,6 +567,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Wed Oct 22 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-11
+- Based on openssh-5.3p1-104.el6
+
 * Tue Nov 26 2013 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-10
 - Based on openssh-5.3p1-94.el6
 

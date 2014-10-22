@@ -94,7 +94,7 @@ do_rsa_keygen() {
 }
 
 do_dsa_keygen() {
-	if [ ! -s $DSA_KEY ]; then
+	if [ ! -s $DSA_KEY -a `fips_enabled` -eq 0 ]; then
 		echo -n $"Generating SSH2 DSA host key: "
 		rm -f $DSA_KEY
 		if test ! -f $DSA_KEY && $KEYGEN -q -t dsa -f $DSA_KEY -C '' -N '' >&/dev/null; then

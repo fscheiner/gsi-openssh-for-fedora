@@ -56,8 +56,8 @@ diff -up openssh-5.3p1/authfile.c.fips openssh-5.3p1/authfile.c
  	    buffer_ptr(&buffer), buffer_len(&buffer));
  	cipher_cleanup(&ciphercontext);
 diff -up openssh-5.3p1/cipher.c.fips openssh-5.3p1/cipher.c
---- openssh-5.3p1/cipher.c.fips	2009-10-02 13:44:03.000000000 +0200
-+++ openssh-5.3p1/cipher.c	2009-10-02 14:12:00.000000000 +0200
+--- openssh-5.3p1/cipher.c.fips	2009-10-02 15:23:26.000000000 +0200
++++ openssh-5.3p1/cipher.c	2014-03-20 08:37:06.542752102 +0100
 @@ -40,6 +40,7 @@
  #include <sys/types.h>
  
@@ -66,13 +66,12 @@ diff -up openssh-5.3p1/cipher.c.fips openssh-5.3p1/cipher.c
  
  #include <string.h>
  #include <stdarg.h>
-@@ -93,6 +94,22 @@ struct Cipher {
+@@ -93,6 +94,21 @@ struct Cipher {
  	{ NULL,			SSH_CIPHER_INVALID, 0, 0, 0, 0, NULL }
  };
  
 +struct Cipher fips_ciphers[] = {
 +	{ "none",		SSH_CIPHER_NONE, 8, 0, 0, 0, EVP_enc_null },
-+	{ "3des",		SSH_CIPHER_3DES, 8, 16, 0, 1, evp_ssh1_3des },
 +
 +	{ "3des-cbc",		SSH_CIPHER_SSH2, 8, 24, 0, 1, EVP_des_ede3_cbc },
 +	{ "aes128-cbc",		SSH_CIPHER_SSH2, 16, 16, 0, 1, EVP_aes_128_cbc },
@@ -89,7 +88,7 @@ diff -up openssh-5.3p1/cipher.c.fips openssh-5.3p1/cipher.c
  /*--*/
  
  u_int
-@@ -135,7 +152,7 @@ Cipher *
+@@ -135,7 +151,7 @@ Cipher *
  cipher_by_name(const char *name)
  {
  	Cipher *c;
@@ -98,7 +97,7 @@ diff -up openssh-5.3p1/cipher.c.fips openssh-5.3p1/cipher.c
  		if (strcmp(c->name, name) == 0)
  			return c;
  	return NULL;
-@@ -145,7 +162,7 @@ Cipher *
+@@ -145,7 +161,7 @@ Cipher *
  cipher_by_number(int id)
  {
  	Cipher *c;
@@ -107,7 +106,7 @@ diff -up openssh-5.3p1/cipher.c.fips openssh-5.3p1/cipher.c
  		if (c->number == id)
  			return c;
  	return NULL;
-@@ -189,7 +206,7 @@ cipher_number(const char *name)
+@@ -189,7 +205,7 @@ cipher_number(const char *name)
  	Cipher *c;
  	if (name == NULL)
  		return -1;
@@ -116,7 +115,7 @@ diff -up openssh-5.3p1/cipher.c.fips openssh-5.3p1/cipher.c
  		if (strcasecmp(c->name, name) == 0)
  			return c->number;
  	return -1;
-@@ -296,14 +313,15 @@ cipher_cleanup(CipherContext *cc)
+@@ -296,14 +312,15 @@ cipher_cleanup(CipherContext *cc)
   * passphrase and using the resulting 16 bytes as the key.
   */
  
@@ -134,7 +133,7 @@ diff -up openssh-5.3p1/cipher.c.fips openssh-5.3p1/cipher.c
  	MD5_Update(&md, (const u_char *)passphrase, strlen(passphrase));
  	MD5_Final(digest, &md);
  
-@@ -311,6 +329,7 @@ cipher_set_key_string(CipherContext *cc,
+@@ -311,6 +328,7 @@ cipher_set_key_string(CipherContext *cc,
  
  	memset(digest, 0, sizeof(digest));
  	memset(&md, 0, sizeof(md));
@@ -393,7 +392,7 @@ diff -up openssh-5.3p1/ssh.c.fips openssh-5.3p1/ssh.c
  	extern char *optarg;
  	struct servent *sp;
  	Forward fwd;
-+	int fips;
++	int fips = 0;
  
  	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
  	sanitise_stdfd();
@@ -401,11 +400,11 @@ diff -up openssh-5.3p1/ssh.c.fips openssh-5.3p1/ssh.c
  	__progname = ssh_get_progname(av[0]);
 +
 +        SSLeay_add_all_algorithms();
-+	fips = 0;
-+	if (access("/usr/share/dracut/modules.d/01fips", F_OK) == 0)
-+		fips = FIPSCHECK_verify(NULL, NULL);
-+	if (FIPS_mode() && !fips)
-+		fatal("FIPS integrity verification test failed.");
++	if (access("/etc/system-fips", F_OK) == 0 && (fips = FIPSCHECK_verify(NULL, NULL)) == 0)
++		if (FIPS_mode())
++			fatal("FIPS integrity verification test failed.");
++		else
++			logit("FIPS integrity verification test failed.");
 +
  	init_rng();
  
@@ -432,7 +431,7 @@ diff -up openssh-5.3p1/ssh.c.fips openssh-5.3p1/ssh.c
  
  	seed_rng();
  
-+	if (FIPS_mode()) {
++	if (FIPS_mode() && fips) {
 +		logit("FIPS mode initialized");
 +	}
 +
@@ -603,7 +602,7 @@ diff -up openssh-5.3p1/sshd.c.fips openssh-5.3p1/sshd.c
  	mode_t new_umask;
  	Key *key;
  	Authctxt *authctxt;
-+	int fips;
++	int fips = 0;
  
  #ifdef HAVE_SECUREWARE
  	(void)set_auth_parameters(ac, av);
@@ -611,11 +610,11 @@ diff -up openssh-5.3p1/sshd.c.fips openssh-5.3p1/sshd.c
  	__progname = ssh_get_progname(av[0]);
 +
 +        SSLeay_add_all_algorithms();
-+	fips = 0;
-+	if (access("/usr/share/dracut/modules.d/01fips", F_OK) == 0)
-+		fips = FIPSCHECK_verify(NULL, NULL);
-+	if (FIPS_mode() && !fips)
-+		fatal("FIPS integrity verification test failed.");
++	if (access("/etc/system-fips", F_OK) == 0 && (fips = FIPSCHECK_verify(NULL, NULL)) == 0)
++		if (FIPS_mode())
++			fatal("FIPS integrity verification test failed.");
++		else
++			logit("FIPS integrity verification test failed.");
 +
  	init_rng();
  
@@ -644,7 +643,7 @@ diff -up openssh-5.3p1/sshd.c.fips openssh-5.3p1/sshd.c
  	/* Initialize the random number generator. */
  	arc4random_stir();
  
-+	if (FIPS_mode()) {
++	if (FIPS_mode() && fips) {
 +		logit("FIPS mode initialized");
 +	}
 +

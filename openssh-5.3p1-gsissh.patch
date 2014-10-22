@@ -1282,7 +1282,7 @@ diff -Nur openssh-5.3p1.orig/Makefile.in openssh-5.3p1/Makefile.in
 --- openssh-5.3p1.orig/Makefile.in	2013-11-26 19:13:13.585341262 +0100
 +++ openssh-5.3p1/Makefile.in	2013-11-26 19:47:08.349685587 +0100
 @@ -93,8 +93,10 @@
- 	monitor_mm.o monitor.o monitor_wrap.o kexdhs.o kexgexs.o \
+ 	monitor_mm.o monitor.o monitor_wrap.o kexdhs.o kexgexs.o kexecdhs.o \
  	auth-krb5.o audit-linux.o \
   	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o\
 +	gss-serv-gsi.o \

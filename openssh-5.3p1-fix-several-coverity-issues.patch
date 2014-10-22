@@ -1,0 +1,93 @@
+diff --git a/authfile.c b/authfile.c
+index 7cf1c6d..b855020 100644
+--- a/authfile.c
++++ b/authfile.c
+@@ -629,7 +629,7 @@ Key *
+ key_load_private(const char *filename, const char *passphrase,
+     char **commentp)
+ {
+-	Key *pub, *prv;
++	Key *pub, *prv = NULL;
+ 	int fd;
+ 
+ 	fd = open(filename, O_RDONLY);
+diff --git a/mux.c b/mux.c
+index b1d282b..87d28ae 100644
+--- a/mux.c
++++ b/mux.c
+@@ -205,7 +205,7 @@ mux_master_control_cleanup_cb(int cid, void *unused)
+ 		fatal("%s: channel_by_id(%i) == NULL", __func__, cid);
+ 	if (c->remote_id != -1) {
+ 		if ((sc = channel_by_id(c->remote_id)) == NULL)
+-			debug2("%s: channel %d n session channel %d",
++			fatal("%s: channel %d missing session channel %d",
+ 			    __func__, c->self, c->remote_id);
+ 		c->remote_id = -1;
+ 		sc->ctl_chan = -1;
+@@ -392,6 +392,7 @@ process_mux_new_session(u_int rid, Channel *c, Buffer *m, Buffer *r)
+ 			xfree(cctx->env);
+ 		}
+ 		buffer_free(&cctx->cmd);
++		xfree(cctx);
+ 		return 0;
+ 	}
+ 
+@@ -840,7 +841,7 @@ mux_master_read_cb(Channel *c)
+ 
+ 	/* Setup ctx and  */
+ 	if (c->mux_ctx == NULL) {
+-		state = xcalloc(1, sizeof(state));
++		state = xcalloc(1, sizeof(*state));
+ 		c->mux_ctx = state;
+ 		channel_register_cleanup(c->self,
+ 		    mux_master_control_cleanup_cb, 0);
+diff --git a/ssh-agent.c b/ssh-agent.c
+index 0062235..0078919 100644
+--- a/ssh-agent.c
++++ b/ssh-agent.c
+@@ -476,7 +476,7 @@ process_add_identity(SocketEntry *e, int version)
+ #ifdef OPENSSL_HAS_ECC
+ 	BIGNUM *exponent;
+ 	EC_POINT *q;
+-	int *curve;
++	char *curve;
+ #endif
+ 	u_char *cert;
+ 	u_int len;
+diff --git a/ssh.c b/ssh.c
+index 0ee8efb..acc522a 100644
+--- a/ssh.c
++++ b/ssh.c
+@@ -242,11 +242,12 @@ main(int ac, char **av)
+ 	__progname = ssh_get_progname(av[0]);
+ 
+         SSLeay_add_all_algorithms();
+-	if (access("/etc/system-fips", F_OK) == 0 && (fips = FIPSCHECK_verify(NULL, NULL)) == 0)
++	if (access("/etc/system-fips", F_OK) == 0 && (fips = FIPSCHECK_verify(NULL, NULL)) == 0) {
+ 		if (FIPS_mode())
+ 			fatal("FIPS integrity verification test failed.");
+ 		else
+ 			logit("FIPS integrity verification test failed.");
++	}
+ 
+ 	init_rng();
+ 
+diff --git a/sshd.c b/sshd.c
+index a19b7d8..22b7638 100644
+--- a/sshd.c
++++ b/sshd.c
+@@ -2494,12 +2494,13 @@ do_ssh2_kex(void)
+ 	if (strlen(myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS]) == 0)
+ 		orig = NULL;
+ 
+-	if (options.gss_keyex)
++	if (options.gss_keyex) {
+ 		if (FIPS_mode()) {
+ 			logit("Disabling GSSAPIKeyExchange. Not usable in FIPS mode");
+ 			options.gss_keyex = 0;
+ 		} else
+ 			gss = ssh_gssapi_server_mechanisms();
++	}
+ 
+ 	if (gss && orig)
+ 		xasprintf(&newstr, "%s,%s", gss, orig);

@@ -1,0 +1,4105 @@
+From 69360ff02b4fc792f75c85c6bea9439e87a3d01a Mon Sep 17 00:00:00 2001
+From: Petr Lautrbach <plautrba@redhat.com>
+Date: Mon, 10 Mar 2014 16:02:53 +0100
+Subject: [PATCH] openssh-5.3p1-ecdsa-ecdh.patch
+
+---
+ ChangeLog               |  78 ++++++
+ Makefile.in             |   9 +-
+ PROTOCOL                |  43 +++-
+ PROTOCOL.agent          |  44 +++-
+ PROTOCOL.certkeys       |  87 ++++---
+ auth2-jpake.c           |   7 +-
+ authfd.c                |  20 +-
+ authfile.c              |  33 +++
+ bufec.c                 | 146 +++++++++++
+ buffer.h                |   9 +
+ configure.ac            | 116 +++++++++
+ dns.c                   |   3 +-
+ kex.c                   |  18 +-
+ kex.h                   |  23 +-
+ kexecdh.c               | 117 +++++++++
+ kexecdhc.c              | 169 +++++++++++++
+ kexecdhs.c              | 174 +++++++++++++
+ key.c                   | 644 +++++++++++++++++++++++++++++++++++++++++++++++-
+ key.h                   |  34 ++-
+ monitor.c               |   7 +-
+ monitor_wrap.c          |   1 +
+ myproposal.h            |   2 +-
+ packet.c                |  16 ++
+ packet.h                |   9 +
+ pathnames.h             |   2 +
+ readconf.c              |   7 +
+ regress/cert-hostkey.sh |  57 ++++-
+ regress/cert-userkey.sh |  17 +-
+ ssh-add.1               |   9 +-
+ ssh-add.c               |   1 +
+ ssh-agent.1             |   7 +-
+ ssh-agent.c             |  61 ++++-
+ ssh-ecdsa.c             | 168 +++++++++++++
+ ssh-keygen.1            |  39 ++-
+ ssh-keygen.c            |  53 +++-
+ ssh-keyscan.1           |  16 +-
+ ssh-keyscan.c           |  11 +-
+ ssh-keysign.8           |   2 +-
+ ssh.1                   |  26 +-
+ ssh.c                   |  17 +-
+ ssh2.h                  |   4 +
+ ssh_config.5            |  18 +-
+ sshconnect.c            |   2 +-
+ sshconnect2.c           |   1 +
+ sshd.8                  |  15 +-
+ sshd.c                  |   5 +
+ sshd_config.5           |   8 +-
+ uuencode.c              |   4 +-
+ uuencode.h              |   4 +-
+ 49 files changed, 2193 insertions(+), 170 deletions(-)
+ create mode 100644 bufec.c
+ create mode 100644 kexecdh.c
+ create mode 100644 kexecdhc.c
+ create mode 100644 kexecdhs.c
+ create mode 100644 ssh-ecdsa.c
+
+diff --git a/ChangeLog b/ChangeLog
+index ed12723..e1ab9ca 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,4 +1,22 @@
++20131109
++ - (dtucker) [configure.ac kex.c key.c myproposal.h] Test for the presence of
++   NID_X9_62_prime256v1, NID_secp384r1 and NID_secp521r1 and test that the
++   latter actually works before using it.  Fedora (at least) has NID_secp521r1
++   that doesn't work (see https://bugzilla.redhat.com/show_bug.cgi?id=1021897).
++
++20101021
++   - djm@cvs.openbsd.org 2010/08/31 12:24:09
++     [regress/cert-hostkey.sh regress/cert-userkey.sh]
++     tests for ECDSA certificates
++
+ 20100924
++ - (djm) OpenBSD CVS Sync
++   - naddy@cvs.openbsd.org 2010/09/10 15:19:29
++     [ssh-keygen.1]
++     * mention ECDSA in more places
++     * less repetition in FILES section
++     * SSHv1 keys are still encrypted with 3DES
++     help and ok jmc@
+    - djm@cvs.openbsd.org 2010/09/22 05:01:30
+      [kex.c kex.h kexecdh.c kexecdhc.c kexecdhs.c readconf.c readconf.h]
+      [servconf.c servconf.h ssh_config.5 sshconnect2.c sshd.c sshd_config.5]
+@@ -6,6 +24,66 @@
+      selection of which key exchange methods are used by ssh(1) and sshd(8)
+      and their order of preference.
+      ok markus@
++   - djm@cvs.openbsd.org 2010/09/11 21:44:20
++     [ssh.1]
++     mention RFC 5656 for ECC stuff
++
++20100910
++  - markus@cvs.openbsd.org 2010/09/02 16:07:25
++     [ssh-keygen.c]
++     permit -b 256, 384 or 521 as key size for ECDSA; ok djm@
++   - naddy@cvs.openbsd.org 2010/09/02 17:21:50
++     [ssh-keygen.c]
++     Switch ECDSA default key size to 256 bits, which according to RFC5656
++     should still be better than our current RSA-2048 default.
++     ok djm@, markus@
++   - djm@cvs.openbsd.org 2010/09/09 10:45:45
++     [kex.c kex.h kexecdh.c key.c key.h monitor.c ssh-ecdsa.c]
++     ECDH/ECDSA compliance fix: these methods vary the hash function they use
++     (SHA256/384/512) depending on the length of the curve in use. The previous
++     code incorrectly used SHA256 in all cases.
++     
++     This fix will cause authentication failure when using 384 or 521-bit curve
++     keys if one peer hasn't been upgraded and the other has. (256-bit curve
++     keys work ok). In particular you may need to specify HostkeyAlgorithms
++     when connecting to a server that has not been upgraded from an upgraded
++     client.
++     
++     ok naddy@
++ - (djm) [authfd.c authfile.c bufec.c buffer.h configure.ac kex.h kexecdh.c]
++   [kexecdhc.c kexecdhs.c key.c key.h myproposal.h packet.c readconf.c]
++   [ssh-agent.c ssh-ecdsa.c ssh-keygen.c ssh.c] Disable ECDH and ECDSA on
++   platforms that don't have the requisite OpenSSL support. ok dtucker@
++ - (dtucker) [kex.h key.c packet.h ssh-agent.c ssh.c] A few more ECC ifdefs
++   for missing headers and compiler warnings.
++
++20100831
++   - djm@cvs.openbsd.org 2010/08/31 11:54:45
++     [PROTOCOL PROTOCOL.agent PROTOCOL.certkeys auth2-jpake.c authfd.c]
++     [authfile.c buffer.h dns.c kex.c kex.h key.c key.h monitor.c]
++     [monitor_wrap.c myproposal.h packet.c packet.h pathnames.h readconf.c]
++     [ssh-add.1 ssh-add.c ssh-agent.1 ssh-agent.c ssh-keygen.1 ssh-keygen.c]
++     [ssh-keyscan.1 ssh-keyscan.c ssh-keysign.8 ssh.1 ssh.c ssh2.h]
++     [ssh_config.5 sshconnect.c sshconnect2.c sshd.8 sshd.c sshd_config.5]
++     [uuencode.c uuencode.h bufec.c kexecdh.c kexecdhc.c kexecdhs.c ssh-ecdsa.c]
++     Implement Elliptic Curve Cryptography modes for key exchange (ECDH) and
++     host/user keys (ECDSA) as specified by RFC5656. ECDH and ECDSA offer
++     better performance than plain DH and DSA at the same equivalent symmetric
++     key length, as well as much shorter keys.
++     
++     Only the mandatory sections of RFC5656 are implemented, specifically the
++     three REQUIRED curves nistp256, nistp384 and nistp521 and only ECDH and
++     ECDSA. Point compression (optional in RFC5656 is NOT implemented).
++     
++     Certificate host and user keys using the new ECDSA key types are supported.
++     
++     Note that this code has not been tested for interoperability and may be
++     subject to change.
++     
++     feedback and ok markus@
++ - (djm) [Makefile.in] Add new ECC files
++ - (djm) [bufec.c kexecdh.c kexecdhc.c kexecdhs.c ssh-ecdsa.c] include
++   includes.h
+ 
+ 20100521
+  - (djm) OpenBSD CVS Sync
+diff --git a/Makefile.in b/Makefile.in
+index 075ac8b..07013c4 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -75,9 +75,10 @@ LIBSSH_OBJS=acss.o authfd.o authfile.o bufaux.o bufbn.o buffer.o \
+ 	log.o match.o md-sha256.o moduli.o nchan.o packet.o \
+ 	readpass.o rsa.o ttymodes.o xmalloc.o addrmatch.o \
+ 	atomicio.o key.o dispatch.o kex.o mac.o uidswap.o uuencode.o misc.o \
+-	monitor_fdpass.o rijndael.o ssh-dss.o ssh-rsa.o dh.o kexdh.o \
+-	kexgex.o kexdhc.o kexgexc.o scard.o msg.o progressmeter.o dns.o \
+-	entropy.o scard-opensc.o gss-genr.o umac.o jpake.o schnorr.o nsskeys.o \
++	monitor_fdpass.o rijndael.o ssh-dss.o ssh-ecdsa.o ssh-rsa.o dh.o \
++	kexdh.o kexgex.o kexdhc.o kexgexc.o bufec.o kexecdh.o kexecdhc.o \
++	scard.o msg.o progressmeter.o dns.o entropy.o scard-opensc.o gss-genr.o umac.o jpake.o \
++	schnorr.o nsskeys.o \
+ 	kexgssc.o auditstub.o ssh-pkcs11.o stringprep.o
+ 
+ SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
+@@ -90,7 +91,7 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
+ 	auth-chall.o auth2-chall.o groupaccess.o \
+ 	auth-skey.o auth-bsdauth.o auth2-hostbased.o auth2-kbdint.o \
+ 	auth2-none.o auth2-passwd.o auth2-pubkey.o auth2-jpake.o \
+-	monitor_mm.o monitor.o monitor_wrap.o kexdhs.o kexgexs.o \
++	monitor_mm.o monitor.o monitor_wrap.o kexdhs.o kexgexs.o kexecdhs.o \
+ 	auth-krb5.o audit-linux.o \
+  	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o\
+ 	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
+diff --git a/PROTOCOL b/PROTOCOL
+index 0176d68..417b679 100644
+--- a/PROTOCOL
++++ b/PROTOCOL
+@@ -12,7 +12,9 @@ explicitly implemented as extensions described below.
+ The protocol used by OpenSSH's ssh-agent is described in the file
+ PROTOCOL.agent
+ 
+-1. transport: Protocol 2 MAC algorithm "umac-64@openssh.com"
++1. Transport protocol changes
++
++1.1. transport: Protocol 2 MAC algorithm "umac-64@openssh.com"
+ 
+ This is a new transport-layer MAC method using the UMAC algorithm
+ (rfc4418). This method is identical to the "umac-64" method documented
+@@ -20,7 +22,7 @@ in:
+ 
+ http://www.openssh.com/txt/draft-miller-secsh-umac-01.txt
+ 
+-2. transport: Protocol 2 compression algorithm "zlib@openssh.com"
++1.2. transport: Protocol 2 compression algorithm "zlib@openssh.com"
+ 
+ This transport-layer compression method uses the zlib compression
+ algorithm (identical to the "zlib" method in rfc4253), but delays the
+@@ -31,14 +33,27 @@ The method is documented in:
+ 
+ http://www.openssh.com/txt/draft-miller-secsh-compression-delayed-00.txt
+ 
+-3. transport: New public key algorithms "ssh-rsa-cert-v00@openssh.com" and
+-   "ssh-dsa-cert-v00@openssh.com"
++1.3. transport: New public key algorithms "ssh-rsa-cert-v00@openssh.com",
++     "ssh-dsa-cert-v00@openssh.com",
++     "ecdsa-sha2-nistp256-cert-v01@openssh.com",
++     "ecdsa-sha2-nistp384-cert-v01@openssh.com" and
++     "ecdsa-sha2-nistp521-cert-v01@openssh.com"
+ 
+-OpenSSH introduces two new public key algorithms to support certificate
++OpenSSH introduces new public key algorithms to support certificate
+ authentication for users and hostkeys. These methods are documented in
+ the file PROTOCOL.certkeys
+ 
+-4. connection: Channel write close extension "eow@openssh.com"
++1.4. transport: Elliptic Curve cryptography
++
++OpenSSH supports ECC key exchange and public key authentication as
++specified in RFC5656. Only the ecdsa-sha2-nistp256, ecdsa-sha2-nistp384
++and ecdsa-sha2-nistp521 curves over GF(p) are supported. Elliptic
++curve points encoded using point compression are NOT accepted or
++generated.
++
++2. Connection protocol changes
++
++2.1. connection: Channel write close extension "eow@openssh.com"
+ 
+ The SSH connection protocol (rfc4254) provides the SSH_MSG_CHANNEL_EOF
+ message to allow an endpoint to signal its peer that it will send no
+@@ -77,8 +92,8 @@ message is only sent to OpenSSH peers (identified by banner).
+ Other SSH implementations may be whitelisted to receive this message
+ upon request.
+ 
+-5. connection: disallow additional sessions extension
+-   "no-more-sessions@openssh.com"
++2.2. connection: disallow additional sessions extension
++     "no-more-sessions@openssh.com"
+ 
+ Most SSH connections will only ever request a single session, but a
+ attacker may abuse a running ssh client to surreptitiously open
+@@ -105,7 +120,7 @@ of this message, the no-more-sessions request is only sent to OpenSSH
+ servers (identified by banner). Other SSH implementations may be
+ whitelisted to receive this message upon request.
+ 
+-6. connection: Tunnel forward extension "tun@openssh.com"
++2.3. connection: Tunnel forward extension "tun@openssh.com"
+ 
+ OpenSSH supports layer 2 and layer 3 tunnelling via the "tun@openssh.com"
+ channel type. This channel type supports forwarding of network packets
+@@ -166,7 +181,9 @@ The contents of the "data" field for layer 3 packets is:
+ The "frame" field contains an IEEE 802.3 Ethernet frame, including
+ header.
+ 
+-7. sftp: Reversal of arguments to SSH_FXP_SYMLINK
++3. SFTP protocol changes
++
++3.1. sftp: Reversal of arguments to SSH_FXP_SYMLINK
+ 
+ When OpenSSH's sftp-server was implemented, the order of the arguments
+ to the SSH_FXP_SYMLINK method was inadvertently reversed. Unfortunately,
+@@ -179,7 +196,7 @@ SSH_FXP_SYMLINK as follows:
+ 	string		targetpath
+ 	string		linkpath
+ 
+-8. sftp: Server extension announcement in SSH_FXP_VERSION
++3.2. sftp: Server extension announcement in SSH_FXP_VERSION
+ 
+ OpenSSH's sftp-server lists the extensions it supports using the
+ standard extension announcement mechanism in the SSH_FXP_VERSION server
+@@ -200,7 +217,7 @@ ever changed in an incompatible way. The server MAY advertise the same
+ extension with multiple versions (though this is unlikely). Clients MUST
+ check the version number before attempting to use the extension.
+ 
+-9. sftp: Extension request "posix-rename@openssh.com"
++3.3. sftp: Extension request "posix-rename@openssh.com"
+ 
+ This operation provides a rename operation with POSIX semantics, which
+ are different to those provided by the standard SSH_FXP_RENAME in
+@@ -217,7 +234,7 @@ rename(oldpath, newpath) and will respond with a SSH_FXP_STATUS message.
+ This extension is advertised in the SSH_FXP_VERSION hello with version
+ "1".
+ 
+-10. sftp: Extension requests "statvfs@openssh.com" and
++3.4. sftp: Extension requests "statvfs@openssh.com" and
+          "fstatvfs@openssh.com"
+ 
+ These requests correspond to the statvfs and fstatvfs POSIX system
+diff --git a/PROTOCOL.agent b/PROTOCOL.agent
+index b34fcd3..de94d03 100644
+--- a/PROTOCOL.agent
++++ b/PROTOCOL.agent
+@@ -159,8 +159,8 @@ successfully added or a SSH_AGENT_FAILURE if an error occurred.
+ 
+ 2.2.3 Add protocol 2 key
+ 
+-The OpenSSH agent supports DSA and RSA keys for protocol 2. DSA keys may
+-be added using the following request
++The OpenSSH agent supports DSA, ECDSA and RSA keys for protocol 2. DSA
++keys may be added using the following request
+ 
+ 	byte			SSH2_AGENTC_ADD_IDENTITY or
+ 				SSH2_AGENTC_ADD_ID_CONSTRAINED
+@@ -182,6 +182,30 @@ DSA certificates may be added with:
+ 	string			key_comment
+ 	constraint[]		key_constraints
+ 
++ECDSA keys may be added using the following request
++
++	byte			SSH2_AGENTC_ADD_IDENTITY or
++				SSH2_AGENTC_ADD_ID_CONSTRAINED
++	string			"ecdsa-sha2-nistp256" |
++				"ecdsa-sha2-nistp384" |
++				"ecdsa-sha2-nistp521"
++	string			ecdsa_curve_name
++	string			ecdsa_public_key
++	mpint			ecdsa_private
++	string			key_comment
++	constraint[]		key_constraints
++
++ECDSA certificates may be added with:
++	byte			SSH2_AGENTC_ADD_IDENTITY or
++				SSH2_AGENTC_ADD_ID_CONSTRAINED
++	string			"ecdsa-sha2-nistp256-cert-v01@openssh.com" |
++				"ecdsa-sha2-nistp384-cert-v01@openssh.com" |
++				"ecdsa-sha2-nistp521-cert-v01@openssh.com"
++	string			certificate
++	mpint			ecdsa_private_key
++	string			key_comment
++	constraint[]		key_constraints
++
+ RSA keys may be added with this request:
+ 
+ 	byte			SSH2_AGENTC_ADD_IDENTITY or
+@@ -214,7 +238,7 @@ order to the protocol 1 add keys message. As with the corresponding
+ protocol 1 "add key" request, the private key is overspecified to avoid
+ redundant processing.
+ 
+-For both DSA and RSA key add requests, "key_constraints" may only be
++For DSA, ECDSA and RSA key add requests, "key_constraints" may only be
+ present if the request type is SSH2_AGENTC_ADD_ID_CONSTRAINED.
+ 
+ The agent will reply with a SSH_AGENT_SUCCESS if the key has been
+@@ -294,8 +318,7 @@ Protocol 2 keys may be removed with the following request:
+ 	string			key_blob
+ 
+ Where "key_blob" is encoded as per RFC 4253 section 6.6 "Public Key
+-Algorithms" for either of the supported key types: "ssh-dss" or
+-"ssh-rsa".
++Algorithms" for any of the supported protocol 2 key types.
+ 
+ The agent will delete any private key matching the specified public key
+ and return SSH_AGENT_SUCCESS. If no such key was found, the agent will
+@@ -364,8 +387,7 @@ Followed by zero or more consecutive keys, encoded as:
+ 	string			key_comment
+ 
+ Where "key_blob" is encoded as per RFC 4253 section 6.6 "Public Key
+-Algorithms" for either of the supported key types: "ssh-dss" or
+-"ssh-rsa".
++Algorithms" for any of the supported protocol 2 key types.
+ 
+ 2.6 Private key operations
+ 
+@@ -429,9 +451,9 @@ a protocol 2 key:
+ 	uint32			flags
+ 
+ Where "key_blob" is encoded as per RFC 4253 section 6.6 "Public Key
+-Algorithms" for either of the supported key types: "ssh-dss" or
+-"ssh-rsa". "flags" is a bit-mask, but at present only one possible value
+-is defined (see below for its meaning):
++Algorithms" for any of the supported protocol 2 key types. "flags" is
++a bit-mask, but at present only one possible value is defined (see below
++for its meaning):
+ 
+ 	SSH_AGENT_OLD_SIGNATURE		1
+ 
+@@ -535,4 +557,4 @@ Locking and unlocking affects both protocol 1 and protocol 2 keys.
+ 	SSH_AGENT_CONSTRAIN_LIFETIME			1
+ 	SSH_AGENT_CONSTRAIN_CONFIRM			2
+ 
+-$OpenBSD: PROTOCOL.agent,v 1.5 2010/02/26 20:29:54 djm Exp $
++$OpenBSD: PROTOCOL.agent,v 1.6 2010/08/31 11:54:45 djm Exp $
+diff --git a/PROTOCOL.certkeys b/PROTOCOL.certkeys
+index d9707c7..a8d002b 100644
+--- a/PROTOCOL.certkeys
++++ b/PROTOCOL.certkeys
+@@ -5,31 +5,37 @@ Background
+ ----------
+ 
+ The SSH protocol currently supports a simple public key authentication
+-mechanism. Unlike other public key implementations, SSH eschews the
+-use of X.509 certificates and uses raw keys. This approach has some
+-benefits relating to simplicity of configuration and minimisation
+-of attack surface, but it does not support the important use-cases
+-of centrally managed, passwordless authentication and centrally
+-certified host keys.
++mechanism. Unlike other public key implementations, SSH eschews the use
++of X.509 certificates and uses raw keys. This approach has some benefits
++relating to simplicity of configuration and minimisation of attack
++surface, but it does not support the important use-cases of centrally
++managed, passwordless authentication and centrally certified host keys.
+ 
+ These protocol extensions build on the simple public key authentication
+-system already in SSH to allow certificate-based authentication.
+-The certificates used are not traditional X.509 certificates, with
+-numerous options and complex encoding rules, but something rather
+-more minimal: a key, some identity information and usage options
+-that have been signed with some other trusted key.
++system already in SSH to allow certificate-based authentication. The
++certificates used are not traditional X.509 certificates, with numerous
++options and complex encoding rules, but something rather more minimal: a
++key, some identity information and usage options that have been signed
++with some other trusted key.
+ 
+ A sshd server may be configured to allow authentication via certified
+-keys, by extending the existing ~/.ssh/authorized_keys mechanism
+-to allow specification of certification authority keys in addition
+-to raw user keys. The ssh client will support automatic verification
+-of acceptance of certified host keys, by adding a similar ability
+-to specify CA keys in ~/.ssh/known_hosts.
++keys, by extending the existing ~/.ssh/authorized_keys mechanism to
++allow specification of certification authority keys in addition to
++raw user keys. The ssh client will support automatic verification of
++acceptance of certified host keys, by adding a similar ability to
++specify CA keys in ~/.ssh/known_hosts.
+ 
+-Certified keys are represented using two new key types:
+-ssh-rsa-cert-v01@openssh.com and ssh-dss-cert-v01@openssh.com that
+-include certification information along with the public key that is used
+-to sign challenges. ssh-keygen performs the CA signing operation.
++Certified keys are represented using new key types:
++
++    ssh-rsa-cert-v01@openssh.com
++    ssh-dss-cert-v01@openssh.com
++    ecdsa-sha2-nistp256-cert-v01@openssh.com
++    ecdsa-sha2-nistp384-cert-v01@openssh.com
++    ecdsa-sha2-nistp521-cert-v01@openssh.com
++
++These include certification information along with the public key
++that is used to sign challenges. ssh-keygen performs the CA signing
++operation.
+ 
+ Protocol extensions
+ -------------------
+@@ -47,10 +53,9 @@ in RFC4252 section 7.
+ New public key formats
+ ----------------------
+ 
+-The ssh-rsa-cert-v01@openssh.com and ssh-dss-cert-v01@openssh.com key
+-types take a similar high-level format (note: data types and
+-encoding are as per RFC4251 section 5). The serialised wire encoding of
+-these certificates is also used for storing them on disk.
++The certificate key types take a similar high-level format (note: data
++types and encoding are as per RFC4251 section 5). The serialised wire
++encoding of these certificates is also used for storing them on disk.
+ 
+ #define SSH_CERT_TYPE_USER    1
+ #define SSH_CERT_TYPE_HOST    2
+@@ -93,6 +98,26 @@ DSA certificate
+     string    signature key
+     string    signature
+ 
++ECDSA certificate
++
++    string    "ecdsa-sha2-nistp256@openssh.com" |
++              "ecdsa-sha2-nistp384@openssh.com" |
++              "ecdsa-sha2-nistp521@openssh.com"
++    string    nonce
++    string    curve
++    string    public_key
++    uint64    serial
++    uint32    type
++    string    key id
++    string    valid principals
++    uint64    valid after
++    uint64    valid before
++    string    critical options
++    string    extensions
++    string    reserved
++    string    signature key
++    string    signature
++
+ The nonce field is a CA-provided random bitstring of arbitrary length
+ (but typically 16 or 32 bytes) included to make attacks that depend on
+ inducing collisions in the signature hash infeasible.
+@@ -101,6 +126,9 @@ e and n are the RSA exponent and public modulus respectively.
+ 
+ p, q, g, y are the DSA parameters as described in FIPS-186-2.
+ 
++curve and public key are respectively the ECDSA "[identifier]" and "Q"
++defined in section 3.1 of RFC5656.
++
+ serial is an optional certificate serial number set by the CA to
+ provide an abbreviated way to refer to certificates from that CA.
+ If a CA does not with to number its certificates it must set this
+@@ -123,7 +151,8 @@ any principal of the specified type. XXX DNS wildcards?
+ "valid after" and "valid before" specify a validity period for the
+ certificate. Each represents a time in seconds since 1970-01-01
+ 00:00:00. A certificate is considered valid if:
+-	 valid after <= current time < valid before
++
++    valid after <= current time < valid before
+ 
+ criticial options is a set of zero or more key options encoded as
+ below. All such options are "critical" in the sense that an implementation
+@@ -137,15 +166,17 @@ The reserved field is currently unused and is ignored in this version of
+ the protocol.
+ 
+ signature key contains the CA key used to sign the certificate.
+-The valid key types for CA keys are ssh-rsa and ssh-dss. "Chained"
++The valid key types for CA keys are ssh-rsa, ssh-dss and the ECDSA types
++ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521. "Chained"
+ certificates, where the signature key type is a certificate type itself
+ are NOT supported. Note that it is possible for a RSA certificate key to
+-be signed by a DSS CA key and vice-versa.
++be signed by a DSS or ECDSA CA key and vice-versa.
+ 
+ signature is computed over all preceding fields from the initial string
+ up to, and including the signature key. Signatures are computed and
+ encoded according to the rules defined for the CA's public key algorithm
+-(RFC4253 section 6.6 for ssh-rsa and ssh-dss).
++(RFC4253 section 6.6 for ssh-rsa and ssh-dss, RFC5656 for the ECDSA
++types).
+ 
+ Critical options
+ ----------------
+diff --git a/auth2-jpake.c b/auth2-jpake.c
+index 5de5506..a460e82 100644
+--- a/auth2-jpake.c
++++ b/auth2-jpake.c
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: auth2-jpake.c,v 1.3 2009/03/05 07:18:19 djm Exp $ */
++/* $OpenBSD: auth2-jpake.c,v 1.4 2010/08/31 11:54:45 djm Exp $ */
+ /*
+  * Copyright (c) 2008 Damien Miller.  All rights reserved.
+  *
+@@ -162,6 +162,11 @@ derive_rawsalt(const char *username, u_char *rawsalt, u_int len)
+ 			fatal("%s: DSA key missing priv_key", __func__);
+ 		buffer_put_bignum2(&b, k->dsa->priv_key);
+ 		break;
++	case KEY_ECDSA:
++		if (EC_KEY_get0_private_key(k->ecdsa) == NULL)
++			fatal("%s: ECDSA key missing priv_key", __func__);
++		buffer_put_bignum2(&b, EC_KEY_get0_private_key(k->ecdsa));
++		break;
+ 	default:
+ 		fatal("%s: unknown key type %d", __func__, k->type);
+ 	}
+diff --git a/authfd.c b/authfd.c
+index 867aff4..cecade1 100644
+--- a/authfd.c
++++ b/authfd.c
+@@ -509,6 +509,21 @@ ssh_encode_identity_ssh2(Buffer *b, Key *key, const char *comment)
+ 		    buffer_len(&key->cert->certblob));
+ 		buffer_put_bignum2(b, key->dsa->priv_key);
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++		buffer_put_cstring(b, key_curve_nid_to_name(key->ecdsa_nid));
++		buffer_put_ecpoint(b, EC_KEY_get0_group(key->ecdsa),
++		    EC_KEY_get0_public_key(key->ecdsa));
++		buffer_put_bignum2(b, EC_KEY_get0_private_key(key->ecdsa));
++		break;
++	case KEY_ECDSA_CERT:
++		if (key->cert == NULL || buffer_len(&key->cert->certblob) == 0)
++			fatal("%s: no cert/certblob", __func__);
++		buffer_put_string(b, buffer_ptr(&key->cert->certblob),
++		    buffer_len(&key->cert->certblob));
++		buffer_put_bignum2(b, EC_KEY_get0_private_key(key->ecdsa));
++		break;
++#endif
+ 	}
+ 	buffer_put_cstring(b, comment);
+ }
+@@ -541,6 +556,8 @@ ssh_add_identity_constrained(AuthenticationConnection *auth, Key *key,
+ 	case KEY_DSA:
+ 	case KEY_DSA_CERT:
+ 	case KEY_DSA_CERT_V00:
++	case KEY_ECDSA:
++	case KEY_ECDSA_CERT:
+ 		type = constrained ?
+ 		    SSH2_AGENTC_ADD_ID_CONSTRAINED :
+ 		    SSH2_AGENTC_ADD_IDENTITY;
+@@ -595,7 +612,8 @@ ssh_remove_identity(AuthenticationConnection *auth, Key *key)
+ 		buffer_put_bignum(&msg, key->rsa->e);
+ 		buffer_put_bignum(&msg, key->rsa->n);
+ 	} else if (key_type_plain(key->type) == KEY_DSA ||
+-	    key_type_plain(key->type) == KEY_RSA) {
++	    key_type_plain(key->type) == KEY_RSA ||
++	    key_type_plain(key->type) == KEY_ECDSA) {
+ 		key_to_blob(key, &blob, &blen);
+ 		buffer_put_char(&msg, SSH2_AGENTC_REMOVE_IDENTITY);
+ 		buffer_put_string(&msg, blob, blen);
+diff --git a/authfile.c b/authfile.c
+index c0c0261..d275296 100644
+--- a/authfile.c
++++ b/authfile.c
+@@ -212,6 +212,12 @@ key_save_private_pem(Key *key, const char *filename, const char *_passphrase,
+ 		success = PEM_write_DSAPrivateKey(fp, key->dsa,
+ 		    cipher, passphrase, len, NULL, NULL);
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++		success = PEM_write_ECPrivateKey(fp, key->ecdsa,
++		    cipher, passphrase, len, NULL, NULL);
++		break;
++#endif
+ 	case KEY_RSA:
+ 		success = PEM_write_RSAPrivateKey(fp, key->rsa,
+ 		    cipher, passphrase, len, NULL, NULL);
+@@ -230,6 +236,7 @@ key_save_private(Key *key, const char *filename, const char *passphrase,
+ 		return key_save_private_rsa1(key, filename, passphrase,
+ 		    comment);
+ 	case KEY_DSA:
++	case KEY_ECDSA:
+ 	case KEY_RSA:
+ 		return key_save_private_pem(key, filename, passphrase,
+ 		    comment);
+@@ -515,6 +522,31 @@ key_load_private_pem(int fd, int type, const char *passphrase,
+ #ifdef DEBUG_PK
+ 		DSA_print_fp(stderr, prv->dsa, 8);
+ #endif
++#ifdef OPENSSL_HAS_ECC
++	} else if (pk->type == EVP_PKEY_EC &&
++	    (type == KEY_UNSPEC||type==KEY_ECDSA)) {
++		prv = key_new(KEY_UNSPEC);
++		prv->ecdsa = EVP_PKEY_get1_EC_KEY(pk);
++		prv->type = KEY_ECDSA;
++		prv->ecdsa_nid = key_ecdsa_group_to_nid(
++		    EC_KEY_get0_group(prv->ecdsa));
++		if (key_curve_nid_to_name(prv->ecdsa_nid) == NULL) {
++			key_free(prv);
++			prv = NULL;
++		}
++		if (key_ec_validate_public(EC_KEY_get0_group(prv->ecdsa),
++		    EC_KEY_get0_public_key(prv->ecdsa)) != 0 ||
++		    key_ec_validate_private(prv->ecdsa) != 0) {
++			error("%s: bad ECDSA key", __func__);
++			key_free(prv);
++			prv = NULL;
++		}
++		name = "ecdsa w/o comment";
++#ifdef DEBUG_PK
++		if (prv->ecdsa != NULL)
++			key_dump_ec_key(prv->ecdsa);
++#endif
++#endif /* OPENSSL_HAS_ECC */
+ 	} else {
+ 		error("PEM_read_PrivateKey: mismatch or "
+ 		    "unknown EVP_PKEY save_type %d", pk->save_type);
+@@ -581,6 +613,7 @@ key_load_private_type(int type, const char *filename, const char *passphrase,
+ 		    commentp);
+ 		/* closes fd */
+ 	case KEY_DSA:
++	case KEY_ECDSA:
+ 	case KEY_RSA:
+ 	case KEY_UNSPEC:
+ 		return key_load_private_pem(fd, type, passphrase, commentp);
+diff --git a/bufec.c b/bufec.c
+new file mode 100644
+index 0000000..3dcb494
+--- /dev/null
++++ b/bufec.c
+@@ -0,0 +1,146 @@
++/* $OpenBSD: bufec.c,v 1.1 2010/08/31 11:54:45 djm Exp $ */
++/*
++ * Copyright (c) 2010 Damien Miller <djm@mindrot.org>
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
++#include "includes.h"
++
++#ifdef OPENSSL_HAS_ECC
++
++#include <sys/types.h>
++
++#include <openssl/bn.h>
++#include <openssl/ec.h>
++
++#include <string.h>
++#include <stdarg.h>
++
++#include "xmalloc.h"
++#include "buffer.h"
++#include "log.h"
++#include "misc.h"
++
++/*
++ * Maximum supported EC GFp field length is 528 bits. SEC1 uncompressed
++ * encoding represents this as two bitstring points that should each
++ * be no longer than the field length, SEC1 specifies a 1 byte
++ * point type header.
++ * Being paranoid here may insulate us to parsing problems in
++ * EC_POINT_oct2point.
++ */
++#define BUFFER_MAX_ECPOINT_LEN ((528*2 / 8) + 1)
++
++/*
++ * Append an EC_POINT to the buffer as a string containing a SEC1 encoded
++ * uncompressed point. Fortunately OpenSSL handles the gory details for us.
++ */
++int
++buffer_put_ecpoint_ret(Buffer *buffer, const EC_GROUP *curve,
++    const EC_POINT *point)
++{
++	u_char *buf = NULL;
++	size_t len;
++	BN_CTX *bnctx;
++	int ret = -1;
++
++	/* Determine length */
++	if ((bnctx = BN_CTX_new()) == NULL)
++		fatal("%s: BN_CTX_new failed", __func__);
++	len = EC_POINT_point2oct(curve, point, POINT_CONVERSION_UNCOMPRESSED,
++	    NULL, 0, bnctx);
++	if (len > BUFFER_MAX_ECPOINT_LEN) {
++		error("%s: giant EC point: len = %lu (max %u)",
++		    __func__, (u_long)len, BUFFER_MAX_ECPOINT_LEN);
++		goto out;
++	}
++	/* Convert */
++	buf = xmalloc(len);
++	if (EC_POINT_point2oct(curve, point, POINT_CONVERSION_UNCOMPRESSED,
++	    buf, len, bnctx) != len) {
++		error("%s: EC_POINT_point2oct length mismatch", __func__);
++		goto out;
++	}
++	/* Append */
++	buffer_put_string(buffer, buf, len);
++	ret = 0;
++ out:
++	if (buf != NULL) {
++		bzero(buf, len);
++		xfree(buf);
++	}
++	BN_CTX_free(bnctx);
++	return ret;
++}
++
++void
++buffer_put_ecpoint(Buffer *buffer, const EC_GROUP *curve,
++    const EC_POINT *point)
++{
++	if (buffer_put_ecpoint_ret(buffer, curve, point) == -1)
++		fatal("%s: buffer error", __func__);
++}
++
++int
++buffer_get_ecpoint_ret(Buffer *buffer, const EC_GROUP *curve,
++    EC_POINT *point)
++{
++	u_char *buf;
++	u_int len;
++	BN_CTX *bnctx;
++	int ret = -1;
++
++	if ((buf = buffer_get_string_ret(buffer, &len)) == NULL) {
++		error("%s: invalid point", __func__);
++		return -1;
++	}
++	if ((bnctx = BN_CTX_new()) == NULL)
++		fatal("%s: BN_CTX_new failed", __func__);
++	if (len > BUFFER_MAX_ECPOINT_LEN) {
++		error("%s: EC_POINT too long: %u > max %u", __func__,
++		    len, BUFFER_MAX_ECPOINT_LEN);
++		goto out;
++	}
++	if (len == 0) {
++		error("%s: EC_POINT buffer is empty", __func__);
++		goto out;
++	}
++	if (buf[0] != POINT_CONVERSION_UNCOMPRESSED) {
++		error("%s: EC_POINT is in an incorrect form: "
++		    "0x%02x (want 0x%02x)", __func__, buf[0],
++		    POINT_CONVERSION_UNCOMPRESSED);
++		goto out;
++	}
++	if (EC_POINT_oct2point(curve, point, buf, len, bnctx) != 1) {
++		error("buffer_get_bignum2_ret: BN_bin2bn failed");
++		goto out;
++	}
++	/* EC_POINT_oct2point verifies that the point is on the curve for us */
++	ret = 0;
++ out:
++	BN_CTX_free(bnctx);
++	bzero(buf, len);
++	xfree(buf);
++	return ret;
++}
++
++void
++buffer_get_ecpoint(Buffer *buffer, const EC_GROUP *curve,
++    EC_POINT *point)
++{
++	if (buffer_get_ecpoint_ret(buffer, curve, point) == -1)
++		fatal("%s: buffer error", __func__);
++}
++
++#endif /* OPENSSL_HAS_ECC */
+diff --git a/buffer.h b/buffer.h
+index 6ae2619..fd19405 100644
+--- a/buffer.h
++++ b/buffer.h
+@@ -84,4 +84,13 @@ void	*buffer_get_string_ret(Buffer *, u_int *);
+ void   *buffer_get_string_ptr_ret(Buffer *, u_int *);
+ int	buffer_get_char_ret(char *, Buffer *);
+ 
++#ifdef OPENSSL_HAS_ECC
++#include <openssl/ec.h>
++
++int	buffer_put_ecpoint_ret(Buffer *, const EC_GROUP *, const EC_POINT *);
++void	buffer_put_ecpoint(Buffer *, const EC_GROUP *, const EC_POINT *);
++int	buffer_get_ecpoint_ret(Buffer *, const EC_GROUP *, EC_POINT *);
++void	buffer_get_ecpoint(Buffer *, const EC_GROUP *, EC_POINT *);
++#endif
++
+ #endif				/* BUFFER_H */
+diff --git a/configure.ac b/configure.ac
+index c65824b..4a021a7 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -2263,6 +2263,122 @@ fi
+ # Search for SHA256 support in libc and/or OpenSSL
+ AC_CHECK_FUNCS(SHA256_Update EVP_sha256)
+ 
++# Check complete ECC support in OpenSSL
++AC_MSG_CHECKING([whether OpenSSL has NID_X9_62_prime256v1])
++AC_LINK_IFELSE(
++	[AC_LANG_PROGRAM([[
++#include <openssl/ec.h>
++#include <openssl/ecdh.h>
++#include <openssl/ecdsa.h>
++#include <openssl/evp.h>
++#include <openssl/objects.h>
++#include <openssl/opensslv.h>
++#if OPENSSL_VERSION_NUMBER < 0x0090807f /* 0.9.8g */
++# error "OpenSSL < 0.9.8g has unreliable ECC code"
++#endif
++	]], [[
++	EC_KEY *e = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
++	const EVP_MD *m = EVP_sha256(); /* We need this too */
++	]])],
++	[ AC_MSG_RESULT([yes])
++	  enable_nistp256=1 ],
++	[ AC_MSG_RESULT([no]) ]
++)
++
++AC_MSG_CHECKING([whether OpenSSL has NID_secp384r1])
++AC_LINK_IFELSE(
++	[AC_LANG_PROGRAM([[
++#include <openssl/ec.h>
++#include <openssl/ecdh.h>
++#include <openssl/ecdsa.h>
++#include <openssl/evp.h>
++#include <openssl/objects.h>
++#include <openssl/opensslv.h>
++#if OPENSSL_VERSION_NUMBER < 0x0090807f /* 0.9.8g */
++# error "OpenSSL < 0.9.8g has unreliable ECC code"
++#endif
++	]], [[
++	EC_KEY *e = EC_KEY_new_by_curve_name(NID_secp384r1);
++	const EVP_MD *m = EVP_sha384(); /* We need this too */
++	]])],
++	[ AC_MSG_RESULT([yes])
++	  enable_nistp384=1 ],
++	[ AC_MSG_RESULT([no]) ]
++)
++
++AC_MSG_CHECKING([whether OpenSSL has NID_secp521r1])
++AC_LINK_IFELSE(
++	[AC_LANG_PROGRAM([[
++#include <openssl/ec.h>
++#include <openssl/ecdh.h>
++#include <openssl/ecdsa.h>
++#include <openssl/evp.h>
++#include <openssl/objects.h>
++#include <openssl/opensslv.h>
++#if OPENSSL_VERSION_NUMBER < 0x0090807f /* 0.9.8g */
++# error "OpenSSL < 0.9.8g has unreliable ECC code"
++#endif
++	]], [[
++	EC_KEY *e = EC_KEY_new_by_curve_name(NID_secp521r1);
++	const EVP_MD *m = EVP_sha512(); /* We need this too */
++	]])],
++	[ AC_MSG_RESULT([yes])
++	  AC_MSG_CHECKING([if OpenSSL's NID_secp521r1 is functional])
++	  AC_RUN_IFELSE(
++		[AC_LANG_PROGRAM([[
++#include <openssl/ec.h>
++#include <openssl/ecdh.h>
++#include <openssl/ecdsa.h>
++#include <openssl/evp.h>
++#include <openssl/objects.h>
++#include <openssl/opensslv.h>
++		]],[[
++		EC_KEY *e = EC_KEY_new_by_curve_name(NID_secp521r1);
++		const EVP_MD *m = EVP_sha512(); /* We need this too */
++		exit(e == NULL || m == NULL);
++		]])],
++		[ AC_MSG_RESULT([yes])
++		  enable_nistp521=1 ],
++		[ AC_MSG_RESULT([no]) ],
++		[ AC_MSG_WARN([cross-compiling: assuming yes])
++		  enable_nistp521=1 ]
++	  )],
++	AC_MSG_RESULT([no])
++)
++
++COMMENT_OUT_ECC="#no ecc#"
++TEST_SSH_ECC=no
++
++if test x$enable_nistp256 = x1 || test x$enable_nistp384 = x1 || \
++    x$enable_nistp521 = x1; then
++	AC_DEFINE(OPENSSL_HAS_ECC, [1], [OpenSSL has ECC])
++fi
++if test x$enable_nistp256 = x1; then
++	AC_DEFINE([OPENSSL_HAS_NISTP256], [1],
++	    [libcrypto has NID_X9_62_prime256v1])
++	TEST_SSH_ECC=yes
++	COMMENT_OUT_ECC=""
++else
++	unsupported_algorithms="$unsupported_algorithms ecdsa-sha2-nistp256 \
++	    ecdh-sha2-nistp256 ecdsa-sha2-nistp256-cert-v01@openssh.com"
++fi
++if test x$enable_nistp384 = x1; then
++	AC_DEFINE([OPENSSL_HAS_NISTP384], [1], [libcrypto has NID_secp384r1])
++	TEST_SSH_ECC=yes
++	COMMENT_OUT_ECC=""
++else
++	unsupported_algorithms="$unsupported_algorithms ecdsa-sha2-nistp384 \
++	    ecdh-sha2-nistp384 ecdsa-sha2-nistp384-cert-v01@openssh.com"
++fi
++if test x$enable_nistp521 = x1; then
++	AC_DEFINE([OPENSSL_HAS_NISTP521], [1], [libcrypto has NID_secp521r1])
++	TEST_SSH_ECC=yes
++	COMMENT_OUT_ECC=""
++else
++	unsupported_algorithms="$unsupported_algorithms ecdh-sha2-nistp521 \
++	    ecdsa-sha2-nistp521 ecdsa-sha2-nistp521-cert-v01@openssh.com"
++fi
++
+ saved_LIBS="$LIBS"
+ AC_CHECK_LIB(iaf, ia_openinfo, [
+ 	LIBS="$LIBS -liaf"
+diff --git a/dns.c b/dns.c
+index 30c89eb..dfa4c1e 100644
+--- a/dns.c
++++ b/dns.c
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: dns.c,v 1.26 2010/02/26 20:29:54 djm Exp $ */
++/* $OpenBSD: dns.c,v 1.27 2010/08/31 11:54:45 djm Exp $ */
+ 
+ /*
+  * Copyright (c) 2003 Wesley Griffin. All rights reserved.
+@@ -86,6 +86,7 @@ dns_read_key(u_int8_t *algorithm, u_int8_t *digest_type,
+ 	case KEY_DSA:
+ 		*algorithm = SSHFP_KEY_DSA;
+ 		break;
++	/* XXX KEY_ECDSA */
+ 	default:
+ 		*algorithm = SSHFP_KEY_RESERVED; /* 0 */
+ 	}
+diff --git a/kex.c b/kex.c
+index f09199f..b322b21 100644
+--- a/kex.c
++++ b/kex.c
+@@ -81,7 +81,10 @@ kex_names_valid(const char *names)
+ 	    	if (strcmp(p, KEX_DHGEX_SHA256) != 0 &&
+ 		    strcmp(p, KEX_DHGEX_SHA1) != 0 &&
+ 		    strcmp(p, KEX_DH14) != 0 &&
+-		    strcmp(p, KEX_DH1) != 0 ) {
++		    strcmp(p, KEX_DH1) != 0 &&
++		    (strncmp(p, KEX_ECDH_SHA2_STEM,
++		    sizeof(KEX_ECDH_SHA2_STEM) - 1) != 0 ||
++		    kex_ecdh_name_to_nid(p) == -1)) {
+ 			error("Unsupported KEX algorithm \"%.100s\"", p);
+ 			xfree(s);
+ 			return 0;
+@@ -89,7 +92,10 @@ kex_names_valid(const char *names)
+ 		if (FIPS_mode()) {
+ 			if (strcmp(p, KEX_DHGEX_SHA256) != 0 &&
+ 			    strcmp(p, KEX_DHGEX_SHA1) != 0 &&
+-			    strcmp(p, KEX_DH14) != 0 ) {
++			    strcmp(p, KEX_DH14) != 0 &&
++			    (strncmp(p, KEX_ECDH_SHA2_STEM,
++			    sizeof(KEX_ECDH_SHA2_STEM) - 1) != 0 ||
++			    kex_ecdh_name_to_nid(p) == -1)) {
+ 				error("\"%.100s\" is not allowed in FIPS mode", p);
+ 				xfree(s);
+ 				return 0;
+@@ -376,6 +382,10 @@ choose_kex(Kex *k, char *client, char *server)
+ 	} else if (strcmp(k->name, KEX_DHGEX_SHA256) == 0) {
+ 		k->kex_type = KEX_DH_GEX_SHA256;
+ 		k->evp_md = evp_ssh_sha256();
++	} else if (strncmp(k->name, KEX_ECDH_SHA2_STEM,
++	    sizeof(KEX_ECDH_SHA2_STEM) - 1) == 0) {
++ 		k->kex_type = KEX_ECDH_SHA2;
++		k->evp_md = kex_ecdh_name_to_evpmd(k->name);
+ #endif
+ #ifdef GSSAPI
+ 	} else if (strncmp(k->name, KEX_GSS_GEX_SHA1_ID,
+@@ -617,11 +627,11 @@ derive_ssh1_session_id(BIGNUM *host_modulus, BIGNUM *server_modulus,
+ 	memset(&md, 0, sizeof(md));
+ }
+ 
+-#if defined(DEBUG_KEX) || defined(DEBUG_KEXDH)
++#if defined(DEBUG_KEX) || defined(DEBUG_KEXDH) || defined(DEBUG_KEXECDH)
+ void
+ dump_digest(char *msg, u_char *digest, int len)
+ {
+-	u_int i;
++	int i;
+ 
+ 	fprintf(stderr, "%s\n", msg);
+ 	for (i = 0; i < len; i++) {
+diff --git a/kex.h b/kex.h
+index 314d6fd..79a9f60 100644
+--- a/kex.h
++++ b/kex.h
+@@ -29,6 +29,9 @@
+ #include <signal.h>
+ #include <openssl/evp.h>
+ #include <openssl/hmac.h>
++#ifdef OPENSSL_HAS_ECC
++#include <openssl/ec.h>
++#endif
+ 
+ #define KEX_COOKIE_LEN	16
+ 
+@@ -36,6 +39,8 @@
+ #define	KEX_DH14		"diffie-hellman-group14-sha1"
+ #define	KEX_DHGEX_SHA1		"diffie-hellman-group-exchange-sha1"
+ #define	KEX_DHGEX_SHA256	"diffie-hellman-group-exchange-sha256"
++/* The following represents the family of ECDH methods */
++#define	KEX_ECDH_SHA2_STEM	"ecdh-sha2-"
+ 
+ #define COMP_NONE	0
+ #define COMP_ZLIB	1
+@@ -66,6 +71,7 @@ enum kex_exchange {
+ 	KEX_DH_GRP14_SHA1,
+ 	KEX_DH_GEX_SHA1,
+ 	KEX_DH_GEX_SHA256,
++	KEX_ECDH_SHA2,
+ 	KEX_GSS_GRP1_SHA1,
+ 	KEX_GSS_GRP14_SHA1,
+ 	KEX_GSS_GEX_SHA1,
+@@ -141,6 +147,8 @@ struct Kex {
+ 
+ int	 kex_names_valid(const char *);
+ 
++int	 kex_names_valid(const char *);
++
+ Kex	*kex_setup(char *[PROPOSAL_MAX]);
+ void	 kex_finish(Kex *);
+ 
+@@ -154,6 +162,8 @@ void	 kexdh_client(Kex *);
+ void	 kexdh_server(Kex *);
+ void	 kexgex_client(Kex *);
+ void	 kexgex_server(Kex *);
++void	 kexecdh_client(Kex *);
++void	 kexecdh_server(Kex *);
+ 
+ #ifdef GSSAPI
+ void	kexgss_client(Kex *);
+@@ -169,11 +179,22 @@ void
+ kexgex_hash(const EVP_MD *, char *, char *, char *, int, char *,
+     int, u_char *, int, int, int, int, BIGNUM *, BIGNUM *, BIGNUM *,
+     BIGNUM *, BIGNUM *, u_char **, u_int *);
++#ifdef OPENSSL_HAS_ECC
++void
++kex_ecdh_hash(const EVP_MD *, const EC_GROUP *, char *, char *, char *, int,
++    char *, int, u_char *, int, const EC_POINT *, const EC_POINT *,
++    const BIGNUM *, u_char **, u_int *);
++int	kex_ecdh_name_to_nid(const char *);
++const EVP_MD *kex_ecdh_name_to_evpmd(const char *);
++#else
++# define kex_ecdh_name_to_nid(x) (-1)
++# define kex_ecdh_name_to_evpmd(x) (NULL)
++#endif
+ 
+ void
+ derive_ssh1_session_id(BIGNUM *, BIGNUM *, u_int8_t[8], u_int8_t[16]);
+ 
+-#if defined(DEBUG_KEX) || defined(DEBUG_KEXDH)
++#if defined(DEBUG_KEX) || defined(DEBUG_KEXDH) || defined(DEBUG_KEXECDH)
+ void	dump_digest(char *, u_char *, int);
+ #endif
+ 
+diff --git a/kexecdh.c b/kexecdh.c
+new file mode 100644
+index 0000000..f13f69d
+--- /dev/null
++++ b/kexecdh.c
+@@ -0,0 +1,117 @@
++/* $OpenBSD: kexecdh.c,v 1.3 2010/09/22 05:01:29 djm Exp $ */
++/*
++ * Copyright (c) 2001 Markus Friedl.  All rights reserved.
++ * Copyright (c) 2010 Damien Miller.  All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
++ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
++ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
++ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "includes.h"
++
++#ifdef OPENSSL_HAS_ECC
++
++#include <sys/types.h>
++
++#include <signal.h>
++#include <string.h>
++
++#include <openssl/bn.h>
++#include <openssl/evp.h>
++#include <openssl/ec.h>
++#include <openssl/ecdh.h>
++
++#include "buffer.h"
++#include "ssh2.h"
++#include "key.h"
++#include "cipher.h"
++#include "kex.h"
++#include "log.h"
++
++int
++kex_ecdh_name_to_nid(const char *kexname)
++{
++	if (strlen(kexname) < sizeof(KEX_ECDH_SHA2_STEM) - 1)
++		fatal("%s: kexname too short \"%s\"", __func__, kexname);
++	return key_curve_name_to_nid(kexname + sizeof(KEX_ECDH_SHA2_STEM) - 1);
++}
++
++const EVP_MD *
++kex_ecdh_name_to_evpmd(const char *kexname)
++{
++	int nid = kex_ecdh_name_to_nid(kexname);
++
++	if (nid == -1)
++		fatal("%s: unsupported ECDH curve \"%s\"", __func__, kexname);
++	return key_ec_nid_to_evpmd(nid);
++}
++
++void
++kex_ecdh_hash(
++    const EVP_MD *evp_md,
++    const EC_GROUP *ec_group,
++    char *client_version_string,
++    char *server_version_string,
++    char *ckexinit, int ckexinitlen,
++    char *skexinit, int skexinitlen,
++    u_char *serverhostkeyblob, int sbloblen,
++    const EC_POINT *client_dh_pub,
++    const EC_POINT *server_dh_pub,
++    const BIGNUM *shared_secret,
++    u_char **hash, u_int *hashlen)
++{
++	Buffer b;
++	EVP_MD_CTX md;
++	static u_char digest[EVP_MAX_MD_SIZE];
++
++	buffer_init(&b);
++	buffer_put_cstring(&b, client_version_string);
++	buffer_put_cstring(&b, server_version_string);
++
++	/* kexinit messages: fake header: len+SSH2_MSG_KEXINIT */
++	buffer_put_int(&b, ckexinitlen+1);
++	buffer_put_char(&b, SSH2_MSG_KEXINIT);
++	buffer_append(&b, ckexinit, ckexinitlen);
++	buffer_put_int(&b, skexinitlen+1);
++	buffer_put_char(&b, SSH2_MSG_KEXINIT);
++	buffer_append(&b, skexinit, skexinitlen);
++
++	buffer_put_string(&b, serverhostkeyblob, sbloblen);
++	buffer_put_ecpoint(&b, ec_group, client_dh_pub);
++	buffer_put_ecpoint(&b, ec_group, server_dh_pub);
++	buffer_put_bignum2(&b, shared_secret);
++
++#ifdef DEBUG_KEX
++	buffer_dump(&b);
++#endif
++	EVP_DigestInit(&md, evp_md);
++	EVP_DigestUpdate(&md, buffer_ptr(&b), buffer_len(&b));
++	EVP_DigestFinal(&md, digest, NULL);
++
++	buffer_free(&b);
++
++#ifdef DEBUG_KEX
++	dump_digest("hash", digest, EVP_MD_size(evp_md));
++#endif
++	*hash = digest;
++	*hashlen = EVP_MD_size(evp_md);
++}
++
++#endif /* OPENSSL_HAS_ECC */
+diff --git a/kexecdhc.c b/kexecdhc.c
+new file mode 100644
+index 0000000..6424763
+--- /dev/null
++++ b/kexecdhc.c
+@@ -0,0 +1,169 @@
++/* $OpenBSD: kexecdhc.c,v 1.2 2010/09/22 05:01:29 djm Exp $ */
++/*
++ * Copyright (c) 2001 Markus Friedl.  All rights reserved.
++ * Copyright (c) 2010 Damien Miller.  All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
++ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
++ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
++ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "includes.h"
++
++#include <sys/types.h>
++
++#include <stdio.h>
++#include <string.h>
++#include <signal.h>
++
++#include "xmalloc.h"
++#include "buffer.h"
++#include "key.h"
++#include "cipher.h"
++#include "kex.h"
++#include "log.h"
++#include "packet.h"
++#include "dh.h"
++#include "ssh2.h"
++
++#ifdef OPENSSL_HAS_ECC
++
++#include <openssl/ecdh.h>
++
++void
++kexecdh_client(Kex *kex)
++{
++	EC_KEY *client_key;
++	EC_POINT *server_public;
++	const EC_GROUP *group;
++	BIGNUM *shared_secret;
++	Key *server_host_key;
++	u_char *server_host_key_blob = NULL, *signature = NULL;
++	u_char *kbuf, *hash;
++	u_int klen, slen, sbloblen, hashlen;
++	int curve_nid;
++
++	if ((curve_nid = kex_ecdh_name_to_nid(kex->name)) == -1)
++		fatal("%s: unsupported ECDH curve \"%s\"", __func__, kex->name);
++	if ((client_key = EC_KEY_new_by_curve_name(curve_nid)) == NULL)
++		fatal("%s: EC_KEY_new_by_curve_name failed", __func__);
++	if (EC_KEY_generate_key(client_key) != 1)
++		fatal("%s: EC_KEY_generate_key failed", __func__);
++	group = EC_KEY_get0_group(client_key);
++
++	packet_start(SSH2_MSG_KEX_ECDH_INIT);
++	packet_put_ecpoint(group, EC_KEY_get0_public_key(client_key));
++	packet_send();
++	debug("sending SSH2_MSG_KEX_ECDH_INIT");
++
++#ifdef DEBUG_KEXECDH
++	fputs("client private key:\n", stderr);
++	key_dump_ec_key(client_key);
++#endif
++
++	debug("expecting SSH2_MSG_KEX_ECDH_REPLY");
++	packet_read_expect(SSH2_MSG_KEX_ECDH_REPLY);
++
++	/* hostkey */
++	server_host_key_blob = packet_get_string(&sbloblen);
++	server_host_key = key_from_blob(server_host_key_blob, sbloblen);
++	if (server_host_key == NULL)
++		fatal("cannot decode server_host_key_blob");
++	if (server_host_key->type != kex->hostkey_type)
++		fatal("type mismatch for decoded server_host_key_blob");
++	if (kex->verify_host_key == NULL)
++		fatal("cannot verify server_host_key");
++	if (kex->verify_host_key(server_host_key) == -1)
++		fatal("server_host_key verification failed");
++
++	/* Q_S, server public key */
++	if ((server_public = EC_POINT_new(group)) == NULL)
++		fatal("%s: EC_POINT_new failed", __func__);
++	packet_get_ecpoint(group, server_public);
++
++	if (key_ec_validate_public(group, server_public) != 0)
++		fatal("%s: invalid server public key", __func__);
++
++#ifdef DEBUG_KEXECDH
++	fputs("server public key:\n", stderr);
++	key_dump_ec_point(group, server_public);
++#endif
++
++	/* signed H */
++	signature = packet_get_string(&slen);
++	packet_check_eom();
++
++	klen = (EC_GROUP_get_degree(group) + 7) / 8;
++	kbuf = xmalloc(klen);
++	if (ECDH_compute_key(kbuf, klen, server_public,
++	    client_key, NULL) != (int)klen)
++		fatal("%s: ECDH_compute_key failed", __func__);
++
++#ifdef DEBUG_KEXECDH
++	dump_digest("shared secret", kbuf, klen);
++#endif
++	if ((shared_secret = BN_new()) == NULL)
++		fatal("%s: BN_new failed", __func__);
++	if (BN_bin2bn(kbuf, klen, shared_secret) == NULL)
++		fatal("%s: BN_bin2bn failed", __func__);
++	memset(kbuf, 0, klen);
++	xfree(kbuf);
++
++	/* calc and verify H */
++	kex_ecdh_hash(
++	    kex->evp_md,
++	    group,
++	    kex->client_version_string,
++	    kex->server_version_string,
++	    buffer_ptr(&kex->my), buffer_len(&kex->my),
++	    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
++	    server_host_key_blob, sbloblen,
++	    EC_KEY_get0_public_key(client_key),
++	    server_public,
++	    shared_secret,
++	    &hash, &hashlen
++	);
++	xfree(server_host_key_blob);
++	EC_POINT_clear_free(server_public);
++	EC_KEY_free(client_key);
++
++	if (key_verify(server_host_key, signature, slen, hash, hashlen) != 1)
++		fatal("key_verify failed for server_host_key");
++	key_free(server_host_key);
++	xfree(signature);
++
++	/* save session id */
++	if (kex->session_id == NULL) {
++		kex->session_id_len = hashlen;
++		kex->session_id = xmalloc(kex->session_id_len);
++		memcpy(kex->session_id, hash, kex->session_id_len);
++	}
++
++	kex_derive_keys(kex, hash, hashlen, shared_secret);
++	BN_clear_free(shared_secret);
++	memset(hash, 0, hashlen);
++	kex_finish(kex);
++}
++#else /* OPENSSL_HAS_ECC */
++void
++kexecdh_client(Kex *kex)
++{
++	fatal("ECC support is not enabled");
++}
++#endif /* OPENSSL_HAS_ECC */
+diff --git a/kexecdhs.c b/kexecdhs.c
+new file mode 100644
+index 0000000..a4cf6e1
+--- /dev/null
++++ b/kexecdhs.c
+@@ -0,0 +1,174 @@
++/* $OpenBSD: kexecdhs.c,v 1.2 2010/09/22 05:01:29 djm Exp $ */
++/*
++ * Copyright (c) 2001 Markus Friedl.  All rights reserved.
++ * Copyright (c) 2010 Damien Miller.  All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
++ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
++ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
++ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "includes.h"
++
++#include <sys/types.h>
++#include <string.h>
++#include <signal.h>
++
++#include "xmalloc.h"
++#include "buffer.h"
++#include "key.h"
++#include "cipher.h"
++#include "kex.h"
++#include "log.h"
++#include "packet.h"
++#include "dh.h"
++#include "ssh2.h"
++#ifdef GSSAPI
++#include "ssh-gss.h"
++#endif
++#include "monitor_wrap.h"
++
++#ifdef OPENSSL_HAS_ECC
++
++#include <openssl/ecdh.h>
++
++void
++kexecdh_server(Kex *kex)
++{
++	EC_POINT *client_public;
++	EC_KEY *server_key;
++	const EC_GROUP *group;
++	BIGNUM *shared_secret;
++	Key *server_host_private, *server_host_public;
++	u_char *server_host_key_blob = NULL, *signature = NULL;
++	u_char *kbuf, *hash;
++	u_int klen, slen, sbloblen, hashlen;
++	int curve_nid;
++
++	if ((curve_nid = kex_ecdh_name_to_nid(kex->name)) == -1)
++		fatal("%s: unsupported ECDH curve \"%s\"", __func__, kex->name);
++	if ((server_key = EC_KEY_new_by_curve_name(curve_nid)) == NULL)
++		fatal("%s: EC_KEY_new_by_curve_name failed", __func__);
++	if (EC_KEY_generate_key(server_key) != 1)
++		fatal("%s: EC_KEY_generate_key failed", __func__);
++	group = EC_KEY_get0_group(server_key);
++
++#ifdef DEBUG_KEXECDH
++	fputs("server private key:\n", stderr);
++	key_dump_ec_key(server_key);
++#endif
++
++	if (kex->load_host_public_key == NULL ||
++	    kex->load_host_private_key == NULL)
++		fatal("Cannot load hostkey");
++	server_host_public = kex->load_host_public_key(kex->hostkey_type);
++	if (server_host_public == NULL)
++		fatal("Unsupported hostkey type %d", kex->hostkey_type);
++	server_host_private = kex->load_host_private_key(kex->hostkey_type);
++	if (server_host_private == NULL)
++		fatal("Missing private key for hostkey type %d",
++		    kex->hostkey_type);
++
++	debug("expecting SSH2_MSG_KEX_ECDH_INIT");
++	packet_read_expect(SSH2_MSG_KEX_ECDH_INIT);
++	if ((client_public = EC_POINT_new(group)) == NULL)
++		fatal("%s: EC_POINT_new failed", __func__);
++	packet_get_ecpoint(group, client_public);
++	packet_check_eom();
++
++	if (key_ec_validate_public(group, client_public) != 0)
++		fatal("%s: invalid client public key", __func__);
++
++#ifdef DEBUG_KEXECDH
++	fputs("client public key:\n", stderr);
++	key_dump_ec_point(group, client_public);
++#endif
++
++	/* Calculate shared_secret */
++	klen = (EC_GROUP_get_degree(group) + 7) / 8;
++	kbuf = xmalloc(klen);
++	if (ECDH_compute_key(kbuf, klen, client_public,
++	    server_key, NULL) != (int)klen)
++		fatal("%s: ECDH_compute_key failed", __func__);
++
++#ifdef DEBUG_KEXDH
++	dump_digest("shared secret", kbuf, klen);
++#endif
++	if ((shared_secret = BN_new()) == NULL)
++		fatal("%s: BN_new failed", __func__);
++	if (BN_bin2bn(kbuf, klen, shared_secret) == NULL)
++		fatal("%s: BN_bin2bn failed", __func__);
++	memset(kbuf, 0, klen);
++	xfree(kbuf);
++
++	/* calc H */
++	key_to_blob(server_host_public, &server_host_key_blob, &sbloblen);
++	kex_ecdh_hash(
++	    kex->evp_md,
++	    group,
++	    kex->client_version_string,
++	    kex->server_version_string,
++	    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
++	    buffer_ptr(&kex->my), buffer_len(&kex->my),
++	    server_host_key_blob, sbloblen,
++	    client_public,
++	    EC_KEY_get0_public_key(server_key),
++	    shared_secret,
++	    &hash, &hashlen
++	);
++	EC_POINT_clear_free(client_public);
++
++	/* save session id := H */
++	if (kex->session_id == NULL) {
++		kex->session_id_len = hashlen;
++		kex->session_id = xmalloc(kex->session_id_len);
++		memcpy(kex->session_id, hash, kex->session_id_len);
++	}
++
++	/* sign H */
++	if (PRIVSEP(key_sign(server_host_private, &signature, &slen,
++	    hash, hashlen)) < 0)
++		fatal("kexdh_server: key_sign failed");
++
++	/* destroy_sensitive_data(); */
++
++	/* send server hostkey, ECDH pubkey 'Q_S' and signed H */
++	packet_start(SSH2_MSG_KEX_ECDH_REPLY);
++	packet_put_string(server_host_key_blob, sbloblen);
++	packet_put_ecpoint(group, EC_KEY_get0_public_key(server_key));
++	packet_put_string(signature, slen);
++	packet_send();
++
++	xfree(signature);
++	xfree(server_host_key_blob);
++	/* have keys, free server key */
++	EC_KEY_free(server_key);
++
++	kex_derive_keys(kex, hash, hashlen, shared_secret);
++	BN_clear_free(shared_secret);
++	memset(hash, 0, hashlen);
++	kex_finish(kex);
++}
++#else /* OPENSSL_HAS_ECC */
++void
++kexecdh_server(Kex *kex)
++{
++	fatal("ECC support is not enabled");
++}
++#endif /* OPENSSL_HAS_ECC */
+diff --git a/key.c b/key.c
+index ad15ce9..dbc960b 100644
+--- a/key.c
++++ b/key.c
+@@ -78,6 +78,8 @@ key_new(int type)
+ 	DSA *dsa;
+ 	k = xcalloc(1, sizeof(*k));
+ 	k->type = type;
++	k->ecdsa = NULL;
++	k->ecdsa_nid = -1;
+ 	k->dsa = NULL;
+ 	k->rsa = NULL;
+ 	k->cert = NULL;
+@@ -109,6 +111,12 @@ key_new(int type)
+ 			fatal("key_new: BN_new failed");
+ 		k->dsa = dsa;
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++	case KEY_ECDSA_CERT:
++		/* Cannot do anything until we know the group */
++		break;
++#endif
+ 	case KEY_UNSPEC:
+ 		break;
+ 	default:
+@@ -197,6 +205,10 @@ key_add_private(Key *k)
+ 		if ((k->dsa->priv_key = BN_new()) == NULL)
+ 			fatal("key_new_private: BN_new failed");
+ 		break;
++	case KEY_ECDSA:
++	case KEY_ECDSA_CERT:
++		/* Cannot do anything until we know the group */
++		break;
+ 	case KEY_UNSPEC:
+ 		break;
+ 	default:
+@@ -252,6 +264,14 @@ key_free(Key *k)
+ 			DSA_free(k->dsa);
+ 		k->dsa = NULL;
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++	case KEY_ECDSA_CERT:
++		if (k->ecdsa != NULL)
++			EC_KEY_free(k->ecdsa);
++		k->ecdsa = NULL;
++		break;
++#endif
+ 	case KEY_UNSPEC:
+ 		break;
+ 	default:
+@@ -302,6 +322,10 @@ cert_compare(struct KeyCert *a, struct KeyCert *b)
+ int
+ key_equal_public(const Key *a, const Key *b)
+ {
++#ifdef OPENSSL_HAS_ECC
++	BN_CTX *bnctx;
++#endif
++
+ 	if (a == NULL || b == NULL ||
+ 	    key_type_plain(a->type) != key_type_plain(b->type))
+ 		return 0;
+@@ -322,6 +346,26 @@ key_equal_public(const Key *a, const Key *b)
+ 		    BN_cmp(a->dsa->q, b->dsa->q) == 0 &&
+ 		    BN_cmp(a->dsa->g, b->dsa->g) == 0 &&
+ 		    BN_cmp(a->dsa->pub_key, b->dsa->pub_key) == 0;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA_CERT:
++	case KEY_ECDSA:
++		if (a->ecdsa == NULL || b->ecdsa == NULL ||
++		    EC_KEY_get0_public_key(a->ecdsa) == NULL ||
++		    EC_KEY_get0_public_key(b->ecdsa) == NULL)
++			return 0;
++		if ((bnctx = BN_CTX_new()) == NULL)
++			fatal("%s: BN_CTX_new failed", __func__);
++		if (EC_GROUP_cmp(EC_KEY_get0_group(a->ecdsa),
++		    EC_KEY_get0_group(b->ecdsa), bnctx) != 0 ||
++		    EC_POINT_cmp(EC_KEY_get0_group(a->ecdsa),
++		    EC_KEY_get0_public_key(a->ecdsa),
++		    EC_KEY_get0_public_key(b->ecdsa), bnctx) != 0) {
++			BN_CTX_free(bnctx);
++			return 0;
++		}
++		BN_CTX_free(bnctx);
++		return 1;
++#endif /* OPENSSL_HAS_ECC */
+ 	default:
+ 		fatal("key_equal: bad key type %d", a->type);
+ 	}
+@@ -373,12 +417,14 @@ key_fingerprint_raw(Key *k, enum fp_type dgst_type, u_int *dgst_raw_length)
+ 		BN_bn2bin(k->rsa->e, blob + nlen);
+ 		break;
+ 	case KEY_DSA:
++	case KEY_ECDSA:
+ 	case KEY_RSA:
+ 		key_to_blob(k, &blob, &len);
+ 		break;
+ 	case KEY_DSA_CERT_V00:
+ 	case KEY_RSA_CERT_V00:
+ 	case KEY_DSA_CERT:
++	case KEY_ECDSA_CERT:
+ 	case KEY_RSA_CERT:
+ 		/* We want a fingerprint of the _key_ not of the cert */
+ 		otype = k->type;
+@@ -676,6 +722,9 @@ key_read(Key *ret, char **cpp)
+ 	int len, n, type;
+ 	u_int bits;
+ 	u_char *blob;
++#ifdef OPENSSL_HAS_ECC
++	int curve_nid = -1;
++#endif
+ 
+ 	cp = *cpp;
+ 
+@@ -699,9 +748,11 @@ key_read(Key *ret, char **cpp)
+ 	case KEY_UNSPEC:
+ 	case KEY_RSA:
+ 	case KEY_DSA:
++	case KEY_ECDSA:
+ 	case KEY_DSA_CERT_V00:
+ 	case KEY_RSA_CERT_V00:
+ 	case KEY_DSA_CERT:
++	case KEY_ECDSA_CERT:
+ 	case KEY_RSA_CERT:
+ 		space = strchr(cp, ' ');
+ 		if (space == NULL) {
+@@ -710,6 +761,13 @@ key_read(Key *ret, char **cpp)
+ 		}
+ 		*space = '\0';
+ 		type = key_type_from_name(cp);
++#ifdef OPENSSL_HAS_ECC
++		if (key_type_plain(type) == KEY_ECDSA &&
++		    (curve_nid = key_ecdsa_nid_from_name(cp)) == -1) {
++			debug("key_read: invalid curve");
++			return -1;
++		}
++#endif
+ 		*space = ' ';
+ 		if (type == KEY_UNSPEC) {
+ 			debug3("key_read: missing keytype");
+@@ -746,6 +804,14 @@ key_read(Key *ret, char **cpp)
+ 			key_free(k);
+ 			return -1;
+ 		}
++#ifdef OPENSSL_HAS_ECC
++		if (key_type_plain(type) == KEY_ECDSA &&
++		    curve_nid != k->ecdsa_nid) {
++			error("key_read: type mismatch: EC curve mismatch");
++			key_free(k);
++			return -1;
++		}
++#endif
+ /*XXXX*/
+ 		if (key_is_cert(ret)) {
+ 			if (!key_is_cert(k)) {
+@@ -776,6 +842,19 @@ key_read(Key *ret, char **cpp)
+ 			DSA_print_fp(stderr, ret->dsa, 8);
+ #endif
+ 		}
++#ifdef OPENSSL_HAS_ECC
++		if (key_type_plain(ret->type) == KEY_ECDSA) {
++			if (ret->ecdsa != NULL)
++				EC_KEY_free(ret->ecdsa);
++			ret->ecdsa = k->ecdsa;
++			ret->ecdsa_nid = k->ecdsa_nid;
++			k->ecdsa = NULL;
++			k->ecdsa_nid = -1;
++#ifdef DEBUG_PK
++			key_dump_ec_key(ret->ecdsa);
++#endif
++		}
++#endif
+ 		success = 1;
+ /*XXXX*/
+ 		key_free(k);
+@@ -832,6 +911,13 @@ key_write(const Key *key, FILE *f)
+ 		if (key->dsa == NULL)
+ 			return 0;
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++	case KEY_ECDSA_CERT:
++		if (key->ecdsa == NULL)
++			return 0;
++		break;
++#endif
+ 	case KEY_RSA:
+ 	case KEY_RSA_CERT_V00:
+ 	case KEY_RSA_CERT:
+@@ -865,6 +951,10 @@ key_type(const Key *k)
+ 		return "RSA";
+ 	case KEY_DSA:
+ 		return "DSA";
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++		return "ECDSA";
++#endif
+ 	case KEY_RSA_CERT_V00:
+ 		return "RSA-CERT-V00";
+ 	case KEY_DSA_CERT_V00:
+@@ -873,6 +963,10 @@ key_type(const Key *k)
+ 		return "RSA-CERT";
+ 	case KEY_DSA_CERT:
+ 		return "DSA-CERT";
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA_CERT:
++		return "ECDSA-CERT";
++#endif
+ 	}
+ 	return "unknown";
+ }
+@@ -890,10 +984,10 @@ key_cert_type(const Key *k)
+ 	}
+ }
+ 
+-const char *
+-key_ssh_name(const Key *k)
++static const char *
++key_ssh_name_from_type_nid(int type, int nid)
+ {
+-	switch (k->type) {
++	switch (type) {
+ 	case KEY_RSA:
+ 		return "ssh-rsa";
+ 	case KEY_DSA:
+@@ -906,10 +1000,53 @@ key_ssh_name(const Key *k)
+ 		return "ssh-rsa-cert-v01@openssh.com";
+ 	case KEY_DSA_CERT:
+ 		return "ssh-dss-cert-v01@openssh.com";
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++		switch (nid) {
++		case NID_X9_62_prime256v1:
++			return "ecdsa-sha2-nistp256";
++		case NID_secp384r1:
++			return "ecdsa-sha2-nistp384";
++# ifdef OPENSSL_HAS_NISTP521
++		case NID_secp521r1:
++			return "ecdsa-sha2-nistp521";
++# endif
++		default:
++			break;
++		}
++		break;
++	case KEY_ECDSA_CERT:
++		switch (nid) {
++		case NID_X9_62_prime256v1:
++			return "ecdsa-sha2-nistp256-cert-v01@openssh.com";
++		case NID_secp384r1:
++			return "ecdsa-sha2-nistp384-cert-v01@openssh.com";
++# ifdef OPENSSL_HAS_NISTP521
++		case NID_secp521r1:
++			return "ecdsa-sha2-nistp521-cert-v01@openssh.com";
++# endif
++		default:
++			break;
++		}
++		break;
++#endif /* OPENSSL_HAS_ECC */
+ 	}
+ 	return "ssh-unknown";
+ }
+ 
++const char *
++key_ssh_name(const Key *k)
++{
++	return key_ssh_name_from_type_nid(k->type, k->ecdsa_nid);
++}
++
++const char *
++key_ssh_name_plain(const Key *k)
++{
++	return key_ssh_name_from_type_nid(key_type_plain(k->type),
++	    k->ecdsa_nid);
++}
++
+ u_int
+ key_size(const Key *k)
+ {
+@@ -923,6 +1060,11 @@ key_size(const Key *k)
+ 	case KEY_DSA_CERT_V00:
+ 	case KEY_DSA_CERT:
+ 		return BN_num_bits(k->dsa->p);
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++	case KEY_ECDSA_CERT:
++		return key_curve_nid_to_bits(k->ecdsa_nid);
++#endif
+ 	}
+ 	return 0;
+ }
+@@ -955,6 +1097,77 @@ dsa_generate_private_key(u_int bits)
+ 	return private;
+ }
+ 
++int
++key_ecdsa_bits_to_nid(int bits)
++{
++	switch (bits) {
++#ifdef OPENSSL_HAS_ECC
++	case 256:
++		return NID_X9_62_prime256v1;
++	case 384:
++		return NID_secp384r1;
++# ifdef OPENSSL_HAS_NISTP521
++	case 521:
++		return NID_secp521r1;
++# endif
++#endif
++	default:
++		return -1;
++	}
++}
++
++#ifdef OPENSSL_HAS_ECC
++/*
++ * This is horrid, but OpenSSL's PEM_read_PrivateKey seems not to restore
++ * the EC_GROUP nid when loading a key...
++ */
++int
++key_ecdsa_group_to_nid(const EC_GROUP *g)
++{
++	EC_GROUP *eg;
++	int nids[] = {
++		NID_X9_62_prime256v1,
++		NID_secp384r1,
++# ifdef OPENSSL_HAS_NISTP521
++		NID_secp521r1,
++# endif
++		-1
++	};
++	u_int i;
++	BN_CTX *bnctx;
++
++	if ((bnctx = BN_CTX_new()) == NULL)
++		fatal("%s: BN_CTX_new() failed", __func__);
++	for (i = 0; nids[i] != -1; i++) {
++		if ((eg = EC_GROUP_new_by_curve_name(nids[i])) == NULL)
++			fatal("%s: EC_GROUP_new_by_curve_name failed",
++			    __func__);
++		if (EC_GROUP_cmp(g, eg, bnctx) == 0) {
++			EC_GROUP_free(eg);
++			break;
++		}
++		EC_GROUP_free(eg);
++	}
++	BN_CTX_free(bnctx);
++	debug3("%s: nid = %d", __func__, nids[i]);
++	return nids[i];
++}
++
++static EC_KEY*
++ecdsa_generate_private_key(u_int bits, int *nid)
++{
++	EC_KEY *private;
++
++	if ((*nid = key_ecdsa_bits_to_nid(bits)) == -1)
++		fatal("%s: invalid key length", __func__);
++	if ((private = EC_KEY_new_by_curve_name(*nid)) == NULL)
++		fatal("%s: EC_KEY_new_by_curve_name failed", __func__);
++	if (EC_KEY_generate_key(private) != 1)
++		fatal("%s: EC_KEY_generate_key failed", __func__);
++	return private;
++}
++#endif /* OPENSSL_HAS_ECC */
++
+ Key *
+ key_generate(int type, u_int bits)
+ {
+@@ -963,6 +1176,11 @@ key_generate(int type, u_int bits)
+ 	case KEY_DSA:
+ 		k->dsa = dsa_generate_private_key(bits);
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++		k->ecdsa = ecdsa_generate_private_key(bits, &k->ecdsa_nid);
++		break;
++#endif
+ 	case KEY_RSA:
+ 	case KEY_RSA1:
+ 		k->rsa = rsa_generate_private_key(bits);
+@@ -1039,6 +1257,18 @@ key_from_private(const Key *k)
+ 		    (BN_copy(n->dsa->pub_key, k->dsa->pub_key) == NULL))
+ 			fatal("key_from_private: BN_copy failed");
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++	case KEY_ECDSA_CERT:
++		n = key_new(k->type);
++		n->ecdsa_nid = k->ecdsa_nid;
++		if ((n->ecdsa = EC_KEY_new_by_curve_name(k->ecdsa_nid)) == NULL)
++			fatal("%s: EC_KEY_new_by_curve_name failed", __func__);
++		if (EC_KEY_set_public_key(n->ecdsa,
++		    EC_KEY_get0_public_key(k->ecdsa)) != 1)
++			fatal("%s: EC_KEY_set_public_key failed", __func__);
++		break;
++#endif
+ 	case KEY_RSA:
+ 	case KEY_RSA1:
+ 	case KEY_RSA_CERT_V00:
+@@ -1070,6 +1300,16 @@ key_type_from_name(char *name)
+ 		return KEY_RSA;
+ 	} else if (strcmp(name, "ssh-dss") == 0) {
+ 		return KEY_DSA;
++#ifdef OPENSSL_HAS_ECC
++	} else if (strcmp(name, "ecdsa") == 0 ||
++	    strcmp(name, "ecdsa-sha2-nistp256") == 0 ||
++	    strcmp(name, "ecdsa-sha2-nistp384") == 0
++# ifdef OPENSSL_HAS_NISTP521
++	    || strcmp(name, "ecdsa-sha2-nistp521") == 0
++# endif
++	    ) {
++		return KEY_ECDSA;
++#endif
+ 	} else if (strcmp(name, "ssh-rsa-cert-v00@openssh.com") == 0) {
+ 		return KEY_RSA_CERT_V00;
+ 	} else if (strcmp(name, "ssh-dss-cert-v00@openssh.com") == 0) {
+@@ -1078,6 +1318,15 @@ key_type_from_name(char *name)
+ 		return KEY_RSA_CERT;
+ 	} else if (strcmp(name, "ssh-dss-cert-v01@openssh.com") == 0) {
+ 		return KEY_DSA_CERT;
++#ifdef OPENSSL_HAS_ECC
++	} else if (strcmp(name, "ecdsa-sha2-nistp256-cert-v01@openssh.com") == 0 ||
++	    strcmp(name, "ecdsa-sha2-nistp384-cert-v01@openssh.com") == 0
++# ifdef OPENSSL_HAS_NISTP521
++	    || strcmp(name, "ecdsa-sha2-nistp521-cert-v01@openssh.com") == 0
++# endif
++	    ) {
++		return KEY_ECDSA_CERT;
++#endif
+ 	} else if (strcmp(name, "null") == 0) {
+ 		return KEY_NULL;
+ 	}
+@@ -1086,6 +1335,27 @@ key_type_from_name(char *name)
+ }
+ 
+ int
++key_ecdsa_nid_from_name(const char *name)
++{
++#ifdef OPENSSL_HAS_ECC
++	if (strcmp(name, "ecdsa-sha2-nistp256") == 0 ||
++	    strcmp(name, "ecdsa-sha2-nistp256-cert-v01@openssh.com") == 0)
++		return NID_X9_62_prime256v1;
++	if (strcmp(name, "ecdsa-sha2-nistp384") == 0 ||
++	    strcmp(name, "ecdsa-sha2-nistp384-cert-v01@openssh.com") == 0)
++		return NID_secp384r1;
++# ifdef OPENSSL_HAS_NISTP521
++	if (strcmp(name, "ecdsa-sha2-nistp521") == 0 ||
++	    strcmp(name, "ecdsa-sha2-nistp521-cert-v01@openssh.com") == 0)
++		return NID_secp521r1;
++# endif
++#endif /* OPENSSL_HAS_ECC */
++
++	debug2("%s: unknown/non-ECDSA key type '%s'", __func__, name);
++	return -1;
++}
++
++int
+ key_names_valid2(const char *names)
+ {
+ 	char *s, *cp, *p;
+@@ -1211,7 +1481,8 @@ cert_parse(Buffer *b, Key *key, const u_char *blob, u_int blen)
+ 		goto out;
+ 	}
+ 	if (key->cert->signature_key->type != KEY_RSA &&
+-	    key->cert->signature_key->type != KEY_DSA) {
++	    key->cert->signature_key->type != KEY_DSA &&
++	    key->cert->signature_key->type != KEY_ECDSA) {
+ 		error("%s: Invalid signature key type %s (%d)", __func__,
+ 		    key_type(key->cert->signature_key),
+ 		    key->cert->signature_key->type);
+@@ -1252,8 +1523,12 @@ key_from_blob(const u_char *blob, u_int blen)
+ {
+ 	Buffer b;
+ 	int rlen, type;
+-	char *ktype = NULL;
++	char *ktype = NULL, *curve = NULL;
+ 	Key *key = NULL;
++#ifdef OPENSSL_HAS_ECC
++	EC_POINT *q = NULL;
++	int nid = -1;
++#endif
+ 
+ #ifdef DEBUG_PK
+ 	dump_base64(stderr, blob, blen);
+@@ -1266,6 +1541,10 @@ key_from_blob(const u_char *blob, u_int blen)
+ 	}
+ 
+ 	type = key_type_from_name(ktype);
++#ifdef OPENSSL_HAS_ECC
++	if (key_type_plain(type) == KEY_ECDSA)
++		nid = key_ecdsa_nid_from_name(ktype);
++#endif
+ 
+ 	switch (type) {
+ 	case KEY_RSA_CERT:
+@@ -1303,6 +1582,43 @@ key_from_blob(const u_char *blob, u_int blen)
+ 		DSA_print_fp(stderr, key->dsa, 8);
+ #endif
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA_CERT:
++		(void)buffer_get_string_ptr_ret(&b, NULL); /* Skip nonce */
++		/* FALLTHROUGH */
++	case KEY_ECDSA:
++		key = key_new(type);
++		key->ecdsa_nid = nid;
++		if ((curve = buffer_get_string_ret(&b, NULL)) == NULL) {
++			error("key_from_blob: can't read ecdsa curve");
++			goto badkey;
++		}
++		if (key->ecdsa_nid != key_curve_name_to_nid(curve)) {
++			error("key_from_blob: ecdsa curve doesn't match type");
++			goto badkey;
++		}
++		if (key->ecdsa != NULL)
++			EC_KEY_free(key->ecdsa);
++		if ((key->ecdsa = EC_KEY_new_by_curve_name(key->ecdsa_nid))
++		    == NULL)
++			fatal("key_from_blob: EC_KEY_new_by_curve_name failed");
++		if ((q = EC_POINT_new(EC_KEY_get0_group(key->ecdsa))) == NULL)
++			fatal("key_from_blob: EC_POINT_new failed");
++		if (buffer_get_ecpoint_ret(&b, EC_KEY_get0_group(key->ecdsa),
++		    q) == -1) {
++			error("key_from_blob: can't read ecdsa key point");
++			goto badkey;
++		}
++		if (key_ec_validate_public(EC_KEY_get0_group(key->ecdsa),
++		    q) != 0)
++			goto badkey;
++		if (EC_KEY_set_public_key(key->ecdsa, q) != 1)
++			fatal("key_from_blob: EC_KEY_set_public_key failed");
++#ifdef DEBUG_PK
++		key_dump_ec_point(EC_KEY_get0_group(key->ecdsa), q);
++#endif
++		break;
++#endif /* OPENSSL_HAS_ECC */
+ 	case KEY_UNSPEC:
+ 		key = key_new(type);
+ 		break;
+@@ -1320,6 +1636,12 @@ key_from_blob(const u_char *blob, u_int blen)
+  out:
+ 	if (ktype != NULL)
+ 		xfree(ktype);
++	if (curve != NULL)
++		xfree(curve);
++#ifdef OPENSSL_HAS_ECC
++	if (q != NULL)
++		EC_POINT_free(q);
++#endif
+ 	buffer_free(&b);
+ 	return key;
+ }
+@@ -1339,6 +1661,7 @@ key_to_blob(const Key *key, u_char **blobp, u_int *lenp)
+ 	case KEY_DSA_CERT_V00:
+ 	case KEY_RSA_CERT_V00:
+ 	case KEY_DSA_CERT:
++	case KEY_ECDSA_CERT:
+ 	case KEY_RSA_CERT:
+ 		/* Use the existing blob */
+ 		buffer_append(&b, buffer_ptr(&key->cert->certblob),
+@@ -1351,6 +1674,14 @@ key_to_blob(const Key *key, u_char **blobp, u_int *lenp)
+ 		buffer_put_bignum2(&b, key->dsa->g);
+ 		buffer_put_bignum2(&b, key->dsa->pub_key);
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA:
++		buffer_put_cstring(&b, key_ssh_name(key));
++		buffer_put_cstring(&b, key_curve_nid_to_name(key->ecdsa_nid));
++		buffer_put_ecpoint(&b, EC_KEY_get0_group(key->ecdsa),
++		    EC_KEY_get0_public_key(key->ecdsa));
++		break;
++#endif
+ 	case KEY_RSA:
+ 		buffer_put_cstring(&b, key_ssh_name(key));
+ 		buffer_put_bignum2(&b, key->rsa->e);
+@@ -1384,6 +1715,11 @@ key_sign(
+ 	case KEY_DSA_CERT:
+ 	case KEY_DSA:
+ 		return ssh_dss_sign(key, sigp, lenp, data, datalen);
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA_CERT:
++	case KEY_ECDSA:
++		return ssh_ecdsa_sign(key, sigp, lenp, data, datalen);
++#endif
+ 	case KEY_RSA_CERT_V00:
+ 	case KEY_RSA_CERT:
+ 	case KEY_RSA:
+@@ -1412,6 +1748,11 @@ key_verify(
+ 	case KEY_DSA_CERT:
+ 	case KEY_DSA:
+ 		return ssh_dss_verify(key, signature, signaturelen, data, datalen);
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA_CERT:
++	case KEY_ECDSA:
++		return ssh_ecdsa_verify(key, signature, signaturelen, data, datalen);
++#endif
+ 	case KEY_RSA_CERT_V00:
+ 	case KEY_RSA_CERT:
+ 	case KEY_RSA:
+@@ -1431,7 +1772,9 @@ key_demote(const Key *k)
+ 	pk = xcalloc(1, sizeof(*pk));
+ 	pk->type = k->type;
+ 	pk->flags = k->flags;
++	pk->ecdsa_nid = k->ecdsa_nid;
+ 	pk->dsa = NULL;
++	pk->ecdsa = NULL;
+ 	pk->rsa = NULL;
+ 
+ 	switch (k->type) {
+@@ -1464,6 +1807,18 @@ key_demote(const Key *k)
+ 		if ((pk->dsa->pub_key = BN_dup(k->dsa->pub_key)) == NULL)
+ 			fatal("key_demote: BN_dup failed");
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA_CERT:
++		key_cert_copy(k, pk);
++		/* FALLTHROUGH */
++	case KEY_ECDSA:
++		if ((pk->ecdsa = EC_KEY_new_by_curve_name(pk->ecdsa_nid)) == NULL)
++			fatal("key_demote: EC_KEY_new_by_curve_name failed");
++		if (EC_KEY_set_public_key(pk->ecdsa,
++		    EC_KEY_get0_public_key(k->ecdsa)) != 1)
++			fatal("key_demote: EC_KEY_set_public_key failed");
++		break;
++#endif
+ 	default:
+ 		fatal("key_free: bad key type %d", k->type);
+ 		break;
+@@ -1502,6 +1857,7 @@ key_is_cert(const Key *k)
+ 	case KEY_DSA_CERT_V00:
+ 	case KEY_RSA_CERT:
+ 	case KEY_DSA_CERT:
++	case KEY_ECDSA_CERT:
+ 		return 1;
+ 	default:
+ 		return 0;
+@@ -1519,6 +1875,8 @@ key_type_plain(int type)
+ 	case KEY_DSA_CERT_V00:
+ 	case KEY_DSA_CERT:
+ 		return KEY_DSA;
++	case KEY_ECDSA_CERT:
++		return KEY_ECDSA;
+ 	default:
+ 		return type;
+ 	}
+@@ -1537,6 +1895,10 @@ key_to_certified(Key *k, int legacy)
+ 		k->cert = cert_new();
+ 		k->type = legacy ? KEY_DSA_CERT_V00 : KEY_DSA_CERT;
+ 		return 0;
++	case KEY_ECDSA:
++		k->cert = cert_new();
++		k->type = KEY_ECDSA_CERT;
++		return 0;
+ 	default:
+ 		error("%s: key has incorrect type %s", __func__, key_type(k));
+ 		return -1;
+@@ -1558,13 +1920,20 @@ key_drop_cert(Key *k)
+ 		cert_free(k->cert);
+ 		k->type = KEY_DSA;
+ 		return 0;
++	case KEY_ECDSA_CERT:
++		cert_free(k->cert);
++		k->type = KEY_ECDSA;
++		return 0;
+ 	default:
+ 		error("%s: key has incorrect type %s", __func__, key_type(k));
+ 		return -1;
+ 	}
+ }
+ 
+-/* Sign a KEY_RSA_CERT or KEY_DSA_CERT, (re-)generating the signed certblob */
++/*
++ * Sign a KEY_RSA_CERT, KEY_DSA_CERT or KEY_ECDSA_CERT, (re-)generating
++ * the signed certblob
++ */
+ int
+ key_certify(Key *k, Key *ca)
+ {
+@@ -1583,7 +1952,8 @@ key_certify(Key *k, Key *ca)
+ 		return -1;
+ 	}
+ 
+-	if (ca->type != KEY_RSA && ca->type != KEY_DSA) {
++	if (ca->type != KEY_RSA && ca->type != KEY_DSA &&
++	    ca->type != KEY_ECDSA) {
+ 		error("%s: CA key has unsupported type %s", __func__,
+ 		    key_type(ca));
+ 		return -1;
+@@ -1595,7 +1965,7 @@ key_certify(Key *k, Key *ca)
+ 	buffer_put_cstring(&k->cert->certblob, key_ssh_name(k));
+ 
+ 	/* -v01 certs put nonce first */
+-	if (k->type == KEY_DSA_CERT || k->type == KEY_RSA_CERT) {
++	if (!key_cert_is_legacy(k)) {
+ 		arc4random_buf(&nonce, sizeof(nonce));
+ 		buffer_put_string(&k->cert->certblob, nonce, sizeof(nonce));
+ 	}
+@@ -1608,6 +1978,15 @@ key_certify(Key *k, Key *ca)
+ 		buffer_put_bignum2(&k->cert->certblob, k->dsa->g);
+ 		buffer_put_bignum2(&k->cert->certblob, k->dsa->pub_key);
+ 		break;
++#ifdef OPENSSL_HAS_ECC
++	case KEY_ECDSA_CERT:
++		buffer_put_cstring(&k->cert->certblob,
++		    key_curve_nid_to_name(k->ecdsa_nid));
++		buffer_put_ecpoint(&k->cert->certblob,
++		    EC_KEY_get0_group(k->ecdsa),
++		    EC_KEY_get0_public_key(k->ecdsa));
++		break;
++#endif
+ 	case KEY_RSA_CERT_V00:
+ 	case KEY_RSA_CERT:
+ 		buffer_put_bignum2(&k->cert->certblob, k->rsa->e);
+@@ -1621,7 +2000,7 @@ key_certify(Key *k, Key *ca)
+ 	}
+ 
+ 	/* -v01 certs have a serial number next */
+-	if (k->type == KEY_DSA_CERT || k->type == KEY_RSA_CERT)
++	if (!key_cert_is_legacy(k))
+ 		buffer_put_int64(&k->cert->certblob, k->cert->serial);
+ 
+ 	buffer_put_int(&k->cert->certblob, k->cert->type);
+@@ -1640,14 +2019,14 @@ key_certify(Key *k, Key *ca)
+ 	    buffer_ptr(&k->cert->critical), buffer_len(&k->cert->critical));
+ 
+ 	/* -v01 certs have non-critical options here */
+-	if (k->type == KEY_DSA_CERT || k->type == KEY_RSA_CERT) {
++	if (!key_cert_is_legacy(k)) {
+ 		buffer_put_string(&k->cert->certblob,
+ 		    buffer_ptr(&k->cert->extensions),
+ 		    buffer_len(&k->cert->extensions));
+ 	}
+ 
+ 	/* -v00 certs put the nonce at the end */
+-	if (k->type == KEY_DSA_CERT_V00 || k->type == KEY_RSA_CERT_V00)
++	if (key_cert_is_legacy(k))
+ 		buffer_put_string(&k->cert->certblob, nonce, sizeof(nonce));
+ 
+ 	buffer_put_string(&k->cert->certblob, NULL, 0); /* reserved */
+@@ -1732,3 +2111,246 @@ key_cert_is_legacy(Key *k)
+ 		return 0;
+ 	}
+ }
++
++/* XXX: these are really begging for a table-driven approach */
++int
++key_curve_name_to_nid(const char *name)
++{
++#ifdef OPENSSL_HAS_ECC
++	if (strcmp(name, "nistp256") == 0)
++		return NID_X9_62_prime256v1;
++	else if (strcmp(name, "nistp384") == 0)
++		return NID_secp384r1;
++# ifdef OPENSSL_HAS_NISTP521
++	else if (strcmp(name, "nistp521") == 0)
++		return NID_secp521r1;
++# endif
++#endif
++
++	debug("%s: unsupported EC curve name \"%.100s\"", __func__, name);
++	return -1;
++}
++
++u_int
++key_curve_nid_to_bits(int nid)
++{
++	switch (nid) {
++#ifdef OPENSSL_HAS_ECC
++	case NID_X9_62_prime256v1:
++		return 256;
++	case NID_secp384r1:
++		return 384;
++# ifdef OPENSSL_HAS_NISTP521
++	case NID_secp521r1:
++		return 521;
++# endif
++#endif
++	default:
++		error("%s: unsupported EC curve nid %d", __func__, nid);
++		return 0;
++	}
++}
++
++const char *
++key_curve_nid_to_name(int nid)
++{
++#ifdef OPENSSL_HAS_ECC
++	if (nid == NID_X9_62_prime256v1)
++		return "nistp256";
++	else if (nid == NID_secp384r1)
++		return "nistp384";
++# ifdef OPENSSL_HAS_NISTP521
++	else if (nid == NID_secp521r1)
++		return "nistp521";
++# endif
++#endif
++	error("%s: unsupported EC curve nid %d", __func__, nid);
++	return NULL;
++}
++
++#ifdef OPENSSL_HAS_ECC
++const EVP_MD *
++key_ec_nid_to_evpmd(int nid)
++{
++	int kbits = key_curve_nid_to_bits(nid);
++
++	if (kbits == 0)
++		fatal("%s: invalid nid %d", __func__, nid);
++	/* RFC5656 section 6.2.1 */
++	if (kbits <= 256)
++		return EVP_sha256();
++	else if (kbits <= 384)
++		return EVP_sha384();
++	else
++		return EVP_sha512();
++}
++
++int
++key_ec_validate_public(const EC_GROUP *group, const EC_POINT *public)
++{
++	BN_CTX *bnctx;
++	EC_POINT *nq = NULL;
++	BIGNUM *order, *x, *y, *tmp;
++	int ret = -1;
++
++	if ((bnctx = BN_CTX_new()) == NULL)
++		fatal("%s: BN_CTX_new failed", __func__);
++	BN_CTX_start(bnctx);
++
++	/*
++	 * We shouldn't ever hit this case because bignum_get_ecpoint()
++	 * refuses to load GF2m points.
++	 */
++	if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) !=
++	    NID_X9_62_prime_field) {
++		error("%s: group is not a prime field", __func__);
++		goto out;
++	}
++
++	/* Q != infinity */
++	if (EC_POINT_is_at_infinity(group, public)) {
++		error("%s: received degenerate public key (infinity)",
++		    __func__);
++		goto out;
++	}
++
++	if ((x = BN_CTX_get(bnctx)) == NULL ||
++	    (y = BN_CTX_get(bnctx)) == NULL ||
++	    (order = BN_CTX_get(bnctx)) == NULL ||
++	    (tmp = BN_CTX_get(bnctx)) == NULL)
++		fatal("%s: BN_CTX_get failed", __func__);
++
++	/* log2(x) > log2(order)/2, log2(y) > log2(order)/2 */
++	if (EC_GROUP_get_order(group, order, bnctx) != 1)
++		fatal("%s: EC_GROUP_get_order failed", __func__);
++	if (EC_POINT_get_affine_coordinates_GFp(group, public,
++	    x, y, bnctx) != 1)
++		fatal("%s: EC_POINT_get_affine_coordinates_GFp", __func__);
++	if (BN_num_bits(x) <= BN_num_bits(order) / 2) {
++		error("%s: public key x coordinate too small: "
++		    "bits(x) = %d, bits(order)/2 = %d", __func__,
++		    BN_num_bits(x), BN_num_bits(order) / 2);
++		goto out;
++	}
++	if (BN_num_bits(y) <= BN_num_bits(order) / 2) {
++		error("%s: public key y coordinate too small: "
++		    "bits(y) = %d, bits(order)/2 = %d", __func__,
++		    BN_num_bits(x), BN_num_bits(order) / 2);
++		goto out;
++	}
++
++	/* nQ == infinity (n == order of subgroup) */
++	if ((nq = EC_POINT_new(group)) == NULL)
++		fatal("%s: BN_CTX_tmp failed", __func__);
++	if (EC_POINT_mul(group, nq, NULL, public, order, bnctx) != 1)
++		fatal("%s: EC_GROUP_mul failed", __func__);
++	if (EC_POINT_is_at_infinity(group, nq) != 1) {
++		error("%s: received degenerate public key (nQ != infinity)",
++		    __func__);
++		goto out;
++	}
++
++	/* x < order - 1, y < order - 1 */
++	if (!BN_sub(tmp, order, BN_value_one()))
++		fatal("%s: BN_sub failed", __func__);
++	if (BN_cmp(x, tmp) >= 0) {
++		error("%s: public key x coordinate >= group order - 1",
++		    __func__);
++		goto out;
++	}
++	if (BN_cmp(y, tmp) >= 0) {
++		error("%s: public key y coordinate >= group order - 1",
++		    __func__);
++		goto out;
++	}
++	ret = 0;
++ out:
++	BN_CTX_free(bnctx);
++	EC_POINT_free(nq);
++	return ret;
++}
++
++int
++key_ec_validate_private(const EC_KEY *key)
++{
++	BN_CTX *bnctx;
++	BIGNUM *order, *tmp;
++	int ret = -1;
++
++	if ((bnctx = BN_CTX_new()) == NULL)
++		fatal("%s: BN_CTX_new failed", __func__);
++	BN_CTX_start(bnctx);
++
++	if ((order = BN_CTX_get(bnctx)) == NULL ||
++	    (tmp = BN_CTX_get(bnctx)) == NULL)
++		fatal("%s: BN_CTX_get failed", __func__);
++
++	/* log2(private) > log2(order)/2 */
++	if (EC_GROUP_get_order(EC_KEY_get0_group(key), order, bnctx) != 1)
++		fatal("%s: EC_GROUP_get_order failed", __func__);
++	if (BN_num_bits(EC_KEY_get0_private_key(key)) <=
++	    BN_num_bits(order) / 2) {
++		error("%s: private key too small: "
++		    "bits(y) = %d, bits(order)/2 = %d", __func__,
++		    BN_num_bits(EC_KEY_get0_private_key(key)),
++		    BN_num_bits(order) / 2);
++		goto out;
++	}
++
++	/* private < order - 1 */
++	if (!BN_sub(tmp, order, BN_value_one()))
++		fatal("%s: BN_sub failed", __func__);
++	if (BN_cmp(EC_KEY_get0_private_key(key), tmp) >= 0) {
++		error("%s: private key >= group order - 1", __func__);
++		goto out;
++	}
++	ret = 0;
++ out:
++	BN_CTX_free(bnctx);
++	return ret;
++}
++
++#if defined(DEBUG_KEXECDH) || defined(DEBUG_PK)
++void
++key_dump_ec_point(const EC_GROUP *group, const EC_POINT *point)
++{
++	BIGNUM *x, *y;
++	BN_CTX *bnctx;
++
++	if (point == NULL) {
++		fputs("point=(NULL)\n", stderr);
++		return;
++	}
++	if ((bnctx = BN_CTX_new()) == NULL)
++		fatal("%s: BN_CTX_new failed", __func__);
++	BN_CTX_start(bnctx);
++	if ((x = BN_CTX_get(bnctx)) == NULL || (y = BN_CTX_get(bnctx)) == NULL)
++		fatal("%s: BN_CTX_get failed", __func__);
++	if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) !=
++	    NID_X9_62_prime_field)
++		fatal("%s: group is not a prime field", __func__);
++	if (EC_POINT_get_affine_coordinates_GFp(group, point, x, y, bnctx) != 1)
++		fatal("%s: EC_POINT_get_affine_coordinates_GFp", __func__);
++	fputs("x=", stderr);
++	BN_print_fp(stderr, x);
++	fputs("\ny=", stderr);
++	BN_print_fp(stderr, y);
++	fputs("\n", stderr);
++	BN_CTX_free(bnctx);
++}
++
++void
++key_dump_ec_key(const EC_KEY *key)
++{
++	const BIGNUM *exponent;
++
++	key_dump_ec_point(EC_KEY_get0_group(key), EC_KEY_get0_public_key(key));
++	fputs("exponent=", stderr);
++	if ((exponent = EC_KEY_get0_private_key(key)) == NULL)
++		fputs("(NULL)", stderr);
++	else
++		BN_print_fp(stderr, EC_KEY_get0_private_key(key));
++	fputs("\n", stderr);
++}
++#endif /* defined(DEBUG_KEXECDH) || defined(DEBUG_PK) */
++#endif /* OPENSSL_HAS_ECC */
+diff --git a/key.h b/key.h
+index acc5357..b8f2a65 100644
+--- a/key.h
++++ b/key.h
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: key.h,v 1.30 2010/04/16 01:47:26 djm Exp $ */
++/* $OpenBSD: key.h,v 1.32 2010/09/09 10:45:45 djm Exp $ */
+ 
+ /*
+  * Copyright (c) 2000, 2001 Markus Friedl.  All rights reserved.
+@@ -29,6 +29,9 @@
+ #include "buffer.h"
+ #include <openssl/rsa.h>
+ #include <openssl/dsa.h>
++#ifdef OPENSSL_HAS_ECC
++#include <openssl/ec.h>
++#endif
+ 
+ #ifdef HAVE_LIBNSS
+ #include <nss.h>
+@@ -40,9 +43,11 @@ enum types {
+ 	KEY_RSA1,
+ 	KEY_RSA,
+ 	KEY_DSA,
++	KEY_ECDSA,
+ 	KEY_NSS,
+ 	KEY_RSA_CERT,
+ 	KEY_DSA_CERT,
++	KEY_ECDSA_CERT,
+ 	KEY_RSA_CERT_V00,
+ 	KEY_DSA_CERT_V00,
+ 	KEY_NULL,
+@@ -89,6 +94,12 @@ struct Key {
+ 	int	 flags;
+ 	RSA	*rsa;
+ 	DSA	*dsa;
++	int	 ecdsa_nid;	/* NID of curve */
++#ifdef OPENSSL_HAS_ECC
++	EC_KEY	*ecdsa;
++#else
++	void	*ecdsa;
++#endif
+ 	struct KeyCert *cert;
+ #ifdef HAVE_LIBNSS
+ 	NSSKey  *nss;
+@@ -125,9 +136,22 @@ int	 key_cert_check_authority(const Key *, int, int, const char *,
+ 	    const char **);
+ int	 key_cert_is_legacy(Key *);
+ 
++int		 key_ecdsa_nid_from_name(const char *);
++int		 key_curve_name_to_nid(const char *);
++const char *	 key_curve_nid_to_name(int);
++u_int		 key_curve_nid_to_bits(int);
++int		 key_ecdsa_bits_to_nid(int);
++#ifdef OPENSSL_HAS_ECC
++int		 key_ecdsa_group_to_nid(const EC_GROUP *);
++const EVP_MD *	 key_ec_nid_to_evpmd(int nid);
++int		 key_ec_validate_public(const EC_GROUP *, const EC_POINT *);
++int		 key_ec_validate_private(const EC_KEY *);
++#endif
++
+ Key		*key_from_blob(const u_char *, u_int);
+ int		 key_to_blob(const Key *, u_char **, u_int *);
+ const char	*key_ssh_name(const Key *);
++const char	*key_ssh_name_plain(const Key *);
+ int		 key_names_valid2(const char *);
+ 
+ int	 key_sign(const Key *, u_char **, u_int *, const u_char *, u_int);
+@@ -135,8 +159,16 @@ int	 key_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
+ 
+ int	 ssh_dss_sign(const Key *, u_char **, u_int *, const u_char *, u_int);
+ int	 ssh_dss_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
++int	 ssh_ecdsa_sign(const Key *, u_char **, u_int *, const u_char *, u_int);
++int	 ssh_ecdsa_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
+ int	 ssh_rsa_sign(const Key *, u_char **, u_int *, const u_char *, u_int);
+ int	 ssh_rsa_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
+ 
+ int	 key_is_private(const Key *k);
++
++#if defined(OPENSSL_HAS_ECC) && (defined(DEBUG_KEXECDH) || defined(DEBUG_PK))
++void	key_dump_ec_point(const EC_GROUP *, const EC_POINT *);
++void	key_dump_ec_key(const EC_KEY *);
++#endif
++
+ #endif
+diff --git a/monitor.c b/monitor.c
+index 197601b..13f5f55 100644
+--- a/monitor.c
++++ b/monitor.c
+@@ -655,10 +655,10 @@ mm_answer_sign(int sock, Buffer *m)
+ 	p = buffer_get_string(m, &datlen);
+ 
+ 	/*
+-	 * Supported KEX types will only return SHA1 (20 byte) or
+-	 * SHA256 (32 byte) hashes
++	 * Supported KEX types use SHA1 (20 bytes), SHA256 (32 bytes),
++	 * SHA384 (48 bytes) and SHA512 (64 bytes).
+ 	 */
+-	if (datlen != 20 && datlen != 32)
++	if (datlen != 20 && datlen != 32 && datlen != 48 && datlen != 64)
+ 		fatal("%s: data length incorrect: %u", __func__, datlen);
+ 
+ 	/* save session id, it will be passed on the first call */
+@@ -1869,6 +1869,7 @@ mm_get_kex(Buffer *m)
+ 	kex->kex[KEX_DH_GRP14_SHA1] = kexdh_server;
+ 	kex->kex[KEX_DH_GEX_SHA1] = kexgex_server;
+ 	kex->kex[KEX_DH_GEX_SHA256] = kexgex_server;
++	kex->kex[KEX_ECDH_SHA2] = kexecdh_server;
+ #ifdef GSSAPI
+ 	if (options.gss_keyex) {
+ 		kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_server;
+diff --git a/monitor_wrap.c b/monitor_wrap.c
+index 546c73a..0b355fb 100644
+--- a/monitor_wrap.c
++++ b/monitor_wrap.c
+@@ -73,6 +73,7 @@
+ #include "misc.h"
+ #include "schnorr.h"
+ #include "jpake.h"
++#include "uuencode.h"
+ 
+ #include "channels.h"
+ #include "session.h"
+diff --git a/myproposal.h b/myproposal.h
+index b7fb4a1..b71938b 100644
+--- a/myproposal.h
++++ b/myproposal.h
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: myproposal.h,v 1.25 2010/04/16 01:47:26 djm Exp $ */
++/* $OpenBSD: myproposal.h,v 1.26 2010/08/31 11:54:45 djm Exp $ */
+ 
+ /*
+  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
+diff --git a/packet.c b/packet.c
+index 03e62dd..78dd445 100644
+--- a/packet.c
++++ b/packet.c
+@@ -658,6 +658,14 @@ packet_put_bignum2(BIGNUM * value)
+ 	buffer_put_bignum2(&active_state->outgoing_packet, value);
+ }
+ 
++#ifdef OPENSSL_HAS_ECC
++void
++packet_put_ecpoint(const EC_GROUP *curve, const EC_POINT *point)
++{
++	buffer_put_ecpoint(&active_state->outgoing_packet, curve, point);
++}
++#endif
++
+ /*
+  * Finalizes and sends the packet.  If the encryption key has been set,
+  * encrypts the packet before sending.
+@@ -1536,6 +1544,14 @@ packet_get_bignum2(BIGNUM * value)
+ 	buffer_get_bignum2(&active_state->incoming_packet, value);
+ }
+ 
++#ifdef OPENSSL_HAS_ECC
++void
++packet_get_ecpoint(const EC_GROUP *curve, EC_POINT *point)
++{
++	buffer_get_ecpoint(&active_state->incoming_packet, curve, point);
++}
++#endif
++
+ void *
+ packet_get_raw(u_int *length_ptr)
+ {
+diff --git a/packet.h b/packet.h
+index 7c6587b..5db8b58 100644
+--- a/packet.h
++++ b/packet.h
+@@ -19,6 +19,9 @@
+ #include <termios.h>
+ 
+ #include <openssl/bn.h>
++#ifdef OPENSSL_HAS_ECC
++#include <openssl/ec.h>
++#endif
+ 
+ int	 packet_is_active(void);
+ void     packet_set_connection(int, int);
+@@ -43,6 +46,9 @@ void     packet_put_int(u_int value);
+ void     packet_put_int64(u_int64_t value);
+ void     packet_put_bignum(BIGNUM * value);
+ void     packet_put_bignum2(BIGNUM * value);
++#ifdef OPENSSL_HAS_ECC
++void     packet_put_ecpoint(const EC_GROUP *, const EC_POINT *);
++#endif
+ void     packet_put_string(const void *buf, u_int len);
+ void     packet_put_cstring(const char *str);
+ void     packet_put_raw(const void *buf, u_int len);
+@@ -60,6 +66,9 @@ u_int	 packet_get_int(void);
+ u_int64_t packet_get_int64(void);
+ void     packet_get_bignum(BIGNUM * value);
+ void     packet_get_bignum2(BIGNUM * value);
++#ifdef OPENSSL_HAS_ECC
++void	 packet_get_ecpoint(const EC_GROUP *, EC_POINT *);
++#endif
+ void	*packet_get_raw(u_int *length_ptr);
+ void	*packet_get_string(u_int *length_ptr);
+ void	*packet_get_string_ptr(u_int *length_ptr);
+diff --git a/pathnames.h b/pathnames.h
+index 32b9e06..61711f4 100644
+--- a/pathnames.h
++++ b/pathnames.h
+@@ -38,6 +38,7 @@
+ #define _PATH_HOST_CONFIG_FILE		SSHDIR "/ssh_config"
+ #define _PATH_HOST_KEY_FILE		SSHDIR "/ssh_host_key"
+ #define _PATH_HOST_DSA_KEY_FILE		SSHDIR "/ssh_host_dsa_key"
++#define _PATH_HOST_ECDSA_KEY_FILE	SSHDIR "/ssh_host_ecdsa_key"
+ #define _PATH_HOST_RSA_KEY_FILE		SSHDIR "/ssh_host_rsa_key"
+ #define _PATH_DH_MODULI			SSHDIR "/moduli"
+ /* Backwards compatibility */
+@@ -74,6 +75,7 @@
+  */
+ #define _PATH_SSH_CLIENT_IDENTITY	".ssh/identity"
+ #define _PATH_SSH_CLIENT_ID_DSA		".ssh/id_dsa"
++#define _PATH_SSH_CLIENT_ID_ECDSA	".ssh/id_ecdsa"
+ #define _PATH_SSH_CLIENT_ID_RSA		".ssh/id_rsa"
+ 
+ /*
+diff --git a/readconf.c b/readconf.c
+index 8525808..c63bd1a 100644
+--- a/readconf.c
++++ b/readconf.c
+@@ -1251,6 +1251,13 @@ fill_default_options(Options * options)
+ 			    xmalloc(len);
+ 			snprintf(options->identity_files[options->num_identity_files++],
+ 			    len, "~/%.100s", _PATH_SSH_CLIENT_ID_DSA);
++#ifdef OPENSSL_HAS_ECC
++			len = 2 + strlen(_PATH_SSH_CLIENT_ID_ECDSA) + 1;
++			options->identity_files[options->num_identity_files] =
++			    xmalloc(len);
++			snprintf(options->identity_files[options->num_identity_files++],
++			    len, "~/%.100s", _PATH_SSH_CLIENT_ID_ECDSA);
++#endif
+ 		}
+ 	}
+ 	if (options->escape_char == -1)
+diff --git a/regress/cert-hostkey.sh b/regress/cert-hostkey.sh
+index 1c45f05..dd2d816 100644
+--- a/regress/cert-hostkey.sh
++++ b/regress/cert-hostkey.sh
+@@ -1,4 +1,4 @@
+-#	$OpenBSD: cert-hostkey.sh,v 1.4 2010/04/16 01:58:45 djm Exp $
++#	$OpenBSD: cert-hostkey.sh,v 1.5 2010/08/31 12:24:09 djm Exp $
+ #	Placed in the Public Domain.
+ 
+ tid="certified host keys"
+@@ -18,7 +18,7 @@ ${SSHKEYGEN} -q -N '' -t rsa  -f $OBJ/host_ca_key ||\
+ ) > $OBJ/known_hosts-cert
+ 
+ # Generate and sign host keys
+-for ktype in rsa dsa ; do 
++for ktype in rsa dsa ecdsa ; do 
+ 	verbose "$tid: sign host ${ktype} cert"
+ 	# Generate and sign a host key
+ 	${SSHKEYGEN} -q -N '' -t ${ktype} \
+@@ -28,6 +28,8 @@ for ktype in rsa dsa ; do
+ 	    -I "regress host key for $USER" \
+ 	    -Z $HOSTS $OBJ/cert_host_key_${ktype} ||
+ 		fail "couldn't sign cert_host_key_${ktype}"
++	# v00 ecdsa certs do not exist
++	test "{ktype}" = "ecdsa" && continue
+ 	cp $OBJ/cert_host_key_${ktype} $OBJ/cert_host_key_${ktype}_v00
+ 	cp $OBJ/cert_host_key_${ktype}.pub $OBJ/cert_host_key_${ktype}_v00.pub
+ 	${SSHKEYGEN} -t v00 -h -q -s $OBJ/host_ca_key \
+@@ -36,9 +38,12 @@ for ktype in rsa dsa ; do
+ 		fail "couldn't sign cert_host_key_${ktype}_v00"
+ done
+ 
++# ECDSA is not enabled by default to avoid some problems with old servers
++ECDSA_HOSTKEYALGORITHMS="-oHostKeyAlgorithms=ecdsa-sha2-nistp256-cert-v01@openssh.com,ecdsa-sha2-nistp384-cert-v01@openssh.com,ecdsa-sha2-nistp521-cert-v01@openssh.com,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-rsa-cert-v01@openssh.com,ssh-dss-cert-v01@openssh.com,ssh-rsa-cert-v00@openssh.com,ssh-dss-cert-v00@openssh.com,ssh-rsa,ssh-dss"
++
+ # Basic connect tests
+ for privsep in yes no ; do
+-	for ktype in rsa dsa rsa_v00 dsa_v00; do 
++	for ktype in rsa dsa ecdsa rsa_v00 dsa_v00; do 
+ 		verbose "$tid: host ${ktype} cert connect privsep $privsep"
+ 		(
+ 			cat $OBJ/sshd_proxy_bak
+@@ -47,8 +52,14 @@ for privsep in yes no ; do
+ 			echo UsePrivilegeSeparation $privsep
+ 		) > $OBJ/sshd_proxy
+ 
++		case $ktype in
++		ecdsa) HOSTKEYALGORITHMS=$ECDSA_HOSTKEYALGORITHMS;;
++		*) HOSTKEYALGORITHMS="" ;;
++		esac
++
+ 		${SSH} -2 -oUserKnownHostsFile=$OBJ/known_hosts-cert \
+ 		    -oGlobalKnownHostsFile=$OBJ/known_hosts-cert \
++		    $HOSTKEYALGORITHMS \
+ 			-F $OBJ/ssh_proxy somehost true
+ 		if [ $? -ne 0 ]; then
+ 			fail "ssh cert connect failed"
+@@ -66,6 +77,9 @@ done
+ 	cat $OBJ/cert_host_key_rsa.pub
+ 	echon '@revoked '
+ 	echon "* "
++	cat $OBJ/cert_host_key_ecdsa.pub
++	echon '@revoked '
++	echon "* "
+ 	cat $OBJ/cert_host_key_dsa.pub
+ 	echon '@revoked '
+ 	echon "* "
+@@ -75,7 +89,7 @@ done
+ 	cat $OBJ/cert_host_key_dsa_v00.pub
+ ) > $OBJ/known_hosts-cert
+ for privsep in yes no ; do
+-	for ktype in rsa dsa rsa_v00 dsa_v00; do 
++	for ktype in rsa dsa ecdsa rsa_v00 dsa_v00; do 
+ 		verbose "$tid: host ${ktype} revoked cert privsep $privsep"
+ 		(
+ 			cat $OBJ/sshd_proxy_bak
+@@ -84,8 +98,14 @@ for privsep in yes no ; do
+ 			echo UsePrivilegeSeparation $privsep
+ 		) > $OBJ/sshd_proxy
+ 
++		case $ktype in
++		ecdsa) HOSTKEYALGORITHMS=$ECDSA_HOSTKEYALGORITHMS;;
++		*) HOSTKEYALGORITHMS="" ;;
++		esac
++
+ 		${SSH} -2 -oUserKnownHostsFile=$OBJ/known_hosts-cert \
+ 		    -oGlobalKnownHostsFile=$OBJ/known_hosts-cert \
++		    $HOSTKEYALGORITHMS \
+ 			-F $OBJ/ssh_proxy somehost true >/dev/null 2>&1
+ 		if [ $? -eq 0 ]; then
+ 			fail "ssh cert connect succeeded unexpectedly"
+@@ -102,15 +122,22 @@ done
+ 	echon "* "
+ 	cat $OBJ/host_ca_key.pub
+ ) > $OBJ/known_hosts-cert
+-for ktype in rsa dsa rsa_v00 dsa_v00 ; do 
++for ktype in rsa dsa ecdsa rsa_v00 dsa_v00 ; do 
+ 	verbose "$tid: host ${ktype} revoked cert"
+ 	(
+ 		cat $OBJ/sshd_proxy_bak
+ 		echo HostKey $OBJ/cert_host_key_${ktype}
+ 		echo HostCertificate $OBJ/cert_host_key_${ktype}-cert.pub
+ 	) > $OBJ/sshd_proxy
++
++	case $ktype in
++	ecdsa) HOSTKEYALGORITHMS=$ECDSA_HOSTKEYALGORITHMS;;
++	*) HOSTKEYALGORITHMS="" ;;
++	esac
++
+ 	${SSH} -2 -oUserKnownHostsFile=$OBJ/known_hosts-cert \
+ 	    -oGlobalKnownHostsFile=$OBJ/known_hosts-cert \
++	    $HOSTKEYALGORITHMS \
+ 		-F $OBJ/ssh_proxy somehost true >/dev/null 2>&1
+ 	if [ $? -eq 0 ]; then
+ 		fail "ssh cert connect succeeded unexpectedly"
+@@ -147,8 +174,14 @@ test_one() {
+ 			echo HostCertificate $OBJ/cert_host_key_${kt}-cert.pub
+ 		) > $OBJ/sshd_proxy
+ 	
++		case $ktype in
++		ecdsa) HOSTKEYALGORITHMS=$ECDSA_HOSTKEYALGORITHMS;;
++		*) HOSTKEYALGORITHMS="" ;;
++		esac
++
+ 		${SSH} -2 -oUserKnownHostsFile=$OBJ/known_hosts-cert \
+ 		    -oGlobalKnownHostsFile=$OBJ/known_hosts-cert \
++		    $HOSTKEYALGORITHMS \
+ 		    -F $OBJ/ssh_proxy somehost true >/dev/null 2>&1
+ 		rc=$?
+ 		if [ "x$result" = "xsuccess" ] ; then
+@@ -173,7 +206,9 @@ test_one "cert has constraints"	failure "-h -Oforce-command=false"
+ 
+ # Check downgrade of cert to raw key when no CA found
+ for v in v01 v00 ;  do 
+-	for ktype in rsa dsa ; do 
++	for ktype in rsa dsa ecdsa ; do 
++		# v00 ecdsa certs do not exist.
++		test "${v}${ktype}" = "v00ecdsa" && continue
+ 		rm -f $OBJ/known_hosts-cert $OBJ/cert_host_key*
+ 		verbose "$tid: host ${ktype} ${v} cert downgrade to raw key"
+ 		# Generate and sign a host key
+@@ -194,8 +229,14 @@ for v in v01 v00 ;  do
+ 			echo HostCertificate $OBJ/cert_host_key_${ktype}-cert.pub
+ 		) > $OBJ/sshd_proxy
+ 		
++		case $ktype in
++		ecdsa) HOSTKEYALGORITHMS=$ECDSA_HOSTKEYALGORITHMS;;
++		*) HOSTKEYALGORITHMS="" ;;
++		esac
++
+ 		${SSH} -2 -oUserKnownHostsFile=$OBJ/known_hosts-cert \
+ 		    -oGlobalKnownHostsFile=$OBJ/known_hosts-cert \
++		    $HOSTKEYALGORITHMS \
+ 			-F $OBJ/ssh_proxy somehost true
+ 		if [ $? -ne 0 ]; then
+ 			fail "ssh cert connect failed"
+@@ -210,7 +251,9 @@ done
+ 	cat $OBJ/host_ca_key.pub
+ ) > $OBJ/known_hosts-cert
+ for v in v01 v00 ;  do 
+-	for kt in rsa dsa ; do 
++	for kt in rsa dsa ecdsa ; do 
++		# v00 ecdsa certs do not exist.
++		test "${v}${ktype}" = "v00ecdsa" && continue
+ 		rm -f $OBJ/cert_host_key*
+ 		# Self-sign key
+ 		${SSHKEYGEN} -q -N '' -t ${kt} \
+diff --git a/regress/cert-userkey.sh b/regress/cert-userkey.sh
+index 89fe9dc..4b3d17f 100644
+--- a/regress/cert-userkey.sh
++++ b/regress/cert-userkey.sh
+@@ -11,7 +11,7 @@ ${SSHKEYGEN} -q -N '' -t rsa  -f $OBJ/user_ca_key ||\
+ 	fail "ssh-keygen of user_ca_key failed"
+ 
+ # Generate and sign user keys
+-for ktype in rsa dsa ; do 
++for ktype in rsa dsa ecdsa ; do 
+ 	verbose "$tid: sign user ${ktype} cert"
+ 	${SSHKEYGEN} -q -N '' -t ${ktype} \
+ 	    -f $OBJ/cert_user_key_${ktype} || \
+@@ -20,6 +20,8 @@ for ktype in rsa dsa ; do
+ 	    "regress user key for $USER" \
+ 	    -Z ${USER},mekmitasdigoat $OBJ/cert_user_key_${ktype} ||
+ 		fail "couldn't sign cert_user_key_${ktype}"
++	# v00 ecdsa certs do not exist
++	test "{ktype}" = "ecdsa" && continue
+ 	cp $OBJ/cert_user_key_${ktype} $OBJ/cert_user_key_${ktype}_v00
+ 	cp $OBJ/cert_user_key_${ktype}.pub $OBJ/cert_user_key_${ktype}_v00.pub
+ 	${SSHKEYGEN} -q -t v00 -s $OBJ/user_ca_key -I \
+@@ -29,7 +31,7 @@ for ktype in rsa dsa ; do
+ done
+ 
+ # Test explicitly-specified principals
+-for ktype in rsa dsa rsa_v00 dsa_v00 ; do 
++for ktype in rsa dsa ecdsa rsa_v00 dsa_v00 ; do 
+ 	for privsep in yes no ; do
+ 		_prefix="${ktype} privsep $privsep"
+ 
+@@ -125,7 +127,7 @@ basic_tests() {
+ 		extra_sshd="TrustedUserCAKeys $OBJ/user_ca_key.pub"
+ 	fi
+ 	
+-	for ktype in rsa dsa rsa_v00 dsa_v00 ; do 
++	for ktype in rsa dsa ecdsa rsa_v00 dsa_v00 ; do 
+ 		for privsep in yes no ; do
+ 			_prefix="${ktype} privsep $privsep $auth"
+ 			# Simple connect
+@@ -200,6 +202,11 @@ test_one() {
+ 
+ 	for auth in $auth_choice ; do
+ 		for ktype in rsa rsa_v00 ; do
++			case $ktype in
++			*_v00) keyv="-t v00" ;;
++			*) keyv="" ;;
++			esac
++
+ 			cat $OBJ/sshd_proxy_bak > $OBJ/sshd_proxy
+ 			if test "x$auth" = "xauthorized_keys" ; then
+ 				# Add CA to authorized_keys
+@@ -219,7 +226,7 @@ test_one() {
+ 			verbose "$tid: $ident auth $auth expect $result $ktype"
+ 			${SSHKEYGEN} -q -s $OBJ/user_ca_key \
+ 			    -I "regress user key for $USER" \
+-			    $sign_opts \
++			    $sign_opts $keyv \
+ 			    $OBJ/cert_user_key_${ktype} ||
+ 				fail "couldn't sign cert_user_key_${ktype}"
+ 
+@@ -272,7 +279,7 @@ test_one "principals key option no principals" failure "" \
+ 
+ # Wrong certificate
+ cat $OBJ/sshd_proxy_bak > $OBJ/sshd_proxy
+-for ktype in rsa dsa rsa_v00 dsa_v00 ; do 
++for ktype in rsa dsa ecdsa rsa_v00 dsa_v00 ; do 
+ 	case $ktype in
+ 	*_v00) args="-t v00" ;;
+ 	*) args="" ;;
+diff --git a/ssh-add.1 b/ssh-add.1
+index f940930..a483691 100644
+--- a/ssh-add.1
++++ b/ssh-add.1
+@@ -42,7 +42,7 @@
+ .Os
+ .Sh NAME
+ .Nm ssh-add
+-.Nd adds RSA or DSA identities to the authentication agent
++.Nd adds private key identities to the authentication agent
+ .Sh SYNOPSIS
+ .Nm ssh-add
+ .Op Fl cDdLlXx
+@@ -57,11 +57,12 @@
+ .Op Fl T Ar token
+ .Sh DESCRIPTION
+ .Nm
+-adds RSA or DSA identities to the authentication agent,
++adds private key identities to the authentication agent,
+ .Xr ssh-agent 1 .
+ When run without arguments, it adds the files
+ .Pa ~/.ssh/id_rsa ,
+-.Pa ~/.ssh/id_dsa
++.Pa ~/.ssh/id_dsa ,
++.Pa ~/.ssh/id_ecdsa
+ and
+ .Pa ~/.ssh/identity .
+ After loading a private key,
+@@ -183,6 +184,8 @@ be blocked until enough entropy is available.
+ Contains the protocol version 1 RSA authentication identity of the user.
+ .It Pa ~/.ssh/id_dsa
+ Contains the protocol version 2 DSA authentication identity of the user.
++.It Pa ~/.ssh/id_ecdsa
++Contains the protocol version 2 ECDSA authentication identity of the user.
+ .It Pa ~/.ssh/id_rsa
+ Contains the protocol version 2 RSA authentication identity of the user.
+ .El
+diff --git a/ssh-add.c b/ssh-add.c
+index 230e3ed..d268cdd 100644
+--- a/ssh-add.c
++++ b/ssh-add.c
+@@ -80,6 +80,7 @@ extern char *__progname;
+ static char *default_files[] = {
+ 	_PATH_SSH_CLIENT_ID_RSA,
+ 	_PATH_SSH_CLIENT_ID_DSA,
++	_PATH_SSH_CLIENT_ID_ECDSA,
+ 	_PATH_SSH_CLIENT_IDENTITY,
+ 	NULL
+ };
+diff --git a/ssh-agent.1 b/ssh-agent.1
+index 4bf0d50..a6533f5 100644
+--- a/ssh-agent.1
++++ b/ssh-agent.1
+@@ -53,7 +53,7 @@
+ .Sh DESCRIPTION
+ .Nm
+ is a program to hold private keys used for public key authentication
+-(RSA, DSA).
++(RSA, DSA, ECDSA).
+ The idea is that
+ .Nm
+ is started in the beginning of an X-session or a login session, and
+@@ -112,7 +112,8 @@ When executed without arguments,
+ .Xr ssh-add 1
+ adds the files
+ .Pa ~/.ssh/id_rsa ,
+-.Pa ~/.ssh/id_dsa
++.Pa ~/.ssh/id_dsa ,
++.Pa ~/.ssh/id_ecdsa
+ and
+ .Pa ~/.ssh/identity .
+ If the identity has a passphrase,
+@@ -183,6 +184,8 @@ line terminates.
+ Contains the protocol version 1 RSA authentication identity of the user.
+ .It Pa ~/.ssh/id_dsa
+ Contains the protocol version 2 DSA authentication identity of the user.
++.It Pa ~/.ssh/id_ecdsa
++Contains the protocol version 2 ECDSA authentication identity of the user.
+ .It Pa ~/.ssh/id_rsa
+ Contains the protocol version 2 RSA authentication identity of the user.
+ .It Pa /tmp/ssh-XXXXXXXXXX/agent.\*(Ltppid\*(Gt
+diff --git a/ssh-agent.c b/ssh-agent.c
+index 73d3de3..0062235 100644
+--- a/ssh-agent.c
++++ b/ssh-agent.c
+@@ -473,6 +473,11 @@ process_add_identity(SocketEntry *e, int version)
+ 	int type, success = 0, death = 0, confirm = 0;
+ 	char *type_name, *comment;
+ 	Key *k = NULL;
++#ifdef OPENSSL_HAS_ECC
++	BIGNUM *exponent;
++	EC_POINT *q;
++	int *curve;
++#endif
+ 	u_char *cert;
+ 	u_int len;
+ 
+@@ -495,7 +500,6 @@ process_add_identity(SocketEntry *e, int version)
+ 	case 2:
+ 		type_name = buffer_get_string(&e->request, NULL);
+ 		type = key_type_from_name(type_name);
+-		xfree(type_name);
+ 		switch (type) {
+ 		case KEY_DSA:
+ 			k = key_new_private(type);
+@@ -514,6 +518,59 @@ process_add_identity(SocketEntry *e, int version)
+ 			key_add_private(k);
+ 			buffer_get_bignum2(&e->request, k->dsa->priv_key);
+ 			break;
++#ifdef OPENSSL_HAS_ECC
++		case KEY_ECDSA:
++			k = key_new_private(type);
++			k->ecdsa_nid = key_ecdsa_nid_from_name(type_name);
++			curve = buffer_get_string(&e->request, NULL);
++			if (k->ecdsa_nid != key_curve_name_to_nid(curve))
++				fatal("%s: curve names mismatch", __func__);
++			xfree(curve);
++			k->ecdsa = EC_KEY_new_by_curve_name(k->ecdsa_nid);
++			if (k->ecdsa == NULL)
++				fatal("%s: EC_KEY_new_by_curve_name failed",
++				    __func__);
++			q = EC_POINT_new(EC_KEY_get0_group(k->ecdsa));
++			if (q == NULL)
++				fatal("%s: BN_new failed", __func__);
++			if ((exponent = BN_new()) == NULL)
++				fatal("%s: BN_new failed", __func__);
++			buffer_get_ecpoint(&e->request,
++				EC_KEY_get0_group(k->ecdsa), q);
++			buffer_get_bignum2(&e->request, exponent);
++			if (EC_KEY_set_public_key(k->ecdsa, q) != 1)
++				fatal("%s: EC_KEY_set_public_key failed",
++				    __func__);
++			if (EC_KEY_set_private_key(k->ecdsa, exponent) != 1)
++				fatal("%s: EC_KEY_set_private_key failed",
++				    __func__);
++			if (key_ec_validate_public(EC_KEY_get0_group(k->ecdsa),
++			    EC_KEY_get0_public_key(k->ecdsa)) != 0)
++				fatal("%s: bad ECDSA public key", __func__);
++			if (key_ec_validate_private(k->ecdsa) != 0)
++				fatal("%s: bad ECDSA private key", __func__);
++			BN_clear_free(exponent);
++			EC_POINT_free(q);
++			break;
++		case KEY_ECDSA_CERT:
++			cert = buffer_get_string(&e->request, &len);
++			if ((k = key_from_blob(cert, len)) == NULL)
++				fatal("Certificate parse failed");
++			xfree(cert);
++			key_add_private(k);
++			if ((exponent = BN_new()) == NULL)
++				fatal("%s: BN_new failed", __func__);
++			buffer_get_bignum2(&e->request, exponent);
++			if (EC_KEY_set_private_key(k->ecdsa, exponent) != 1)
++				fatal("%s: EC_KEY_set_private_key failed",
++				    __func__);
++			if (key_ec_validate_public(EC_KEY_get0_group(k->ecdsa),
++			    EC_KEY_get0_public_key(k->ecdsa)) != 0 ||
++			    key_ec_validate_private(k->ecdsa) != 0)
++				fatal("%s: bad ECDSA key", __func__);
++			BN_clear_free(exponent);
++			break;
++#endif /* OPENSSL_HAS_ECC */
+ 		case KEY_RSA:
+ 			k = key_new_private(type);
+ 			buffer_get_bignum2(&e->request, k->rsa->n);
+@@ -539,9 +596,11 @@ process_add_identity(SocketEntry *e, int version)
+ 			buffer_get_bignum2(&e->request, k->rsa->q);
+ 			break;
+ 		default:
++			xfree(type_name);
+ 			buffer_clear(&e->request);
+ 			goto send;
+ 		}
++		xfree(type_name);
+ 		break;
+ 	}
+ 	/* enable blinding */
+diff --git a/ssh-ecdsa.c b/ssh-ecdsa.c
+new file mode 100644
+index 0000000..f179ec5
+--- /dev/null
++++ b/ssh-ecdsa.c
+@@ -0,0 +1,168 @@
++/* $OpenBSD */
++/*
++ * Copyright (c) 2000 Markus Friedl.  All rights reserved.
++ * Copyright (c) 2010 Damien Miller.  All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
++ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
++ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
++ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "includes.h"
++
++#ifdef OPENSSL_HAS_ECC
++
++#include <sys/types.h>
++
++#include <openssl/bn.h>
++#include <openssl/ec.h>
++#include <openssl/ecdsa.h>
++#include <openssl/evp.h>
++
++#include <string.h>
++
++#include "xmalloc.h"
++#include "buffer.h"
++#include "compat.h"
++#include "log.h"
++#include "key.h"
++
++int
++ssh_ecdsa_sign(const Key *key, u_char **sigp, u_int *lenp,
++    const u_char *data, u_int datalen)
++{
++	ECDSA_SIG *sig;
++	const EVP_MD *evp_md;
++	EVP_MD_CTX md;
++	u_char digest[EVP_MAX_MD_SIZE];
++	u_int len, dlen;
++	Buffer b, bb;
++
++	if (key == NULL || key->ecdsa == NULL ||
++	    (key->type != KEY_ECDSA && key->type != KEY_ECDSA_CERT)) {
++		error("%s: no ECDSA key", __func__);
++		return -1;
++	}
++	evp_md = key_ec_nid_to_evpmd(key->ecdsa_nid);
++	EVP_DigestInit(&md, evp_md);
++	EVP_DigestUpdate(&md, data, datalen);
++	EVP_DigestFinal(&md, digest, &dlen);
++
++	sig = ECDSA_do_sign(digest, dlen, key->ecdsa);
++	memset(digest, 'd', sizeof(digest));
++
++	if (sig == NULL) {
++		error("%s: sign failed", __func__);
++		return -1;
++	}
++
++	buffer_init(&bb);
++	buffer_put_bignum2(&bb, sig->r);
++	buffer_put_bignum2(&bb, sig->s);
++	ECDSA_SIG_free(sig);
++
++	buffer_init(&b);
++	buffer_put_cstring(&b, key_ssh_name_plain(key));
++	buffer_put_string(&b, buffer_ptr(&bb), buffer_len(&bb));
++	buffer_free(&bb);
++	len = buffer_len(&b);
++	if (lenp != NULL)
++		*lenp = len;
++	if (sigp != NULL) {
++		*sigp = xmalloc(len);
++		memcpy(*sigp, buffer_ptr(&b), len);
++	}
++	buffer_free(&b);
++
++	return 0;
++}
++int
++ssh_ecdsa_verify(const Key *key, const u_char *signature, u_int signaturelen,
++    const u_char *data, u_int datalen)
++{
++	ECDSA_SIG *sig;
++	const EVP_MD *evp_md;
++	EVP_MD_CTX md;
++	u_char digest[EVP_MAX_MD_SIZE], *sigblob;
++	u_int len, dlen;
++	int rlen, ret;
++	Buffer b, bb;
++	char *ktype;
++
++	if (key == NULL || key->ecdsa == NULL ||
++	    (key->type != KEY_ECDSA && key->type != KEY_ECDSA_CERT)) {
++		error("%s: no ECDSA key", __func__);
++		return -1;
++	}
++	evp_md = key_ec_nid_to_evpmd(key->ecdsa_nid);
++
++	/* fetch signature */
++	buffer_init(&b);
++	buffer_append(&b, signature, signaturelen);
++	ktype = buffer_get_string(&b, NULL);
++	if (strcmp(key_ssh_name_plain(key), ktype) != 0) {
++		error("%s: cannot handle type %s", __func__, ktype);
++		buffer_free(&b);
++		xfree(ktype);
++		return -1;
++	}
++	xfree(ktype);
++	sigblob = buffer_get_string(&b, &len);
++	rlen = buffer_len(&b);
++	buffer_free(&b);
++	if (rlen != 0) {
++		error("%s: remaining bytes in signature %d", __func__, rlen);
++		xfree(sigblob);
++		return -1;
++	}
++
++	/* parse signature */
++	if ((sig = ECDSA_SIG_new()) == NULL)
++		fatal("%s: ECDSA_SIG_new failed", __func__);
++	if ((sig->r = BN_new()) == NULL ||
++	    (sig->s = BN_new()) == NULL)
++		fatal("%s: BN_new failed", __func__);
++
++	buffer_init(&bb);
++	buffer_append(&bb, sigblob, len);
++	buffer_get_bignum2(&bb, sig->r);
++	buffer_get_bignum2(&bb, sig->s);
++	if (buffer_len(&bb) != 0)
++		fatal("%s: remaining bytes in inner sigblob", __func__);
++
++	/* clean up */
++	memset(sigblob, 0, len);
++	xfree(sigblob);
++
++	/* hash the data */
++	EVP_DigestInit(&md, evp_md);
++	EVP_DigestUpdate(&md, data, datalen);
++	EVP_DigestFinal(&md, digest, &dlen);
++
++	ret = ECDSA_do_verify(digest, dlen, sig, key->ecdsa);
++	memset(digest, 'd', sizeof(digest));
++
++	ECDSA_SIG_free(sig);
++
++	debug("%s: signature %s", __func__,
++	    ret == 1 ? "correct" : ret == 0 ? "incorrect" : "error");
++	return ret;
++}
++
++#endif /* OPENSSL_HAS_ECC */
+diff --git a/ssh-keygen.1 b/ssh-keygen.1
+index 8dfa302..8a693af 100644
+--- a/ssh-keygen.1
++++ b/ssh-keygen.1
+@@ -127,7 +127,7 @@
+ generates, manages and converts authentication keys for
+ .Xr ssh 1 .
+ .Nm
+-can create RSA keys for use by SSH protocol version 1 and RSA or DSA
++can create RSA keys for use by SSH protocol version 1 and DSA, ECDSA or RSA
+ keys for use by SSH protocol version 2.
+ The type of key to be generated is specified with the
+ .Fl t
+@@ -144,9 +144,10 @@ See the
+ section for details.
+ .Pp
+ Normally each user wishing to use SSH
+-with RSA or DSA authentication runs this once to create the authentication
++with public key authentication runs this once to create the authentication
+ key in
+ .Pa ~/.ssh/identity ,
++.Pa ~/.ssh/id_ecdsa ,
+ .Pa ~/.ssh/id_dsa
+ or
+ .Pa ~/.ssh/id_rsa .
+@@ -408,9 +409,10 @@ Specifies the type of key to create.
+ The possible values are
+ .Dq rsa1
+ for protocol version 1 and
+-.Dq rsa
++.Dq dsa ,
++.Dq ecdsa
+ or
+-.Dq dsa
++.Dq rsa
+ for protocol version 2.
+ .It Fl V Ar validity_interval
+ Specify a validity interval when signing a certificate.
+@@ -576,7 +578,7 @@ or
+ .Xr ssh 1 .
+ Please refer to those manual pages for details.
+ .Sh FILES
+-.Bl -tag -width Ds
++.Bl -tag -width Ds -compact
+ .It Pa ~/.ssh/identity
+ Contains the protocol version 1 RSA authentication identity of the user.
+ This file should not be readable by anyone but the user.
+@@ -595,26 +597,11 @@ The contents of this file should be added to
+ on all machines
+ where the user wishes to log in using RSA authentication.
+ There is no need to keep the contents of this file secret.
++.Pp
+ .It Pa ~/.ssh/id_dsa
+-Contains the protocol version 2 DSA authentication identity of the user.
+-This file should not be readable by anyone but the user.
+-It is possible to
+-specify a passphrase when generating the key; that passphrase will be
+-used to encrypt the private part of this file using 3DES.
+-This file is not automatically accessed by
+-.Nm
+-but it is offered as the default file for the private key.
+-.Xr ssh 1
+-will read this file when a login attempt is made.
+-.It Pa ~/.ssh/id_dsa.pub
+-Contains the protocol version 2 DSA public key for authentication.
+-The contents of this file should be added to
+-.Pa ~/.ssh/authorized_keys
+-on all machines
+-where the user wishes to log in using public key authentication.
+-There is no need to keep the contents of this file secret.
++.It Pa ~/.ssh/id_ecdsa
+ .It Pa ~/.ssh/id_rsa
+-Contains the protocol version 2 RSA authentication identity of the user.
++Contains the protocol version 2 DSA, ECDSA or RSA authentication identity of the user.
+ This file should not be readable by anyone but the user.
+ It is possible to
+ specify a passphrase when generating the key; that passphrase will be
+@@ -624,13 +611,17 @@ This file is not automatically accessed by
+ but it is offered as the default file for the private key.
+ .Xr ssh 1
+ will read this file when a login attempt is made.
++.Pp
++.It Pa ~/.ssh/id_dsa.pub
++.It Pa ~/.ssh/id_ecdsa.pub
+ .It Pa ~/.ssh/id_rsa.pub
+-Contains the protocol version 2 RSA public key for authentication.
++Contains the protocol version 2 DSA, ECDSA or RSA public key for authentication.
+ The contents of this file should be added to
+ .Pa ~/.ssh/authorized_keys
+ on all machines
+ where the user wishes to log in using public key authentication.
+ There is no need to keep the contents of this file secret.
++.Pp
+ .It Pa /etc/moduli
+ Contains Diffie-Hellman groups used for DH-GEX.
+ The file format is described in
+diff --git a/ssh-keygen.c b/ssh-keygen.c
+index c9eefb3..c3dad3b 100644
+--- a/ssh-keygen.c
++++ b/ssh-keygen.c
+@@ -63,6 +63,7 @@
+ /* Number of bits in the RSA/DSA key.  This value can be set on the command line. */
+ #define DEFAULT_BITS		2048
+ #define DEFAULT_BITS_DSA	1024
++#define DEFAULT_BITS_ECDSA	256
+ u_int32_t bits = 0;
+ 
+ /*
+@@ -174,6 +175,10 @@ ask_filename(struct passwd *pw, const char *prompt)
+ 		case KEY_DSA:
+ 			name = _PATH_SSH_CLIENT_ID_DSA;
+ 			break;
++		case KEY_ECDSA_CERT:
++		case KEY_ECDSA:
++			name = _PATH_SSH_CLIENT_ID_ECDSA;
++			break;
+ 		case KEY_RSA_CERT:
+ 		case KEY_RSA_CERT_V00:
+ 		case KEY_RSA:
+@@ -460,11 +465,29 @@ do_convert_from_ssh2(struct passwd *pw)
+ 		fprintf(stderr, "decode blob failed.\n");
+ 		exit(1);
+ 	}
+-	ok = private ?
+-	    (k->type == KEY_DSA ?
+-		 PEM_write_DSAPrivateKey(stdout, k->dsa, NULL, NULL, 0, NULL, NULL) :
+-		 PEM_write_RSAPrivateKey(stdout, k->rsa, NULL, NULL, 0, NULL, NULL)) :
+-	    key_write(k, stdout);
++	if (!private)
++		ok = key_write(k, stdout);
++	else {
++		switch (k->type) {
++		case KEY_DSA:
++			ok = PEM_write_DSAPrivateKey(stdout, k->dsa, NULL, NULL, 0, NULL, NULL);
++			break;
++#ifdef OPENSSL_HAS_ECC
++		case KEY_ECDSA:
++			ok = PEM_write_ECPrivateKey(stdout, k->ecdsa, NULL,
++			    NULL, 0, NULL, NULL);
++			break;
++#endif
++		case KEY_RSA:
++			ok = PEM_write_RSAPrivateKey(stdout, k->rsa, NULL,
++			    NULL, 0, NULL, NULL);
++			break;
++		default:
++			fatal("%s: unsupported key type %s", __func__,
++			    key_type(k));
++		}
++	}
++
+ 	if (!ok) {
+ 		fprintf(stderr, "key write failed\n");
+ 		exit(1);
+@@ -1234,7 +1257,8 @@ do_ca_sign(struct passwd *pw, int argc, char **argv)
+ 		tmp = tilde_expand_filename(argv[i], pw->pw_uid);
+ 		if ((public = key_load_public(tmp, &comment)) == NULL)
+ 			fatal("%s: unable to open \"%s\"", __func__, tmp);
+-		if (public->type != KEY_RSA && public->type != KEY_DSA)
++		if (public->type != KEY_RSA && public->type != KEY_DSA &&
++		    public->type != KEY_ECDSA)
+ 			fatal("%s: key \"%s\" type %s cannot be certified",
+ 			    __func__, tmp, key_type(public));
+ 
+@@ -1623,7 +1647,7 @@ main(int argc, char **argv)
+ 	    "degiqpclnBHLhvxXyF:b:f:t:D:I:N:P:O:C:r:g:R:T:G:M:S:Z:s:a:V:W:z:")) != -1) {
+ 		switch (opt) {
+ 		case 'b':
+-			bits = (u_int32_t)strtonum(optarg, 768, 32768, &errstr);
++			bits = (u_int32_t)strtonum(optarg, 256, 32768, &errstr);
+ 			if (errstr)
+ 				fatal("Bits has bad value %s (%s)",
+ 					optarg, errstr);
+@@ -1909,10 +1933,21 @@ main(int argc, char **argv)
+ 	}
+ 	if (type == KEY_DSA && FIPS_mode())
+ 		fatal("DSA keys are not allowed in FIPS mode");
+-	if (bits == 0)
+-		bits = (type == KEY_DSA) ? DEFAULT_BITS_DSA : DEFAULT_BITS;
++	if (bits == 0) {
++		if (type == KEY_DSA)
++			bits = DEFAULT_BITS_DSA;
++		else if (type == KEY_ECDSA)
++			bits = DEFAULT_BITS_ECDSA;
++		else
++			bits = DEFAULT_BITS;
++	}
+ 	if (type == KEY_DSA && bits != 1024)
+ 		fatal("DSA keys must be 1024 bits");
++	else if (type != KEY_ECDSA && bits < 768)
++		fatal("Key must at least be 768 bits");
++	else if (type == KEY_ECDSA && key_ecdsa_bits_to_nid(bits) == -1)
++		fatal("Invalid ECDSA key length - valid lengths are "
++		    "256, 384 or 521 bits");
+ 	if (!quiet)
+ 		printf("Generating public/private %s key pair.\n", key_type_name);
+ 	private = key_generate(type, bits);
+diff --git a/ssh-keyscan.1 b/ssh-keyscan.1
+index 4a58645..6685fea 100644
+--- a/ssh-keyscan.1
++++ b/ssh-keyscan.1
+@@ -88,9 +88,10 @@ Specifies the type of the key to fetch from the scanned hosts.
+ The possible values are
+ .Dq rsa1
+ for protocol version 1 and
+-.Dq rsa
++.Dq dsa ,
++.Dq ecdsa
+ or
+-.Dq dsa
++.Dq rsa
+ for protocol version 2.
+ Multiple values may be specified by separating them with commas.
+ The default is
+@@ -122,7 +123,7 @@ attacks which have begun after the ssh_known_hosts file was created.
+ host-or-namelist bits exponent modulus
+ .Ed
+ .Pp
+-.Pa Output format for rsa and dsa keys:
++.Pa Output format for rsa, dsa and ecdsa keys:
+ .Bd -literal
+ host-or-namelist keytype base64-encoded-key
+ .Ed
+@@ -130,9 +131,12 @@ host-or-namelist keytype base64-encoded-key
+ Where
+ .Pa keytype
+ is either
+-.Dq ssh-rsa
++.Dq ecdsa-sha2-nistp256 ,
++.Dq ecdsa-sha2-nistp384 ,
++.Dq ecdsa-sha2-nistp521 ,
++.Dq ssh-dss
+ or
+-.Dq ssh-dss .
++.Dq ssh-rsa .
+ .Pp
+ .Pa /etc/ssh/ssh_known_hosts
+ .Sh EXAMPLES
+@@ -149,7 +153,7 @@ Find all hosts from the file
+ which have new or different keys from those in the sorted file
+ .Pa ssh_known_hosts :
+ .Bd -literal
+-$ ssh-keyscan -t rsa,dsa -f ssh_hosts | \e
++$ ssh-keyscan -t rsa,dsa,ecdsa -f ssh_hosts | \e
+ 	sort -u - ssh_known_hosts | diff ssh_known_hosts -
+ .Ed
+ .Sh SEE ALSO
+diff --git a/ssh-keyscan.c b/ssh-keyscan.c
+index 9a91be4..c98f44f 100644
+--- a/ssh-keyscan.c
++++ b/ssh-keyscan.c
+@@ -52,9 +52,10 @@ int IPv4or6 = AF_UNSPEC;
+ 
+ int ssh_port = SSH_DEFAULT_PORT;
+ 
+-#define KT_RSA1	1
+-#define KT_DSA	2
+-#define KT_RSA	4
++#define KT_RSA1		1
++#define KT_DSA		2
++#define KT_RSA		4
++#define KT_ECDSA	8
+ 
+ int get_keytypes = KT_RSA;	/* Get only RSA keys by default */
+ 
+@@ -367,6 +368,7 @@ keygrab_ssh2(con *c)
+ 	c->c_kex->kex[KEX_DH_GRP14_SHA1] = kexdh_client;
+ 	c->c_kex->kex[KEX_DH_GEX_SHA1] = kexgex_client;
+ 	c->c_kex->kex[KEX_DH_GEX_SHA256] = kexgex_client;
++	c->c_kex->kex[KEX_ECDH_SHA2] = kexecdh_client;
+ 	c->c_kex->verify_host_key = hostjump;
+ 
+ 	if (!(j = setjmp(kexjmp))) {
+@@ -787,6 +789,9 @@ main(int argc, char **argv)
+ 				case KEY_DSA:
+ 					get_keytypes |= KT_DSA;
+ 					break;
++				case KEY_ECDSA:
++					get_keytypes |= KT_ECDSA;
++					break;
+ 				case KEY_RSA:
+ 					get_keytypes |= KT_RSA;
+ 					break;
+diff --git a/ssh-keysign.8 b/ssh-keysign.8
+index 2c1093c..2c6b56d 100644
+--- a/ssh-keysign.8
++++ b/ssh-keysign.8
+@@ -60,7 +60,7 @@ for more information about host-based authentication.
+ Controls whether
+ .Nm
+ is enabled.
+-.It Pa /etc/ssh/ssh_host_dsa_key, /etc/ssh/ssh_host_rsa_key
++.It Pa /etc/ssh/ssh_host_dsa_key, /etc/ssh/ssh_host_ecdsa_key, /etc/ssh/ssh_host_rsa_key
+ These files contain the private parts of the host keys used to
+ generate the digital signature.
+ They should be owned by root, readable only by root, and not
+diff --git a/ssh.1 b/ssh.1
+index c8327cf..b4ebf2b 100644
+--- a/ssh.1
++++ b/ssh.1
+@@ -293,13 +293,14 @@ This option is only available if support for PKCS#11
+ is compiled in (default is no support).
+ .It Fl i Ar identity_file
+ Selects a file from which the identity (private key) for
+-RSA or DSA authentication is read.
++public key authentication is read.
+ The default is
+ .Pa ~/.ssh/identity
+ for protocol version 1, and
+-.Pa ~/.ssh/id_rsa
++.Pa ~/.ssh/id_dsa ,
++.Pa ~/.ssh/id_ecdsa
+ and
+-.Pa ~/.ssh/id_dsa
++.Pa ~/.ssh/id_rsa
+ for protocol version 2.
+ Identity files may also be specified on
+ a per-host basis in the configuration file.
+@@ -757,9 +758,9 @@ key pair for authentication purposes.
+ The server knows the public key, and only the user knows the private key.
+ .Nm
+ implements public key authentication protocol automatically,
+-using either the RSA or DSA algorithms.
++using one of the DSA, ECDSA or RSA algorithms.
+ Protocol 1 is restricted to using only RSA keys,
+-but protocol 2 may use either.
++but protocol 2 may use any.
+ The
+ .Sx HISTORY
+ section of
+@@ -784,6 +785,8 @@ This stores the private key in
+ (protocol 1),
+ .Pa ~/.ssh/id_dsa
+ (protocol 2 DSA),
++.Pa ~/.ssh/id_ecdsa
++(protocol 2 ECDSA),
+ or
+ .Pa ~/.ssh/id_rsa
+ (protocol 2 RSA)
+@@ -792,6 +795,8 @@ and stores the public key in
+ (protocol 1),
+ .Pa ~/.ssh/id_dsa.pub
+ (protocol 2 DSA),
++.Pa ~/.ssh/id_ecdsa.pub
++(protocol 2 ECDSA),
+ or
+ .Pa ~/.ssh/id_rsa.pub
+ (protocol 2 RSA)
+@@ -1330,7 +1335,8 @@ secret, but the recommended permissions are read/write/execute for the user,
+ and not accessible by others.
+ .Pp
+ .It ~/.ssh/authorized_keys
+-Lists the public keys (RSA/DSA) that can be used for logging in as this user.
++Lists the public keys (RSA/ECDSA/DSA) that can be used for logging in as
++this user.
+ The format of this file is described in the
+ .Xr sshd 8
+ manual page.
+@@ -1351,6 +1357,7 @@ above.
+ .Pp
+ .It ~/.ssh/identity
+ .It ~/.ssh/id_dsa
++.It ~/.ssh/id_ecdsa
+ .It ~/.ssh/id_rsa
+ Contains the private key for authentication.
+ These files
+@@ -1364,6 +1371,7 @@ sensitive part of this file using 3DES.
+ .Pp
+ .It ~/.ssh/identity.pub
+ .It ~/.ssh/id_dsa.pub
++.It ~/.ssh/id_ecdsa.pub
+ .It ~/.ssh/id_rsa.pub
+ Contains the public key for authentication.
+ These files are not
+@@ -1402,6 +1410,7 @@ The file format and configuration options are described in
+ .Pp
+ .It /etc/ssh/ssh_host_key
+ .It /etc/ssh/ssh_host_dsa_key
++.It /etc/ssh/ssh_host_ecdsa_key
+ .It /etc/ssh/ssh_host_rsa_key
+ These three files contain the private parts of the host keys
+ and are used for host-based authentication.
+@@ -1513,6 +1522,11 @@ IPv6 address can be used everywhere where IPv4 address. In all entries must be t
+ .%D 2006
+ .Re
+ .Rs
++.%R RFC 5656
++.%T "Elliptic Curve Algorithm Integration in the Secure Shell Transport Layer"
++.%D 2009
++.Re
++.Rs
+ .%T "Hash Visualization: a New Technique to improve Real-World Security"
+ .%A A. Perrig
+ .%A D. Song
+diff --git a/ssh.c b/ssh.c
+index 5153d53..26a0d75 100644
+--- a/ssh.c
++++ b/ssh.c
+@@ -778,26 +778,37 @@ main(int ac, char **av)
+ 	sensitive_data.external_keysign = 0;
+ 	if (options.rhosts_rsa_authentication ||
+ 	    options.hostbased_authentication) {
+-		sensitive_data.nkeys = 3;
++		sensitive_data.nkeys = 4;
+ 		sensitive_data.keys = xcalloc(sensitive_data.nkeys,
+ 		    sizeof(Key));
++		for (i = 0; i < sensitive_data.nkeys; i++)
++			sensitive_data.keys[i] = NULL;
+ 
+ 		PRIV_START;
+ 		sensitive_data.keys[0] = key_load_private_type(KEY_RSA1,
+ 		    _PATH_HOST_KEY_FILE, "", NULL, NULL);
+ 		sensitive_data.keys[1] = key_load_private_type(KEY_DSA,
+ 		    _PATH_HOST_DSA_KEY_FILE, "", NULL, NULL);
+-		sensitive_data.keys[2] = key_load_private_type(KEY_RSA,
++#ifdef OPENSSL_HAS_ECC
++		sensitive_data.keys[2] = key_load_private_type(KEY_ECDSA,
++		    _PATH_HOST_ECDSA_KEY_FILE, "", NULL, NULL);
++#endif
++		sensitive_data.keys[3] = key_load_private_type(KEY_RSA,
+ 		    _PATH_HOST_RSA_KEY_FILE, "", NULL, NULL);
+ 		PRIV_END;
+ 
+ 		if (options.hostbased_authentication == 1 &&
+ 		    sensitive_data.keys[0] == NULL &&
+ 		    sensitive_data.keys[1] == NULL &&
+-		    sensitive_data.keys[2] == NULL) {
++		    sensitive_data.keys[2] == NULL &&
++		    sensitive_data.keys[3] == NULL) {
+ 			sensitive_data.keys[1] = key_load_public(
+ 			    _PATH_HOST_DSA_KEY_FILE, NULL);
++#ifdef OPENSSL_HAS_ECC
+ 			sensitive_data.keys[2] = key_load_public(
++			    _PATH_HOST_ECDSA_KEY_FILE, NULL);
++#endif
++			sensitive_data.keys[3] = key_load_public(
+ 			    _PATH_HOST_RSA_KEY_FILE, NULL);
+ 			sensitive_data.external_keysign = 1;
+ 		}
+diff --git a/ssh2.h b/ssh2.h
+index e21a188..4436029 100644
+--- a/ssh2.h
++++ b/ssh2.h
+@@ -98,6 +98,10 @@
+ #define SSH2_MSG_KEX_DH_GEX_REPLY			33
+ #define SSH2_MSG_KEX_DH_GEX_REQUEST			34
+ 
++/* ecdh */
++#define SSH2_MSG_KEX_ECDH_INIT				30
++#define SSH2_MSG_KEX_ECDH_REPLY				31
++
+ /* user authentication: generic */
+ 
+ #define SSH2_MSG_USERAUTH_REQUEST			50
+diff --git a/ssh_config.5 b/ssh_config.5
+index b6b1092..0dd1178 100644
+--- a/ssh_config.5
++++ b/ssh_config.5
+@@ -543,7 +543,11 @@ is similar to
+ Specifies the protocol version 2 host key algorithms
+ that the client wants to use in order of preference.
+ The default for this option is:
+-.Dq ssh-rsa,ssh-dss .
++.Bd -literal -offset 3n
++ssh-rsa-cert-v01@openssh.com,ssh-dss-cert-v01@openssh.com,
++ssh-rsa-cert-v00@openssh.com,ssh-dss-cert-v00@openssh.com,
++ssh-rsa,ssh-dss
++.Ed
+ .It Cm HostKeyAlias
+ Specifies an alias that should be used instead of the
+ real host name when looking up or saving the host key
+@@ -575,14 +579,15 @@ offers many different identities.
+ The default is
+ .Dq no .
+ .It Cm IdentityFile
+-Specifies a file from which the user's RSA or DSA authentication identity
+-is read.
++Specifies a file from which the user's DSA, ECDSA or DSA authentication
++identity is read.
+ The default is
+ .Pa ~/.ssh/identity
+ for protocol version 1, and
+-.Pa ~/.ssh/id_rsa
++.Pa ~/.ssh/id_dsa ,
++.Pa ~/.ssh/id_ecdsa
+ and
+-.Pa ~/.ssh/id_dsa
++.Pa ~/.ssh/id_rsa
+ for protocol version 2.
+ Additionally, any identities represented by the authentication agent
+ will be used for authentication.
+@@ -633,9 +638,6 @@ and
+ Specifies the available KEX (Key Exchange) algorithms.
+ Multiple algorithms must be comma-separated.
+ The default is
+-.Dq ecdh-sha2-nistp256 ,
+-.Dq ecdh-sha2-nistp384 ,
+-.Dq ecdh-sha2-nistp521 ,
+ .Dq diffie-hellman-group-exchange-sha256 , 
+ .Dq diffie-hellman-group-exchange-sha1 ,
+ .Dq diffie-hellman-group14-sha1 ,
+diff --git a/sshconnect.c b/sshconnect.c
+index 11965ab..8b601fd 100644
+--- a/sshconnect.c
++++ b/sshconnect.c
+@@ -1178,7 +1178,7 @@ show_key_from_file(const char *file, const char *host, int keytype)
+ static int
+ show_other_keys(const char *host, Key *key)
+ {
+-	int type[] = { KEY_RSA1, KEY_RSA, KEY_DSA, -1};
++	int type[] = { KEY_RSA1, KEY_RSA, KEY_DSA, KEY_ECDSA, -1};
+ 	int i, found = 0;
+ 
+ 	for (i = 0; type[i] != -1; i++) {
+diff --git a/sshconnect2.c b/sshconnect2.c
+index b311d01..54c3248 100644
+--- a/sshconnect2.c
++++ b/sshconnect2.c
+@@ -198,6 +198,7 @@ ssh_kex2(char *host, struct sockaddr *hostaddr)
+ 	kex->kex[KEX_DH_GRP14_SHA1] = kexdh_client;
+ 	kex->kex[KEX_DH_GEX_SHA1] = kexgex_client;
+ 	kex->kex[KEX_DH_GEX_SHA256] = kexgex_client;
++	kex->kex[KEX_ECDH_SHA2] = kexecdh_client;
+ #ifdef GSSAPI
+ 	if (options.gss_keyex) {
+ 		kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_client;
+diff --git a/sshd.8 b/sshd.8
+index bff4d96..65ea8d2 100644
+--- a/sshd.8
++++ b/sshd.8
+@@ -170,9 +170,10 @@ host key files are normally not readable by anyone but root).
+ The default is
+ .Pa /etc/ssh/ssh_host_key
+ for protocol version 1, and
+-.Pa /etc/ssh/ssh_host_rsa_key
++.Pa /etc/ssh/ssh_host_dsa_key ,
++.Pa /etc/ssh/ssh_host_ecdsa_key
+ and
+-.Pa /etc/ssh/ssh_host_dsa_key
++.Pa /etc/ssh/ssh_host_rsa_key
+ for protocol version 2.
+ It is possible to have multiple host key files for
+ the different protocol versions and host key algorithms.
+@@ -275,7 +276,7 @@ though this can be changed via the
+ .Cm Protocol
+ option in
+ .Xr sshd_config 5 .
+-Protocol 2 supports both RSA and DSA keys;
++Protocol 2 supports DSA, ECDSA and RSA keys;
+ protocol 1 only supports RSA keys.
+ For both protocols,
+ each host has a host-specific key,
+@@ -484,6 +485,9 @@ protocol version 1; the
+ comment field is not used for anything (but may be convenient for the
+ user to identify the key).
+ For protocol version 2 the keytype is
++.Dq ecdsa-sha2-nistp256 ,
++.Dq ecdsa-sha2-nistp384 ,
++.Dq ecdsa-sha2-nistp521 ,
+ .Dq ssh-dss
+ or
+ .Dq ssh-rsa .
+@@ -495,6 +499,7 @@ keys up to 16 kilobits.
+ You don't want to type them in; instead, copy the
+ .Pa identity.pub ,
+ .Pa id_dsa.pub ,
++.Pa id_ecdsa.pub ,
+ or the
+ .Pa id_rsa.pub
+ file and edit it.
+@@ -794,7 +799,7 @@ secret, but the recommended permissions are read/write/execute for the user,
+ and not accessible by others.
+ .Pp
+ .It ~/.ssh/authorized_keys
+-Lists the public keys (RSA/DSA) that can be used for logging in as this user.
++Lists the public keys (RSA/ECDSA/DSA) that can be used for logging in as this user.
+ The format of this file is described above.
+ The content of the file is not highly sensitive, but the recommended
+ permissions are read/write for the user, and not accessible by others.
+@@ -873,6 +878,7 @@ rlogin/rsh.
+ .Pp
+ .It /etc/ssh/ssh_host_key
+ .It /etc/ssh/ssh_host_dsa_key
++.It /etc/ssh/ssh_host_ecdsa_key
+ .It /etc/ssh/ssh_host_rsa_key
+ These three files contain the private parts of the host keys.
+ These files should only be owned by root, readable only by root, and not
+@@ -883,6 +889,7 @@ does not start if these files are group/world-accessible.
+ .Pp
+ .It /etc/ssh/ssh_host_key.pub
+ .It /etc/ssh/ssh_host_dsa_key.pub
++.It /etc/ssh/ssh_host_ecdsa_key.pub
+ .It /etc/ssh/ssh_host_rsa_key.pub
+ These three files contain the public parts of the host keys.
+ These files should be world-readable but writable only by
+diff --git a/sshd.c b/sshd.c
+index 106b494..e7d5033 100644
+--- a/sshd.c
++++ b/sshd.c
+@@ -800,6 +800,7 @@ list_hostkey_types(void)
+ 		switch (key->type) {
+ 		case KEY_RSA:
+ 		case KEY_DSA:
++		case KEY_ECDSA:
+ 			if (buffer_len(&b) > 0)
+ 				buffer_append(&b, ",", 1);
+ 			p = key_ssh_name(key);
+@@ -815,6 +816,7 @@ list_hostkey_types(void)
+ 		case KEY_DSA_CERT_V00:
+ 		case KEY_RSA_CERT:
+ 		case KEY_DSA_CERT:
++		case KEY_ECDSA_CERT:
+ 			if (buffer_len(&b) > 0)
+ 				buffer_append(&b, ",", 1);
+ 			p = key_ssh_name(key);
+@@ -841,6 +843,7 @@ get_hostkey_by_type(int type, int need_private)
+ 		case KEY_DSA_CERT_V00:
+ 		case KEY_RSA_CERT:
+ 		case KEY_DSA_CERT:
++		case KEY_ECDSA_CERT:
+ 			key = sensitive_data.host_certificates[i];
+ 			break;
+ 		default:
+@@ -1657,6 +1660,7 @@ main(int ac, char **av)
+ 			break;
+ 		case KEY_RSA:
+ 		case KEY_DSA:
++		case KEY_ECDSA:
+ 			sensitive_data.have_ssh2_key = 1;
+ 			break;
+ 		}
+@@ -2518,6 +2522,7 @@ do_ssh2_kex(void)
+ 	kex->kex[KEX_DH_GRP14_SHA1] = kexdh_server;
+ 	kex->kex[KEX_DH_GEX_SHA1] = kexgex_server;
+ 	kex->kex[KEX_DH_GEX_SHA256] = kexgex_server;
++	kex->kex[KEX_ECDH_SHA2] = kexecdh_server;
+ #ifdef GSSAPI
+ 	if (options.gss_keyex) {
+ 		kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_server;
+diff --git a/sshd_config.5 b/sshd_config.5
+index 035dea9..9d76bd0 100644
+--- a/sshd_config.5
++++ b/sshd_config.5
+@@ -489,9 +489,10 @@ used by SSH.
+ The default is
+ .Pa /etc/ssh/ssh_host_key
+ for protocol version 1, and
+-.Pa /etc/ssh/ssh_host_rsa_key
++.Pa /etc/ssh/ssh_host_dsa_key ,
++.Pa /etc/ssh/ssh_host_ecdsa_key
+ and
+-.Pa /etc/ssh/ssh_host_dsa_key
++.Pa /etc/ssh/ssh_host_rsa_key
+ for protocol version 2.
+ Note that
+ .Xr sshd 8
+@@ -499,7 +500,8 @@ will refuse to use a file if it is group/world-accessible.
+ It is possible to have multiple host key files.
+ .Dq rsa1
+ keys are used for version 1 and
+-.Dq dsa
++.Dq dsa ,
++.Dq ecdsa
+ or
+ .Dq rsa
+ are used for version 2 of the SSH protocol.
+diff --git a/uuencode.c b/uuencode.c
+index b9e57e9..09d80d2 100644
+--- a/uuencode.c
++++ b/uuencode.c
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: uuencode.c,v 1.25 2009/03/05 11:30:50 djm Exp $ */
++/* $OpenBSD: uuencode.c,v 1.26 2010/08/31 11:54:45 djm Exp $ */
+ /*
+  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
+  *
+@@ -72,7 +72,7 @@ uudecode(const char *src, u_char *target, size_t targsize)
+ }
+ 
+ void
+-dump_base64(FILE *fp, u_char *data, u_int len)
++dump_base64(FILE *fp, const u_char *data, u_int len)
+ {
+ 	char *buf;
+ 	int i, n;
+diff --git a/uuencode.h b/uuencode.h
+index fec55b4..4d98881 100644
+--- a/uuencode.h
++++ b/uuencode.h
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: uuencode.h,v 1.13 2006/08/03 03:34:42 deraadt Exp $ */
++/* $OpenBSD: uuencode.h,v 1.14 2010/08/31 11:54:45 djm Exp $ */
+ 
+ /*
+  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
+@@ -26,4 +26,4 @@
+ 
+ int	 uuencode(const u_char *, u_int, char *, size_t);
+ int	 uudecode(const char *, u_char *, size_t);
+-void	 dump_base64(FILE *, u_char *, u_int);
++void	 dump_base64(FILE *, const u_char *, u_int);
+-- 
+1.8.3.1
+

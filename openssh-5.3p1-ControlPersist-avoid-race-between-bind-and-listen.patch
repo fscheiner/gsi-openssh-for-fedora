@@ -1,0 +1,108 @@
+diff --git a/mux.c b/mux.c
+index 87d28ae..0c17d5e 100644
+--- a/mux.c
++++ b/mux.c
+@@ -940,6 +940,9 @@ muxserver_listen(void)
+ 	struct sockaddr_un addr;
+ 	socklen_t sun_len;
+ 	mode_t old_umask;
++	char *orig_control_path = options.control_path;
++	char rbuf[16+1];
++	u_int i, r;
+ 
+ 	if (options.control_path == NULL ||
+ 	    options.control_master == SSHCTL_MASTER_NO)
+@@ -947,27 +950,50 @@ muxserver_listen(void)
+ 
+ 	debug("setting up multiplex master socket");
+ 
++	/*
++	 * Use a temporary path before listen so we can pseudo-atomically
++	 * establish the listening socket in its final location to avoid
++	 * other processes racing in between bind() and listen() and hitting
++	 * an unready socket.
++	 */
++	for (i = 0; i < sizeof(rbuf) - 1; i++) {
++		r = arc4random_uniform(26+26+10);
++		rbuf[i] = (r < 26) ? 'a' + r :
++		    (r < 26*2) ? 'A' + r - 26 :
++		    '0' + r - 26 - 26;
++	}
++	rbuf[sizeof(rbuf) - 1] = '\0';
++	options.control_path = NULL;
++	xasprintf(&options.control_path, "%s.%s", orig_control_path, rbuf);
++	debug3("%s: temporary control path %s", __func__, options.control_path);
++
+ 	memset(&addr, '\0', sizeof(addr));
+ 	addr.sun_family = AF_UNIX;
+ 	sun_len = offsetof(struct sockaddr_un, sun_path) +
+ 	    strlen(options.control_path) + 1;
+ 
+ 	if (strlcpy(addr.sun_path, options.control_path,
+-	    sizeof(addr.sun_path)) >= sizeof(addr.sun_path))
+-		fatal("ControlPath too long");
++	    sizeof(addr.sun_path)) >= sizeof(addr.sun_path)) {
++		error("ControlPath \"%s\" too long for Unix domain socket",
++		    options.control_path);
++		goto disable_mux_master;
++	}
+ 
+ 	if ((muxserver_sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
+ 		fatal("%s socket(): %s", __func__, strerror(errno));
+ 
+ 	old_umask = umask(0177);
+ 	if (bind(muxserver_sock, (struct sockaddr *)&addr, sun_len) == -1) {
+-		muxserver_sock = -1;
+ 		if (errno == EINVAL || errno == EADDRINUSE) {
+ 			error("ControlSocket %s already exists, "
+ 			    "disabling multiplexing", options.control_path);
+-			close(muxserver_sock);
+-			muxserver_sock = -1;
+-			xfree(options.control_path);
++ disable_mux_master:
++			if (muxserver_sock != -1) {
++				close(muxserver_sock);
++				muxserver_sock = -1;
++			}
++			free(orig_control_path);
++			free(options.control_path);
+ 			options.control_path = NULL;
+ 			options.control_master = SSHCTL_MASTER_NO;
+ 			return;
+@@ -979,6 +1005,22 @@ muxserver_listen(void)
+ 	if (listen(muxserver_sock, 64) == -1)
+ 		fatal("%s listen(): %s", __func__, strerror(errno));
+ 
++	/* Now atomically "move" the mux socket into position */
++	if (link(options.control_path, orig_control_path) != 0) {
++		if (errno != EEXIST) {
++			fatal("%s: link mux listener %s => %s: %s", __func__, 
++			    options.control_path, orig_control_path,
++			    strerror(errno));
++		}
++		error("ControlSocket %s already exists, disabling multiplexing",
++		    orig_control_path);
++		unlink(options.control_path);
++		goto disable_mux_master;
++	}
++	unlink(options.control_path);
++	free(options.control_path);
++	options.control_path = orig_control_path;
++
+ 	set_nonblock(muxserver_sock);
+ 
+ 	mux_listener_channel = channel_new("mux listener",
+diff --git a/ssh.c b/ssh.c
+index acc522a..94465e4 100644
+--- a/ssh.c
++++ b/ssh.c
+@@ -1422,9 +1422,6 @@ ssh_session2(void)
+ 	    options.permit_local_command)
+ 		ssh_local_cmd(options.local_command);
+ 
+-	/* Start listening for multiplex clients */
+-	muxserver_listen();
+-
+ 	/* If requested, let ssh continue in the background. */
+ 	if (fork_after_authentication_flag) {
+ 		fork_after_authentication_flag = 0;

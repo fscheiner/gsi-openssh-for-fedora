@@ -1,0 +1,236 @@
+From 86d6076046bf66fca7fd08471a641f6e5e75fd9e Mon Sep 17 00:00:00 2001
+From: Petr Lautrbach <plautrba@redhat.com>
+Date: Fri, 7 Mar 2014 18:15:20 +0100
+Subject: [PATCH] openssh-5.3p1-FIPS-mode-SP800-131A.patch
+
+---
+ dh.c          |  3 ++-
+ dh.h          |  1 +
+ kex.c         | 10 ++++++++++
+ kexgexc.c     |  6 ++++--
+ kexgexs.c     |  6 +++---
+ key.c         |  8 ++++++--
+ myproposal.h  |  4 ++++
+ ssh-keygen.c  | 11 ++++++-----
+ sshconnect2.c |  2 ++
+ sshd.c        |  2 ++
+ 10 files changed, 40 insertions(+), 13 deletions(-)
+
+diff --git a/dh.c b/dh.c
+index b766053..916af72 100644
+--- a/dh.c
++++ b/dh.c
+@@ -29,6 +29,7 @@
+ 
+ #include <openssl/bn.h>
+ #include <openssl/dh.h>
++#include <openssl/fips.h>
+ 
+ #include <stdarg.h>
+ #include <stdio.h>
+@@ -339,7 +340,7 @@ dh_estimate(int bits)
+ {
+ 
+ 	if (bits <= 128)
+-		return (1024);	/* O(2**86) */
++		return (FIPS_mode() ? 2048 : 1024);	/* O(2**86) */
+ 	if (bits <= 192)
+ 		return (2048);	/* O(2**116) */
+ 	return (4096);		/* O(2**156) */
+diff --git a/dh.h b/dh.h
+index dfc1480..a945320 100644
+--- a/dh.h
++++ b/dh.h
+@@ -44,6 +44,7 @@ int	 dh_pub_is_valid(DH *, BIGNUM *);
+ int	 dh_estimate(int);
+ 
+ #define DH_GRP_MIN	1024
++#define DH_GRP_MIN_FIPS	2048
+ #define DH_GRP_MAX	8192
+ 
+ /*
+diff --git a/kex.c b/kex.c
+index 01f7231..f09199f 100644
+--- a/kex.c
++++ b/kex.c
+@@ -34,6 +34,7 @@
+ #include <string.h>
+ 
+ #include <openssl/crypto.h>
++#include <openssl/fips.h>
+ 
+ #include "xmalloc.h"
+ #include "ssh2.h"
+@@ -85,6 +86,15 @@ kex_names_valid(const char *names)
+ 			xfree(s);
+ 			return 0;
+ 		}
++		if (FIPS_mode()) {
++			if (strcmp(p, KEX_DHGEX_SHA256) != 0 &&
++			    strcmp(p, KEX_DHGEX_SHA1) != 0 &&
++			    strcmp(p, KEX_DH14) != 0 ) {
++				error("\"%.100s\" is not allowed in FIPS mode", p);
++				xfree(s);
++				return 0;
++			}
++		}
+ 	}
+ 	debug3("kex names ok: [%s]", names);
+ 	xfree(s);
+diff --git a/kexgexc.c b/kexgexc.c
+index adb973d..7b49c81 100644
+--- a/kexgexc.c
++++ b/kexgexc.c
+@@ -26,6 +26,8 @@
+ 
+ #include "includes.h"
+ 
++#include <openssl/fips.h>
++
+ #include <sys/types.h>
+ 
+ #include <stdarg.h>
+@@ -62,13 +64,13 @@ kexgex_client(Kex *kex)
+ 		/* Old GEX request */
+ 		packet_start(SSH2_MSG_KEX_DH_GEX_REQUEST_OLD);
+ 		packet_put_int(nbits);
+-		min = DH_GRP_MIN;
++		min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+ 		max = DH_GRP_MAX;
+ 
+ 		debug("SSH2_MSG_KEX_DH_GEX_REQUEST_OLD(%u) sent", nbits);
+ 	} else {
+ 		/* New GEX request */
+-		min = DH_GRP_MIN;
++		min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+ 		max = DH_GRP_MAX;
+ 		packet_start(SSH2_MSG_KEX_DH_GEX_REQUEST);
+ 		packet_put_int(min);
+diff --git a/kexgexs.c b/kexgexs.c
+index f4156af..06977ff 100644
+--- a/kexgexs.c
++++ b/kexgexs.c
+@@ -78,16 +78,16 @@ kexgex_server(Kex *kex)
+ 		omin = min = packet_get_int();
+ 		onbits = nbits = packet_get_int();
+ 		omax = max = packet_get_int();
+-		min = MAX(DH_GRP_MIN, min);
++		min = MAX(FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN, min);
+ 		max = MIN(DH_GRP_MAX, max);
+-		nbits = MAX(DH_GRP_MIN, nbits);
++		nbits = MAX(FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN, nbits);
+ 		nbits = MIN(DH_GRP_MAX, nbits);
+ 		break;
+ 	case SSH2_MSG_KEX_DH_GEX_REQUEST_OLD:
+ 		debug("SSH2_MSG_KEX_DH_GEX_REQUEST_OLD received");
+ 		onbits = nbits = packet_get_int();
+ 		/* unused for old GEX */
+-		omin = min = DH_GRP_MIN;
++		omin = min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+ 		omax = max = DH_GRP_MAX;
+ 		break;
+ 	default:
+diff --git a/key.c b/key.c
+index 574ad81..ad15ce9 100644
+--- a/key.c
++++ b/key.c
+@@ -40,6 +40,7 @@
+ #include <sys/types.h>
+ 
+ #include <openssl/evp.h>
++#include <openssl/fips.h>
+ #include <openbsd-compat/openssl-compat.h>
+ 
+ #include <stdarg.h>
+@@ -931,9 +932,12 @@ rsa_generate_private_key(u_int bits)
+ {
+ 	RSA *private;
+ 
+-	private = RSA_generate_key(bits, 35, NULL, NULL);
+-	if (private == NULL)
++	private = RSA_generate_key(bits, (FIPS_mode() ? 65537 : 35), NULL, NULL);
++	if (private == NULL) {
++		if (FIPS_mode())
++			fprintf(stderr, "the key length might be unsupported by FIPS mode approved key generation method\n");
+ 		fatal("rsa_generate_private_key: key generation failed.");
++	}
+ 	return private;
+ }
+ 
+diff --git a/myproposal.h b/myproposal.h
+index f973345..b7fb4a1 100644
+--- a/myproposal.h
++++ b/myproposal.h
+@@ -39,6 +39,10 @@
+ 	"diffie-hellman-group14-sha1," \
+ 	"diffie-hellman-group1-sha1"
+ #endif
++#define KEX_DEFAULT_KEX_FIPS		\
++	"diffie-hellman-group-exchange-sha256," \
++	"diffie-hellman-group-exchange-sha1," \
++	"diffie-hellman-group14-sha1"
+ 
+ #define	KEX_DEFAULT_PK_ALG	\
+ 				"ssh-rsa-cert-v01@openssh.com," \
+diff --git a/ssh-keygen.c b/ssh-keygen.c
+index 51915ad..c9eefb3 100644
+--- a/ssh-keygen.c
++++ b/ssh-keygen.c
+@@ -1907,6 +1907,8 @@ main(int argc, char **argv)
+ 		fprintf(stderr, "unknown key type %s\n", key_type_name);
+ 		exit(1);
+ 	}
++	if (type == KEY_DSA && FIPS_mode())
++		fatal("DSA keys are not allowed in FIPS mode");
+ 	if (bits == 0)
+ 		bits = (type == KEY_DSA) ? DEFAULT_BITS_DSA : DEFAULT_BITS;
+ 	if (type == KEY_DSA && bits != 1024)
+@@ -2014,15 +2016,14 @@ passphrase_again:
+ 	fclose(f);
+ 
+ 	if (!quiet) {
+-		int fips_on = FIPS_mode();
+-		char *fp = key_fingerprint(public, fips_on ? SSH_FP_SHA1 : SSH_FP_MD5, SSH_FP_HEX);
+-		char *ra = key_fingerprint(public, fips_on ? SSH_FP_SHA1 : SSH_FP_MD5,
++		char *fp = key_fingerprint(public, FIPS_mode() ? SSH_FP_SHA1 : SSH_FP_MD5, SSH_FP_HEX);
++		char *ra = key_fingerprint(public, FIPS_mode() ? SSH_FP_SHA1 : SSH_FP_MD5,
+ 		    SSH_FP_RANDOMART);
+ 		printf("Your public key has been saved in %s.\n",
+ 		    identity_file);
+-		printf("The key %sfingerprint is:\n", fips_on ? "SHA1 " : "");
++		printf("The key %sfingerprint is:\n", FIPS_mode() ? "SHA1 " : "");
+ 		printf("%s %s\n", fp, comment);
+-		printf("The key's %srandomart image is:\n", fips_on ? "SHA1 " :"");
++		printf("The key's %srandomart image is:\n", FIPS_mode() ? "SHA1 " :"");
+ 		printf("%s\n", ra);
+ 		xfree(ra);
+ 		xfree(fp);
+diff --git a/sshconnect2.c b/sshconnect2.c
+index a9d12a6..b311d01 100644
+--- a/sshconnect2.c
++++ b/sshconnect2.c
+@@ -175,6 +175,8 @@ ssh_kex2(char *host, struct sockaddr *hostaddr)
+ 
+ 	if (options.kex_algorithms != NULL)
+ 		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
++	else if (FIPS_mode())
++		myproposal[PROPOSAL_KEX_ALGS] = KEX_DEFAULT_KEX_FIPS;
+ 
+ #ifdef GSSAPI
+ 	/* If we've got GSSAPI algorithms, then we also support the
+diff --git a/sshd.c b/sshd.c
+index 4a257ba..106b494 100644
+--- a/sshd.c
++++ b/sshd.c
+@@ -2465,6 +2465,8 @@ do_ssh2_kex(void)
+ 	}
+ 	if (options.kex_algorithms != NULL)
+ 		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
++	else if (FIPS_mode())
++		myproposal[PROPOSAL_KEX_ALGS] = KEX_DEFAULT_KEX_FIPS;
+ 
+ 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = list_hostkey_types();
+ 
+-- 
+1.8.3.1
+

@@ -1,0 +1,59 @@
+diff -up openssh-5.3p1/sshconnect2.c.gsskex-fips openssh-5.3p1/sshconnect2.c
+--- openssh-5.3p1/sshconnect2.c.gsskex-fips	2014-03-20 07:40:31.271855339 +0100
++++ openssh-5.3p1/sshconnect2.c	2014-03-20 07:47:55.207615134 +0100
+@@ -120,20 +120,25 @@ ssh_kex2(char *host, struct sockaddr *ho
+ 
+ #ifdef GSSAPI
+ 	if (options.gss_keyex) {
+-		/* Add the GSSAPI mechanisms currently supported on this 
+-		 * client to the key exchange algorithm proposal */
+-		orig = myproposal[PROPOSAL_KEX_ALGS];
++		if (FIPS_mode()) {
++			logit("Disabling GSSAPIKeyExchange. Not usable in FIPS mode");
++			options.gss_keyex = 0;
++		} else {
++			/* Add the GSSAPI mechanisms currently supported on this
++			 * client to the key exchange algorithm proposal */
++			orig = myproposal[PROPOSAL_KEX_ALGS];
+ 
+-		if (options.gss_trust_dns)
+-			gss_host = (char *)get_canonical_hostname(1);
+-		else
+-			gss_host = host;
++			if (options.gss_trust_dns)
++				gss_host = (char *)get_canonical_hostname(1);
++			else
++				gss_host = host;
+ 
+-		gss = ssh_gssapi_client_mechanisms(gss_host, options.gss_client_identity);
+-		if (gss) {
+-			debug("Offering GSSAPI proposal: %s", gss);
+-			xasprintf(&myproposal[PROPOSAL_KEX_ALGS],
+-			    "%s,%s", gss, orig);
++			gss = ssh_gssapi_client_mechanisms(gss_host, options.gss_client_identity);
++			if (gss) {
++				debug("Offering GSSAPI proposal: %s", gss);
++				xasprintf(&myproposal[PROPOSAL_KEX_ALGS],
++				    "%s,%s", gss, orig);
++			}
+ 		}
+ 	}
+ #endif
+diff -up openssh-5.3p1/sshd.c.gsskex-fips openssh-5.3p1/sshd.c
+--- openssh-5.3p1/sshd.c.gsskex-fips	2014-03-20 07:40:31.272855334 +0100
++++ openssh-5.3p1/sshd.c	2014-03-20 07:43:36.835918763 +0100
+@@ -2490,9 +2490,11 @@ do_ssh2_kex(void)
+ 		orig = NULL;
+ 
+ 	if (options.gss_keyex)
+-		gss = ssh_gssapi_server_mechanisms();
+-	else
+-		gss = NULL;
++		if (FIPS_mode()) {
++			logit("Disabling GSSAPIKeyExchange. Not usable in FIPS mode");
++			options.gss_keyex = 0;
++		} else
++			gss = ssh_gssapi_server_mechanisms();
+ 
+ 	if (gss && orig)
+ 		xasprintf(&newstr, "%s,%s", gss, orig);

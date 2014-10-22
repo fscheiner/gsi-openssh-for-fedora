@@ -1,0 +1,12 @@
+diff --git a/session.c b/session.c
+index f62e43a..8b6db20 100644
+--- a/session.c
++++ b/session.c
+@@ -1822,6 +1822,7 @@ do_child(Session *s, const char *command)
+ 
+ 	if (s->is_subsystem == SUBSYSTEM_INT_SFTP_ERROR) {
+ 		printf("This service allows sftp connections only.\n");
++		logit("The session allows sftp connections only");
+ 		fflush(NULL);
+ 		exit(1);
+ 	} else if (s->is_subsystem == SUBSYSTEM_INT_SFTP) {

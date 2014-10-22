@@ -1,0 +1,16 @@
+diff --git a/authfile.c b/authfile.c
+index d275296..7cf1c6d 100644
+--- a/authfile.c
++++ b/authfile.c
+@@ -652,7 +652,10 @@ key_load_private(const char *filename, const char *passphrase,
+ 		/* it's a SSH v1 key if the public key part is readable */
+ 		key_free(pub);
+ 		/* closes fd */
+-		prv = key_load_private_rsa1(fd, filename, passphrase, NULL);
++		if ( ! FIPS_mode())
++			prv = key_load_private_rsa1(fd, filename, passphrase, NULL);
++		else
++			close(fd);
+ 	}
+ 	return prv;
+ }

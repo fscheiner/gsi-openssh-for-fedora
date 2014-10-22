@@ -4952,7 +4952,7 @@ diff -up openssh-5.3p1/ssh-keygen.1.certificates openssh-5.3p1/ssh-keygen.1
 +.Fl s Ar ca_key
 +.Fl I Ar certificate_identity
 +.Op Fl h
-+.Op Fl n Ar principals
++.Op Fl Z Ar principals
 +.Op Fl O Ar option
 +.Op Fl V Ar validity_interval
 +.Op Fl z Ar serial_number
@@ -4995,7 +4995,7 @@ diff -up openssh-5.3p1/ssh-keygen.1.certificates openssh-5.3p1/ssh-keygen.1
  Extract the public key from smartcard.
  .It Fl N Ar new_passphrase
  Provides the new passphrase.
-+.It Fl n Ar principals
++.It Fl Z Ar principals
 +Specify one or more principals (user or host names) to be included in
 +a certificate when signing a key.
 +Multiple principals may be specified, separated by commas.
@@ -5160,8 +5160,8 @@ diff -up openssh-5.3p1/ssh-keygen.1.certificates openssh-5.3p1/ssh-keygen.1
 +By default, generated certificates are valid for all users or hosts.
 +To generate a certificate for a specified set of principals:
 +.Pp
-+.Dl $ ssh-keygen -s ca_key -I key_id -n user1,user2 user_key.pub
-+.Dl "$ ssh-keygen -s ca_key -I key_id -h -n host.domain user_key.pub"
++.Dl $ ssh-keygen -s ca_key -I key_id -Z user1,user2 user_key.pub
++.Dl "$ ssh-keygen -s ca_key -I key_id -h -Z host.domain user_key.pub"
 +.Pp
 +Additional limitations on the validity and use of user certificates may
 +be specified through certificate options.
