@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -50,7 +50,7 @@ Source13: gsisshd-keygen
 Source99: README.sshd-and-gsisshd
 
 #?
-Patch100: openssh-6.3p1-coverity.patch
+Patch100: openssh-6.6.1p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1872
 Patch101: openssh-6.6p1-fingerprint.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
@@ -148,6 +148,14 @@ Patch912: openssh-6.6.1p1-utf8-banner.patch
 # don't consider a partial success as a failure
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2270
 Patch913: openssh-6.6.1p1-partial-success.patch
+# fix parsing of empty options in sshd_conf
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2281
+Patch914: openssh-6.6.1p1-servconf-parser.patch
+# Ignore SIGXFSZ in postauth monitor
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2263
+Patch915: openssh-6.6.1p1-ignore-SIGXFSZ-in-postauth.patch
+# privsep_preauth: use SELinux context from selinux-policy (#1008580)
+Patch916: openssh-6.6.1p1-selinux-contexts.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
@@ -176,8 +184,8 @@ BuildRequires: krb5-devel
 
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
-BuildRequires: globus-gssapi-gsi >= 10
-BuildRequires: globus-common >= 14
+BuildRequires: globus-gssapi-gsi-devel >= 10
+BuildRequires: globus-common-devel >= 14
 BuildRequires: globus-usage-devel >= 3
 %endif
 
@@ -186,8 +194,8 @@ BuildRequires: libedit-devel ncurses-devel
 %endif
 
 %if %{WITH_SELINUX}
-Requires: libselinux >= 1.27.7
-BuildRequires: libselinux-devel >= 1.27.7
+Requires: libselinux >= 2.3-5
+BuildRequires: libselinux-devel >= 2.3-5
 Requires: audit-libs >= 1.0.8
 BuildRequires: audit-libs >= 1.0.8
 %endif
@@ -249,7 +257,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %prep
 %setup -q -n openssh-6.6p1
 
-# rework %patch100 -p1 -b .coverity
 %patch101 -p1 -b .fingerprint
 # investigate %patch102 -p1 -b .getaddrinfo
 %patch103 -p1 -b .packet
@@ -301,9 +308,14 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch911 -p1 -b .set_remote_ipaddr
 %patch912 -p1 -b .utf8-banner
 %patch913 -p1 -b .partial-success
+%patch914 -p1 -b .servconf
+%patch915 -p1 -b .SIGXFSZ
+%patch916 -p1 -b .contexts
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
+
+%patch100 -p1 -b .coverity
 
 %patch98 -p1 -b .gsi
 
@@ -519,6 +531,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Mon Nov 24 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-3
+- Based on openssh-6.6.1p1-8.fc21
+
 * Wed Oct 22 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-2
 - Based on openssh-6.6.1p1-5.fc21
 

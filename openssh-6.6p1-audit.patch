@@ -486,7 +486,7 @@ index b3ee2f4..946f7fa 100644
 +}
  #endif /* USE_LINUX_AUDIT */
 diff --git a/audit.c b/audit.c
-index ced57fa..b806f03 100644
+index ced57fa..ab9fb82 100644
 --- a/audit.c
 +++ b/audit.c
 @@ -28,6 +28,7 @@
@@ -507,7 +507,23 @@ index ced57fa..b806f03 100644
  
  /*
   * Care must be taken when using this since it WILL NOT be initialized when
-@@ -111,6 +115,40 @@ audit_event_lookup(ssh_audit_event_t ev)
+@@ -71,13 +75,10 @@ audit_classify_auth(const char *method)
+ const char *
+ audit_username(void)
+ {
+-	static const char unknownuser[] = "(unknown user)";
+-	static const char invaliduser[] = "(invalid user)";
++	static const char unknownuser[] = "(unknown)";
+ 
+-	if (the_authctxt == NULL || the_authctxt->user == NULL)
++	if (the_authctxt == NULL || the_authctxt->user == NULL || !the_authctxt->valid)
+ 		return (unknownuser);
+-	if (!the_authctxt->valid)
+-		return (invaliduser);
+ 	return (the_authctxt->user);
+ }
+ 
+@@ -111,6 +112,40 @@ audit_event_lookup(ssh_audit_event_t ev)
  	return(event_lookup[i].name);
  }
  
@@ -548,7 +564,7 @@ index ced57fa..b806f03 100644
  # ifndef CUSTOM_SSH_AUDIT_EVENTS
  /*
   * Null implementations of audit functions.
-@@ -140,6 +178,17 @@ audit_event(ssh_audit_event_t event)
+@@ -140,6 +175,17 @@ audit_event(ssh_audit_event_t event)
  }
  
  /*
@@ -566,7 +582,7 @@ index ced57fa..b806f03 100644
   * Called when a user session is started.  Argument is the tty allocated to
   * the session, or NULL if no tty was allocated.
   *
-@@ -174,13 +223,91 @@ audit_session_close(struct logininfo *li)
+@@ -174,13 +220,91 @@ audit_session_close(struct logininfo *li)
  /*
   * This will be called when a user runs a non-interactive command.  Note that
   * it may be called multiple times for a single connection since SSH2 allows
@@ -795,6 +811,20 @@ index 5dad6c3..f225b0b 100644
  }
  
  /*
+diff --git a/auth.c b/auth.c
+index 420a85b..d613f8c 100644
+--- a/auth.c
++++ b/auth.c
+@@ -628,9 +628,6 @@ getpwnamallow(const char *user)
+ 		record_failed_login(user,
+ 		    get_canonical_hostname(options.use_dns), "ssh");
+ #endif
+-#ifdef SSH_AUDIT_EVENTS
+-		audit_event(SSH_INVALID_USER);
+-#endif /* SSH_AUDIT_EVENTS */
+ 		return (NULL);
+ 	}
+ 	if (!allowed_user(pw))
 diff --git a/auth.h b/auth.h
 index 4605588..f9d191c 100644
 --- a/auth.h
@@ -880,7 +910,7 @@ index cb0f931..6d1c872 100644
  match_principals_option(const char *principal_list, struct KeyCert *cert)
  {
 diff --git a/auth2.c b/auth2.c
-index 0f52b68..472a5b2 100644
+index 426dcd6..436cd60 100644
 --- a/auth2.c
 +++ b/auth2.c
 @@ -249,9 +249,6 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
@@ -1143,7 +1173,7 @@ index fbe18c4..7dc7f43 100644
  void	 mac_clear(Mac *);
 +void	 mac_destroy(Mac *);
 diff --git a/monitor.c b/monitor.c
-index aa70945..bdabe21 100644
+index 8b18086..5a65114 100644
 --- a/monitor.c
 +++ b/monitor.c
 @@ -97,6 +97,7 @@
@@ -1221,7 +1251,7 @@ index aa70945..bdabe21 100644
  #endif
      {0, 0, NULL}
  };
-@@ -1390,9 +1416,11 @@ mm_answer_keyverify(int sock, Buffer *m)
+@@ -1393,9 +1419,11 @@ mm_answer_keyverify(int sock, Buffer *m)
  	Key *key;
  	u_char *signature, *data, *blob;
  	u_int signaturelen, datalen, bloblen;
@@ -1233,7 +1263,7 @@ index aa70945..bdabe21 100644
  	blob = buffer_get_string(m, &bloblen);
  	signature = buffer_get_string(m, &signaturelen);
  	data = buffer_get_string(m, &datalen);
-@@ -1400,6 +1428,8 @@ mm_answer_keyverify(int sock, Buffer *m)
+@@ -1403,6 +1431,8 @@ mm_answer_keyverify(int sock, Buffer *m)
  	if (hostbased_cuser == NULL || hostbased_chost == NULL ||
  	  !monitor_allowed_key(blob, bloblen))
  		fatal("%s: bad key, not previously allowed", __func__);
@@ -1242,7 +1272,7 @@ index aa70945..bdabe21 100644
  
  	key = key_from_blob(blob, bloblen);
  	if (key == NULL)
-@@ -1420,7 +1450,17 @@ mm_answer_keyverify(int sock, Buffer *m)
+@@ -1423,7 +1453,17 @@ mm_answer_keyverify(int sock, Buffer *m)
  	if (!valid_data)
  		fatal("%s: bad signature data blob", __func__);
  
@@ -1261,7 +1291,7 @@ index aa70945..bdabe21 100644
  	debug3("%s: key %p signature %s",
  	    __func__, key, (verified == 1) ? "verified" : "unverified");
  
-@@ -1473,6 +1513,12 @@ mm_session_close(Session *s)
+@@ -1476,6 +1516,12 @@ mm_session_close(Session *s)
  		debug3("%s: tty %s ptyfd %d", __func__, s->tty, s->ptyfd);
  		session_pty_cleanup2(s);
  	}
@@ -1274,7 +1304,7 @@ index aa70945..bdabe21 100644
  	session_unused(s->self);
  }
  
-@@ -1753,6 +1799,8 @@ mm_answer_term(int sock, Buffer *req)
+@@ -1756,6 +1802,8 @@ mm_answer_term(int sock, Buffer *req)
  		sshpam_cleanup();
  #endif
  
@@ -1283,7 +1313,7 @@ index aa70945..bdabe21 100644
  	while (waitpid(pmonitor->m_pid, &status, 0) == -1)
  		if (errno != EINTR)
  			exit(1);
-@@ -1795,11 +1843,43 @@ mm_answer_audit_command(int socket, Buffer *m)
+@@ -1798,11 +1846,43 @@ mm_answer_audit_command(int socket, Buffer *m)
  {
  	u_int len;
  	char *cmd;
@@ -1328,7 +1358,7 @@ index aa70945..bdabe21 100644
  	free(cmd);
  	return (0);
  }
-@@ -1943,11 +2023,13 @@ mm_get_keystate(struct monitor *pmonitor)
+@@ -1946,11 +2026,13 @@ mm_get_keystate(struct monitor *pmonitor)
  
  	blob = buffer_get_string(&m, &bloblen);
  	current_keys[MODE_OUT] = mm_newkeys_from_blob(blob, bloblen);
@@ -1342,7 +1372,7 @@ index aa70945..bdabe21 100644
  	free(blob);
  
  	/* Now get sequence numbers for the packets */
-@@ -1993,6 +2075,21 @@ mm_get_keystate(struct monitor *pmonitor)
+@@ -1996,6 +2078,21 @@ mm_get_keystate(struct monitor *pmonitor)
  	}
  
  	buffer_free(&m);
@@ -1364,7 +1394,7 @@ index aa70945..bdabe21 100644
  }
  
  
-@@ -2274,3 +2371,85 @@ mm_answer_gss_updatecreds(int socket, Buffer *m) {
+@@ -2277,3 +2374,85 @@ mm_answer_gss_updatecreds(int socket, Buffer *m) {
  
  #endif /* GSSAPI */
  
@@ -1860,7 +1890,7 @@ index f8edf85..c36c812 100644
 +void	 packet_destroy_all(int, int);
  #endif				/* PACKET_H */
 diff --git a/session.c b/session.c
-index e4add93..626a642 100644
+index df43592..b186ca1 100644
 --- a/session.c
 +++ b/session.c
 @@ -138,7 +138,7 @@ extern int log_stderr;
@@ -1921,7 +1951,7 @@ index e4add93..626a642 100644
  
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
-@@ -1932,6 +1947,7 @@ session_unused(int id)
+@@ -1933,6 +1948,7 @@ session_unused(int id)
  	sessions[id].ttyfd = -1;
  	sessions[id].ptymaster = -1;
  	sessions[id].x11_chanids = NULL;
@@ -1929,7 +1959,7 @@ index e4add93..626a642 100644
  	sessions[id].next_unused = sessions_first_unused;
  	sessions_first_unused = id;
  }
-@@ -2014,6 +2030,19 @@ session_open(Authctxt *authctxt, int chanid)
+@@ -2015,6 +2031,19 @@ session_open(Authctxt *authctxt, int chanid)
  }
  
  Session *
@@ -1949,7 +1979,7 @@ index e4add93..626a642 100644
  session_by_tty(char *tty)
  {
  	int i;
-@@ -2530,6 +2559,30 @@ session_exit_message(Session *s, int status)
+@@ -2531,6 +2560,30 @@ session_exit_message(Session *s, int status)
  		chan_write_failed(c);
  }
  
@@ -1980,7 +2010,7 @@ index e4add93..626a642 100644
  void
  session_close(Session *s)
  {
-@@ -2538,6 +2591,10 @@ session_close(Session *s)
+@@ -2539,6 +2592,10 @@ session_close(Session *s)
  	debug("session_close: session %d pid %ld", s->self, (long)s->pid);
  	if (s->ttyfd != -1)
  		session_pty_cleanup(s);
@@ -1991,7 +2021,7 @@ index e4add93..626a642 100644
  	free(s->term);
  	free(s->display);
  	free(s->x11_chanids);
-@@ -2752,6 +2809,15 @@ do_authenticated2(Authctxt *authctxt)
+@@ -2753,6 +2810,15 @@ do_authenticated2(Authctxt *authctxt)
  	server_loop2(authctxt);
  }
  
@@ -2007,7 +2037,7 @@ index e4add93..626a642 100644
  void
  do_cleanup(Authctxt *authctxt)
  {
-@@ -2800,5 +2866,5 @@ do_cleanup(Authctxt *authctxt)
+@@ -2801,5 +2867,5 @@ do_cleanup(Authctxt *authctxt)
  	 * or if running in monitor.
  	 */
  	if (!use_privsep || mm_is_monitor())
@@ -2043,7 +2073,7 @@ index 6a2f35e..e9b312e 100644
  void	 session_close(Session *);
  void	 do_setusercontext(struct passwd *);
 diff --git a/sshd.c b/sshd.c
-index 512c7ed..b561ec8 100644
+index 8a0740a..2813aa2 100644
 --- a/sshd.c
 +++ b/sshd.c
 @@ -119,6 +119,7 @@

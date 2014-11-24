@@ -1437,11 +1437,10 @@ diff -Nur openssh-6.6p1.orig/monitor.c openssh-6.6p1/monitor.c
      {MONITOR_REQ_PAM_ACCOUNT, 0, mm_answer_pam_account},
      {MONITOR_REQ_PAM_INIT_CTX, MON_ISAUTH, mm_answer_pam_init_ctx},
      {MONITOR_REQ_PAM_QUERY, MON_ISAUTH, mm_answer_pam_query},
-@@ -267,6 +270,10 @@
-     {MONITOR_REQ_GSSSTEP, MON_ISAUTH, mm_answer_gss_accept_ctx},
+@@ -268,6 +271,9 @@
      {MONITOR_REQ_GSSUSEROK, MON_AUTH, mm_answer_gss_userok},
      {MONITOR_REQ_GSSCHECKMIC, MON_ISAUTH, mm_answer_gss_checkmic},
-+    {MONITOR_REQ_GSSSIGN, MON_ONCE, mm_answer_gss_sign},
+     {MONITOR_REQ_GSSSIGN, MON_ONCE, mm_answer_gss_sign},
 +    {MONITOR_REQ_GSSERR, MON_ISAUTH | MON_ONCE, mm_answer_gss_error},
 +    {MONITOR_REQ_GSSMECHS, MON_ISAUTH, mm_answer_gss_indicate_mechs},
 +    {MONITOR_REQ_GSSLOCALNAME, MON_ISAUTH, mm_answer_gss_localname},
@@ -2265,7 +2264,7 @@ diff -Nur openssh-6.6p1.orig/sshd_config openssh-6.6p1/sshd_config
 --- openssh-6.6p1.orig/sshd_config	2014-07-14 19:49:55.160268455 +0200
 +++ openssh-6.6p1/sshd_config	2014-07-15 06:37:02.657343409 +0200
 @@ -90,10 +90,11 @@
- #KerberosUseKuserok no
+ #KerberosUseKuserok yes
  
  # GSSAPI options
 -GSSAPIAuthentication yes
