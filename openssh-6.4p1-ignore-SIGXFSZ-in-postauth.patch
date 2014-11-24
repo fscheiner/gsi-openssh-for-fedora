@@ -1,0 +1,28 @@
+diff --git a/ChangeLog b/ChangeLog
+index 7bcd596..3a0d993 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,9 @@
++20140823
++ - (djm) [sshd.c] Ignore SIGXFSZ in preauth monitor child; can explode on
++   lastlog writing on platforms with high UIDs; bz#2263
++ - (djm) [monitor.c sshd.c] SIGXFSZ needs to be ignored in postauth
++   monitor, not preauth; bz#2263
++
+ 20140703
+  - OpenBSD CVS Sync
+    - djm@cvs.openbsd.org 2014/07/03 03:34:09
+diff --git a/monitor.c b/monitor.c
+index 453bea3..9dadb4d 100644
+--- a/monitor.c
++++ b/monitor.c
+@@ -524,6 +524,9 @@ monitor_child_postauth(struct monitor *pmonitor)
+ 	signal(SIGHUP, &monitor_child_handler);
+ 	signal(SIGTERM, &monitor_child_handler);
+ 	signal(SIGINT, &monitor_child_handler);
++#ifdef SIGXFSZ
++	signal(SIGXFSZ, SIG_IGN);
++#endif
+ 
+ 	if (compat20) {
+ 		mon_dispatch = mon_dispatch_postauth20;

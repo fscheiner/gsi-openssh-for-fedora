@@ -1,0 +1,87 @@
+diff --git a/canohost.c b/canohost.c
+index f5cb854..c53cc39 100644
+--- a/canohost.c
++++ b/canohost.c
+@@ -343,6 +343,21 @@ clear_cached_addr(void)
+ 	cached_port = -1;
+ }
+ 
++void set_remote_ipaddr(void) {
++	if (canonical_host_ip != NULL)
++		free(canonical_host_ip);
++
++	if (packet_connection_is_on_socket()) {
++		canonical_host_ip =
++		    get_peer_ipaddr(packet_get_connection_in());
++		if (canonical_host_ip == NULL)
++			cleanup_exit(255);
++	} else {
++		/* If not on socket, return UNKNOWN. */
++		canonical_host_ip = xstrdup("UNKNOWN");
++	}
++}
++
+ /*
+  * Returns the IP-address of the remote host as a string.  The returned
+  * string must not be freed.
+@@ -352,17 +367,9 @@ const char *
+ get_remote_ipaddr(void)
+ {
+ 	/* Check whether we have cached the ipaddr. */
+-	if (canonical_host_ip == NULL) {
+-		if (packet_connection_is_on_socket()) {
+-			canonical_host_ip =
+-			    get_peer_ipaddr(packet_get_connection_in());
+-			if (canonical_host_ip == NULL)
+-				cleanup_exit(255);
+-		} else {
+-			/* If not on socket, return UNKNOWN. */
+-			canonical_host_ip = xstrdup("UNKNOWN");
+-		}
+-	}
++	if (canonical_host_ip == NULL)
++		set_remote_ipaddr();
++
+ 	return canonical_host_ip;
+ }
+ 
+diff --git a/canohost.h b/canohost.h
+index 4c8636f..4079953 100644
+--- a/canohost.h
++++ b/canohost.h
+@@ -13,6 +13,7 @@
+  */
+ 
+ const char	*get_canonical_hostname(int);
++void		 set_remote_ipaddr(void);
+ const char	*get_remote_ipaddr(void);
+ const char	*get_remote_name_or_ip(u_int, int);
+ 
+diff --git a/sshconnect.c b/sshconnect.c
+index 4d8c718..b0b4870 100644
+--- a/sshconnect.c
++++ b/sshconnect.c
+@@ -61,6 +61,7 @@
+ #include "roaming.h"
+ #include "ssh2.h"
+ #include "version.h"
++#include "canohost.h"
+ 
+ char *client_version_string = NULL;
+ char *server_version_string = NULL;
+@@ -172,6 +173,7 @@ ssh_proxy_connect(const char *host, u_short port, const char *proxy_command)
+ 	packet_set_connection(pout[0], pin[1]);
+ 	packet_set_timeout(options.server_alive_interval,
+ 	    options.server_alive_count_max);
++	set_remote_ipaddr();
+ 
+ 	/* Indicate OK return */
+ 	return 0;
+@@ -433,6 +435,7 @@ ssh_connect(const char *host, struct sockaddr_storage * hostaddr,
+ 	packet_set_connection(sock, sock);
+ 	packet_set_timeout(options.server_alive_interval,
+ 	    options.server_alive_count_max);
++	set_remote_ipaddr();
+ 
+ 	return 0;
+ }

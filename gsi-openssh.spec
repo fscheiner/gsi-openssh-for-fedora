@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.4p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -124,7 +124,7 @@ Patch800: openssh-6.3p1-gsskex.patch
 Patch801: openssh-6.3p1-force_krb.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
-Patch901: openssh-6.3p1-kuserok.patch
+Patch901: openssh-6.4p1-kuserok.patch
 # use default_ccache_name from /etc/krb5.conf (#991186)
 Patch902: openssh-6.3p1-krb5-use-default_ccache_name.patch
 # increase the size of the Diffie-Hellman groups (#1010607)
@@ -144,6 +144,22 @@ Patch908: openssh-6.4p1-CVE-2014-2653.patch
 Patch909: openssh-6.4p1-ignore-bad-env-var.patch
 # standardise on NI_MAXHOST for gethostname() string lengths (#1051490)
 Patch910: openssh-6.4p1-NI_MAXHOST.patch
+# set a client's address right after a connection is set
+# http://bugzilla.mindrot.org/show_bug.cgi?id=2257
+Patch911: openssh-6.4p1-set_remote_ipaddr.patch
+# apply RFC3454 stringprep to banners when possible
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2058
+# slightly changed patch from comment 10
+Patch912: openssh-6.4p1-utf8-banner.patch
+# don't consider a partial success as a failure
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2270
+Patch913: openssh-6.4p1-partial-success.patch
+# fix parsing of empty options in sshd_conf
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2281
+Patch914: openssh-6.4p1-servconf-parser.patch
+# Ignore SIGXFSZ in postauth monitor
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2263
+Patch915: openssh-6.4p1-ignore-SIGXFSZ-in-postauth.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
@@ -172,8 +188,8 @@ BuildRequires: krb5-devel
 
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
-BuildRequires: globus-gssapi-gsi >= 10
-BuildRequires: globus-common >= 14
+BuildRequires: globus-gssapi-gsi-devel >= 10
+BuildRequires: globus-common-devel >= 14
 BuildRequires: globus-usage-devel >= 3
 %endif
 
@@ -300,6 +316,11 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch908 -p1 -b .CVE-2014-2653
 %patch909 -p1 -b .bad-env-var
 %patch910 -p1 -b .NI_MAXHOST
+%patch911 -p1 -b .set_remote_ipaddr
+%patch912 -p1 -b .utf8-banner
+%patch913 -p1 -b .partial-success
+%patch914 -p1 -b .servconf
+%patch915 -p1 -b .SIGXFSZ
 
 %patch98 -p1 -b .gsi
 
@@ -513,6 +534,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Mon Nov 24 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-5
+- Based on openssh-6.4p1-6.fc20
+
 * Wed Oct 22 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-4
 - Based on openssh-6.4p1-5.fc20
 
