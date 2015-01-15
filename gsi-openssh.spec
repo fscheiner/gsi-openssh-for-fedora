@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -61,6 +61,9 @@ Patch103: openssh-5.8p1-packet.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 Patch200: openssh-6.6p1-audit.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=1171248
+# record pfs= field in CRYPTO_SESSION audit event
+Patch201: openssh-6.6.1p1-audit-pfs.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
 Patch400: openssh-6.6p1-role-mls.patch
@@ -100,7 +103,7 @@ Patch703: openssh-4.3p2-askpass-grab-info.patch
 #?
 Patch705: openssh-5.1p1-scp-manpage.patch
 #?
-Patch706: openssh-5.8p1-localdomain.patch
+Patch706: openssh-6.6.1p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
 Patch707: openssh-6.6p1-redhat.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
@@ -119,6 +122,9 @@ Patch713: openssh-6.6p1-ctr-cavstest.patch
 Patch800: openssh-6.6p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
 Patch801: openssh-6.6p1-force_krb.patch
+# add new option GSSAPIEnablek5users and disable using ~/.k5users by default (#1169843)
+# CVE-2014-9278
+Patch802: openssh-6.6p1-GSSAPIEnablek5users.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-6.6p1-kuserok.patch
@@ -156,6 +162,14 @@ Patch914: openssh-6.6.1p1-servconf-parser.patch
 Patch915: openssh-6.6.1p1-ignore-SIGXFSZ-in-postauth.patch
 # privsep_preauth: use SELinux context from selinux-policy (#1008580)
 Patch916: openssh-6.6.1p1-selinux-contexts.patch
+# use different values for DH for Cisco servers (#1026430)
+Patch917: openssh-6.6.1p1-cisco-dh-keys.patch
+# log via monitor in chroots without /dev/log
+Patch918: openssh-6.6.1p1-log-in-chroot.patch
+# scp file into non-existing directory (#1142223)
+Patch919: openssh-6.6.1p1-scp-non-existing-directory.patch
+# Config parser shouldn't accept ip/port syntax (#1130733)
+Patch920: openssh-6.6.1p1-ip-port-config-parser.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
@@ -311,8 +325,14 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch914 -p1 -b .servconf
 %patch915 -p1 -b .SIGXFSZ
 %patch916 -p1 -b .contexts
+%patch917 -p1 -b .cisco-dh
+%patch918 -p1 -b .log-in-chroot
+%patch919 -p1 -b .scp
+%patch920 -p1 -b .config
+%patch802 -p1 -b .GSSAPIEnablek5users
 
 %patch200 -p1 -b .audit
+%patch201 -p1 -b .audit-fps
 %patch700 -p1 -b .fips
 
 %patch100 -p1 -b .coverity
@@ -364,7 +384,7 @@ fi
 	--with-default-path=/usr/local/bin:/usr/bin \
 	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
 	--with-privsep-path=%{_var}/empty/gsisshd \
-	--enable-vendor-patchlevel="FC-%{version}-%{release}" \
+	--enable-vendor-patchlevel="FC-%{openssh_ver}-%{openssh_rel}" \
 	--disable-strip \
 	--without-zlib-version-check \
 	--with-ssl-engine \
@@ -473,7 +493,7 @@ getent passwd sshd >/dev/null || \
 %systemd_preun gsisshd.service gsisshd.socket
 
 %postun server
-%systemd_postun_with_restart gsisshd.service gsisshd.socket
+%systemd_postun_with_restart gsisshd.service
 
 %triggerun server -- gsi-openssh-server < 5.8p2-1
 /usr/bin/systemd-sysv-convert --save gsisshd >/dev/null 2>&1 || :
@@ -531,6 +551,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Thu Jan 15 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-4
+- Based on openssh-6.6.1p1-11.1.fc21
+
 * Mon Nov 24 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-3
 - Based on openssh-6.6.1p1-8.fc21
 

@@ -1162,7 +1162,7 @@ new file mode 100644
 index 0000000..525060a
 --- /dev/null
 +++ b/ldapconf.c
-@@ -0,0 +1,720 @@
+@@ -0,0 +1,722 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
 + * Copyright (c) 2009 Jan F. Chadima.  All rights reserved.
@@ -1479,6 +1479,7 @@ index 0000000..525060a
 +		else
 +			fatal("%.200s line %d: Bad soft/hard argument.", filename, linenum);
 +		if (*intptr == -1)
++			*intptr = value;
 +		break;
 +
 +	case lSSLPath:
@@ -1543,6 +1544,7 @@ index 0000000..525060a
 +		else
 +			fatal("%.200s line %d: Bad never/hard/demand/alow/try argument.", filename, linenum);
 +		if (*intptr == -1)
++			*intptr = value;
 +		break;
 +
 +	case lTLS_CaCertFile:

@@ -325,22 +325,15 @@ index 355b7ba..427e11f 100644
  #include <sys/types.h>
  
  #include <openssl/dh.h>
-@@ -64,13 +66,13 @@ kexgex_client(Kex *kex)
- 		/* Old GEX request */
- 		packet_start(SSH2_MSG_KEX_DH_GEX_REQUEST_OLD);
- 		packet_put_int(nbits);
--		min = DH_GRP_MIN;
-+		min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
- 		max = DH_GRP_MAX;
+@@ -58,7 +60,7 @@ kexgex_client(Kex *kex)
+ 	int min, max, nbits;
+ 	DH *dh;
  
- 		debug("SSH2_MSG_KEX_DH_GEX_REQUEST_OLD(%u) sent", nbits);
- 	} else {
- 		/* New GEX request */
--		min = DH_GRP_MIN;
-+		min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
- 		max = DH_GRP_MAX;
- 		packet_start(SSH2_MSG_KEX_DH_GEX_REQUEST);
- 		packet_put_int(min);
+-	min = DH_GRP_MIN;
++	min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+ 	max = DH_GRP_MAX;
+ 
+ 	/* Servers with MAX4096DH need a preferred size (nbits) <= 4096.
 diff --git a/kexgexs.c b/kexgexs.c
 index 770ad28..9d4fc6d 100644
 --- a/kexgexs.c

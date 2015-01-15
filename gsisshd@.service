@@ -1,5 +1,6 @@
 [Unit]
 Description=gsissh per-connection server daemon
+Documentation=man:gsisshd(8) man:gsisshd_config(5)
 Wants=gsisshd-keygen.service
 After=gsisshd-keygen.service
 

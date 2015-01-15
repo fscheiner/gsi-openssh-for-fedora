@@ -1,11 +1,12 @@
 diff --git a/ssh_config b/ssh_config
-index 03a228f..6d1abaf 100644
+index 49a4f6c..3f83c40 100644
 --- a/ssh_config
 +++ b/ssh_config
-@@ -46,3 +46,14 @@
- #   VisualHostKey no
- #   ProxyCommand ssh -q -W %h:%p gateway.example.com
- #   RekeyLimit 1G 1h
+@@ -50,3 +50,15 @@
+ # Uncomment this if you want to use .local domain
+ # Host *.local
+ #   CheckHostIP no
++
 +Host *
 +	GSSAPIAuthentication yes
 +# If this option is set to yes then remote X11 clients will have full access

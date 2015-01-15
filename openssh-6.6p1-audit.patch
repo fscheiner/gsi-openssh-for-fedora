@@ -111,7 +111,7 @@ index b3ee2f4..946f7fa 100644
 +#include "packet.h"
 +#include "cipher.h"
  
-+#define AUDIT_LOG_SIZE 128
++#define AUDIT_LOG_SIZE 256
 +
 +extern ServerOptions options;
 +extern Authctxt *the_authctxt;
