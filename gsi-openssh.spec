@@ -122,6 +122,9 @@ Patch713: openssh-6.3p1-ctr-cavstest.patch
 Patch800: openssh-6.3p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
 Patch801: openssh-6.3p1-force_krb.patch
+# add new option GSSAPIEnablek5users and disable using ~/.k5users by default (#1169843)
+# CVE-2014-9278
+Patch802: openssh-6.4p1-GSSAPIEnablek5users.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-6.4p1-kuserok.patch
@@ -160,6 +163,14 @@ Patch914: openssh-6.4p1-servconf-parser.patch
 # Ignore SIGXFSZ in postauth monitor
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2263
 Patch915: openssh-6.4p1-ignore-SIGXFSZ-in-postauth.patch
+# use different values for DH for Cisco servers (#1026430)
+Patch916: openssh-6.4p1-cisco-dh-keys.patch
+# sftp: remote directory always prepended to relative symbolic links (#825538)
+Patch917: openssh-6.4p1-sftp-symlink-prepend-relative-links.patch
+# scp file into non-existing directory (#1142223)
+Patch918: openssh-6.4p1-scp-non-existing-directory.patch
+# Config parser shouldn't accept ip/port syntax (#1130733)
+Patch919: openssh-6.4p1-ip-port-config-parser.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
@@ -321,6 +332,11 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch913 -p1 -b .partial-success
 %patch914 -p1 -b .servconf
 %patch915 -p1 -b .SIGXFSZ
+%patch916 -p1 -b .cisco-dh
+%patch917 -p1 -b .sftp
+%patch918 -p1 -b .scp
+%patch919 -p1 -b .config
+%patch802 -p1 -b .GSSAPIEnablek5users
 
 %patch98 -p1 -b .gsi
 
@@ -369,7 +385,7 @@ fi
 	--with-default-path=/usr/local/bin:/usr/bin \
 	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
 	--with-privsep-path=%{_var}/empty/gsisshd \
-	--enable-vendor-patchlevel="FC-%{version}-%{release}" \
+	--enable-vendor-patchlevel="FC-%{openssh_ver}-%{openssh_rel}" \
 	--disable-strip \
 	--without-zlib-version-check \
 	--with-ssl-engine \
@@ -478,7 +494,7 @@ getent passwd sshd >/dev/null || \
 %systemd_preun gsisshd.service gsisshd.socket
 
 %postun server
-%systemd_postun_with_restart gsisshd.service gsisshd.socket
+%systemd_postun_with_restart gsisshd.service
 
 %triggerun server -- gsi-openssh-server < 5.8p2-1
 /usr/bin/systemd-sysv-convert --save gsisshd >/dev/null 2>&1 || :
@@ -534,6 +550,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Thu Jan 15 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-5
+- Based on openssh-6.4p1-8.fc20
+
 * Mon Nov 24 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-5
 - Based on openssh-6.4p1-6.fc20
 

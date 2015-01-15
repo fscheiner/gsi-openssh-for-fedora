@@ -761,7 +761,7 @@ diff -up openssh-6.2p1/ldapbody.h.ldap openssh-6.2p1/ldapbody.h
 +
 --- openssh-6.4p1/ldapconf.c.ldap	2013-11-26 10:31:03.513794385 +0100
 +++ openssh-6.4p1/ldapconf.c	2013-11-26 10:38:15.474635149 +0100
-@@ -0,0 +1,720 @@
+@@ -0,0 +1,722 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
 + * Copyright (c) 2009 Jan F. Chadima.  All rights reserved.
@@ -1078,6 +1078,7 @@ diff -up openssh-6.2p1/ldapbody.h.ldap openssh-6.2p1/ldapbody.h
 +		else
 +			fatal("%.200s line %d: Bad soft/hard argument.", filename, linenum);
 +		if (*intptr == -1)
++			*intptr = value;
 +		break;
 +
 +	case lSSLPath:
@@ -1142,6 +1143,7 @@ diff -up openssh-6.2p1/ldapbody.h.ldap openssh-6.2p1/ldapbody.h
 +		else
 +			fatal("%.200s line %d: Bad never/hard/demand/alow/try argument.", filename, linenum);
 +		if (*intptr == -1)
++			*intptr = value;
 +		break;
 +
 +	case lTLS_CaCertFile:

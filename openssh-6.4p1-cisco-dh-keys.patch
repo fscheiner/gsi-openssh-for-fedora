@@ -1,0 +1,67 @@
+diff -up openssh-6.4p1/compat.c.cisco-dh openssh-6.4p1/compat.c
+--- openssh-6.4p1/compat.c.cisco-dh	2013-06-01 23:31:18.000000000 +0200
++++ openssh-6.4p1/compat.c	2014-12-04 13:28:03.717787655 +0100
+@@ -164,6 +164,7 @@ compat_datafellows(const char *version)
+ 					SSH_BUG_SCANNER },
+ 		{ "Probe-*",
+ 					SSH_BUG_PROBE },
++		{ "Cisco-*",		SSH_BUG_MAX4096DH },
+ 		{ NULL,			0 }
+ 	};
+ 
+diff -up openssh-6.4p1/compat.h.cisco-dh openssh-6.4p1/compat.h
+--- openssh-6.4p1/compat.h.cisco-dh	2014-12-04 13:28:03.717787655 +0100
++++ openssh-6.4p1/compat.h	2014-12-04 13:28:36.579658095 +0100
+@@ -59,6 +59,7 @@
+ #define SSH_BUG_RFWD_ADDR	0x02000000
+ #define SSH_NEW_OPENSSH		0x04000000
+ #define SSH_BUG_DYNAMIC_RPORT	0x08000000
++#define SSH_BUG_MAX4096DH       0x20000000
+ 
+ void     enable_compat13(void);
+ void     enable_compat20(void);
+diff -up openssh-6.4p1/kexgexc.c.cisco-dh openssh-6.4p1/kexgexc.c
+--- openssh-6.4p1/kexgexc.c.cisco-dh	2014-12-04 13:28:03.717787655 +0100
++++ openssh-6.4p1/kexgexc.c	2014-12-04 13:31:03.270079756 +0100
+@@ -60,20 +60,36 @@ kexgex_client(Kex *kex)
+ 	int min, max, nbits;
+ 	DH *dh;
+ 
++	min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
++	max = DH_GRP_MAX;
++
++	/* Servers with MAX4096DH need a preferred size (nbits) <= 4096.
++ 	 * We need to also ensure that min < nbits < max */
++
++	if (datafellows & SSH_BUG_MAX4096DH) {
++		/* The largest min for these servers is 4096 */
++		min = MIN(min, 4096);
++	}
++
+ 	nbits = dh_estimate(kex->we_need * 8);
++	nbits = MIN(nbits, max);
++	nbits = MAX(nbits, min);
++
++	if (datafellows & SSH_BUG_MAX4096DH) {
++		/* Cannot have a nbits > 4096 for these servers */
++		nbits = MIN(nbits, 4096);
++		/* nbits has to be powers of two */
++		if (nbits == 3072)
++			nbits = 4096;
++	}
+ 
+ 	if (datafellows & SSH_OLD_DHGEX) {
+ 		/* Old GEX request */
+ 		packet_start(SSH2_MSG_KEX_DH_GEX_REQUEST_OLD);
+ 		packet_put_int(nbits);
+-		min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+-		max = DH_GRP_MAX;
+-
+ 		debug("SSH2_MSG_KEX_DH_GEX_REQUEST_OLD(%u) sent", nbits);
+ 	} else {
+ 		/* New GEX request */
+-		min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+-		max = DH_GRP_MAX;
+ 		packet_start(SSH2_MSG_KEX_DH_GEX_REQUEST);
+ 		packet_put_int(min);
+ 		packet_put_int(nbits);

@@ -1,5 +1,6 @@
 [Unit]
 Description=gsissh server daemon
+Documentation=man:gsisshd(8) man:gsisshd_config(5)
 After=syslog.target network.target auditd.service
 
 [Service]

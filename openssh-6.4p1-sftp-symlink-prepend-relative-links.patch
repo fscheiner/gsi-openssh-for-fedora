@@ -1,0 +1,15 @@
+diff --git a/sftp.c b/sftp.c
+index 4e1a026..6f16f7c 100644
+--- a/sftp.c
++++ b/sftp.c
+@@ -1356,7 +1356,8 @@ parse_dispatch_command(struct sftp_conn *conn, const char *cmd, char **pwd,
+ 	case I_SYMLINK:
+ 		sflag = 1;
+ 	case I_LINK:
+-		path1 = make_absolute(path1, *pwd);
++		if (!sflag)
++			path1 = make_absolute(path1, *pwd);
+ 		path2 = make_absolute(path2, *pwd);
+ 		err = (sflag ? do_symlink : do_hardlink)(conn, path1, path2);
+ 		break;
+--
