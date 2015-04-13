@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -47,6 +47,7 @@ Source10: gsisshd.socket
 Source11: gsisshd.service
 Source12: gsisshd-keygen.service
 Source13: gsisshd-keygen
+Source14: gsisshd.tmpfiles
 Source99: README.sshd-and-gsisshd
 
 #?
@@ -100,8 +101,6 @@ Patch702: openssh-5.1p1-askpass-progress.patch
 Patch703: openssh-4.3p2-askpass-grab-info.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=205842
 # drop? Patch704: openssh-5.9p1-edns.patch
-#?
-Patch705: openssh-5.1p1-scp-manpage.patch
 #?
 Patch706: openssh-6.6.1p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
@@ -170,6 +169,10 @@ Patch918: openssh-6.6.1p1-log-in-chroot.patch
 Patch919: openssh-6.6.1p1-scp-non-existing-directory.patch
 # Config parser shouldn't accept ip/port syntax (#1130733)
 Patch920: openssh-6.6.1p1-ip-port-config-parser.patch
+# fix ssh-copy-id on non-sh shells (#1045191)
+Patch921: openssh-6.7p1-fix-ssh-copy-id-on-non-sh-shell.patch
+# Solve issue with ssh-copy-id and keys without trailing newline (#1093168)
+Patch922: openssh-6.7p1-ssh-copy-id-truncated-keys.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
@@ -298,7 +301,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch703 -p1 -b .grab-info
 # investigate - https://bugzilla.redhat.com/show_bug.cgi?id=205842
 # probably not needed anymore %patch704 -p1 -b .edns
-# drop it %patch705 -p1 -b .manpage
 %patch706 -p1 -b .localdomain
 %patch707 -p1 -b .redhat
 %patch708 -p1 -b .entropy
@@ -330,6 +332,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch919 -p1 -b .scp
 %patch920 -p1 -b .config
 %patch802 -p1 -b .GSSAPIEnablek5users
+%patch921 -p1 -b .ssh-copy-id
+%patch922 -p1 -b .newline
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-fps
@@ -449,6 +453,7 @@ install -m644 %{SOURCE9} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd@.service
 install -m644 %{SOURCE10} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.socket
 install -m644 %{SOURCE11} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.service
 install -m644 %{SOURCE12} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd-keygen.service
+install -m644 -D %{SOURCE14} $RPM_BUILD_ROOT%{_tmpfilesdir}/gsissh.conf
 
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-add
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-agent
@@ -549,8 +554,12 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd@.service
 %attr(0644,root,root) %{_unitdir}/gsisshd.socket
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
+%attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Apr 13 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-5
+- Based on openssh-6.6.1p1-12.fc21
+
 * Thu Jan 15 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-4
 - Based on openssh-6.6.1p1-11.1.fc21
 
