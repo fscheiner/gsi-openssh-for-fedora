@@ -1,16 +1,16 @@
 diff --git a/openbsd-compat/port-linux-sshd.c b/openbsd-compat/port-linux-sshd.c
-index 0077dd7..e3f2ced 100644
+index 8f32464..18a2ca4 100644
 --- a/openbsd-compat/port-linux-sshd.c
 +++ b/openbsd-compat/port-linux-sshd.c
-@@ -31,6 +31,7 @@
- #include "xmalloc.h"
+@@ -32,6 +32,7 @@
+ #include "misc.h"      /* servconf.h needs misc.h for struct ForwardOptions */
  #include "servconf.h"
  #include "port-linux.h"
 +#include "misc.h"
  #include "key.h"
  #include "hostfile.h"
  #include "auth.h"
-@@ -444,7 +445,7 @@ sshd_selinux_setup_exec_context(char *pwname)
+@@ -445,7 +446,7 @@ sshd_selinux_setup_exec_context(char *pwname)
  void
  sshd_selinux_copy_context(void)
  {
@@ -19,7 +19,7 @@ index 0077dd7..e3f2ced 100644
  
  	if (!sshd_selinux_enabled())
  		return;
-@@ -460,6 +461,58 @@ sshd_selinux_copy_context(void)
+@@ -461,6 +462,58 @@ sshd_selinux_copy_context(void)
  	}
  }
  
@@ -104,10 +104,10 @@ index cb51f99..8b7cda2 100644
  
  #ifdef LINUX_OOM_ADJUST
 diff --git a/sshd.c b/sshd.c
-index 512c7ed..3eee75a 100644
+index 2871fe9..39b9c08 100644
 --- a/sshd.c
 +++ b/sshd.c
-@@ -637,7 +637,7 @@ privsep_preauth_child(void)
+@@ -629,7 +629,7 @@ privsep_preauth_child(void)
  	demote_sensitive_data();
  
  #ifdef WITH_SELINUX

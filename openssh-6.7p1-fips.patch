@@ -1,8 +1,7 @@
-diff --git a/Makefile.in b/Makefile.in
-index 3bb7f00..294bef5 100644
---- a/Makefile.in
-+++ b/Makefile.in
-@@ -154,25 +154,25 @@ libssh.a: $(LIBSSH_OBJS)
+diff -up openssh-6.8p1/Makefile.in.fips openssh-6.8p1/Makefile.in
+--- openssh-6.8p1/Makefile.in.fips	2015-03-19 13:14:22.221212174 +0100
++++ openssh-6.8p1/Makefile.in	2015-03-19 13:14:22.230212157 +0100
+@@ -168,25 +168,25 @@ libssh.a: $(LIBSSH_OBJS)
  	$(RANLIB) $@
  
  ssh$(EXEEXT): $(LIBCOMPAT) libssh.a $(SSHOBJS)
@@ -34,8 +33,8 @@ index 3bb7f00..294bef5 100644
  
  ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-pkcs11-helper.o ssh-pkcs11.o
  	$(LD) -o $@ ssh-pkcs11-helper.o ssh-pkcs11.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat $(LIBS)
-@@ -187,7 +187,7 @@ ctr-cavstest$(EXEEXT): $(LIBCOMPAT) libssh.a ctr-cavstest.o
- 	$(LD) -o $@ ctr-cavstest.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(LIBS)
+@@ -204,7 +204,7 @@ ssh-cavs$(EXEEXT): $(LIBCOMPAT) libssh.a
+ 	$(LD) -o $@ ssh-cavs.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
  
  ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o roaming_dummy.o
 -	$(LD) -o $@ ssh-keyscan.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
@@ -43,81 +42,9 @@ index 3bb7f00..294bef5 100644
  
  sftp-server$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-common.o sftp-server.o sftp-server-main.o
  	$(LD) -o $@ sftp-server.o sftp-common.o sftp-server-main.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
-diff --git a/auth-rsa.c b/auth-rsa.c
-index f225b0b..8bafcd6 100644
---- a/auth-rsa.c
-+++ b/auth-rsa.c
-@@ -244,7 +244,7 @@ rsa_key_allowed_in_file(struct passwd *pw, char *file,
- 			    "actual %d vs. announced %d.",
- 			    file, linenum, BN_num_bits(key->rsa->n), bits);
- 
--		fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
-+		fp = key_selected_fingerprint(key, SSH_FP_HEX);
- 		debug("matching key found: file %s, line %lu %s %s",
- 		    file, linenum, key_type(key), fp);
- 		free(fp);
-diff --git a/auth2-pubkey.c b/auth2-pubkey.c
-index 6d1c872..3808ec8 100644
---- a/auth2-pubkey.c
-+++ b/auth2-pubkey.c
-@@ -214,8 +214,7 @@ pubkey_auth_info(Authctxt *authctxt, const Key *key, const char *fmt, ...)
- 	}
- 
- 	if (key_is_cert(key)) {
--		fp = key_fingerprint(key->cert->signature_key,
--		    SSH_FP_MD5, SSH_FP_HEX);
-+		fp = key_selected_fingerprint(key->cert->signature_key, SSH_FP_HEX);
- 		auth_info(authctxt, "%s ID %s (serial %llu) CA %s %s%s%s", 
- 		    key_type(key), key->cert->key_id,
- 		    (unsigned long long)key->cert->serial,
-@@ -223,7 +222,7 @@ pubkey_auth_info(Authctxt *authctxt, const Key *key, const char *fmt, ...)
- 		    extra == NULL ? "" : ", ", extra == NULL ? "" : extra);
- 		free(fp);
- 	} else {
--		fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
-+		fp = key_selected_fingerprint(key, SSH_FP_HEX);
- 		auth_info(authctxt, "%s %s%s%s", key_type(key), fp,
- 		    extra == NULL ? "" : ", ", extra == NULL ? "" : extra);
- 		free(fp);
-diff --git a/authfile.c b/authfile.c
-index ec4f4ff..2b3d650 100644
---- a/authfile.c
-+++ b/authfile.c
-@@ -46,6 +46,7 @@
- #include <openssl/err.h>
- #include <openssl/evp.h>
- #include <openssl/pem.h>
-+#include <openssl/fips.h>
- 
- /* compatibility with old or broken OpenSSL versions */
- #include "openbsd-compat/openssl-compat.h"
-@@ -1068,7 +1069,7 @@ Key *
- key_parse_private(Buffer *buffer, const char *filename,
-     const char *passphrase, char **commentp)
- {
--	Key *pub, *prv;
-+	Key *pub, *prv = NULL;
- 
- 	/* it's a SSH v1 key if the public key part is readable */
- 	pub = key_parse_public_rsa1(buffer, commentp);
-@@ -1080,9 +1081,10 @@ key_parse_private(Buffer *buffer, const char *filename,
- 			*commentp = xstrdup(filename);
- 	} else {
- 		key_free(pub);
--		/* key_parse_public_rsa1() has already loaded the comment */
--		prv = key_parse_private_type(buffer, KEY_RSA1, passphrase,
--		    NULL);
-+		if (! FIPS_mode())
-+			/* key_parse_public_rsa1() has already loaded the comment */
-+			prv = key_parse_private_type(buffer, KEY_RSA1, passphrase,
-+			    NULL);
- 	}
- 	return prv;
- }
-diff --git a/cipher-ctr.c b/cipher-ctr.c
-index 73e9c7c..40ee395 100644
---- a/cipher-ctr.c
-+++ b/cipher-ctr.c
+diff -up openssh-6.8p1/cipher-ctr.c.fips openssh-6.8p1/cipher-ctr.c
+--- openssh-6.8p1/cipher-ctr.c.fips	2015-03-19 13:14:22.155212302 +0100
++++ openssh-6.8p1/cipher-ctr.c	2015-03-19 13:14:22.230212157 +0100
 @@ -179,7 +179,8 @@ evp_aes_128_ctr(void)
  	aes_ctr.do_cipher = ssh_aes_ctr;
  #ifndef SSH_OLD_EVP
@@ -128,10 +55,9 @@ index 73e9c7c..40ee395 100644
  #endif
  	return (&aes_ctr);
  }
-diff --git a/cipher.c b/cipher.c
-index 226e56d..b19443c 100644
---- a/cipher.c
-+++ b/cipher.c
+diff -up openssh-6.8p1/cipher.c.fips openssh-6.8p1/cipher.c
+--- openssh-6.8p1/cipher.c.fips	2015-03-19 13:14:22.224212169 +0100
++++ openssh-6.8p1/cipher.c	2015-03-19 13:14:22.230212157 +0100
 @@ -39,6 +39,8 @@
  
  #include <sys/types.h>
@@ -141,11 +67,11 @@ index 226e56d..b19443c 100644
  #include <string.h>
  #include <stdarg.h>
  #include <stdio.h>
-@@ -90,6 +92,25 @@ static const struct Cipher ciphers[] = {
+@@ -99,6 +101,26 @@ static const struct sshcipher ciphers[]
  	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
  };
  
-+static const struct Cipher fips_ciphers[] = {
++static const struct sshcipher fips_ciphers[] = {
 +	{ "none",	SSH_CIPHER_NONE, 8, 0, 0, 0, 0, 0, EVP_enc_null },
 +	{ "3des-cbc",	SSH_CIPHER_SSH2, 8, 24, 0, 0, 0, 1, EVP_des_ede3_cbc },
 +	{ "aes128-cbc",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 1, EVP_aes_128_cbc },
@@ -164,38 +90,39 @@ index 226e56d..b19443c 100644
 +#endif
 +	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
 +};
++
  /*--*/
  
- /* Returns a list of supported ciphers separated by the specified char. */
-@@ -100,7 +121,7 @@ cipher_alg_list(char sep, int auth_only)
+ /* Returns a comma-separated list of supported ciphers. */
+@@ -109,7 +131,7 @@ cipher_alg_list(char sep, int auth_only)
  	size_t nlen, rlen = 0;
- 	const Cipher *c;
+ 	const struct sshcipher *c;
  
 -	for (c = ciphers; c->name != NULL; c++) {
 +	for (c = FIPS_mode() ? fips_ciphers : ciphers; c->name != NULL; c++) {
  		if (c->number != SSH_CIPHER_SSH2)
  			continue;
  		if (auth_only && c->auth_len == 0)
-@@ -180,7 +201,7 @@ const Cipher *
+@@ -193,7 +215,7 @@ const struct sshcipher *
  cipher_by_name(const char *name)
  {
- 	const Cipher *c;
+ 	const struct sshcipher *c;
 -	for (c = ciphers; c->name != NULL; c++)
 +	for (c = FIPS_mode() ? fips_ciphers : ciphers; c->name != NULL; c++)
  		if (strcmp(c->name, name) == 0)
  			return c;
  	return NULL;
-@@ -190,7 +211,7 @@ const Cipher *
+@@ -203,7 +225,7 @@ const struct sshcipher *
  cipher_by_number(int id)
  {
- 	const Cipher *c;
+ 	const struct sshcipher *c;
 -	for (c = ciphers; c->name != NULL; c++)
 +	for (c = FIPS_mode() ? fips_ciphers : ciphers; c->name != NULL; c++)
  		if (c->number == id)
  			return c;
  	return NULL;
-@@ -232,7 +253,7 @@ cipher_number(const char *name)
- 	const Cipher *c;
+@@ -244,7 +266,7 @@ cipher_number(const char *name)
+ 	const struct sshcipher *c;
  	if (name == NULL)
  		return -1;
 -	for (c = ciphers; c->name != NULL; c++)
@@ -203,11 +130,10 @@ index 226e56d..b19443c 100644
  		if (strcasecmp(c->name, name) == 0)
  			return c->number;
  	return -1;
-diff --git a/dh.h b/dh.h
-index 48f7b68..9ff39f4 100644
---- a/dh.h
-+++ b/dh.h
-@@ -45,6 +45,7 @@ int	 dh_estimate(int);
+diff -up openssh-6.8p1/dh.h.fips openssh-6.8p1/dh.h
+--- openssh-6.8p1/dh.h.fips	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/dh.h	2015-03-19 13:14:22.230212157 +0100
+@@ -45,6 +45,7 @@ u_int	 dh_estimate(int);
  
  /* Min and max values from RFC4419. */
  #define DH_GRP_MIN	1024
@@ -215,11 +141,10 @@ index 48f7b68..9ff39f4 100644
  #define DH_GRP_MAX	8192
  
  /*
-diff --git a/entropy.c b/entropy.c
-index b361a04..5616643 100644
---- a/entropy.c
-+++ b/entropy.c
-@@ -222,6 +222,9 @@ seed_rng(void)
+diff -up openssh-6.8p1/entropy.c.fips openssh-6.8p1/entropy.c
+--- openssh-6.8p1/entropy.c.fips	2015-03-19 13:14:22.147212317 +0100
++++ openssh-6.8p1/entropy.c	2015-03-19 13:14:22.230212157 +0100
+@@ -217,6 +217,9 @@ seed_rng(void)
  		fatal("OpenSSL version mismatch. Built against %lx, you "
  		    "have %lx", (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
  
@@ -229,19 +154,18 @@ index b361a04..5616643 100644
  #ifndef OPENSSL_PRNG_ONLY
  	if (RAND_status() == 1) {
  		debug3("RNG is ready, skipping seeding");
-diff --git a/kex.c b/kex.c
-index bc3e53e..ede7b67 100644
---- a/kex.c
-+++ b/kex.c
-@@ -34,6 +34,7 @@
- #include <string.h>
+diff -up openssh-6.8p1/kex.c.fips openssh-6.8p1/kex.c
+--- openssh-6.8p1/kex.c.fips	2015-03-19 13:14:22.165212282 +0100
++++ openssh-6.8p1/kex.c	2015-03-19 13:14:22.230212157 +0100
+@@ -35,6 +35,7 @@
  
+ #ifdef WITH_OPENSSL
  #include <openssl/crypto.h>
 +#include <openssl/fips.h>
+ #endif
  
- #include "xmalloc.h"
  #include "ssh2.h"
-@@ -103,6 +104,25 @@ static const struct kexalg kexalgs[] = {
+@@ -107,6 +108,25 @@ static const struct kexalg kexalgs[] = {
  	{ NULL, -1, -1, -1},
  };
  
@@ -261,13 +185,13 @@ index bc3e53e..ede7b67 100644
 +	    SSH_DIGEST_SHA512 },
 +# endif
 +#endif
-+	{ NULL, -1, -1, NULL},
++	{ NULL, -1, -1, -1},
 +};
 +
  char *
  kex_alg_list(char sep)
  {
-@@ -126,7 +146,7 @@ kex_alg_by_name(const char *name)
+@@ -134,7 +154,7 @@ kex_alg_by_name(const char *name)
  {
  	const struct kexalg *k;
  
@@ -276,7 +200,7 @@ index bc3e53e..ede7b67 100644
  		if (strcmp(k->name, name) == 0)
  			return k;
  #ifdef GSSAPI
-@@ -151,7 +171,10 @@ kex_names_valid(const char *names)
+@@ -160,7 +180,10 @@ kex_names_valid(const char *names)
  	for ((p = strsep(&cp, ",")); p && *p != '\0';
  	    (p = strsep(&cp, ","))) {
  		if (kex_alg_by_name(p) == NULL) {
@@ -288,60 +212,34 @@ index bc3e53e..ede7b67 100644
  			free(s);
  			return 0;
  		}
-diff --git a/kexecdhc.c b/kexecdhc.c
-index 2f7629c..20c9946 100644
---- a/kexecdhc.c
-+++ b/kexecdhc.c
-@@ -154,6 +154,7 @@ kexecdh_client(Kex *kex)
+diff -up openssh-6.8p1/kexgexc.c.fips openssh-6.8p1/kexgexc.c
+--- openssh-6.8p1/kexgexc.c.fips	2015-03-19 13:14:22.196212223 +0100
++++ openssh-6.8p1/kexgexc.c	2015-03-19 13:15:11.462117016 +0100
+@@ -28,6 +28,8 @@
  
- 	kex_derive_keys_bn(kex, hash, hashlen, shared_secret);
- 	BN_clear_free(shared_secret);
-+	memset(hash, 0, hashlen);
- 	kex_finish(kex);
- }
- #else /* OPENSSL_HAS_ECC */
-diff --git a/kexecdhs.c b/kexecdhs.c
-index 2700b72..0820894 100644
---- a/kexecdhs.c
-+++ b/kexecdhs.c
-@@ -150,6 +150,7 @@ kexecdh_server(Kex *kex)
- 
- 	kex_derive_keys_bn(kex, hash, hashlen, shared_secret);
- 	BN_clear_free(shared_secret);
-+	memset(hash, 0, hashlen);
- 	kex_finish(kex);
- }
- #else /* OPENSSL_HAS_ECC */
-diff --git a/kexgexc.c b/kexgexc.c
-index 355b7ba..427e11f 100644
---- a/kexgexc.c
-+++ b/kexgexc.c
-@@ -26,6 +26,8 @@
- 
- #include "includes.h"
+ #ifdef WITH_OPENSSL
  
 +#include <openssl/fips.h>
 +
  #include <sys/types.h>
  
  #include <openssl/dh.h>
-@@ -58,7 +60,7 @@ kexgex_client(Kex *kex)
- 	int min, max, nbits;
- 	DH *dh;
+@@ -62,7 +64,7 @@ kexgex_client(struct ssh *ssh)
  
--	min = DH_GRP_MIN;
-+	min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
- 	max = DH_GRP_MAX;
+ 	nbits = dh_estimate(kex->dh_need * 8);
+ 
+-	kex->min = DH_GRP_MIN;
++	kex->min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+ 	kex->max = DH_GRP_MAX;
  
  	/* Servers with MAX4096DH need a preferred size (nbits) <= 4096.
-diff --git a/kexgexs.c b/kexgexs.c
-index 770ad28..9d4fc6d 100644
---- a/kexgexs.c
-+++ b/kexgexs.c
-@@ -76,16 +76,16 @@ kexgex_server(Kex *kex)
- 		omin = min = packet_get_int();
- 		onbits = nbits = packet_get_int();
- 		omax = max = packet_get_int();
+diff -up openssh-6.8p1/kexgexs.c.fips openssh-6.8p1/kexgexs.c
+--- openssh-6.8p1/kexgexs.c.fips	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/kexgexs.c	2015-03-19 13:14:22.231212155 +0100
+@@ -87,9 +87,9 @@ input_kex_dh_gex_request(int type, u_int
+ 		kex->nbits = nbits;
+ 		kex->min = min;
+ 		kex->max = max;
 -		min = MAX(DH_GRP_MIN, min);
 +		min = MAX(FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN, min);
  		max = MIN(DH_GRP_MAX, max);
@@ -350,70 +248,28 @@ index 770ad28..9d4fc6d 100644
  		nbits = MIN(DH_GRP_MAX, nbits);
  		break;
  	case SSH2_MSG_KEX_DH_GEX_REQUEST_OLD:
- 		debug("SSH2_MSG_KEX_DH_GEX_REQUEST_OLD received");
- 		onbits = nbits = packet_get_int();
+@@ -99,7 +99,7 @@ input_kex_dh_gex_request(int type, u_int
+ 			goto out;
+ 		kex->nbits = nbits;
  		/* unused for old GEX */
--		omin = min = DH_GRP_MIN;
-+		omin = min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
- 		omax = max = DH_GRP_MAX;
+-		kex->min = min = DH_GRP_MIN;
++		kex->min = min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+ 		kex->max = max = DH_GRP_MAX;
  		break;
  	default:
-diff --git a/key.c b/key.c
-index 62f3edb..a2050f6 100644
---- a/key.c
-+++ b/key.c
-@@ -42,6 +42,7 @@
- #include "crypto_api.h"
- 
- #include <openssl/evp.h>
-+#include <openssl/fips.h>
- #include <openbsd-compat/openssl-compat.h>
- 
- #include <stdarg.h>
-@@ -636,9 +637,13 @@ key_fingerprint_selection(void)
- 	char *env;
- 
- 	if (!rv_defined) {
--		env = getenv("SSH_FINGERPRINT_TYPE");
--		rv = (env && !strcmp (env, "sha")) ?
--			SSH_FP_SHA1 : SSH_FP_MD5;
-+		if (FIPS_mode())
-+			rv = SSH_FP_SHA1;
-+		else {
-+			env = getenv("SSH_FINGERPRINT_TYPE");
-+			rv = (env && !strcmp (env, "sha")) ?
-+				SSH_FP_SHA1 : SSH_FP_MD5;
-+		}
- 		rv_defined = 1;
- 	}
- 	return rv;
-@@ -1168,8 +1173,11 @@ rsa_generate_private_key(u_int bits)
- 		fatal("%s: BN_new failed", __func__);
- 	if (!BN_set_word(f4, RSA_F4))
- 		fatal("%s: BN_new failed", __func__);
--	if (!RSA_generate_key_ex(private, bits, f4, NULL))
-+	if (!RSA_generate_key_ex(private, bits, f4, NULL)) {
-+		if (FIPS_mode())
-+			logit("%s: the key length might be unsupported by FIPS mode approved key generation method", __func__);
- 		fatal("%s: key generation failed.", __func__);
-+	}
- 	BN_free(f4);
- 	return private;
- }
-diff --git a/mac.c b/mac.c
-index 9388af4..cd7b034 100644
---- a/mac.c
-+++ b/mac.c
+diff -up openssh-6.8p1/mac.c.fips openssh-6.8p1/mac.c
+--- openssh-6.8p1/mac.c.fips	2015-03-19 13:14:22.224212169 +0100
++++ openssh-6.8p1/mac.c	2015-03-19 13:14:22.231212155 +0100
 @@ -27,6 +27,8 @@
  
  #include <sys/types.h>
  
 +#include <openssl/fips.h>
 +
- #include <stdarg.h>
  #include <string.h>
- #include <signal.h>
-@@ -60,7 +62,7 @@ struct macalg {
+ #include <stdio.h>
+ 
+@@ -54,7 +56,7 @@ struct macalg {
  	int		etm;		/* Encrypt-then-MAC */
  };
  
@@ -422,7 +278,7 @@ index 9388af4..cd7b034 100644
  	/* Encrypt-and-MAC (encrypt-and-authenticate) variants */
  	{ "hmac-sha1",				SSH_DIGEST, SSH_DIGEST_SHA1, 0, 0, 0, 0 },
  	{ "hmac-sha1-96",			SSH_DIGEST, SSH_DIGEST_SHA1, 96, 0, 0, 0 },
-@@ -91,6 +93,24 @@ static const struct macalg macs[] = {
+@@ -85,6 +87,24 @@ static const struct macalg macs[] = {
  	{ NULL,					0, 0, 0, 0, 0, 0 }
  };
  
@@ -447,7 +303,7 @@ index 9388af4..cd7b034 100644
  /* Returns a list of supported MACs separated by the specified char. */
  char *
  mac_alg_list(char sep)
-@@ -99,7 +119,7 @@ mac_alg_list(char sep)
+@@ -93,7 +113,7 @@ mac_alg_list(char sep)
  	size_t nlen, rlen = 0;
  	const struct macalg *m;
  
@@ -456,7 +312,7 @@ index 9388af4..cd7b034 100644
  		if (ret != NULL)
  			ret[rlen++] = sep;
  		nlen = strlen(m->name);
-@@ -133,7 +153,7 @@ mac_setup(Mac *mac, char *name)
+@@ -132,7 +152,7 @@ mac_setup(struct sshmac *mac, char *name
  {
  	const struct macalg *m;
  
@@ -464,28 +320,19 @@ index 9388af4..cd7b034 100644
 +	for (m = FIPS_mode() ? fips_macs : all_macs; m->name != NULL; m++) {
  		if (strcmp(name, m->name) != 0)
  			continue;
- 		if (mac != NULL) {
-diff --git a/myproposal.h b/myproposal.h
-index 3a0f5ae..4f35a44 100644
---- a/myproposal.h
-+++ b/myproposal.h
-@@ -88,6 +88,12 @@
- 	"diffie-hellman-group14-sha1," \
- 	"diffie-hellman-group1-sha1"
+ 		if (mac != NULL)
+diff -up openssh-6.8p1/myproposal.h.fips openssh-6.8p1/myproposal.h
+--- openssh-6.8p1/myproposal.h.fips	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/myproposal.h	2015-03-19 13:14:22.231212155 +0100
+@@ -140,6 +140,28 @@
+ 	"hmac-sha1-96," \
+ 	"hmac-md5-96"
  
 +#define KEX_DEFAULT_KEX_FIPS		\
 +	KEX_ECDH_METHODS \
 +	KEX_SHA256_METHODS \
 +	"diffie-hellman-group-exchange-sha1," \
 +	"diffie-hellman-group14-sha1"
-+
- #define	KEX_DEFAULT_PK_ALG	\
- 	HOSTKEY_ECDSA_CERT_METHODS \
- 	"ssh-ed25519-cert-v01@openssh.com," \
-@@ -133,6 +139,22 @@
- #define	KEX_DEFAULT_COMP	"none,zlib@openssh.com,zlib"
- #define	KEX_DEFAULT_LANG	""
- 
 +#define	KEX_FIPS_ENCRYPT \
 +	"aes128-ctr,aes192-ctr,aes256-ctr," \
 +	"aes128-cbc,3des-cbc," \
@@ -502,74 +349,39 @@ index 3a0f5ae..4f35a44 100644
 +#define        KEX_FIPS_MAC \
 +       "hmac-sha1"
 +#endif
++
+ #else
  
- static char *myproposal[PROPOSAL_MAX] = {
- 	KEX_DEFAULT_KEX,
-diff --git a/ssh-keygen.c b/ssh-keygen.c
-index 66198e6..ccf22c8 100644
---- a/ssh-keygen.c
-+++ b/ssh-keygen.c
-@@ -195,6 +195,12 @@ type_bits_valid(int type, u_int32_t *bitsp)
- 		fprintf(stderr, "key bits exceeds maximum %d\n", maxbits);
- 		exit(1);
- 	}
-+	if (FIPS_mode()) {
-+		if (type == KEY_DSA)
-+			fatal("DSA keys are not allowed in FIPS mode");
-+		if (type == KEY_ED25519)
-+			fatal("ED25519 keys are not allowed in FIPS mode");
-+	}
- 	if (type == KEY_DSA && *bitsp != 1024)
- 		fatal("DSA keys must be 1024 bits");
- 	else if (type != KEY_ECDSA && type != KEY_ED25519 && *bitsp < 768)
-@@ -746,7 +752,7 @@ do_download(struct passwd *pw)
- 	enum fp_type fptype;
- 	char *fp, *ra;
- 
--	fptype = print_bubblebabble ? SSH_FP_SHA1 : SSH_FP_MD5;
-+	fptype = print_bubblebabble ? SSH_FP_SHA1 : key_fingerprint_selection();
- 	rep =    print_bubblebabble ? SSH_FP_BUBBLEBABBLE : SSH_FP_HEX;
- 
- 	pkcs11_init(0);
-@@ -756,8 +762,7 @@ do_download(struct passwd *pw)
- 	for (i = 0; i < nkeys; i++) {
- 		if (print_fingerprint) {
- 			fp = key_fingerprint(keys[i], fptype, rep);
--			ra = key_fingerprint(keys[i], SSH_FP_MD5,
--			    SSH_FP_RANDOMART);
-+			ra = key_selected_fingerprint(keys[i], SSH_FP_RANDOMART);
- 			printf("%u %s %s (PKCS11 key)\n", key_size(keys[i]),
- 			    fp, key_type(keys[i]));
- 			if (log_level >= SYSLOG_LEVEL_VERBOSE)
-diff --git a/ssh.c b/ssh.c
-index 1e6cb90..ea9193f 100644
---- a/ssh.c
-+++ b/ssh.c
-@@ -73,6 +73,8 @@
- 
+ #define KEX_SERVER_KEX		\
+diff -up openssh-6.8p1/ssh.c.fips openssh-6.8p1/ssh.c
+--- openssh-6.8p1/ssh.c.fips	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/ssh.c	2015-03-19 13:14:22.232212153 +0100
+@@ -75,6 +75,8 @@
  #include <openssl/evp.h>
  #include <openssl/err.h>
+ #endif
 +#include <openssl/fips.h>
 +#include <fipscheck.h>
  #include "openbsd-compat/openssl-compat.h"
  #include "openbsd-compat/sys-queue.h"
  
-@@ -427,6 +429,13 @@ main(int ac, char **av)
+@@ -523,6 +525,14 @@ main(int ac, char **av)
  	sanitise_stdfd();
  
  	__progname = ssh_get_progname(av[0]);
 +        SSLeay_add_all_algorithms();
 +	if (access("/etc/system-fips", F_OK) == 0)
-+		if (! FIPSCHECK_verify(NULL, NULL))
++		if (! FIPSCHECK_verify(NULL, NULL)){
 +			if (FIPS_mode())
 +				fatal("FIPS integrity verification test failed.");
 +			else
 +				logit("FIPS integrity verification test failed.");
++	}
  
  #ifndef HAVE_SETPROCTITLE
  	/* Prepare for later setproctitle emulation */
-@@ -504,6 +513,9 @@ main(int ac, char **av)
- 	    "ACD:E:F:I:KL:MNO:PQ:R:S:TVw:W:XYy")) != -1) {
+@@ -600,6 +610,9 @@ main(int ac, char **av)
+ 	    "ACD:E:F:GI:KL:MNO:PQ:R:S:TVw:W:XYy")) != -1) {
  		switch (opt) {
  		case '1':
 +			if (FIPS_mode()) {
@@ -578,15 +390,15 @@ index 1e6cb90..ea9193f 100644
  			options.protocol = SSH_PROTO_1;
  			break;
  		case '2':
-@@ -828,7 +840,6 @@ main(int ac, char **av)
- 
+@@ -941,7 +954,6 @@ main(int ac, char **av)
  	host_arg = xstrdup(host);
  
+ #ifdef WITH_OPENSSL
 -	OpenSSL_add_all_algorithms();
  	ERR_load_crypto_strings();
+ #endif
  
- 	/* Initialize the command to execute on remote host. */
-@@ -973,6 +984,10 @@ main(int ac, char **av)
+@@ -1115,6 +1127,10 @@ main(int ac, char **av)
  
  	seed_rng();
  
@@ -597,7 +409,7 @@ index 1e6cb90..ea9193f 100644
  	if (options.user == NULL)
  		options.user = xstrdup(pw->pw_name);
  
-@@ -1020,6 +1035,12 @@ main(int ac, char **av)
+@@ -1192,6 +1208,12 @@ main(int ac, char **av)
  
  	timeout_ms = options.connection_timeout * 1000;
  
@@ -610,11 +422,10 @@ index 1e6cb90..ea9193f 100644
  	/* Open a connection to the remote host. */
  	if (ssh_connect(host, addrs, &hostaddr, options.port,
  	    options.address_family, options.connection_attempts,
-diff --git a/sshconnect2.c b/sshconnect2.c
-index b00658b..6a1562c 100644
---- a/sshconnect2.c
-+++ b/sshconnect2.c
-@@ -44,6 +44,8 @@
+diff -up openssh-6.8p1/sshconnect2.c.fips openssh-6.8p1/sshconnect2.c
+--- openssh-6.8p1/sshconnect2.c.fips	2015-03-19 13:14:22.188212238 +0100
++++ openssh-6.8p1/sshconnect2.c	2015-03-19 13:14:22.232212153 +0100
+@@ -46,6 +46,8 @@
  #include <vis.h>
  #endif
  
@@ -623,7 +434,7 @@ index b00658b..6a1562c 100644
  #include "openbsd-compat/sys-queue.h"
  
  #include "xmalloc.h"
-@@ -168,20 +170,25 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
+@@ -172,20 +174,25 @@ ssh_kex2(char *host, struct sockaddr *ho
  
  #ifdef GSSAPI
  	if (options.gss_keyex) {
@@ -663,7 +474,7 @@ index b00658b..6a1562c 100644
  		}
  	}
  #endif
-@@ -193,6 +200,10 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
+@@ -197,6 +204,10 @@ ssh_kex2(char *host, struct sockaddr *ho
  	if (options.ciphers != NULL) {
  		myproposal[PROPOSAL_ENC_ALGS_CTOS] =
  		myproposal[PROPOSAL_ENC_ALGS_STOC] = options.ciphers;
@@ -674,7 +485,7 @@ index b00658b..6a1562c 100644
  	}
  	myproposal[PROPOSAL_ENC_ALGS_CTOS] =
  	    compat_cipher_proposal(myproposal[PROPOSAL_ENC_ALGS_CTOS]);
-@@ -208,7 +219,11 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
+@@ -212,7 +223,11 @@ ssh_kex2(char *host, struct sockaddr *ho
  	if (options.macs != NULL) {
  		myproposal[PROPOSAL_MAC_ALGS_CTOS] =
  		myproposal[PROPOSAL_MAC_ALGS_STOC] = options.macs;
@@ -686,7 +497,7 @@ index b00658b..6a1562c 100644
  	if (options.hostkeyalgorithms != NULL)
  		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] =
  		    compat_pkalg_proposal(options.hostkeyalgorithms);
-@@ -220,9 +235,11 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
+@@ -224,9 +239,11 @@ ssh_kex2(char *host, struct sockaddr *ho
  	}
  	if (options.kex_algorithms != NULL)
  		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
@@ -699,20 +510,27 @@ index b00658b..6a1562c 100644
  #ifdef GSSAPI
  	/* If we've got GSSAPI algorithms, then we also support the
  	 * 'null' hostkey, as a last resort */
-diff --git a/sshd.c b/sshd.c
-index b561ec8..e977de3 100644
---- a/sshd.c
-+++ b/sshd.c
-@@ -75,6 +75,8 @@
+diff -up openssh-6.8p1/sshd.c.fips openssh-6.8p1/sshd.c
+--- openssh-6.8p1/sshd.c.fips	2015-03-19 13:14:22.226212165 +0100
++++ openssh-6.8p1/sshd.c	2015-03-19 13:14:22.232212153 +0100
+@@ -66,6 +66,7 @@
+ #include <grp.h>
+ #include <pwd.h>
+ #include <signal.h>
++#include <syslog.h>
+ #include <stdarg.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -77,6 +78,8 @@
  #include <openssl/dh.h>
  #include <openssl/bn.h>
  #include <openssl/rand.h>
 +#include <openssl/fips.h>
 +#include <fipscheck.h>
  #include "openbsd-compat/openssl-compat.h"
+ #endif
  
- #ifdef HAVE_SECUREWARE
-@@ -1468,6 +1470,18 @@ main(int ac, char **av)
+@@ -1543,6 +1546,18 @@ main(int ac, char **av)
  #endif
  	__progname = ssh_get_progname(av[0]);
  
@@ -731,18 +549,18 @@ index b561ec8..e977de3 100644
  	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
  	saved_argc = ac;
  	rexec_argc = ac;
-@@ -1619,8 +1633,6 @@ main(int ac, char **av)
+@@ -1694,7 +1709,7 @@ main(int ac, char **av)
  	else
  		closefrom(REEXEC_DEVCRYPTO_RESERVED_FD);
  
--	OpenSSL_add_all_algorithms();
--
- 	/* If requested, redirect the logs to the specified logfile. */
- 	if (logfile != NULL) {
- 		log_redirect_stderr_to(logfile);
-@@ -1798,6 +1810,10 @@ main(int ac, char **av)
- 		debug("private host key: #%d type %d %s", i, keytype,
- 		    key_type(key ? key : pubkey));
+-#ifdef WITH_OPENSSL
++#if 0 /* FIPS */
+ 	OpenSSL_add_all_algorithms();
+ #endif
+ 
+@@ -1890,6 +1905,10 @@ main(int ac, char **av)
+ 		    sshkey_type(pubkey) : sshkey_ssh_name(pubkey), fp);
+ 		free(fp);
  	}
 +	if ((options.protocol & SSH_PROTO_1) && FIPS_mode()) {
 +		logit("Disabling protocol version 1. Not allowed in the FIPS mode.");
@@ -751,7 +569,7 @@ index b561ec8..e977de3 100644
  	if ((options.protocol & SSH_PROTO_1) && !sensitive_data.have_ssh1_key) {
  		logit("Disabling protocol version 1. Could not load host key");
  		options.protocol &= ~SSH_PROTO_1;
-@@ -1961,6 +1977,10 @@ main(int ac, char **av)
+@@ -2058,6 +2077,10 @@ main(int ac, char **av)
  	/* Reinitialize the log (because of the fork above). */
  	log_init(__progname, options.log_level, options.log_facility, log_stderr);
  
@@ -762,7 +580,7 @@ index b561ec8..e977de3 100644
  	/* Chdir to the root directory so that the current disk can be
  	   unmounted if desired. */
  	if (chdir("/") == -1)
-@@ -2530,6 +2550,9 @@ do_ssh2_kex(void)
+@@ -2642,6 +2665,9 @@ do_ssh2_kex(void)
  	if (options.ciphers != NULL) {
  		myproposal[PROPOSAL_ENC_ALGS_CTOS] =
  		myproposal[PROPOSAL_ENC_ALGS_STOC] = options.ciphers;
@@ -772,7 +590,7 @@ index b561ec8..e977de3 100644
  	}
  	myproposal[PROPOSAL_ENC_ALGS_CTOS] =
  	    compat_cipher_proposal(myproposal[PROPOSAL_ENC_ALGS_CTOS]);
-@@ -2539,6 +2562,9 @@ do_ssh2_kex(void)
+@@ -2651,6 +2677,9 @@ do_ssh2_kex(void)
  	if (options.macs != NULL) {
  		myproposal[PROPOSAL_MAC_ALGS_CTOS] =
  		myproposal[PROPOSAL_MAC_ALGS_STOC] = options.macs;
@@ -782,7 +600,7 @@ index b561ec8..e977de3 100644
  	}
  	if (options.compression == COMP_NONE) {
  		myproposal[PROPOSAL_COMP_ALGS_CTOS] =
-@@ -2549,6 +2575,8 @@ do_ssh2_kex(void)
+@@ -2661,6 +2690,8 @@ do_ssh2_kex(void)
  	}
  	if (options.kex_algorithms != NULL)
  		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
@@ -791,7 +609,7 @@ index b561ec8..e977de3 100644
  
  	myproposal[PROPOSAL_KEX_ALGS] = compat_kex_proposal(
  	    myproposal[PROPOSAL_KEX_ALGS]);
-@@ -2575,10 +2603,14 @@ do_ssh2_kex(void)
+@@ -2687,10 +2718,14 @@ do_ssh2_kex(void)
  	if (strlen(myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS]) == 0)
  		orig = NULL;
  
@@ -810,3 +628,50 @@ index b561ec8..e977de3 100644
  
  	if (gss && orig)
  		xasprintf(&newstr, "%s,%s", gss, orig);
+diff -up openssh-6.8p1/sshkey.c.fips openssh-6.8p1/sshkey.c
+--- openssh-6.8p1/sshkey.c.fips	2015-03-19 13:14:22.227212163 +0100
++++ openssh-6.8p1/sshkey.c	2015-03-19 13:14:22.233212151 +0100
+@@ -35,6 +35,7 @@
+ #include <openssl/evp.h>
+ #include <openssl/err.h>
+ #include <openssl/pem.h>
++#include <openssl/fips.h>
+ #endif
+ 
+ #include "crypto_api.h"
+@@ -1562,6 +1563,8 @@ rsa_generate_private_key(u_int bits, RSA
+ 	}
+ 	if (!BN_set_word(f4, RSA_F4) ||
+ 	    !RSA_generate_key_ex(private, bits, f4, NULL)) {
++			if (FIPS_mode())
++				logit("%s: the key length might be unsupported by FIPS mode approved key generation method", __func__);
+ 		ret = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
+diff -up openssh-6.8p1/servconf.c.fips openssh-6.8p1/servconf.c
+--- openssh-6.8p1/servconf.c.fips	2015-03-19 13:14:22.210212196 +0100
++++ openssh-6.8p1/servconf.c	2015-03-19 13:14:22.233212151 +0100
+@@ -2226,8 +2226,10 @@ dump_config(ServerOptions *o)
+ 	/* string arguments */
+ 	dump_cfg_string(sPidFile, o->pid_file);
+ 	dump_cfg_string(sXAuthLocation, o->xauth_location);
+-	dump_cfg_string(sCiphers, o->ciphers ? o->ciphers : KEX_SERVER_ENCRYPT);
+-	dump_cfg_string(sMacs, o->macs ? o->macs : KEX_SERVER_MAC);
++	dump_cfg_string(sCiphers, o->ciphers ? o->ciphers : FIPS_mode()
++		? KEX_FIPS_ENCRYPT : KEX_SERVER_ENCRYPT);
++	dump_cfg_string(sMacs, o->macs ? o->macs : FIPS_mode()
++		? KEX_FIPS_MAC : KEX_SERVER_MAC);
+ 	dump_cfg_string(sBanner, o->banner);
+ 	dump_cfg_string(sForceCommand, o->adm_forced_command);
+ 	dump_cfg_string(sChrootDirectory, o->chroot_directory);
+@@ -2240,8 +2242,8 @@ dump_config(ServerOptions *o)
+ 	dump_cfg_string(sAuthorizedKeysCommand, o->authorized_keys_command);
+ 	dump_cfg_string(sAuthorizedKeysCommandUser, o->authorized_keys_command_user);
+ 	dump_cfg_string(sHostKeyAgent, o->host_key_agent);
+-	dump_cfg_string(sKexAlgorithms,
+-	    o->kex_algorithms ? o->kex_algorithms : KEX_SERVER_KEX);
++ 	dump_cfg_string(sKexAlgorithms, o->kex_algorithms ? o->kex_algorithms :
++		FIPS_mode() ? KEX_DEFAULT_KEX_FIPS : KEX_SERVER_KEX);
+ 	dump_cfg_string(sHostbasedAcceptedKeyTypes, o->hostbased_key_types ?
+ 	    o->hostbased_key_types : KEX_DEFAULT_PK_ALG);
+ 	dump_cfg_string(sPubkeyAcceptedKeyTypes, o->pubkey_key_types ?

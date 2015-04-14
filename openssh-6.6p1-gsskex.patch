@@ -1,31 +1,37 @@
-diff --git a/Makefile.in b/Makefile.in
-index 581b121..2ad26ff 100644
---- a/Makefile.in
-+++ b/Makefile.in
-@@ -77,6 +77,7 @@ LIBSSH_OBJS=authfd.o authfile.o bufaux.o bufbn.o buffer.o \
- 	atomicio.o key.o dispatch.o kex.o mac.o uidswap.o uuencode.o misc.o \
+diff -up openssh-6.8p1/Makefile.in.gsskex openssh-6.8p1/Makefile.in
+--- openssh-6.8p1/Makefile.in.gsskex	2015-03-18 11:24:48.875900767 +0100
++++ openssh-6.8p1/Makefile.in	2015-03-18 12:34:36.468748216 +0100
+@@ -90,6 +90,7 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
+ 	readpass.o rsa.o ttymodes.o xmalloc.o addrmatch.o \
+ 	atomicio.o key.o dispatch.o mac.o uidswap.o uuencode.o misc.o \
  	monitor_fdpass.o rijndael.o ssh-dss.o ssh-ecdsa.o ssh-rsa.o dh.o \
- 	kexdh.o kexgex.o kexdhc.o kexgexc.o bufec.o kexecdh.o kexecdhc.o \
 +	kexgssc.o \
  	msg.o progressmeter.o dns.o entropy.o gss-genr.o umac.o umac128.o \
- 	ssh-pkcs11.o krl.o smult_curve25519_ref.o \
- 	kexc25519.o kexc25519c.o poly1305.o chacha.o cipher-chachapoly.o \
-@@ -96,7 +97,7 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
+ 	ssh-pkcs11.o smult_curve25519_ref.o \
+ 	poly1305.o chacha.o cipher-chachapoly.o \
+@@ -111,7 +112,7 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passw
+ 	auth-skey.o auth-bsdauth.o auth2-hostbased.o auth2-kbdint.o \
  	auth2-none.o auth2-passwd.o auth2-pubkey.o \
- 	monitor_mm.o monitor.o monitor_wrap.o kexdhs.o kexgexs.o kexecdhs.o \
- 	kexc25519s.o auth-krb5.o \
+ 	monitor_mm.o monitor.o monitor_wrap.o auth-krb5.o \
 -	auth2-gss.o gss-serv.o gss-serv-krb5.o \
 +	auth2-gss.o gss-serv.o gss-serv-krb5.o  kexgsss.o \
  	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
  	sftp-server.o sftp-common.o \
  	roaming_common.o roaming_serv.o \
-diff --git a/auth2-gss.c b/auth2-gss.c
-index 4756dd7..ad65059 100644
---- a/auth2-gss.c
-+++ b/auth2-gss.c
-@@ -52,6 +52,40 @@ static void input_gssapi_mic(int type, u_int32_t plen, void *ctxt);
- static void input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt);
- static void input_gssapi_errtok(int, u_int32_t, void *);
+diff -up openssh-6.8p1/auth2-gss.c.gsskex openssh-6.8p1/auth2-gss.c
+--- openssh-6.8p1/auth2-gss.c.gsskex	2015-03-18 11:24:48.832900869 +0100
++++ openssh-6.8p1/auth2-gss.c	2015-03-18 12:32:50.584011552 +0100
+@@ -31,6 +31,7 @@
+ #include <sys/types.h>
+ 
+ #include <stdarg.h>
++#include <string.h>
+ 
+ #include "xmalloc.h"
+ #include "key.h"
+@@ -53,6 +54,40 @@ static int input_gssapi_mic(int type, u_
+ static int input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt);
+ static int input_gssapi_errtok(int, u_int32_t, void *);
  
 +/* 
 + * The 'gssapi_keyex' userauth mechanism.
@@ -64,7 +70,7 @@ index 4756dd7..ad65059 100644
  /*
   * We only support those mechanisms that we know about (ie ones that we know
   * how to check local user kuserok and the like)
-@@ -235,7 +269,8 @@ input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt)
+@@ -238,7 +273,8 @@ input_gssapi_exchange_complete(int type,
  
  	packet_check_eom();
  
@@ -74,7 +80,7 @@ index 4756dd7..ad65059 100644
  
  	authctxt->postponed = 0;
  	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
-@@ -277,7 +312,8 @@ input_gssapi_mic(int type, u_int32_t plen, void *ctxt)
+@@ -281,7 +317,8 @@ input_gssapi_mic(int type, u_int32_t ple
  	gssbuf.length = buffer_len(&b);
  
  	if (!GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gssctxt, &gssbuf, &mic))))
@@ -84,8 +90,8 @@ index 4756dd7..ad65059 100644
  	else
  		logit("GSSAPI MIC check failed");
  
-@@ -294,6 +330,12 @@ input_gssapi_mic(int type, u_int32_t plen, void *ctxt)
- 	userauth_finish(authctxt, authenticated, "gssapi-with-mic", NULL);
+@@ -299,6 +336,12 @@ input_gssapi_mic(int type, u_int32_t ple
+ 	return 0;
  }
  
 +Authmethod method_gsskeyex = {
@@ -97,11 +103,10 @@ index 4756dd7..ad65059 100644
  Authmethod method_gssapi = {
  	"gssapi-with-mic",
  	userauth_gssapi,
-diff --git a/auth2.c b/auth2.c
-index 5f4f26f..0f52b68 100644
---- a/auth2.c
-+++ b/auth2.c
-@@ -69,6 +69,7 @@ extern Authmethod method_passwd;
+diff -up openssh-6.8p1/auth2.c.gsskex openssh-6.8p1/auth2.c
+--- openssh-6.8p1/auth2.c.gsskex	2015-03-18 11:24:48.832900869 +0100
++++ openssh-6.8p1/auth2.c	2015-03-18 11:24:48.875900767 +0100
+@@ -70,6 +70,7 @@ extern Authmethod method_passwd;
  extern Authmethod method_kbdint;
  extern Authmethod method_hostbased;
  #ifdef GSSAPI
@@ -109,7 +114,7 @@ index 5f4f26f..0f52b68 100644
  extern Authmethod method_gssapi;
  #endif
  
-@@ -76,6 +77,7 @@ Authmethod *authmethods[] = {
+@@ -77,6 +78,7 @@ Authmethod *authmethods[] = {
  	&method_none,
  	&method_pubkey,
  #ifdef GSSAPI
@@ -117,13 +122,12 @@ index 5f4f26f..0f52b68 100644
  	&method_gssapi,
  #endif
  	&method_passwd,
-diff --git a/clientloop.c b/clientloop.c
-index 59ad3a2..9c60108 100644
---- a/clientloop.c
-+++ b/clientloop.c
-@@ -111,6 +111,10 @@
- #include "msg.h"
- #include "roaming.h"
+diff -up openssh-6.8p1/clientloop.c.gsskex openssh-6.8p1/clientloop.c
+--- openssh-6.8p1/clientloop.c.gsskex	2015-03-18 11:24:48.875900767 +0100
++++ openssh-6.8p1/clientloop.c	2015-03-18 12:30:42.647329654 +0100
+@@ -114,6 +114,10 @@
+ #include "ssherr.h"
+ #include "hostfile.h"
  
 +#ifdef GSSAPI
 +#include "ssh-gss.h"
@@ -132,7 +136,7 @@ index 59ad3a2..9c60108 100644
  /* import options */
  extern Options options;
  
-@@ -1608,6 +1612,15 @@ client_loop(int have_pty, int escape_char_arg, int ssh2_chan_id)
+@@ -1596,6 +1600,15 @@ client_loop(int have_pty, int escape_cha
  		/* Do channel operations unless rekeying in progress. */
  		if (!rekeying) {
  			channel_after_select(readset, writeset);
@@ -147,12 +151,11 @@ index 59ad3a2..9c60108 100644
 +
  			if (need_rekeying || packet_need_rekeying()) {
  				debug("need rekeying");
- 				xxx_kex->done = 0;
-diff --git a/configure.ac b/configure.ac
-index 74e77db..9bde04e 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -584,6 +584,30 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
+ 				active_state->kex->done = 0;
+diff -up openssh-6.8p1/configure.ac.gsskex openssh-6.8p1/configure.ac
+--- openssh-6.8p1/configure.ac.gsskex	2015-03-18 11:24:48.866900788 +0100
++++ openssh-6.8p1/configure.ac	2015-03-18 11:24:48.876900765 +0100
+@@ -620,6 +620,30 @@ main() { if (NSVersionOfRunTimeLibrary("
  	    [Use tunnel device compatibility to OpenBSD])
  	AC_DEFINE([SSH_TUN_PREPEND_AF], [1],
  	    [Prepend the address family to IP tunnel traffic])
@@ -183,11 +186,10 @@ index 74e77db..9bde04e 100644
  	m4_pattern_allow([AU_IPv])
  	AC_CHECK_DECL([AU_IPv4], [], 
  	    AC_DEFINE([AU_IPv4], [0], [System only supports IPv4 audit records])
-diff --git a/gss-genr.c b/gss-genr.c
-index b39281b..a3a2289 100644
---- a/gss-genr.c
-+++ b/gss-genr.c
-@@ -39,12 +39,167 @@
+diff -up openssh-6.8p1/gss-genr.c.gsskex openssh-6.8p1/gss-genr.c
+--- openssh-6.8p1/gss-genr.c.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/gss-genr.c	2015-03-18 11:24:48.876900765 +0100
+@@ -40,12 +40,167 @@
  #include "buffer.h"
  #include "log.h"
  #include "ssh2.h"
@@ -355,7 +357,7 @@ index b39281b..a3a2289 100644
  /* Check that the OID in a data stream matches that in the context */
  int
  ssh_gssapi_check_oid(Gssctxt *ctx, void *data, size_t len)
-@@ -197,7 +352,7 @@ ssh_gssapi_init_ctx(Gssctxt *ctx, int deleg_creds, gss_buffer_desc *recv_tok,
+@@ -198,7 +353,7 @@ ssh_gssapi_init_ctx(Gssctxt *ctx, int de
  	}
  
  	ctx->major = gss_init_sec_context(&ctx->minor,
@@ -364,7 +366,7 @@ index b39281b..a3a2289 100644
  	    GSS_C_MUTUAL_FLAG | GSS_C_INTEG_FLAG | deleg_flag,
  	    0, NULL, recv_tok, NULL, send_tok, flags, NULL);
  
-@@ -227,8 +382,42 @@ ssh_gssapi_import_name(Gssctxt *ctx, const char *host)
+@@ -228,8 +383,42 @@ ssh_gssapi_import_name(Gssctxt *ctx, con
  }
  
  OM_uint32
@@ -407,7 +409,7 @@ index b39281b..a3a2289 100644
  	if ((ctx->major = gss_get_mic(&ctx->minor, ctx->context,
  	    GSS_C_QOP_DEFAULT, buffer, hash)))
  		ssh_gssapi_error(ctx);
-@@ -236,6 +425,19 @@ ssh_gssapi_sign(Gssctxt *ctx, gss_buffer_t buffer, gss_buffer_t hash)
+@@ -237,6 +426,19 @@ ssh_gssapi_sign(Gssctxt *ctx, gss_buffer
  	return (ctx->major);
  }
  
@@ -427,7 +429,7 @@ index b39281b..a3a2289 100644
  void
  ssh_gssapi_buildmic(Buffer *b, const char *user, const char *service,
      const char *context)
-@@ -249,11 +451,16 @@ ssh_gssapi_buildmic(Buffer *b, const char *user, const char *service,
+@@ -250,11 +452,16 @@ ssh_gssapi_buildmic(Buffer *b, const cha
  }
  
  int
@@ -445,7 +447,7 @@ index b39281b..a3a2289 100644
  
  	/* RFC 4462 says we MUST NOT do SPNEGO */
  	if (oid->length == spnego_oid.length && 
-@@ -263,6 +470,10 @@ ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host)
+@@ -264,6 +471,10 @@ ssh_gssapi_check_mechanism(Gssctxt **ctx
  	ssh_gssapi_build_ctx(ctx);
  	ssh_gssapi_set_oid(*ctx, oid);
  	major = ssh_gssapi_import_name(*ctx, host);
@@ -456,7 +458,7 @@ index b39281b..a3a2289 100644
  	if (!GSS_ERROR(major)) {
  		major = ssh_gssapi_init_ctx(*ctx, 0, GSS_C_NO_BUFFER, &token, 
  		    NULL);
-@@ -272,10 +483,67 @@ ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host)
+@@ -273,10 +484,66 @@ ssh_gssapi_check_mechanism(Gssctxt **ctx
  			    GSS_C_NO_BUFFER);
  	}
  
@@ -476,7 +478,6 @@ index b39281b..a3a2289 100644
 +	static OM_uint32 last_call = 0;
 +	OM_uint32 lifetime, now, major, minor;
 +	int equal;
-+	gss_cred_usage_t usage = GSS_C_INITIATE;
 +	
 +	now = time(NULL);
 +
@@ -525,11 +526,10 @@ index b39281b..a3a2289 100644
 +}
 +
  #endif /* GSSAPI */
-diff --git a/gss-serv-krb5.c b/gss-serv-krb5.c
-index 759fa10..42de994 100644
---- a/gss-serv-krb5.c
-+++ b/gss-serv-krb5.c
-@@ -120,7 +120,7 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
+diff -up openssh-6.8p1/gss-serv-krb5.c.gsskex openssh-6.8p1/gss-serv-krb5.c
+--- openssh-6.8p1/gss-serv-krb5.c.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/gss-serv-krb5.c	2015-03-18 11:24:48.876900765 +0100
+@@ -121,7 +121,7 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
  	krb5_error_code problem;
  	krb5_principal princ;
  	OM_uint32 maj_status, min_status;
@@ -538,7 +538,7 @@ index 759fa10..42de994 100644
  	const char *errmsg;
  
  	if (client->creds == NULL) {
-@@ -180,11 +180,26 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
+@@ -181,11 +181,26 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
  		return;
  	}
  
@@ -569,7 +569,7 @@ index 759fa10..42de994 100644
  
  #ifdef USE_PAM
  	if (options.use_pam)
-@@ -193,9 +208,76 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
+@@ -194,9 +209,76 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
  
  	krb5_cc_close(krb_context, ccache);
  
@@ -646,7 +646,7 @@ index 759fa10..42de994 100644
  ssh_gssapi_mech gssapi_kerberos_mech = {
  	"toWM5Slw5Ew8Mqkay+al2g==",
  	"Kerberos",
-@@ -203,7 +285,8 @@ ssh_gssapi_mech gssapi_kerberos_mech = {
+@@ -204,7 +286,8 @@ ssh_gssapi_mech gssapi_kerberos_mech = {
  	NULL,
  	&ssh_gssapi_krb5_userok,
  	NULL,
@@ -656,11 +656,10 @@ index 759fa10..42de994 100644
  };
  
  #endif /* KRB5 */
-diff --git a/gss-serv.c b/gss-serv.c
-index e61b37b..14f540e 100644
---- a/gss-serv.c
-+++ b/gss-serv.c
-@@ -45,15 +45,20 @@
+diff -up openssh-6.8p1/gss-serv.c.gsskex openssh-6.8p1/gss-serv.c
+--- openssh-6.8p1/gss-serv.c.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/gss-serv.c	2015-03-18 11:24:48.877900762 +0100
+@@ -44,15 +44,20 @@
  #include "channels.h"
  #include "session.h"
  #include "misc.h"
@@ -683,54 +682,55 @@ index e61b37b..14f540e 100644
  
  #ifdef KRB5
  extern ssh_gssapi_mech gssapi_kerberos_mech;
-@@ -100,25 +105,32 @@ ssh_gssapi_acquire_cred(Gssctxt *ctx)
- 	char lname[MAXHOSTNAMELEN];
+@@ -99,25 +104,32 @@ ssh_gssapi_acquire_cred(Gssctxt *ctx)
+ 	char lname[NI_MAXHOST];
  	gss_OID_set oidset;
  
 -	gss_create_empty_oid_set(&status, &oidset);
 -	gss_add_oid_set_member(&status, ctx->oid, &oidset);
-+	if (options.gss_strict_acceptor) {
-+		gss_create_empty_oid_set(&status, &oidset);
-+		gss_add_oid_set_member(&status, ctx->oid, &oidset);
- 
--	if (gethostname(lname, MAXHOSTNAMELEN)) {
+-
+-	if (gethostname(lname, sizeof(lname))) {
 -		gss_release_oid_set(&status, &oidset);
 -		return (-1);
 -	}
-+		if (gethostname(lname, MAXHOSTNAMELEN)) {
++	if (options.gss_strict_acceptor) {
++		gss_create_empty_oid_set(&status, &oidset);
++		gss_add_oid_set_member(&status, ctx->oid, &oidset);
++
++		if (gethostname(lname, sizeof(lname))) {
 +			gss_release_oid_set(&status, &oidset);
 +			return (-1);
 +		}
-+
++	
 +		if (GSS_ERROR(ssh_gssapi_import_name(ctx, lname))) {
 +			gss_release_oid_set(&status, &oidset);
 +			return (ctx->major);
 +		}
-+
++	
 +		if ((ctx->major = gss_acquire_cred(&ctx->minor,
-+		    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds, 
-+		    NULL, NULL)))
++		    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds, NULL, NULL)))
 +			ssh_gssapi_error(ctx);
  
 -	if (GSS_ERROR(ssh_gssapi_import_name(ctx, lname))) {
  		gss_release_oid_set(&status, &oidset);
  		return (ctx->major);
+-	}
 +	} else {
 +		ctx->name = GSS_C_NO_NAME;
 +		ctx->creds = GSS_C_NO_CREDENTIAL;
- 	}
--
++		return GSS_S_COMPLETE;
++ 	}
+ 
 -	if ((ctx->major = gss_acquire_cred(&ctx->minor,
 -	    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds, NULL, NULL)))
 -		ssh_gssapi_error(ctx);
 -
 -	gss_release_oid_set(&status, &oidset);
 -	return (ctx->major);
-+	return GSS_S_COMPLETE;
  }
  
  /* Privileged */
-@@ -133,6 +145,29 @@ ssh_gssapi_server_ctx(Gssctxt **ctx, gss_OID oid)
+@@ -132,6 +144,29 @@ ssh_gssapi_server_ctx(Gssctxt **ctx, gss
  }
  
  /* Unprivileged */
@@ -760,7 +760,7 @@ index e61b37b..14f540e 100644
  void
  ssh_gssapi_supported_oids(gss_OID_set *oidset)
  {
-@@ -142,7 +177,9 @@ ssh_gssapi_supported_oids(gss_OID_set *oidset)
+@@ -141,7 +176,9 @@ ssh_gssapi_supported_oids(gss_OID_set *o
  	gss_OID_set supported;
  
  	gss_create_empty_oid_set(&min_status, oidset);
@@ -771,7 +771,7 @@ index e61b37b..14f540e 100644
  
  	while (supported_mechs[i]->name != NULL) {
  		if (GSS_ERROR(gss_test_oid_set_member(&min_status,
-@@ -268,8 +305,48 @@ OM_uint32
+@@ -267,8 +304,48 @@ OM_uint32
  ssh_gssapi_getclient(Gssctxt *ctx, ssh_gssapi_client *client)
  {
  	int i = 0;
@@ -793,11 +793,11 @@ index e61b37b..14f540e 100644
 +			ssh_gssapi_error(ctx);
 +			return (ctx->major);
 +		}
-+
-+		ctx->major = gss_compare_name(&ctx->minor, client->name, 
-+		    new_name, &equal);
  
 -	gss_buffer_desc ename;
++		ctx->major = gss_compare_name(&ctx->minor, client->name, 
++		    new_name, &equal);
++
 +		if (GSS_ERROR(ctx->major)) {
 +			ssh_gssapi_error(ctx);
 +			return (ctx->major);
@@ -821,7 +821,7 @@ index e61b37b..14f540e 100644
  
  	client->mech = NULL;
  
-@@ -284,6 +361,13 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_gssapi_client *client)
+@@ -283,6 +360,13 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_g
  	if (client->mech == NULL)
  		return GSS_S_FAILURE;
  
@@ -835,7 +835,7 @@ index e61b37b..14f540e 100644
  	if ((ctx->major = gss_display_name(&ctx->minor, ctx->client,
  	    &client->displayname, NULL))) {
  		ssh_gssapi_error(ctx);
-@@ -301,6 +385,8 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_gssapi_client *client)
+@@ -300,6 +384,8 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_g
  		return (ctx->major);
  	}
  
@@ -844,7 +844,7 @@ index e61b37b..14f540e 100644
  	/* We can't copy this structure, so we just move the pointer to it */
  	client->creds = ctx->client_creds;
  	ctx->client_creds = GSS_C_NO_CREDENTIAL;
-@@ -311,11 +397,20 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_gssapi_client *client)
+@@ -310,11 +396,20 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_g
  void
  ssh_gssapi_cleanup_creds(void)
  {
@@ -870,7 +870,7 @@ index e61b37b..14f540e 100644
  	}
  }
  
-@@ -348,7 +443,7 @@ ssh_gssapi_do_child(char ***envp, u_int *envsizep)
+@@ -347,7 +442,7 @@ ssh_gssapi_do_child(char ***envp, u_int
  
  /* Privileged */
  int
@@ -879,7 +879,7 @@ index e61b37b..14f540e 100644
  {
  	OM_uint32 lmin;
  
-@@ -358,9 +453,11 @@ ssh_gssapi_userok(char *user)
+@@ -357,9 +452,11 @@ ssh_gssapi_userok(char *user)
  		return 0;
  	}
  	if (gssapi_client.mech && gssapi_client.mech->userok)
@@ -893,7 +893,7 @@ index e61b37b..14f540e 100644
  			/* Destroy delegated credentials if userok fails */
  			gss_release_buffer(&lmin, &gssapi_client.displayname);
  			gss_release_buffer(&lmin, &gssapi_client.exportedname);
-@@ -374,14 +471,90 @@ ssh_gssapi_userok(char *user)
+@@ -373,14 +470,90 @@ ssh_gssapi_userok(char *user)
  	return (0);
  }
  
@@ -990,12 +990,11 @@ index e61b37b..14f540e 100644
  }
  
  #endif
-diff --git a/kex.c b/kex.c
-index 74e2b86..bce2ab8 100644
---- a/kex.c
-+++ b/kex.c
-@@ -51,6 +51,10 @@
- #include "roaming.h"
+diff -up openssh-6.8p1/kex.c.gsskex openssh-6.8p1/kex.c
+--- openssh-6.8p1/kex.c.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/kex.c	2015-03-18 12:29:33.452501699 +0100
+@@ -55,6 +55,10 @@
+ #include "sshbuf.h"
  #include "digest.h"
  
 +#ifdef GSSAPI
@@ -1005,10 +1004,10 @@ index 74e2b86..bce2ab8 100644
  #if OPENSSL_VERSION_NUMBER >= 0x00907000L
  # if defined(HAVE_EVP_SHA256)
  # define evp_ssh_sha256 EVP_sha256
-@@ -90,6 +94,11 @@ static const struct kexalg kexalgs[] = {
- #ifdef HAVE_EVP_SHA256
+@@ -95,6 +99,11 @@ static const struct kexalg kexalgs[] = {
+ #if defined(HAVE_EVP_SHA256) || !defined(WITH_OPENSSL)
  	{ KEX_CURVE25519_SHA256, KEX_C25519_SHA256, 0, SSH_DIGEST_SHA256 },
- #endif
+ #endif /* HAVE_EVP_SHA256 || !WITH_OPENSSL */
 +#ifdef GSSAPI
 +	{ KEX_GSS_GEX_SHA1_ID, KEX_GSS_GEX_SHA1, 0, SSH_DIGEST_SHA1 },
 +	{ KEX_GSS_GRP1_SHA1_ID, KEX_GSS_GRP1_SHA1, 0, SSH_DIGEST_SHA1 },
@@ -1017,7 +1016,7 @@ index 74e2b86..bce2ab8 100644
  	{ NULL, -1, -1, -1},
  };
  
-@@ -119,6 +128,12 @@ kex_alg_by_name(const char *name)
+@@ -128,6 +137,12 @@ kex_alg_by_name(const char *name)
  	for (k = kexalgs; k->name != NULL; k++) {
  		if (strcmp(k->name, name) == 0)
  			return k;
@@ -1030,11 +1029,10 @@ index 74e2b86..bce2ab8 100644
  	}
  	return NULL;
  }
-diff --git a/kex.h b/kex.h
-index c85680e..313bb51 100644
---- a/kex.h
-+++ b/kex.h
-@@ -76,6 +76,11 @@ enum kex_exchange {
+diff -up openssh-6.8p1/kex.h.gsskex openssh-6.8p1/kex.h
+--- openssh-6.8p1/kex.h.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/kex.h	2015-03-18 12:28:17.600690296 +0100
+@@ -93,6 +93,11 @@ enum kex_exchange {
  	KEX_DH_GEX_SHA256,
  	KEX_ECDH_SHA2,
  	KEX_C25519_SHA256,
@@ -1046,8 +1044,8 @@ index c85680e..313bb51 100644
  	KEX_MAX
  };
  
-@@ -135,6 +140,12 @@ struct Kex {
- 	int	flags;
+@@ -139,6 +144,12 @@ struct kex {
+ 	u_int	flags;
  	int	hash_alg;
  	int	ec_nid;
 +#ifdef GSSAPI
@@ -1058,24 +1056,22 @@ index c85680e..313bb51 100644
 +#endif
  	char	*client_version_string;
  	char	*server_version_string;
- 	int	(*verify_host_key)(Key *);
-@@ -166,6 +177,10 @@ void	 kexecdh_client(Kex *);
- void	 kexecdh_server(Kex *);
- void	 kexc25519_client(Kex *);
- void	 kexc25519_server(Kex *);
+ 	int	(*verify_host_key)(struct sshkey *, struct ssh *);
+@@ -183,6 +194,10 @@ int	 kexecdh_client(struct ssh *);
+ int	 kexecdh_server(struct ssh *);
+ int	 kexc25519_client(struct ssh *);
+ int	 kexc25519_server(struct ssh *);
 +#ifdef GSSAPI
-+void	 kexgss_client(Kex *);
-+void	 kexgss_server(Kex *);
++int	 kexgss_client(struct ssh *);
++int	 kexgss_server(struct ssh *);
 +#endif
  
- void
- kex_dh_hash(char *, char *, char *, int, char *, int, u_char *, int,
-diff --git a/kexgssc.c b/kexgssc.c
-new file mode 100644
-index 0000000..e90b567
---- /dev/null
-+++ b/kexgssc.c
-@@ -0,0 +1,334 @@
+ int	 kex_dh_hash(const char *, const char *,
+     const u_char *, size_t, const u_char *, size_t, const u_char *, size_t,
+diff -up openssh-6.8p1/kexgssc.c.gsskex openssh-6.8p1/kexgssc.c
+--- openssh-6.8p1/kexgssc.c.gsskex	2015-03-18 11:24:48.877900762 +0100
++++ openssh-6.8p1/kexgssc.c	2015-03-18 11:24:48.877900762 +0100
+@@ -0,0 +1,338 @@
 +/*
 + * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
 + *
@@ -1120,22 +1116,23 @@ index 0000000..e90b567
 +#include "log.h"
 +#include "packet.h"
 +#include "dh.h"
++#include "digest.h"
 +
 +#include "ssh-gss.h"
 +
-+void
-+kexgss_client(Kex *kex) {
++int
++kexgss_client(struct ssh *ssh) {
 +	gss_buffer_desc send_tok = GSS_C_EMPTY_BUFFER;
 +	gss_buffer_desc recv_tok, gssbuf, msg_tok, *token_ptr;
 +	Gssctxt *ctxt;
 +	OM_uint32 maj_status, min_status, ret_flags;
-+	u_int klen, kout, slen = 0, hashlen, strlen;
++	u_int klen, kout, slen = 0, strlen;
 +	DH *dh; 
 +	BIGNUM *dh_server_pub = NULL;
 +	BIGNUM *shared_secret = NULL;
 +	BIGNUM *p = NULL;
 +	BIGNUM *g = NULL;	
-+	u_char *kbuf, *hash;
++	u_char *kbuf;
 +	u_char *serverhostkey = NULL;
 +	u_char *empty = "";
 +	char *msg;
@@ -1143,21 +1140,23 @@ index 0000000..e90b567
 +	int type = 0;
 +	int first = 1;
 +	int nbits = 0, min = DH_GRP_MIN, max = DH_GRP_MAX;
++	u_char hash[SSH_DIGEST_MAX_LENGTH];
++	size_t hashlen;
 +
 +	/* Initialise our GSSAPI world */	
 +	ssh_gssapi_build_ctx(&ctxt);
-+	if (ssh_gssapi_id_kex(ctxt, kex->name, kex->kex_type) 
++	if (ssh_gssapi_id_kex(ctxt, ssh->kex->name, ssh->kex->kex_type) 
 +	    == GSS_C_NO_OID)
 +		fatal("Couldn't identify host exchange");
 +
-+	if (ssh_gssapi_import_name(ctxt, kex->gss_host))
++	if (ssh_gssapi_import_name(ctxt, ssh->kex->gss_host))
 +		fatal("Couldn't import hostname");
 +
-+	if (kex->gss_client && 
-+	    ssh_gssapi_client_identity(ctxt, kex->gss_client))
++	if (ssh->kex->gss_client && 
++	    ssh_gssapi_client_identity(ctxt, ssh->kex->gss_client))
 +		fatal("Couldn't acquire client credentials");
 +
-+	switch (kex->kex_type) {
++	switch (ssh->kex->kex_type) {
 +	case KEX_GSS_GRP1_SHA1:
 +		dh = dh_new_group1();
 +		break;
@@ -1166,7 +1165,7 @@ index 0000000..e90b567
 +		break;
 +	case KEX_GSS_GEX_SHA1:
 +		debug("Doing group exchange\n");
-+		nbits = dh_estimate(kex->we_need * 8);
++		nbits = dh_estimate(ssh->kex->we_need * 8);
 +		packet_start(SSH2_MSG_KEXGSS_GROUPREQ);
 +		packet_put_int(min);
 +		packet_put_int(nbits);
@@ -1191,11 +1190,11 @@ index 0000000..e90b567
 +		dh = dh_new_group(g, p);
 +		break;
 +	default:
-+		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
++		fatal("%s: Unexpected KEX type %d", __func__, ssh->kex->kex_type);
 +	}
 +	
 +	/* Step 1 - e is dh->pub_key */
-+	dh_gen_key(dh, kex->we_need * 8);
++	dh_gen_key(dh, ssh->kex->we_need * 8);
 +
 +	/* This is f, we initialise it now to make life easier */
 +	dh_server_pub = BN_new();
@@ -1208,7 +1207,7 @@ index 0000000..e90b567
 +		debug("Calling gss_init_sec_context");
 +		
 +		maj_status = ssh_gssapi_init_ctx(ctxt,
-+		    kex->gss_deleg_creds, token_ptr, &send_tok,
++		    ssh->kex->gss_deleg_creds, token_ptr, &send_tok,
 +		    &ret_flags);
 +
 +		if (GSS_ERROR(maj_status)) {
@@ -1341,38 +1340,39 @@ index 0000000..e90b567
 +	memset(kbuf, 0, klen);
 +	free(kbuf);
 +
-+	switch (kex->kex_type) {
++	hashlen = sizeof(hash);
++	switch (ssh->kex->kex_type) {
 +	case KEX_GSS_GRP1_SHA1:
 +	case KEX_GSS_GRP14_SHA1:
-+		kex_dh_hash( kex->client_version_string, 
-+		    kex->server_version_string,
-+		    buffer_ptr(&kex->my), buffer_len(&kex->my),
-+		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
++		kex_dh_hash( ssh->kex->client_version_string, 
++		    ssh->kex->server_version_string,
++		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
++		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
 +		    (serverhostkey ? serverhostkey : empty), slen,
 +		    dh->pub_key,	/* e */
 +		    dh_server_pub,	/* f */
 +		    shared_secret,	/* K */
-+		    &hash, &hashlen
++		    hash, &hashlen
 +		);
 +		break;
 +	case KEX_GSS_GEX_SHA1:
 +		kexgex_hash(
-+		    kex->hash_alg,
-+		    kex->client_version_string,
-+		    kex->server_version_string,
-+		    buffer_ptr(&kex->my), buffer_len(&kex->my),
-+		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
++		    ssh->kex->hash_alg,
++		    ssh->kex->client_version_string,
++		    ssh->kex->server_version_string,
++		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
++		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
 +		    (serverhostkey ? serverhostkey : empty), slen,
 + 		    min, nbits, max,
 +		    dh->p, dh->g,
 +		    dh->pub_key,
 +		    dh_server_pub,
 +		    shared_secret,
-+		    &hash, &hashlen
++		    hash, &hashlen
 +		);
 +		break;
 +	default:
-+		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
++		fatal("%s: Unexpected KEX type %d", __func__, ssh->kex->kex_type);
 +	}
 +
 +	gssbuf.value = hash;
@@ -1390,13 +1390,13 @@ index 0000000..e90b567
 +	BN_clear_free(dh_server_pub);
 +
 +	/* save session id */
-+	if (kex->session_id == NULL) {
-+		kex->session_id_len = hashlen;
-+		kex->session_id = xmalloc(kex->session_id_len);
-+		memcpy(kex->session_id, hash, kex->session_id_len);
++	if (ssh->kex->session_id == NULL) {
++		ssh->kex->session_id_len = hashlen;
++		ssh->kex->session_id = xmalloc(ssh->kex->session_id_len);
++		memcpy(ssh->kex->session_id, hash, ssh->kex->session_id_len);
 +	}
 +
-+	if (kex->gss_deleg_creds)
++	if (ssh->kex->gss_deleg_creds)
 +		ssh_gssapi_credentials_updated(ctxt);
 +
 +	if (gss_kex_context == NULL)
@@ -1404,18 +1404,16 @@ index 0000000..e90b567
 +	else
 +		ssh_gssapi_delete_ctx(&ctxt);
 +
-+	kex_derive_keys_bn(kex, hash, hashlen, shared_secret);
++	kex_derive_keys_bn(ssh, hash, hashlen, shared_secret);
 +	BN_clear_free(shared_secret);
-+	kex_finish(kex);
++	return kex_send_newkeys(ssh);
 +}
 +
 +#endif /* GSSAPI */
-diff --git a/kexgsss.c b/kexgsss.c
-new file mode 100644
-index 0000000..6d7518c
---- /dev/null
-+++ b/kexgsss.c
-@@ -0,0 +1,288 @@
+diff -up openssh-6.8p1/kexgsss.c.gsskex openssh-6.8p1/kexgsss.c
+--- openssh-6.8p1/kexgsss.c.gsskex	2015-03-18 11:24:48.878900760 +0100
++++ openssh-6.8p1/kexgsss.c	2015-03-18 11:24:48.878900760 +0100
+@@ -0,0 +1,295 @@
 +/*
 + * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
 + *
@@ -1460,12 +1458,15 @@ index 0000000..6d7518c
 +#include "dh.h"
 +#include "ssh-gss.h"
 +#include "monitor_wrap.h"
++#include "misc.h"      /* servconf.h needs misc.h for struct ForwardOptions */
 +#include "servconf.h"
++#include "ssh-gss.h"
++#include "digest.h"
 +
 +extern ServerOptions options;
 +
-+void
-+kexgss_server(Kex *kex)
++int
++kexgss_server(struct ssh *ssh)
 +{
 +	OM_uint32 maj_status, min_status;
 +	
@@ -1480,8 +1481,8 @@ index 0000000..6d7518c
 +	gss_buffer_desc gssbuf, recv_tok, msg_tok;
 +	gss_buffer_desc send_tok = GSS_C_EMPTY_BUFFER;
 +	Gssctxt *ctxt = NULL;
-+	u_int slen, klen, kout, hashlen;
-+	u_char *kbuf, *hash;
++	u_int slen, klen, kout;
++	u_char *kbuf;
 +	DH *dh;
 +	int min = -1, max = -1, nbits = -1;
 +	BIGNUM *shared_secret = NULL;
@@ -1489,6 +1490,8 @@ index 0000000..6d7518c
 +	int type = 0;
 +	gss_OID oid;
 +	char *mechs;
++	u_char hash[SSH_DIGEST_MAX_LENGTH];
++	size_t hashlen;
 +
 +	/* Initialise GSSAPI */
 +
@@ -1500,8 +1503,8 @@ index 0000000..6d7518c
 +		if ((mechs = ssh_gssapi_server_mechanisms()))
 +			free(mechs);
 +
-+	debug2("%s: Identifying %s", __func__, kex->name);
-+	oid = ssh_gssapi_id_kex(NULL, kex->name, kex->kex_type);
++	debug2("%s: Identifying %s", __func__, ssh->kex->name);
++	oid = ssh_gssapi_id_kex(NULL, ssh->kex->name, ssh->kex->kex_type);
 +	if (oid == GSS_C_NO_OID)
 +	   fatal("Unknown gssapi mechanism");
 +
@@ -1510,7 +1513,7 @@ index 0000000..6d7518c
 +	if (GSS_ERROR(PRIVSEP(ssh_gssapi_server_ctx(&ctxt, oid))))
 +		fatal("Unable to acquire credentials for the server");
 +
-+	switch (kex->kex_type) {
++	switch (ssh->kex->kex_type) {
 +	case KEX_GSS_GRP1_SHA1:
 +		dh = dh_new_group1();
 +		break;
@@ -1541,10 +1544,10 @@ index 0000000..6d7518c
 +		packet_write_wait();
 +		break;
 +	default:
-+		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
++		fatal("%s: Unexpected KEX type %d", __func__, ssh->kex->kex_type);
 +	}
 +
-+	dh_gen_key(dh, kex->we_need * 8);
++	dh_gen_key(dh, ssh->kex->we_need * 8);
 +
 +	do {
 +		debug("Wait SSH2_MSG_GSSAPI_INIT");
@@ -1627,43 +1630,44 @@ index 0000000..6d7518c
 +	memset(kbuf, 0, klen);
 +	free(kbuf);
 +
-+	switch (kex->kex_type) {
++	hashlen = sizeof(hash);
++	switch (ssh->kex->kex_type) {
 +	case KEX_GSS_GRP1_SHA1:
 +	case KEX_GSS_GRP14_SHA1:
 +		kex_dh_hash(
-+		    kex->client_version_string, kex->server_version_string,
-+		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
-+		    buffer_ptr(&kex->my), buffer_len(&kex->my),
++		    ssh->kex->client_version_string, ssh->kex->server_version_string,
++		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
++		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
 +		    NULL, 0, /* Change this if we start sending host keys */
 +		    dh_client_pub, dh->pub_key, shared_secret,
-+		    &hash, &hashlen
++		    hash, &hashlen
 +		);
 +		break;
 +	case KEX_GSS_GEX_SHA1:
 +		kexgex_hash(
-+		    kex->hash_alg,
-+		    kex->client_version_string, kex->server_version_string,
-+		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
-+		    buffer_ptr(&kex->my), buffer_len(&kex->my),
++		    ssh->kex->hash_alg,
++		    ssh->kex->client_version_string, ssh->kex->server_version_string,
++		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
++		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
 +		    NULL, 0,
 +		    min, nbits, max,
 +		    dh->p, dh->g,
 +		    dh_client_pub,
 +		    dh->pub_key,
 +		    shared_secret,
-+		    &hash, &hashlen
++		    hash, &hashlen
 +		);
 +		break;
 +	default:
-+		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
++		fatal("%s: Unexpected KEX type %d", __func__, ssh->kex->kex_type);
 +	}
 +
 +	BN_clear_free(dh_client_pub);
 +
-+	if (kex->session_id == NULL) {
-+		kex->session_id_len = hashlen;
-+		kex->session_id = xmalloc(kex->session_id_len);
-+		memcpy(kex->session_id, hash, kex->session_id_len);
++	if (ssh->kex->session_id == NULL) {
++		ssh->kex->session_id_len = hashlen;
++		ssh->kex->session_id = xmalloc(ssh->kex->session_id_len);
++		memcpy(ssh->kex->session_id, hash, ssh->kex->session_id_len);
 +	}
 +
 +	gssbuf.value = hash;
@@ -1694,45 +1698,21 @@ index 0000000..6d7518c
 +
 +	DH_free(dh);
 +
-+	kex_derive_keys_bn(kex, hash, hashlen, shared_secret);
++	kex_derive_keys_bn(ssh, hash, hashlen, shared_secret);
 +	BN_clear_free(shared_secret);
-+	kex_finish(kex);
++	kex_send_newkeys(ssh);
 +
 +	/* If this was a rekey, then save out any delegated credentials we
 +	 * just exchanged.  */
 +	if (options.gss_store_rekey)
 +		ssh_gssapi_rekey_creds();
++	return 0;
 +}
 +#endif /* GSSAPI */
-diff --git a/key.c b/key.c
-index eb98ea8..900b9e3 100644
---- a/key.c
-+++ b/key.c
-@@ -1013,6 +1013,7 @@ static const struct keytype keytypes[] = {
- 	    KEY_DSA_CERT_V00, 0, 1 },
- 	{ "ssh-ed25519-cert-v01@openssh.com", "ED25519-CERT",
- 	    KEY_ED25519_CERT, 0, 1 },
-+	{ "null", "null", KEY_NULL, 0, 0 },
- 	{ NULL, NULL, -1, -1, 0 }
- };
- 
-diff --git a/key.h b/key.h
-index 0e3eea5..d51ed81 100644
---- a/key.h
-+++ b/key.h
-@@ -46,6 +46,7 @@ enum types {
- 	KEY_ED25519_CERT,
- 	KEY_RSA_CERT_V00,
- 	KEY_DSA_CERT_V00,
-+	KEY_NULL,
- 	KEY_UNSPEC
- };
- enum fp_type {
-diff --git a/monitor.c b/monitor.c
-index 229fada..aa70945 100644
---- a/monitor.c
-+++ b/monitor.c
-@@ -178,6 +178,8 @@ int mm_answer_gss_setup_ctx(int, Buffer *);
+diff -up openssh-6.8p1/monitor.c.gsskex openssh-6.8p1/monitor.c
+--- openssh-6.8p1/monitor.c.gsskex	2015-03-18 11:24:48.834900865 +0100
++++ openssh-6.8p1/monitor.c	2015-03-18 12:24:38.971233895 +0100
+@@ -160,6 +160,8 @@ int mm_answer_gss_setup_ctx(int, Buffer
  int mm_answer_gss_accept_ctx(int, Buffer *);
  int mm_answer_gss_userok(int, Buffer *);
  int mm_answer_gss_checkmic(int, Buffer *);
@@ -1741,7 +1721,7 @@ index 229fada..aa70945 100644
  #endif
  
  #ifdef SSH_AUDIT_EVENTS
-@@ -253,11 +255,18 @@ struct mon_table mon_dispatch_proto20[] = {
+@@ -240,11 +242,18 @@ struct mon_table mon_dispatch_proto20[]
      {MONITOR_REQ_GSSSTEP, MON_ISAUTH, mm_answer_gss_accept_ctx},
      {MONITOR_REQ_GSSUSEROK, MON_AUTH, mm_answer_gss_userok},
      {MONITOR_REQ_GSSCHECKMIC, MON_ISAUTH, mm_answer_gss_checkmic},
@@ -1757,10 +1737,10 @@ index 229fada..aa70945 100644
 +    {MONITOR_REQ_GSSSIGN, 0, mm_answer_gss_sign},
 +    {MONITOR_REQ_GSSUPCREDS, 0, mm_answer_gss_updatecreds},
 +#endif
+ #ifdef WITH_OPENSSL
      {MONITOR_REQ_MODULI, 0, mm_answer_moduli},
-     {MONITOR_REQ_SIGN, 0, mm_answer_sign},
-     {MONITOR_REQ_PTY, 0, mm_answer_pty},
-@@ -366,6 +375,10 @@ monitor_child_preauth(Authctxt *_authctxt, struct monitor *pmonitor)
+ #endif
+@@ -359,6 +368,10 @@ monitor_child_preauth(Authctxt *_authctx
  		/* Permit requests for moduli and signatures */
  		monitor_permit(mon_dispatch, MONITOR_REQ_MODULI, 1);
  		monitor_permit(mon_dispatch, MONITOR_REQ_SIGN, 1);
@@ -1771,7 +1751,7 @@ index 229fada..aa70945 100644
  	} else {
  		mon_dispatch = mon_dispatch_proto15;
  
-@@ -471,6 +484,10 @@ monitor_child_postauth(struct monitor *pmonitor)
+@@ -467,6 +480,10 @@ monitor_child_postauth(struct monitor *p
  		monitor_permit(mon_dispatch, MONITOR_REQ_MODULI, 1);
  		monitor_permit(mon_dispatch, MONITOR_REQ_SIGN, 1);
  		monitor_permit(mon_dispatch, MONITOR_REQ_TERM, 1);
@@ -1782,10 +1762,10 @@ index 229fada..aa70945 100644
  	} else {
  		mon_dispatch = mon_dispatch_postauth15;
  		monitor_permit(mon_dispatch, MONITOR_REQ_TERM, 1);
-@@ -1866,6 +1883,13 @@ mm_get_kex(Buffer *m)
- 	kex->kex[KEX_DH_GEX_SHA256] = kexgex_server;
- 	kex->kex[KEX_ECDH_SHA2] = kexecdh_server;
- 	kex->kex[KEX_C25519_SHA256] = kexc25519_server;
+@@ -1892,6 +1909,13 @@ monitor_apply_keystate(struct monitor *p
+ # endif
+ #endif /* WITH_OPENSSL */
+ 		kex->kex[KEX_C25519_SHA256] = kexc25519_server;
 +#ifdef GSSAPI
 +	if (options.gss_keyex) {
 +		kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_server;
@@ -1793,10 +1773,10 @@ index 229fada..aa70945 100644
 +		kex->kex[KEX_GSS_GEX_SHA1] = kexgss_server;
 +	}
 +#endif
- 	kex->server = 1;
- 	kex->hostkey_type = buffer_get_int(m);
- 	kex->kex_type = buffer_get_int(m);
-@@ -2073,6 +2097,9 @@ mm_answer_gss_setup_ctx(int sock, Buffer *m)
+ 		kex->load_host_public_key=&get_hostkey_public_by_type;
+ 		kex->load_host_private_key=&get_hostkey_private_by_type;
+ 		kex->host_key_index=&get_hostkey_index;
+@@ -1991,6 +2015,9 @@ mm_answer_gss_setup_ctx(int sock, Buffer
  	OM_uint32 major;
  	u_int len;
  
@@ -1806,7 +1786,7 @@ index 229fada..aa70945 100644
  	goid.elements = buffer_get_string(m, &len);
  	goid.length = len;
  
-@@ -2100,6 +2127,9 @@ mm_answer_gss_accept_ctx(int sock, Buffer *m)
+@@ -2018,6 +2045,9 @@ mm_answer_gss_accept_ctx(int sock, Buffe
  	OM_uint32 flags = 0; /* GSI needs this */
  	u_int len;
  
@@ -1816,7 +1796,7 @@ index 229fada..aa70945 100644
  	in.value = buffer_get_string(m, &len);
  	in.length = len;
  	major = ssh_gssapi_accept_ctx(gsscontext, &in, &out, &flags);
-@@ -2117,6 +2147,7 @@ mm_answer_gss_accept_ctx(int sock, Buffer *m)
+@@ -2035,6 +2065,7 @@ mm_answer_gss_accept_ctx(int sock, Buffe
  		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSTEP, 0);
  		monitor_permit(mon_dispatch, MONITOR_REQ_GSSUSEROK, 1);
  		monitor_permit(mon_dispatch, MONITOR_REQ_GSSCHECKMIC, 1);
@@ -1824,7 +1804,7 @@ index 229fada..aa70945 100644
  	}
  	return (0);
  }
-@@ -2128,6 +2159,9 @@ mm_answer_gss_checkmic(int sock, Buffer *m)
+@@ -2046,6 +2077,9 @@ mm_answer_gss_checkmic(int sock, Buffer
  	OM_uint32 ret;
  	u_int len;
  
@@ -1834,7 +1814,7 @@ index 229fada..aa70945 100644
  	gssbuf.value = buffer_get_string(m, &len);
  	gssbuf.length = len;
  	mic.value = buffer_get_string(m, &len);
-@@ -2154,7 +2188,11 @@ mm_answer_gss_userok(int sock, Buffer *m)
+@@ -2072,7 +2106,11 @@ mm_answer_gss_userok(int sock, Buffer *m
  {
  	int authenticated;
  
@@ -1847,7 +1827,7 @@ index 229fada..aa70945 100644
  
  	buffer_clear(m);
  	buffer_put_int(m, authenticated);
-@@ -2167,5 +2205,73 @@ mm_answer_gss_userok(int sock, Buffer *m)
+@@ -2085,5 +2123,73 @@ mm_answer_gss_userok(int sock, Buffer *m
  	/* Monitor loop will terminate if authenticated */
  	return (authenticated);
  }
@@ -1921,10 +1901,9 @@ index 229fada..aa70945 100644
 +
  #endif /* GSSAPI */
  
-diff --git a/monitor.h b/monitor.h
-index 20e2b4a..ff79fbb 100644
---- a/monitor.h
-+++ b/monitor.h
+diff -up openssh-6.8p1/monitor.h.gsskex openssh-6.8p1/monitor.h
+--- openssh-6.8p1/monitor.h.gsskex	2015-03-18 11:24:48.834900865 +0100
++++ openssh-6.8p1/monitor.h	2015-03-18 11:24:48.878900760 +0100
 @@ -60,6 +60,8 @@ enum monitor_reqtype {
  #ifdef WITH_SELINUX
  	MONITOR_REQ_AUTHROLE = 80,
@@ -1934,11 +1913,10 @@ index 20e2b4a..ff79fbb 100644
  
  	MONITOR_REQ_PAM_START = 100,
  	MONITOR_REQ_PAM_ACCOUNT = 102, MONITOR_ANS_PAM_ACCOUNT = 103,
-diff --git a/monitor_wrap.c b/monitor_wrap.c
-index d1b6d99..d1e1caa 100644
---- a/monitor_wrap.c
-+++ b/monitor_wrap.c
-@@ -1290,7 +1290,7 @@ mm_ssh_gssapi_checkmic(Gssctxt *ctx, gss_buffer_t gssbuf, gss_buffer_t gssmic)
+diff -up openssh-6.8p1/monitor_wrap.c.gsskex openssh-6.8p1/monitor_wrap.c
+--- openssh-6.8p1/monitor_wrap.c.gsskex	2015-03-18 11:24:48.834900865 +0100
++++ openssh-6.8p1/monitor_wrap.c	2015-03-18 11:24:48.878900760 +0100
+@@ -1087,7 +1087,7 @@ mm_ssh_gssapi_checkmic(Gssctxt *ctx, gss
  }
  
  int
@@ -1947,7 +1925,7 @@ index d1b6d99..d1e1caa 100644
  {
  	Buffer m;
  	int authenticated = 0;
-@@ -1307,5 +1307,50 @@ mm_ssh_gssapi_userok(char *user)
+@@ -1104,5 +1104,50 @@ mm_ssh_gssapi_userok(char *user)
  	debug3("%s: user %sauthenticated",__func__, authenticated ? "" : "not ");
  	return (authenticated);
  }
@@ -1998,11 +1976,10 @@ index d1b6d99..d1e1caa 100644
 +
  #endif /* GSSAPI */
  
-diff --git a/monitor_wrap.h b/monitor_wrap.h
-index 9d5e5ba..93929e0 100644
---- a/monitor_wrap.h
-+++ b/monitor_wrap.h
-@@ -61,8 +61,10 @@ BIGNUM *mm_auth_rsa_generate_challenge(Key *);
+diff -up openssh-6.8p1/monitor_wrap.h.gsskex openssh-6.8p1/monitor_wrap.h
+--- openssh-6.8p1/monitor_wrap.h.gsskex	2015-03-18 11:24:48.834900865 +0100
++++ openssh-6.8p1/monitor_wrap.h	2015-03-18 11:24:48.878900760 +0100
+@@ -61,8 +61,10 @@ BIGNUM *mm_auth_rsa_generate_challenge(K
  OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
  OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *,
     gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
@@ -2014,11 +1991,10 @@ index 9d5e5ba..93929e0 100644
  #endif
  
  #ifdef USE_PAM
-diff --git a/readconf.c b/readconf.c
-index dc884c9..7613ff2 100644
---- a/readconf.c
-+++ b/readconf.c
-@@ -141,6 +141,8 @@ typedef enum {
+diff -up openssh-6.8p1/readconf.c.gsskex openssh-6.8p1/readconf.c
+--- openssh-6.8p1/readconf.c.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/readconf.c	2015-03-18 11:24:48.879900758 +0100
+@@ -147,6 +147,8 @@ typedef enum {
  	oClearAllForwardings, oNoHostAuthenticationForLocalhost,
  	oEnableSSHKeysign, oRekeyLimit, oVerifyHostKeyDNS, oConnectTimeout,
  	oAddressFamily, oGssAuthentication, oGssDelegateCreds,
@@ -2027,7 +2003,7 @@ index dc884c9..7613ff2 100644
  	oServerAliveInterval, oServerAliveCountMax, oIdentitiesOnly,
  	oSendEnv, oControlPath, oControlMaster, oControlPersist,
  	oHashKnownHosts,
-@@ -183,10 +185,19 @@ static struct {
+@@ -191,10 +193,19 @@ static struct {
  	{ "afstokenpassing", oUnsupported },
  #if defined(GSSAPI)
  	{ "gssapiauthentication", oGssAuthentication },
@@ -2047,7 +2023,7 @@ index dc884c9..7613ff2 100644
  #endif
  	{ "fallbacktorsh", oDeprecated },
  	{ "usersh", oDeprecated },
-@@ -841,10 +852,30 @@ parse_time:
+@@ -892,10 +903,30 @@ parse_time:
  		intptr = &options->gss_authentication;
  		goto parse_flag;
  
@@ -2078,7 +2054,7 @@ index dc884c9..7613ff2 100644
  	case oBatchMode:
  		intptr = &options->batch_mode;
  		goto parse_flag;
-@@ -1497,7 +1528,12 @@ initialize_options(Options * options)
+@@ -1601,7 +1632,12 @@ initialize_options(Options * options)
  	options->pubkey_authentication = -1;
  	options->challenge_response_authentication = -1;
  	options->gss_authentication = -1;
@@ -2091,7 +2067,7 @@ index dc884c9..7613ff2 100644
  	options->password_authentication = -1;
  	options->kbd_interactive_authentication = -1;
  	options->kbd_interactive_devices = NULL;
-@@ -1616,8 +1652,14 @@ fill_default_options(Options * options)
+@@ -1728,8 +1764,14 @@ fill_default_options(Options * options)
  		options->challenge_response_authentication = 1;
  	if (options->gss_authentication == -1)
  		options->gss_authentication = 0;
@@ -2106,11 +2082,10 @@ index dc884c9..7613ff2 100644
  	if (options->password_authentication == -1)
  		options->password_authentication = 1;
  	if (options->kbd_interactive_authentication == -1)
-diff --git a/readconf.h b/readconf.h
-index 75e3f8f..5cc97f0 100644
---- a/readconf.h
-+++ b/readconf.h
-@@ -54,7 +54,12 @@ typedef struct {
+diff -up openssh-6.8p1/readconf.h.gsskex openssh-6.8p1/readconf.h
+--- openssh-6.8p1/readconf.h.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/readconf.h	2015-03-18 11:24:48.879900758 +0100
+@@ -45,7 +45,12 @@ typedef struct {
  	int     challenge_response_authentication;
  					/* Try S/Key or TIS, authentication. */
  	int     gss_authentication;	/* Try GSS authentication */
@@ -2123,23 +2098,21 @@ index 75e3f8f..5cc97f0 100644
  	int     password_authentication;	/* Try password
  						 * authentication. */
  	int     kbd_interactive_authentication; /* Try keyboard-interactive auth. */
-diff --git a/regress/cert-hostkey.sh b/regress/cert-hostkey.sh
-index 1d9e0ed..1277409 100644
---- a/regress/cert-hostkey.sh
-+++ b/regress/cert-hostkey.sh
-@@ -17,7 +17,7 @@ ${SSHKEYGEN} -q -N '' -t rsa  -f $OBJ/host_ca_key ||\
- 	cat $OBJ/host_ca_key.pub
- ) > $OBJ/known_hosts-cert
+diff -up openssh-6.8p1/regress/cert-hostkey.sh.gsskex openssh-6.8p1/regress/cert-hostkey.sh
+--- openssh-6.8p1/regress/cert-hostkey.sh.gsskex	2015-03-18 11:24:48.879900758 +0100
++++ openssh-6.8p1/regress/cert-hostkey.sh	2015-03-18 12:15:49.556546478 +0100
+@@ -25,7 +25,7 @@ touch $OBJ/host_revoked_plain
+ touch $OBJ/host_revoked_cert
+ cp $OBJ/host_ca_key.pub $OBJ/host_revoked_ca
  
 -PLAIN_TYPES=`$SSH -Q key-plain | sed 's/^ssh-dss/ssh-dsa/g;s/^ssh-//'`
 +PLAIN_TYPES=`$SSH -Q key-plain | grep -v null | sed 's/^ssh-dss/ssh-dsa/g;s/^ssh-//'`
  
  type_has_legacy() {
  	case $1 in
-diff --git a/regress/cert-userkey.sh b/regress/cert-userkey.sh
-index b093a91..4c8da00 100644
---- a/regress/cert-userkey.sh
-+++ b/regress/cert-userkey.sh
+diff -up openssh-6.8p1/regress/cert-userkey.sh.gsskex openssh-6.8p1/regress/cert-userkey.sh
+--- openssh-6.8p1/regress/cert-userkey.sh.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/regress/cert-userkey.sh	2015-03-18 11:24:48.879900758 +0100
 @@ -6,7 +6,7 @@ tid="certified user keys"
  rm -f $OBJ/authorized_keys_$USER $OBJ/user_ca_key* $OBJ/cert_user_key*
  cp $OBJ/sshd_proxy $OBJ/sshd_proxy_bak
@@ -2149,11 +2122,10 @@ index b093a91..4c8da00 100644
  
  type_has_legacy() {
  	case $1 in
-diff --git a/regress/kextype.sh b/regress/kextype.sh
-index 8c2ac09..a2a87ca 100644
---- a/regress/kextype.sh
-+++ b/regress/kextype.sh
-@@ -9,6 +9,9 @@ cp $OBJ/ssh_proxy $OBJ/ssh_proxy_bak
+diff -up openssh-6.8p1/regress/kextype.sh.gsskex openssh-6.8p1/regress/kextype.sh
+--- openssh-6.8p1/regress/kextype.sh.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/regress/kextype.sh	2015-03-18 11:24:48.879900758 +0100
+@@ -14,6 +14,9 @@ echo "KexAlgorithms=$KEXOPT" >> $OBJ/ssh
  
  tries="1 2 3 4"
  for k in `${SSH} -Q kex`; do
@@ -2163,11 +2135,10 @@ index 8c2ac09..a2a87ca 100644
  	verbose "kex $k"
  	for i in $tries; do
  		${SSH} -F $OBJ/ssh_proxy -o KexAlgorithms=$k x true
-diff --git a/regress/rekey.sh b/regress/rekey.sh
-index cf9401e..31fb0f7 100644
---- a/regress/rekey.sh
-+++ b/regress/rekey.sh
-@@ -30,6 +30,9 @@ increase_datafile_size 300
+diff -up openssh-6.8p1/regress/rekey.sh.gsskex openssh-6.8p1/regress/rekey.sh
+--- openssh-6.8p1/regress/rekey.sh.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/regress/rekey.sh	2015-03-18 11:24:48.879900758 +0100
+@@ -38,6 +38,9 @@ increase_datafile_size 300
  
  opts=""
  for i in `${SSH} -Q kex`; do
@@ -2177,7 +2148,7 @@ index cf9401e..31fb0f7 100644
  	opts="$opts KexAlgorithms=$i"
  done
  for i in `${SSH} -Q cipher`; do
-@@ -48,6 +51,9 @@ done
+@@ -56,6 +59,9 @@ done
  if ${SSH} -Q cipher-auth | grep '^.*$' >/dev/null 2>&1 ; then
    for c in `${SSH} -Q cipher-auth`; do
      for kex in `${SSH} -Q kex`; do
@@ -2185,13 +2156,12 @@ index cf9401e..31fb0f7 100644
 +		continue
 +	fi
  	verbose "client rekey $c $kex"
- 	ssh_data_rekeying -oRekeyLimit=256k -oCiphers=$c -oKexAlgorithms=$kex
+ 	ssh_data_rekeying "KexAlgorithms=$kex" -oRekeyLimit=256k -oCiphers=$c
      done
-diff --git a/servconf.c b/servconf.c
-index f763317..68fb9ef 100644
---- a/servconf.c
-+++ b/servconf.c
-@@ -108,7 +108,10 @@ initialize_server_options(ServerOptions *options)
+diff -up openssh-6.8p1/servconf.c.gsskex openssh-6.8p1/servconf.c
+--- openssh-6.8p1/servconf.c.gsskex	2015-03-18 11:24:48.866900788 +0100
++++ openssh-6.8p1/servconf.c	2015-03-18 12:14:37.967721387 +0100
+@@ -114,7 +114,10 @@ initialize_server_options(ServerOptions
  	options->kerberos_ticket_cleanup = -1;
  	options->kerberos_get_afs_token = -1;
  	options->gss_authentication=-1;
@@ -2202,7 +2172,7 @@ index f763317..68fb9ef 100644
  	options->password_authentication = -1;
  	options->kbd_interactive_authentication = -1;
  	options->challenge_response_authentication = -1;
-@@ -245,8 +248,14 @@ fill_default_server_options(ServerOptions *options)
+@@ -270,8 +273,14 @@ fill_default_server_options(ServerOption
  		options->kerberos_get_afs_token = 0;
  	if (options->gss_authentication == -1)
  		options->gss_authentication = 0;
@@ -2217,17 +2187,17 @@ index f763317..68fb9ef 100644
  	if (options->password_authentication == -1)
  		options->password_authentication = 1;
  	if (options->kbd_interactive_authentication == -1)
-@@ -344,7 +353,8 @@ typedef enum {
+@@ -394,7 +403,8 @@ typedef enum {
  	sBanner, sShowPatchLevel, sUseDNS, sHostbasedAuthentication,
- 	sHostbasedUsesNameFromPacketOnly, sClientAliveInterval,
- 	sClientAliveCountMax, sAuthorizedKeysFile,
+ 	sHostbasedUsesNameFromPacketOnly, sHostbasedAcceptedKeyTypes,
+ 	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,
 -	sGssAuthentication, sGssCleanupCreds, sAcceptEnv, sPermitTunnel,
 +	sGssAuthentication, sGssCleanupCreds, sGssStrictAcceptor,
 +	sGssKeyEx, sGssStoreRekey, sAcceptEnv, sPermitTunnel,
  	sMatch, sPermitOpen, sForceCommand, sChrootDirectory,
  	sUsePrivilegeSeparation, sAllowAgentForwarding,
  	sHostCertificate,
-@@ -411,10 +421,20 @@ static struct {
+@@ -465,10 +475,20 @@ static struct {
  #ifdef GSSAPI
  	{ "gssapiauthentication", sGssAuthentication, SSHCFG_ALL },
  	{ "gssapicleanupcredentials", sGssCleanupCreds, SSHCFG_GLOBAL },
@@ -2248,7 +2218,7 @@ index f763317..68fb9ef 100644
  	{ "passwordauthentication", sPasswordAuthentication, SSHCFG_ALL },
  	{ "kbdinteractiveauthentication", sKbdInteractiveAuthentication, SSHCFG_ALL },
  	{ "challengeresponseauthentication", sChallengeResponseAuthentication, SSHCFG_GLOBAL },
-@@ -1091,10 +1111,22 @@ process_server_config_line(ServerOptions *options, char *line,
+@@ -1170,10 +1190,22 @@ process_server_config_line(ServerOptions
  		intptr = &options->gss_authentication;
  		goto parse_flag;
  
@@ -2271,7 +2241,7 @@ index f763317..68fb9ef 100644
  	case sPasswordAuthentication:
  		intptr = &options->password_authentication;
  		goto parse_flag;
-@@ -2005,6 +2037,9 @@ dump_config(ServerOptions *o)
+@@ -2134,6 +2166,9 @@ dump_config(ServerOptions *o)
  #ifdef GSSAPI
  	dump_cfg_fmtint(sGssAuthentication, o->gss_authentication);
  	dump_cfg_fmtint(sGssCleanupCreds, o->gss_cleanup_creds);
@@ -2281,11 +2251,10 @@ index f763317..68fb9ef 100644
  #endif
  	dump_cfg_fmtint(sPasswordAuthentication, o->password_authentication);
  	dump_cfg_fmtint(sKbdInteractiveAuthentication,
-diff --git a/servconf.h b/servconf.h
-index 4572066..37cfa9b 100644
---- a/servconf.h
-+++ b/servconf.h
-@@ -112,7 +112,10 @@ typedef struct {
+diff -up openssh-6.8p1/servconf.h.gsskex openssh-6.8p1/servconf.h
+--- openssh-6.8p1/servconf.h.gsskex	2015-03-18 11:24:48.866900788 +0100
++++ openssh-6.8p1/servconf.h	2015-03-18 11:24:48.880900755 +0100
+@@ -115,7 +115,10 @@ typedef struct {
  	int     kerberos_get_afs_token;		/* If true, try to get AFS token if
  						 * authenticated with Kerberos. */
  	int     gss_authentication;	/* If true, permit GSSAPI authentication */
@@ -2296,10 +2265,9 @@ index 4572066..37cfa9b 100644
  	int     password_authentication;	/* If true, permit password
  						 * authentication. */
  	int     kbd_interactive_authentication;	/* If true, permit */
-diff --git a/ssh-gss.h b/ssh-gss.h
-index a99d7f0..0374c88 100644
---- a/ssh-gss.h
-+++ b/ssh-gss.h
+diff -up openssh-6.8p1/ssh-gss.h.gsskex openssh-6.8p1/ssh-gss.h
+--- openssh-6.8p1/ssh-gss.h.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/ssh-gss.h	2015-03-18 11:24:48.880900755 +0100
 @@ -1,6 +1,6 @@
  /* $OpenBSD: ssh-gss.h,v 1.11 2014/02/26 20:28:44 djm Exp $ */
  /*
@@ -2364,7 +2332,7 @@ index a99d7f0..0374c88 100644
  
  int  ssh_gssapi_check_oid(Gssctxt *, void *, size_t);
  void ssh_gssapi_set_oid_data(Gssctxt *, void *, size_t);
-@@ -119,16 +136,30 @@ void ssh_gssapi_build_ctx(Gssctxt **);
+@@ -119,16 +136,32 @@ void ssh_gssapi_build_ctx(Gssctxt **);
  void ssh_gssapi_delete_ctx(Gssctxt **);
  OM_uint32 ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
  void ssh_gssapi_buildmic(Buffer *, const char *, const char *, const char *);
@@ -2394,13 +2362,14 @@ index a99d7f0..0374c88 100644
 +int ssh_gssapi_oid_table_ok();
 +
 +int ssh_gssapi_update_creds(ssh_gssapi_ccache *store);
++
++void ssh_gssapi_rekey_creds(void);
  #endif /* GSSAPI */
  
  #endif /* _SSH_GSS_H */
-diff --git a/ssh_config b/ssh_config
-index 6d1abaf..b0d343b 100644
---- a/ssh_config
-+++ b/ssh_config
+diff -up openssh-6.8p1/ssh_config.gsskex openssh-6.8p1/ssh_config
+--- openssh-6.8p1/ssh_config.gsskex	2015-03-18 11:24:48.861900800 +0100
++++ openssh-6.8p1/ssh_config	2015-03-18 11:24:48.880900755 +0100
 @@ -26,6 +26,8 @@
  #   HostbasedAuthentication no
  #   GSSAPIAuthentication no
@@ -2410,11 +2379,10 @@ index 6d1abaf..b0d343b 100644
  #   BatchMode no
  #   CheckHostIP yes
  #   AddressFamily any
-diff --git a/ssh_config.5 b/ssh_config.5
-index b580392..e7accd6 100644
---- a/ssh_config.5
-+++ b/ssh_config.5
-@@ -682,11 +682,43 @@ Specifies whether user authentication based on GSSAPI is allowed.
+diff -up openssh-6.8p1/ssh_config.5.gsskex openssh-6.8p1/ssh_config.5
+--- openssh-6.8p1/ssh_config.5.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/ssh_config.5	2015-03-18 11:24:48.881900753 +0100
+@@ -743,11 +743,43 @@ Specifies whether user authentication ba
  The default is
  .Dq no .
  Note that this option applies to protocol version 2 only.
@@ -2459,13 +2427,12 @@ index b580392..e7accd6 100644
  .It Cm HashKnownHosts
  Indicates that
  .Xr ssh 1
-diff --git a/sshconnect2.c b/sshconnect2.c
-index adbbfc7..cadf234 100644
---- a/sshconnect2.c
-+++ b/sshconnect2.c
-@@ -158,9 +158,34 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
- {
- 	Kex *kex;
+diff -up openssh-6.8p1/sshconnect2.c.gsskex openssh-6.8p1/sshconnect2.c
+--- openssh-6.8p1/sshconnect2.c.gsskex	2015-03-17 06:49:20.000000000 +0100
++++ openssh-6.8p1/sshconnect2.c	2015-03-18 11:32:36.879784546 +0100
+@@ -160,9 +160,34 @@ ssh_kex2(char *host, struct sockaddr *ho
+ 	struct kex *kex;
+ 	int r;
  
 +#ifdef GSSAPI
 +	char *orig = NULL, *gss = NULL;
@@ -2498,9 +2465,9 @@ index adbbfc7..cadf234 100644
  	if (options.ciphers == (char *)-1) {
  		logit("No valid ciphers for protocol version 2 given, using defaults.");
  		options.ciphers = NULL;
-@@ -196,6 +221,17 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
- 	if (options.kex_algorithms != NULL)
- 		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
+@@ -200,6 +225,17 @@ ssh_kex2(char *host, struct sockaddr *ho
+ 	myproposal[PROPOSAL_KEX_ALGS] = compat_kex_proposal(
+ 	    myproposal[PROPOSAL_KEX_ALGS]);
  
 +#ifdef GSSAPI
 +	/* If we've got GSSAPI algorithms, then we also support the
@@ -2516,10 +2483,10 @@ index adbbfc7..cadf234 100644
  	if (options.rekey_limit || options.rekey_interval)
  		packet_set_rekey_limits((u_int32_t)options.rekey_limit,
  		    (time_t)options.rekey_interval);
-@@ -208,10 +244,30 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
- 	kex->kex[KEX_DH_GEX_SHA256] = kexgex_client;
+@@ -217,11 +253,31 @@ ssh_kex2(char *host, struct sockaddr *ho
  	kex->kex[KEX_ECDH_SHA2] = kexecdh_client;
- 	kex->kex[KEX_C25519_SHA256] = kexc25519_client;
+ # endif
+ #endif
 +#ifdef GSSAPI
 +	if (options.gss_keyex) {
 +		kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_client;
@@ -2527,6 +2494,7 @@ index adbbfc7..cadf234 100644
 +		kex->kex[KEX_GSS_GEX_SHA1] = kexgss_client;
 +	}
 +#endif
+ 	kex->kex[KEX_C25519_SHA256] = kexc25519_client;
  	kex->client_version_string=client_version_string;
  	kex->server_version_string=server_version_string;
  	kex->verify_host_key=&verify_host_key_callback;
@@ -2544,18 +2512,18 @@ index adbbfc7..cadf234 100644
 +	}
 +#endif
 +
- 	xxx_kex = kex;
+ 	dispatch_run(DISPATCH_BLOCK, &kex->done, active_state);
  
- 	dispatch_run(DISPATCH_BLOCK, &kex->done, kex);
-@@ -301,6 +357,7 @@ void	input_gssapi_token(int type, u_int32_t, void *);
- void	input_gssapi_hash(int type, u_int32_t, void *);
- void	input_gssapi_error(int, u_int32_t, void *);
- void	input_gssapi_errtok(int, u_int32_t, void *);
+ 	if (options.use_roaming && !kex->roaming) {
+@@ -313,6 +369,7 @@ int	input_gssapi_token(int type, u_int32
+ int	input_gssapi_hash(int type, u_int32_t, void *);
+ int	input_gssapi_error(int, u_int32_t, void *);
+ int	input_gssapi_errtok(int, u_int32_t, void *);
 +int	userauth_gsskeyex(Authctxt *authctxt);
  #endif
  
  void	userauth(Authctxt *, char *);
-@@ -316,6 +373,11 @@ static char *authmethods_get(void);
+@@ -328,6 +385,11 @@ static char *authmethods_get(void);
  
  Authmethod authmethods[] = {
  #ifdef GSSAPI
@@ -2567,7 +2535,7 @@ index adbbfc7..cadf234 100644
  	{"gssapi-with-mic",
  		userauth_gssapi,
  		NULL,
-@@ -613,19 +675,31 @@ userauth_gssapi(Authctxt *authctxt)
+@@ -634,19 +696,31 @@ userauth_gssapi(Authctxt *authctxt)
  	static u_int mech = 0;
  	OM_uint32 min;
  	int ok = 0;
@@ -2601,7 +2569,7 @@ index adbbfc7..cadf234 100644
  			ok = 1; /* Mechanism works */
  		} else {
  			mech++;
-@@ -722,8 +796,8 @@ input_gssapi_response(int type, u_int32_t plen, void *ctxt)
+@@ -743,8 +817,8 @@ input_gssapi_response(int type, u_int32_
  {
  	Authctxt *authctxt = ctxt;
  	Gssctxt *gssctxt;
@@ -2612,9 +2580,9 @@ index adbbfc7..cadf234 100644
  
  	if (authctxt == NULL)
  		fatal("input_gssapi_response: no authentication context");
-@@ -832,6 +906,48 @@ input_gssapi_error(int type, u_int32_t plen, void *ctxt)
- 	free(msg);
+@@ -857,6 +931,48 @@ input_gssapi_error(int type, u_int32_t p
  	free(lang);
+ 	return 0;
  }
 +
 +int
@@ -2661,22 +2629,10 @@ index adbbfc7..cadf234 100644
  #endif /* GSSAPI */
  
  int
-diff --git a/sshd.c b/sshd.c
-index 24ab272..e4e406e 100644
---- a/sshd.c
-+++ b/sshd.c
-@@ -122,6 +122,10 @@
- #include "ssh-sandbox.h"
- #include "version.h"
- 
-+#ifdef USE_SECURITY_SESSION_API
-+#include <Security/AuthSession.h>
-+#endif
-+
- #ifdef LIBWRAP
- #include <tcpd.h>
- #include <syslog.h>
-@@ -1744,10 +1748,13 @@ main(int ac, char **av)
+diff -up openssh-6.8p1/sshd.c.gsskex openssh-6.8p1/sshd.c
+--- openssh-6.8p1/sshd.c.gsskex	2015-03-18 11:24:48.869900781 +0100
++++ openssh-6.8p1/sshd.c	2015-03-18 11:35:53.260315986 +0100
+@@ -1831,10 +1831,13 @@ main(int ac, char **av)
  		logit("Disabling protocol version 1. Could not load host key");
  		options.protocol &= ~SSH_PROTO_1;
  	}
@@ -2690,7 +2646,7 @@ index 24ab272..e4e406e 100644
  	if (!(options.protocol & (SSH_PROTO_1|SSH_PROTO_2))) {
  		logit("sshd: no hostkeys available -- exiting.");
  		exit(1);
-@@ -2488,6 +2495,48 @@ do_ssh2_kex(void)
+@@ -2580,6 +2583,48 @@ do_ssh2_kex(void)
  	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = compat_pkalg_proposal(
  	    list_hostkey_types());
  
@@ -2737,11 +2693,11 @@ index 24ab272..e4e406e 100644
 +#endif
 +
  	/* start key exchange */
- 	kex = kex_setup(myproposal);
- 	kex->kex[KEX_DH_GRP1_SHA1] = kexdh_server;
-@@ -2496,6 +2545,13 @@ do_ssh2_kex(void)
- 	kex->kex[KEX_DH_GEX_SHA256] = kexgex_server;
- 	kex->kex[KEX_ECDH_SHA2] = kexecdh_server;
+ 	if ((r = kex_setup(active_state, myproposal)) != 0)
+ 		fatal("kex_setup: %s", ssh_err(r));
+@@ -2594,6 +2639,13 @@ do_ssh2_kex(void)
+ # endif
+ #endif
  	kex->kex[KEX_C25519_SHA256] = kexc25519_server;
 +#ifdef GSSAPI
 +	if (options.gss_keyex) {
@@ -2753,10 +2709,9 @@ index 24ab272..e4e406e 100644
  	kex->server = 1;
  	kex->client_version_string=client_version_string;
  	kex->server_version_string=server_version_string;
-diff --git a/sshd_config b/sshd_config
-index c1b7c03..adfd7b1 100644
---- a/sshd_config
-+++ b/sshd_config
+diff -up openssh-6.8p1/sshd_config.gsskex openssh-6.8p1/sshd_config
+--- openssh-6.8p1/sshd_config.gsskex	2015-03-18 11:24:48.869900781 +0100
++++ openssh-6.8p1/sshd_config	2015-03-18 11:24:48.882900750 +0100
 @@ -91,6 +91,8 @@ ChallengeResponseAuthentication no
  # GSSAPI options
  GSSAPIAuthentication yes
@@ -2766,11 +2721,10 @@ index c1b7c03..adfd7b1 100644
  
  # Set this to 'yes' to enable PAM authentication, account processing,
  # and session processing. If this is enabled, PAM authentication will
-diff --git a/sshd_config.5 b/sshd_config.5
-index 95b5f8c..1fb002d 100644
---- a/sshd_config.5
-+++ b/sshd_config.5
-@@ -493,12 +493,40 @@ Specifies whether user authentication based on GSSAPI is allowed.
+diff -up openssh-6.8p1/sshd_config.5.gsskex openssh-6.8p1/sshd_config.5
+--- openssh-6.8p1/sshd_config.5.gsskex	2015-03-18 11:24:48.882900750 +0100
++++ openssh-6.8p1/sshd_config.5	2015-03-18 12:12:57.914965842 +0100
+@@ -564,12 +564,40 @@ Specifies whether user authentication ba
  The default is
  .Dq no .
  Note that this option applies to protocol version 2 only.
@@ -2808,6 +2762,6 @@ index 95b5f8c..1fb002d 100644
 +successful connection rekeying. This option can be used to accepted renewed 
 +or updated credentials from a compatible client. The default is
 +.Dq no .
- .It Cm HostbasedAuthentication
- Specifies whether rhosts or /etc/hosts.equiv authentication together
- with successful public key client host authentication is allowed
+ .It Cm HostbasedAcceptedKeyTypes
+ Specifies the key types that will be accepted for hostbased authentication
+ as a comma-separated pattern list.

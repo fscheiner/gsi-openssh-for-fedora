@@ -1,5 +1,5 @@
 diff --git a/gss-serv-krb5.c b/gss-serv-krb5.c
-index 42de994..60de320 100644
+index 413b845..54dd383 100644
 --- a/gss-serv-krb5.c
 +++ b/gss-serv-krb5.c
 @@ -32,7 +32,9 @@
@@ -12,12 +12,7 @@ index 42de994..60de320 100644
  
  #include "xmalloc.h"
  #include "key.h"
-@@ -40,10 +42,12 @@
- #include "auth.h"
- #include "log.h"
- #include "servconf.h"
-+#include "misc.h"
- 
+@@ -45,6 +47,7 @@
  #include "buffer.h"
  #include "ssh-gss.h"
  
@@ -25,7 +20,7 @@ index 42de994..60de320 100644
  extern ServerOptions options;
  
  #ifdef HEIMDAL
-@@ -55,6 +59,13 @@ extern ServerOptions options;
+@@ -56,6 +59,13 @@ extern ServerOptions options;
  # include <gssapi/gssapi_krb5.h>
  #endif
  
@@ -39,7 +34,7 @@ index 42de994..60de320 100644
  static krb5_context krb_context = NULL;
  
  /* Initialise the krb5 library, for the stuff that GSSAPI won't do */
-@@ -87,6 +98,7 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
+@@ -88,6 +98,7 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
  	krb5_principal princ;
  	int retval;
  	const char *errmsg;
@@ -47,7 +42,7 @@ index 42de994..60de320 100644
  
  	if (ssh_gssapi_krb5_init() == 0)
  		return 0;
-@@ -98,10 +110,22 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
+@@ -99,10 +110,22 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
  		krb5_free_error_message(krb_context, errmsg);
  		return 0;
  	}
@@ -71,7 +66,7 @@ index 42de994..60de320 100644
  	} else
  		retval = 0;
  
-@@ -109,6 +133,135 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
+@@ -110,6 +133,135 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
  	return retval;
  }
  
@@ -102,7 +97,7 @@ index 42de994..60de320 100644
 +{
 +	FILE *fp;
 +	char file[MAXPATHLEN];
-+	char line[BUFSIZ];
++	char line[BUFSIZ] = "";
 +	char kuser[65]; /* match krb5_kuserok() */
 +	struct stat st;
 +	struct passwd *pw = the_authctxt->pw;
@@ -208,10 +203,10 @@ index 42de994..60de320 100644
  /* This writes out any forwarded credentials from the structure populated
   * during userauth. Called after we have setuid to the user */
 diff --git a/session.c b/session.c
-index b5dc144..ba4589b 100644
+index 28659ec..9c94d8e 100644
 --- a/session.c
 +++ b/session.c
-@@ -806,6 +806,29 @@ do_exec(Session *s, const char *command)
+@@ -789,6 +789,29 @@ do_exec(Session *s, const char *command)
  		command = forced_command;
  		forced = "(key-option)";
  	}
@@ -257,10 +252,10 @@ index 0374c88..509109a 100644
  
  /* draft-ietf-secsh-gsskeyex-06 */
 diff --git a/sshd.8 b/sshd.8
-index 058d37a..5c4f15b 100644
+index adcaaf9..824163b 100644
 --- a/sshd.8
 +++ b/sshd.8
-@@ -327,6 +327,7 @@ Finally, the server and the client enter an authentication dialog.
+@@ -324,6 +324,7 @@ Finally, the server and the client enter an authentication dialog.
  The client tries to authenticate itself using
  host-based authentication,
  public key authentication,

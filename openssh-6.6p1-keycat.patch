@@ -1,8 +1,6 @@
-diff --git a/HOWTO.ssh-keycat b/HOWTO.ssh-keycat
-new file mode 100644
-index 0000000..630ec62
---- /dev/null
-+++ b/HOWTO.ssh-keycat
+diff -up openssh-6.8p1/HOWTO.ssh-keycat.keycat openssh-6.8p1/HOWTO.ssh-keycat
+--- openssh-6.8p1/HOWTO.ssh-keycat.keycat	2015-03-18 11:13:43.063482958 +0100
++++ openssh-6.8p1/HOWTO.ssh-keycat	2015-03-18 11:13:43.063482958 +0100
 @@ -0,0 +1,12 @@
 +The ssh-keycat retrieves the content of the ~/.ssh/authorized_keys
 +of an user in any environment. This includes environments with
@@ -16,10 +14,9 @@ index 0000000..630ec62
 +        PubkeyAuthentication yes
 +
 +
-diff --git a/Makefile.in b/Makefile.in
-index 411eadb..4ab6717 100644
---- a/Makefile.in
-+++ b/Makefile.in
+diff -up openssh-6.8p1/Makefile.in.keycat openssh-6.8p1/Makefile.in
+--- openssh-6.8p1/Makefile.in.keycat	2015-03-18 11:13:43.061482963 +0100
++++ openssh-6.8p1/Makefile.in	2015-03-18 11:14:22.480389291 +0100
 @@ -27,6 +27,7 @@ SFTP_SERVER=$(libexecdir)/sftp-server
  SSH_KEYSIGN=$(libexecdir)/ssh-keysign
  SSH_LDAP_HELPER=$(libexecdir)/ssh-ldap-helper
@@ -28,18 +25,18 @@ index 411eadb..4ab6717 100644
  SSH_PKCS11_HELPER=$(libexecdir)/ssh-pkcs11-helper
  PRIVSEP_PATH=@PRIVSEP_PATH@
  SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
-@@ -64,7 +65,7 @@ EXEEXT=@EXEEXT@
+@@ -65,7 +66,7 @@ EXEEXT=@EXEEXT@
  MANFMT=@MANFMT@
  INSTALL_SSH_LDAP_HELPER=@INSTALL_SSH_LDAP_HELPER@
  
 -TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT)
 +TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT)
  
- LIBSSH_OBJS=authfd.o authfile.o bufaux.o bufbn.o buffer.o \
- 	canohost.o channels.o cipher.o cipher-aes.o \
-@@ -176,6 +177,9 @@ ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-pkcs11-helper.o ssh-pkcs11
- ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o
- 	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
+ LIBOPENSSH_OBJS=\
+ 	ssh_api.o \
+@@ -190,6 +191,9 @@ ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT)
+ ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o sshbuf-getput-basic.o ssherr.o
+ 	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o sshbuf-getput-basic.o ssherr.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
  
 +ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o
 +	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(SSHDLIBS) $(SSHLIBS)
@@ -47,7 +44,7 @@ index 411eadb..4ab6717 100644
  ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o roaming_dummy.o
  	$(LD) -o $@ ssh-keyscan.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
  
-@@ -283,6 +287,7 @@ install-files:
+@@ -321,6 +325,7 @@ install-files:
  		$(INSTALL) -m 0700 $(STRIP_OPT) ssh-ldap-helper $(DESTDIR)$(SSH_LDAP_HELPER) ; \
  		$(INSTALL) -m 0700 ssh-ldap-wrapper $(DESTDIR)$(SSH_LDAP_WRAPPER) ; \
  	fi
@@ -55,11 +52,10 @@ index 411eadb..4ab6717 100644
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp$(EXEEXT) $(DESTDIR)$(bindir)/sftp$(EXEEXT)
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp-server$(EXEEXT) $(DESTDIR)$(SFTP_SERVER)$(EXEEXT)
  	$(INSTALL) -m 644 ssh.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
-diff --git a/auth2-pubkey.c b/auth2-pubkey.c
-index c0ae0d4..cb0f931 100644
---- a/auth2-pubkey.c
-+++ b/auth2-pubkey.c
-@@ -600,6 +600,14 @@ user_key_command_allowed2(struct passwd *user_pw, Key *key)
+diff -up openssh-6.8p1/auth2-pubkey.c.keycat openssh-6.8p1/auth2-pubkey.c
+--- openssh-6.8p1/auth2-pubkey.c.keycat	2015-03-18 11:13:43.053482982 +0100
++++ openssh-6.8p1/auth2-pubkey.c	2015-03-18 11:13:43.063482958 +0100
+@@ -623,6 +623,14 @@ user_key_command_allowed2(struct passwd
  			_exit(1);
  		}
  
@@ -74,11 +70,10 @@ index c0ae0d4..cb0f931 100644
  		execl(options.authorized_keys_command,
  		    options.authorized_keys_command, user_pw->pw_name, NULL);
  
-diff --git a/openbsd-compat/port-linux-sshd.c b/openbsd-compat/port-linux-sshd.c
-index d04f4ed..0077dd7 100644
---- a/openbsd-compat/port-linux-sshd.c
-+++ b/openbsd-compat/port-linux-sshd.c
-@@ -53,6 +53,20 @@ extern Authctxt *the_authctxt;
+diff -up openssh-6.8p1/openbsd-compat/port-linux-sshd.c.keycat openssh-6.8p1/openbsd-compat/port-linux-sshd.c
+--- openssh-6.8p1/openbsd-compat/port-linux-sshd.c.keycat	2015-03-18 11:13:43.057482972 +0100
++++ openssh-6.8p1/openbsd-compat/port-linux-sshd.c	2015-03-18 11:13:43.063482958 +0100
+@@ -54,6 +54,20 @@ extern Authctxt *the_authctxt;
  extern int inetd_flag;
  extern int rexeced_flag;
  
@@ -99,7 +94,7 @@ index d04f4ed..0077dd7 100644
  /* Send audit message */
  static int
  sshd_selinux_send_audit_message(int success, security_context_t default_context,
-@@ -307,7 +321,7 @@ sshd_selinux_getctxbyname(char *pwname,
+@@ -308,7 +322,7 @@ sshd_selinux_getctxbyname(char *pwname,
  
  /* Setup environment variables for pam_selinux */
  static int
@@ -108,7 +103,7 @@ index d04f4ed..0077dd7 100644
  {
  	const char *reqlvl;
  	char *role;
-@@ -318,16 +332,16 @@ sshd_selinux_setup_pam_variables(void)
+@@ -319,16 +333,16 @@ sshd_selinux_setup_pam_variables(void)
  
  	ssh_selinux_get_role_level(&role, &reqlvl);
  
@@ -128,7 +123,7 @@ index d04f4ed..0077dd7 100644
  
  	if (role != NULL)
  		free(role);
-@@ -335,6 +349,24 @@ sshd_selinux_setup_pam_variables(void)
+@@ -336,6 +350,24 @@ sshd_selinux_setup_pam_variables(void)
  	return rv;
  }
  
@@ -153,7 +148,7 @@ index d04f4ed..0077dd7 100644
  /* Set the execution context to the default for the specified user */
  void
  sshd_selinux_setup_exec_context(char *pwname)
-@@ -343,7 +375,7 @@ sshd_selinux_setup_exec_context(char *pwname)
+@@ -344,7 +376,7 @@ sshd_selinux_setup_exec_context(char *pw
  	int r = 0;
  	security_context_t default_ctx = NULL;
  
@@ -162,7 +157,7 @@ index d04f4ed..0077dd7 100644
  		return;
  
  	if (options.use_pam) {
-@@ -414,7 +446,7 @@ sshd_selinux_copy_context(void)
+@@ -415,7 +447,7 @@ sshd_selinux_copy_context(void)
  {
  	security_context_t *ctx;
  
@@ -171,11 +166,10 @@ index d04f4ed..0077dd7 100644
  		return;
  
  	if (getexeccon((security_context_t *)&ctx) != 0) {
-diff --git a/openbsd-compat/port-linux.h b/openbsd-compat/port-linux.h
-index b18893c..cb51f99 100644
---- a/openbsd-compat/port-linux.h
-+++ b/openbsd-compat/port-linux.h
-@@ -25,8 +25,10 @@ void ssh_selinux_setup_pty(char *, const char *);
+diff -up openssh-6.8p1/openbsd-compat/port-linux.h.keycat openssh-6.8p1/openbsd-compat/port-linux.h
+--- openssh-6.8p1/openbsd-compat/port-linux.h.keycat	2015-03-18 11:13:43.057482972 +0100
++++ openssh-6.8p1/openbsd-compat/port-linux.h	2015-03-18 11:13:43.063482958 +0100
+@@ -25,8 +25,10 @@ void ssh_selinux_setup_pty(char *, const
  void ssh_selinux_change_context(const char *);
  void ssh_selinux_setfscreatecon(const char *);
  
@@ -186,11 +180,10 @@ index b18893c..cb51f99 100644
  #endif
  
  #ifdef LINUX_OOM_ADJUST
-diff --git a/platform.c b/platform.c
-index 0d39ab2..0dae387 100644
---- a/platform.c
-+++ b/platform.c
-@@ -102,7 +102,7 @@ platform_setusercontext(struct passwd *pw)
+diff -up openssh-6.8p1/platform.c.keycat openssh-6.8p1/platform.c
+--- openssh-6.8p1/platform.c.keycat	2015-03-18 11:13:43.055482977 +0100
++++ openssh-6.8p1/platform.c	2015-03-18 11:13:43.063482958 +0100
+@@ -103,7 +103,7 @@ platform_setusercontext(struct passwd *p
  {
  #ifdef WITH_SELINUX
  	/* Cache selinux status for later use */
@@ -199,11 +192,9 @@ index 0d39ab2..0dae387 100644
  #endif
  
  #ifdef USE_SOLARIS_PROJECTS
-diff --git a/ssh-keycat.c b/ssh-keycat.c
-new file mode 100644
-index 0000000..f8ed7af
---- /dev/null
-+++ b/ssh-keycat.c
+diff -up openssh-6.8p1/ssh-keycat.c.keycat openssh-6.8p1/ssh-keycat.c
+--- openssh-6.8p1/ssh-keycat.c.keycat	2015-03-18 11:13:43.064482956 +0100
++++ openssh-6.8p1/ssh-keycat.c	2015-03-18 11:13:43.064482956 +0100
 @@ -0,0 +1,238 @@
 +/*
 + * Redistribution and use in source and binary forms, with or without
