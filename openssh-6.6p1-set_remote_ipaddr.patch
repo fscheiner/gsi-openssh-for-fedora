@@ -9,7 +9,7 @@ diff -up openssh-6.8p1/canohost.c.set_remote_ipaddr openssh-6.8p1/canohost.c
 +	if (canonical_host_ip != NULL)
 +		free(canonical_host_ip);
 +
-+	if (packet_connection_is_on_socket()) {
++	if (active_state != NULL && packet_connection_is_on_socket()) {
 +		canonical_host_ip =
 +		    get_peer_ipaddr(packet_get_connection_in());
 +		if (canonical_host_ip == NULL)

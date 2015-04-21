@@ -456,7 +456,7 @@ diff -up openssh-6.8p1/audit-linux.c.audit openssh-6.8p1/audit-linux.c
 +	}
 +	audit_ok = audit_log_user_message(audit_fd, AUDIT_CRYPTO_KEY_USER,
 +			buf, NULL,
-+			listening_for_clients() ? get_remote_ipaddr() : NULL,
++			listening_for_clients() ? NULL : get_remote_ipaddr(),
 +			NULL, 1);
 +	audit_close(audit_fd);
 +	/* do not abort if the error is EPERM and sshd is run as non root user */
