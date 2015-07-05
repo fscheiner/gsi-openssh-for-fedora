@@ -133,7 +133,7 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +                        break;
 +
 +                total += n;
-+                buf = xrealloc(buf, total + READ_CHUNK, 1);
++                buf = xreallocarray(buf, total + READ_CHUNK, 1);
 +        } while(total < MAX_READ_SIZE);
 +        return buf;
 +}

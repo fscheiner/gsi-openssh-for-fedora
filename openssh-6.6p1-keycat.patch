@@ -1,6 +1,24 @@
-diff -up openssh-6.8p1/HOWTO.ssh-keycat.keycat openssh-6.8p1/HOWTO.ssh-keycat
---- openssh-6.8p1/HOWTO.ssh-keycat.keycat	2015-03-18 11:13:43.063482958 +0100
-+++ openssh-6.8p1/HOWTO.ssh-keycat	2015-03-18 11:13:43.063482958 +0100
+diff -up openssh/auth2-pubkey.c.keycat openssh/auth2-pubkey.c
+--- openssh/auth2-pubkey.c.keycat	2015-06-24 10:57:50.158849606 +0200
++++ openssh/auth2-pubkey.c	2015-06-24 11:04:23.989868638 +0200
+@@ -490,6 +490,14 @@ subprocess(const char *tag, struct passw
+ 			_exit(1);
+ 		}
+ 
++#ifdef WITH_SELINUX
++		if (sshd_selinux_setup_env_variables() < 0) {
++			error ("failed to copy environment:  %s",
++			    strerror(errno));
++			_exit(127);
++		}
++#endif
++
+ 		execve(av[0], av, child_env);
+ 		error("%s exec \"%s\": %s", tag, command, strerror(errno));
+ 		_exit(127);
+diff -up openssh/HOWTO.ssh-keycat.keycat openssh/HOWTO.ssh-keycat
+--- openssh/HOWTO.ssh-keycat.keycat	2015-06-24 10:57:50.157849608 +0200
++++ openssh/HOWTO.ssh-keycat	2015-06-24 10:57:50.157849608 +0200
 @@ -0,0 +1,12 @@
 +The ssh-keycat retrieves the content of the ~/.ssh/authorized_keys
 +of an user in any environment. This includes environments with
@@ -14,9 +32,9 @@ diff -up openssh-6.8p1/HOWTO.ssh-keycat.keycat openssh-6.8p1/HOWTO.ssh-keycat
 +        PubkeyAuthentication yes
 +
 +
-diff -up openssh-6.8p1/Makefile.in.keycat openssh-6.8p1/Makefile.in
---- openssh-6.8p1/Makefile.in.keycat	2015-03-18 11:13:43.061482963 +0100
-+++ openssh-6.8p1/Makefile.in	2015-03-18 11:14:22.480389291 +0100
+diff -up openssh/Makefile.in.keycat openssh/Makefile.in
+--- openssh/Makefile.in.keycat	2015-06-24 10:57:50.152849621 +0200
++++ openssh/Makefile.in	2015-06-24 10:57:50.157849608 +0200
 @@ -27,6 +27,7 @@ SFTP_SERVER=$(libexecdir)/sftp-server
  SSH_KEYSIGN=$(libexecdir)/ssh-keysign
  SSH_LDAP_HELPER=$(libexecdir)/ssh-ldap-helper
@@ -52,27 +70,23 @@ diff -up openssh-6.8p1/Makefile.in.keycat openssh-6.8p1/Makefile.in
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp$(EXEEXT) $(DESTDIR)$(bindir)/sftp$(EXEEXT)
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp-server$(EXEEXT) $(DESTDIR)$(SFTP_SERVER)$(EXEEXT)
  	$(INSTALL) -m 644 ssh.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
-diff -up openssh-6.8p1/auth2-pubkey.c.keycat openssh-6.8p1/auth2-pubkey.c
---- openssh-6.8p1/auth2-pubkey.c.keycat	2015-03-18 11:13:43.053482982 +0100
-+++ openssh-6.8p1/auth2-pubkey.c	2015-03-18 11:13:43.063482958 +0100
-@@ -623,6 +623,14 @@ user_key_command_allowed2(struct passwd
- 			_exit(1);
- 		}
+diff -up openssh/openbsd-compat/port-linux.h.keycat openssh/openbsd-compat/port-linux.h
+--- openssh/openbsd-compat/port-linux.h.keycat	2015-06-24 10:57:50.150849626 +0200
++++ openssh/openbsd-compat/port-linux.h	2015-06-24 10:57:50.160849601 +0200
+@@ -25,8 +25,10 @@ void ssh_selinux_setup_pty(char *, const
+ void ssh_selinux_change_context(const char *);
+ void ssh_selinux_setfscreatecon(const char *);
  
-+#ifdef WITH_SELINUX
-+		if (sshd_selinux_setup_env_variables() < 0) {
-+			error ("failed to copy environment:  %s",
-+			    strerror(errno));
-+			_exit(127);
-+		}
-+#endif
-+
- 		execl(options.authorized_keys_command,
- 		    options.authorized_keys_command, user_pw->pw_name, NULL);
++int sshd_selinux_enabled(void);
+ void sshd_selinux_copy_context(void);
+ void sshd_selinux_setup_exec_context(char *);
++int sshd_selinux_setup_env_variables(void);
+ #endif
  
-diff -up openssh-6.8p1/openbsd-compat/port-linux-sshd.c.keycat openssh-6.8p1/openbsd-compat/port-linux-sshd.c
---- openssh-6.8p1/openbsd-compat/port-linux-sshd.c.keycat	2015-03-18 11:13:43.057482972 +0100
-+++ openssh-6.8p1/openbsd-compat/port-linux-sshd.c	2015-03-18 11:13:43.063482958 +0100
+ #ifdef LINUX_OOM_ADJUST
+diff -up openssh/openbsd-compat/port-linux-sshd.c.keycat openssh/openbsd-compat/port-linux-sshd.c
+--- openssh/openbsd-compat/port-linux-sshd.c.keycat	2015-06-24 10:57:50.150849626 +0200
++++ openssh/openbsd-compat/port-linux-sshd.c	2015-06-24 10:57:50.159849603 +0200
 @@ -54,6 +54,20 @@ extern Authctxt *the_authctxt;
  extern int inetd_flag;
  extern int rexeced_flag;
@@ -166,23 +180,9 @@ diff -up openssh-6.8p1/openbsd-compat/port-linux-sshd.c.keycat openssh-6.8p1/ope
  		return;
  
  	if (getexeccon((security_context_t *)&ctx) != 0) {
-diff -up openssh-6.8p1/openbsd-compat/port-linux.h.keycat openssh-6.8p1/openbsd-compat/port-linux.h
---- openssh-6.8p1/openbsd-compat/port-linux.h.keycat	2015-03-18 11:13:43.057482972 +0100
-+++ openssh-6.8p1/openbsd-compat/port-linux.h	2015-03-18 11:13:43.063482958 +0100
-@@ -25,8 +25,10 @@ void ssh_selinux_setup_pty(char *, const
- void ssh_selinux_change_context(const char *);
- void ssh_selinux_setfscreatecon(const char *);
- 
-+int sshd_selinux_enabled(void);
- void sshd_selinux_copy_context(void);
- void sshd_selinux_setup_exec_context(char *);
-+int sshd_selinux_setup_env_variables(void);
- #endif
- 
- #ifdef LINUX_OOM_ADJUST
-diff -up openssh-6.8p1/platform.c.keycat openssh-6.8p1/platform.c
---- openssh-6.8p1/platform.c.keycat	2015-03-18 11:13:43.055482977 +0100
-+++ openssh-6.8p1/platform.c	2015-03-18 11:13:43.063482958 +0100
+diff -up openssh/platform.c.keycat openssh/platform.c
+--- openssh/platform.c.keycat	2015-06-24 10:57:50.147849633 +0200
++++ openssh/platform.c	2015-06-24 10:57:50.160849601 +0200
 @@ -103,7 +103,7 @@ platform_setusercontext(struct passwd *p
  {
  #ifdef WITH_SELINUX
@@ -192,9 +192,9 @@ diff -up openssh-6.8p1/platform.c.keycat openssh-6.8p1/platform.c
  #endif
  
  #ifdef USE_SOLARIS_PROJECTS
-diff -up openssh-6.8p1/ssh-keycat.c.keycat openssh-6.8p1/ssh-keycat.c
---- openssh-6.8p1/ssh-keycat.c.keycat	2015-03-18 11:13:43.064482956 +0100
-+++ openssh-6.8p1/ssh-keycat.c	2015-03-18 11:13:43.064482956 +0100
+diff -up openssh/ssh-keycat.c.keycat openssh/ssh-keycat.c
+--- openssh/ssh-keycat.c.keycat	2015-06-24 10:57:50.161849599 +0200
++++ openssh/ssh-keycat.c	2015-06-24 10:57:50.161849599 +0200
 @@ -0,0 +1,238 @@
 +/*
 + * Redistribution and use in source and binary forms, with or without

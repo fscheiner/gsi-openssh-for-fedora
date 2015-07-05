@@ -30,13 +30,13 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 6.8p1
-%global openssh_rel 2
+%global openssh_ver 6.9p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -151,21 +151,24 @@ Patch920: openssh-6.6.1p1-ip-port-config-parser.patch
 # https://lists.mindrot.org/pipermail/openssh-unix-dev/2014-April/032497.html
 Patch921: openssh-6.7p1-debian-restore-tcp-wrappers.patch
 # apply upstream patch and make sshd -T more consistent (#1187521)
-Patch922: openssh-6.7p1-sshdT-output.patch
+Patch922: openssh-6.8p1-sshdT-output.patch
 # fix ssh-copy-id on non-sh shells (#1045191)
-Patch923: openssh-6.7p1-fix-ssh-copy-id-on-non-sh-shell.patch
+Patch923: openssh-6.8p1-fix-ssh-copy-id-on-non-sh-shell.patch
 # AArch64 has seccomp support since 3.19 kernel (#1195065)
 Patch924: openssh-6.7p1-seccomp-aarch64.patch
 # Solve issue with ssh-copy-id and keys without trailing newline (#1093168)
 Patch925: openssh-6.7p1-ssh-copy-id-truncated-keys.patch
 # Add sftp option to force mode of created files (#1191055)
 Patch926: openssh-6.7p1-sftp-force-permission.patch
-# Upstream bug #1878 reintroduced in openssh6.7p1
-Patch927: openssh-6.8p1-880575.patch
+# Memory problems
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2401
+Patch928: openssh-6.8p1-memory-problems.patch
+# Restore compatible default (#89216)
+Patch929: openssh-6.9p1-permit-root-login.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.8p1.patch
-Patch98: openssh-6.8p1-gsissh.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.9p1.patch
+Patch98: openssh-6.9p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -306,7 +309,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch912 -p1 -b .utf8-banner
 %patch914 -p1 -b .servconf
 %patch916 -p1 -b .contexts
-%patch917 -p1 -b .cisco-dh
+#%patch917 -p1 -b .cisco-dh # investigate
 %patch918 -p1 -b .log-in-chroot
 %patch919 -p1 -b .scp
 %patch920 -p1 -b .config
@@ -317,7 +320,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch924 -p1 -b .seccomp
 %patch925 -p1 -b .newline
 %patch926 -p1 -b .sftp-force-mode
-%patch927 -p1 -b .bz880575
+%patch928 -p1 -b .memory
+%patch929 -p1 -b .root-login
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
@@ -542,6 +546,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Sun Jul 05 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.9p1-1
+- Based on openssh-6.8p1-10.fc22
+
 * Wed Jun 17 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 6.8p1-2.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
 

@@ -163,7 +163,7 @@ index 413b845..54dd383 100644
 +				k5users_allowed_cmds[ncommands-1] =
 +				    xstrdup(pw->pw_shell);
 +				k5users_allowed_cmds =
-+				    xrealloc(k5users_allowed_cmds, ++ncommands,
++				    xreallocarray(k5users_allowed_cmds, ++ncommands,
 +					sizeof(*k5users_allowed_cmds));
 +				break;
 +			}
@@ -176,7 +176,7 @@ index 413b845..54dd383 100644
 +				k5users_allowed_cmds[ncommands-1] =
 +				    xstrdup(token);
 +				k5users_allowed_cmds =
-+				    xrealloc(k5users_allowed_cmds, ++ncommands,
++				    xreallocarray(k5users_allowed_cmds, ++ncommands,
 +					sizeof(*k5users_allowed_cmds));
 +				token = strtok(NULL, " \t\n");
 +			}

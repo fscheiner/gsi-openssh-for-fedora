@@ -1,18 +1,6 @@
-diff -up openssh-6.8p1/Makefile.in.audit openssh-6.8p1/Makefile.in
---- openssh-6.8p1/Makefile.in.audit	2015-03-20 13:41:15.065883826 +0100
-+++ openssh-6.8p1/Makefile.in	2015-03-20 13:41:15.100883769 +0100
-@@ -98,7 +98,7 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
- 	sc25519.o ge25519.o fe25519.o ed25519.o verify.o hash.o blocks.o \
- 	kex.o kexdh.o kexgex.o kexecdh.o kexc25519.o \
- 	kexdhc.o kexgexc.o kexecdhc.o kexc25519c.o \
--	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o
-+	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o auditstub.o
- 
- SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
- 	sshconnect.o sshconnect1.o sshconnect2.o mux.o \
-diff -up openssh-6.8p1/audit-bsm.c.audit openssh-6.8p1/audit-bsm.c
---- openssh-6.8p1/audit-bsm.c.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/audit-bsm.c	2015-03-20 13:41:15.092883782 +0100
+diff -up openssh/audit-bsm.c.audit openssh/audit-bsm.c
+--- openssh/audit-bsm.c.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/audit-bsm.c	2015-06-24 11:53:29.780390469 +0200
 @@ -375,10 +375,23 @@ audit_connection_from(const char *host,
  #endif
  }
@@ -38,7 +26,7 @@ diff -up openssh-6.8p1/audit-bsm.c.audit openssh-6.8p1/audit-bsm.c
  }
  
  void
-@@ -393,6 +406,12 @@ audit_session_close(struct logininfo *li)
+@@ -393,6 +406,12 @@ audit_session_close(struct logininfo *li
  	/* not implemented */
  }
  
@@ -92,9 +80,247 @@ diff -up openssh-6.8p1/audit-bsm.c.audit openssh-6.8p1/audit-bsm.c
 +	/* not implemented */
 +}
  #endif /* BSM */
-diff -up openssh-6.8p1/audit-linux.c.audit openssh-6.8p1/audit-linux.c
---- openssh-6.8p1/audit-linux.c.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/audit-linux.c	2015-03-20 13:41:15.093883780 +0100
+diff -up openssh/audit.c.audit openssh/audit.c
+--- openssh/audit.c.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/audit.c	2015-06-24 11:53:29.781390467 +0200
+@@ -28,6 +28,7 @@
+ 
+ #include <stdarg.h>
+ #include <string.h>
++#include <unistd.h>
+ 
+ #ifdef SSH_AUDIT_EVENTS
+ 
+@@ -36,6 +37,11 @@
+ #include "key.h"
+ #include "hostfile.h"
+ #include "auth.h"
++#include "ssh-gss.h"
++#include "monitor_wrap.h"
++#include "xmalloc.h"
++#include "misc.h"
++#include "servconf.h"
+ 
+ /*
+  * Care must be taken when using this since it WILL NOT be initialized when
+@@ -43,6 +49,7 @@
+  * audit_event(CONNECTION_ABANDON) is called.  Test for NULL before using.
+  */
+ extern Authctxt *the_authctxt;
++extern ServerOptions options;
+ 
+ /* Maybe add the audit class to struct Authmethod? */
+ ssh_audit_event_t
+@@ -71,13 +78,10 @@ audit_classify_auth(const char *method)
+ const char *
+ audit_username(void)
+ {
+-	static const char unknownuser[] = "(unknown user)";
+-	static const char invaliduser[] = "(invalid user)";
++	static const char unknownuser[] = "(unknown)";
+ 
+-	if (the_authctxt == NULL || the_authctxt->user == NULL)
++	if (the_authctxt == NULL || the_authctxt->user == NULL || !the_authctxt->valid)
+ 		return (unknownuser);
+-	if (!the_authctxt->valid)
+-		return (invaliduser);
+ 	return (the_authctxt->user);
+ }
+ 
+@@ -111,6 +115,40 @@ audit_event_lookup(ssh_audit_event_t ev)
+ 	return(event_lookup[i].name);
+ }
+ 
++void
++audit_key(int host_user, int *rv, const Key *key)
++{
++	char *fp;
++	const char *crypto_name;
++
++	fp = sshkey_fingerprint(key, options.fingerprint_hash, SSH_FP_HEX);
++	if (key->type == KEY_RSA1)
++		crypto_name = "ssh-rsa1";
++	else
++		crypto_name = key_ssh_name(key);
++	if (audit_keyusage(host_user, crypto_name, key_size(key), fp, *rv) == 0)
++		*rv = 0;
++	free(fp);
++}
++
++void
++audit_unsupported(int what)
++{
++	PRIVSEP(audit_unsupported_body(what));
++}
++
++void
++audit_kex(int ctos, char *enc, char *mac, char *comp, char *pfs)
++{
++	PRIVSEP(audit_kex_body(ctos, enc, mac, comp, pfs, getpid(), getuid()));
++}
++
++void
++audit_session_key_free(int ctos)
++{
++	PRIVSEP(audit_session_key_free_body(ctos, getpid(), getuid()));
++}
++
+ # ifndef CUSTOM_SSH_AUDIT_EVENTS
+ /*
+  * Null implementations of audit functions.
+@@ -140,6 +178,17 @@ audit_event(ssh_audit_event_t event)
+ }
+ 
+ /*
++ * Called when a child process has called, or will soon call,
++ * audit_session_open.
++ */
++void
++audit_count_session_open(void)
++{
++	debug("audit count session open euid %d user %s", geteuid(),
++	      audit_username());
++}
++
++/*
+  * Called when a user session is started.  Argument is the tty allocated to
+  * the session, or NULL if no tty was allocated.
+  *
+@@ -174,13 +223,91 @@ audit_session_close(struct logininfo *li
+ /*
+  * This will be called when a user runs a non-interactive command.  Note that
+  * it may be called multiple times for a single connection since SSH2 allows
+- * multiple sessions within a single connection.
++ * multiple sessions within a single connection.  Returns a "handle" for
++ * audit_end_command.
+  */
+-void
++int
+ audit_run_command(const char *command)
+ {
+ 	debug("audit run command euid %d user %s command '%.200s'", geteuid(),
+ 	    audit_username(), command);
++	return 0;
++}
++
++/*
++ * This will be called when the non-interactive command finishes.  Note that
++ * it may be called multiple times for a single connection since SSH2 allows
++ * multiple sessions within a single connection.  "handle" should come from
++ * the corresponding audit_run_command.
++ */
++void
++audit_end_command(int handle, const char *command)
++{
++	debug("audit end nopty exec  euid %d user %s command '%.200s'", geteuid(),
++	    audit_username(), command);
++}
++
++/*
++ * This will be called when user is successfully autherized by the RSA1/RSA/DSA key.
++ *
++ * Type is the key type, len is the key length(byte) and fp is the fingerprint of the key.
++ */
++int
++audit_keyusage(int host_user, const char *type, unsigned bits, char *fp, int rv)
++{
++	debug("audit %s key usage euid %d user %s key type %s key length %d fingerprint %s%s, result %d", 
++		host_user ? "pubkey" : "hostbased", geteuid(), audit_username(), type, bits,
++		sshkey_fingerprint_prefix(), fp, rv);
++}
++
++/*
++ * This will be called when the protocol negotiation fails.
++ */
++void
++audit_unsupported_body(int what)
++{
++	debug("audit unsupported protocol euid %d type %d", geteuid(), what);
++}
++
++/*
++ * This will be called on succesfull protocol negotiation.
++ */
++void
++audit_kex_body(int ctos, char *enc, char *mac, char *compress, char *pfs, pid_t pid,
++	       uid_t uid)
++{
++	debug("audit protocol negotiation euid %d direction %d cipher %s mac %s compresion %s pfs %s from pid %ld uid %u",
++		(unsigned)geteuid(), ctos, enc, mac, compress, pfs, (long)pid,
++	        (unsigned)uid);
++}
++
++/*
++ * This will be called on succesfull session key discard
++ */
++void
++audit_session_key_free_body(int ctos, pid_t pid, uid_t uid)
++{
++	debug("audit session key discard euid %u direction %d from pid %ld uid %u",
++		(unsigned)geteuid(), ctos, (long)pid, (unsigned)uid);
++}
++
++/*
++ * This will be called on destroy private part of the server key
++ */
++void
++audit_destroy_sensitive_data(const char *fp, pid_t pid, uid_t uid)
++{
++	debug("audit destroy sensitive data euid %d fingerprint %s from pid %ld uid %u",
++		geteuid(), fp, (long)pid, (unsigned)uid);
++}
++
++/*
++ * This will be called on generation of the ephemeral server key
++ */
++void
++audit_generate_ephemeral_server_key(const char *)
++{
++	debug("audit create ephemeral server key euid %d fingerprint %s", geteuid(), fp);
+ }
+ # endif  /* !defined CUSTOM_SSH_AUDIT_EVENTS */
+ #endif /* SSH_AUDIT_EVENTS */
+diff -up openssh/audit.h.audit openssh/audit.h
+--- openssh/audit.h.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/audit.h	2015-06-24 11:53:29.781390467 +0200
+@@ -28,6 +28,7 @@
+ # define _SSH_AUDIT_H
+ 
+ #include "loginrec.h"
++#include "key.h"
+ 
+ enum ssh_audit_event_type {
+ 	SSH_LOGIN_EXCEED_MAXTRIES,
+@@ -47,11 +48,25 @@ enum ssh_audit_event_type {
+ };
+ typedef enum ssh_audit_event_type ssh_audit_event_t;
+ 
++int	listening_for_clients(void);
++
+ void	audit_connection_from(const char *, int);
+ void	audit_event(ssh_audit_event_t);
++void	audit_count_session_open(void);
+ void	audit_session_open(struct logininfo *);
+ void	audit_session_close(struct logininfo *);
+-void	audit_run_command(const char *);
++int	audit_run_command(const char *);
++void 	audit_end_command(int, const char *);
+ ssh_audit_event_t audit_classify_auth(const char *);
++int	audit_keyusage(int, const char *, unsigned, char *, int);
++void	audit_key(int, int *, const Key *);
++void	audit_unsupported(int);
++void	audit_kex(int, char *, char *, char *, char *);
++void	audit_unsupported_body(int);
++void	audit_kex_body(int, char *, char *, char *, char *, pid_t, uid_t);
++void	audit_session_key_free(int ctos);
++void	audit_session_key_free_body(int ctos, pid_t, uid_t);
++void	audit_destroy_sensitive_data(const char *, pid_t, uid_t);
++void	audit_generate_ephemeral_server_key(const char *);
+ 
+ #endif /* _SSH_AUDIT_H */
+diff -up openssh/audit-linux.c.audit openssh/audit-linux.c
+--- openssh/audit-linux.c.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/audit-linux.c	2015-06-24 11:53:29.781390467 +0200
 @@ -35,13 +35,25 @@
  
  #include "log.h"
@@ -124,7 +350,7 @@ diff -up openssh-6.8p1/audit-linux.c.audit openssh-6.8p1/audit-linux.c
  {
  	int audit_fd, rc, saved_errno;
  
-@@ -49,11 +61,11 @@ linux_audit_record_event(int uid, const char *username,
+@@ -49,11 +61,11 @@ linux_audit_record_event(int uid, const
  	if (audit_fd < 0) {
  		if (errno == EINVAL || errno == EPROTONOSUPPORT ||
  		    errno == EAFNOSUPPORT)
@@ -139,7 +365,7 @@ diff -up openssh-6.8p1/audit-linux.c.audit openssh-6.8p1/audit-linux.c
  	    NULL, "login", username ? username : "(unknown)",
  	    username == NULL ? uid : -1, hostname, ip, ttyn, success);
  	saved_errno = errno;
-@@ -65,35 +77,154 @@ linux_audit_record_event(int uid, const char *username,
+@@ -65,35 +77,154 @@ linux_audit_record_event(int uid, const
  	if ((rc == -EPERM) && (geteuid() != 0))
  		rc = 0;
  	errno = saved_errno;
@@ -486,247 +712,9 @@ diff -up openssh-6.8p1/audit-linux.c.audit openssh-6.8p1/audit-linux.c
 +		error("cannot write into audit");
 +}
  #endif /* USE_LINUX_AUDIT */
-diff -up openssh-6.8p1/audit.c.audit openssh-6.8p1/audit.c
---- openssh-6.8p1/audit.c.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/audit.c	2015-03-20 13:41:15.093883780 +0100
-@@ -28,6 +28,7 @@
- 
- #include <stdarg.h>
- #include <string.h>
-+#include <unistd.h>
- 
- #ifdef SSH_AUDIT_EVENTS
- 
-@@ -36,6 +37,11 @@
- #include "key.h"
- #include "hostfile.h"
- #include "auth.h"
-+#include "ssh-gss.h"
-+#include "monitor_wrap.h"
-+#include "xmalloc.h"
-+#include "misc.h"
-+#include "servconf.h"
- 
- /*
-  * Care must be taken when using this since it WILL NOT be initialized when
-@@ -43,6 +49,7 @@
-  * audit_event(CONNECTION_ABANDON) is called.  Test for NULL before using.
-  */
- extern Authctxt *the_authctxt;
-+extern ServerOptions options;
- 
- /* Maybe add the audit class to struct Authmethod? */
- ssh_audit_event_t
-@@ -71,13 +78,10 @@ audit_classify_auth(const char *method)
- const char *
- audit_username(void)
- {
--	static const char unknownuser[] = "(unknown user)";
--	static const char invaliduser[] = "(invalid user)";
-+	static const char unknownuser[] = "(unknown)";
- 
--	if (the_authctxt == NULL || the_authctxt->user == NULL)
-+	if (the_authctxt == NULL || the_authctxt->user == NULL || !the_authctxt->valid)
- 		return (unknownuser);
--	if (!the_authctxt->valid)
--		return (invaliduser);
- 	return (the_authctxt->user);
- }
- 
-@@ -111,6 +115,40 @@ audit_event_lookup(ssh_audit_event_t ev)
- 	return(event_lookup[i].name);
- }
- 
-+void
-+audit_key(int host_user, int *rv, const Key *key)
-+{
-+	char *fp;
-+	const char *crypto_name;
-+
-+	fp = sshkey_fingerprint(key, options.fingerprint_hash, SSH_FP_HEX);
-+	if (key->type == KEY_RSA1)
-+		crypto_name = "ssh-rsa1";
-+	else
-+		crypto_name = key_ssh_name(key);
-+	if (audit_keyusage(host_user, crypto_name, key_size(key), fp, *rv) == 0)
-+		*rv = 0;
-+	free(fp);
-+}
-+
-+void
-+audit_unsupported(int what)
-+{
-+	PRIVSEP(audit_unsupported_body(what));
-+}
-+
-+void
-+audit_kex(int ctos, char *enc, char *mac, char *comp, char *pfs)
-+{
-+	PRIVSEP(audit_kex_body(ctos, enc, mac, comp, pfs, getpid(), getuid()));
-+}
-+
-+void
-+audit_session_key_free(int ctos)
-+{
-+	PRIVSEP(audit_session_key_free_body(ctos, getpid(), getuid()));
-+}
-+
- # ifndef CUSTOM_SSH_AUDIT_EVENTS
- /*
-  * Null implementations of audit functions.
-@@ -140,6 +178,17 @@ audit_event(ssh_audit_event_t event)
- }
- 
- /*
-+ * Called when a child process has called, or will soon call,
-+ * audit_session_open.
-+ */
-+void
-+audit_count_session_open(void)
-+{
-+	debug("audit count session open euid %d user %s", geteuid(),
-+	      audit_username());
-+}
-+
-+/*
-  * Called when a user session is started.  Argument is the tty allocated to
-  * the session, or NULL if no tty was allocated.
-  *
-@@ -174,13 +223,91 @@ audit_session_close(struct logininfo *li)
- /*
-  * This will be called when a user runs a non-interactive command.  Note that
-  * it may be called multiple times for a single connection since SSH2 allows
-- * multiple sessions within a single connection.
-+ * multiple sessions within a single connection.  Returns a "handle" for
-+ * audit_end_command.
-  */
--void
-+int
- audit_run_command(const char *command)
- {
- 	debug("audit run command euid %d user %s command '%.200s'", geteuid(),
- 	    audit_username(), command);
-+	return 0;
-+}
-+
-+/*
-+ * This will be called when the non-interactive command finishes.  Note that
-+ * it may be called multiple times for a single connection since SSH2 allows
-+ * multiple sessions within a single connection.  "handle" should come from
-+ * the corresponding audit_run_command.
-+ */
-+void
-+audit_end_command(int handle, const char *command)
-+{
-+	debug("audit end nopty exec  euid %d user %s command '%.200s'", geteuid(),
-+	    audit_username(), command);
-+}
-+
-+/*
-+ * This will be called when user is successfully autherized by the RSA1/RSA/DSA key.
-+ *
-+ * Type is the key type, len is the key length(byte) and fp is the fingerprint of the key.
-+ */
-+int
-+audit_keyusage(int host_user, const char *type, unsigned bits, char *fp, int rv)
-+{
-+	debug("audit %s key usage euid %d user %s key type %s key length %d fingerprint %s%s, result %d", 
-+		host_user ? "pubkey" : "hostbased", geteuid(), audit_username(), type, bits,
-+		sshkey_fingerprint_prefix(), fp, rv);
-+}
-+
-+/*
-+ * This will be called when the protocol negotiation fails.
-+ */
-+void
-+audit_unsupported_body(int what)
-+{
-+	debug("audit unsupported protocol euid %d type %d", geteuid(), what);
-+}
-+
-+/*
-+ * This will be called on succesfull protocol negotiation.
-+ */
-+void
-+audit_kex_body(int ctos, char *enc, char *mac, char *compress, char *pfs, pid_t pid,
-+	       uid_t uid)
-+{
-+	debug("audit protocol negotiation euid %d direction %d cipher %s mac %s compresion %s pfs %s from pid %ld uid %u",
-+		(unsigned)geteuid(), ctos, enc, mac, compress, pfs, (long)pid,
-+	        (unsigned)uid);
-+}
-+
-+/*
-+ * This will be called on succesfull session key discard
-+ */
-+void
-+audit_session_key_free_body(int ctos, pid_t pid, uid_t uid)
-+{
-+	debug("audit session key discard euid %u direction %d from pid %ld uid %u",
-+		(unsigned)geteuid(), ctos, (long)pid, (unsigned)uid);
-+}
-+
-+/*
-+ * This will be called on destroy private part of the server key
-+ */
-+void
-+audit_destroy_sensitive_data(const char *fp, pid_t pid, uid_t uid)
-+{
-+	debug("audit destroy sensitive data euid %d fingerprint %s from pid %ld uid %u",
-+		geteuid(), fp, (long)pid, (unsigned)uid);
-+}
-+
-+/*
-+ * This will be called on generation of the ephemeral server key
-+ */
-+void
-+audit_generate_ephemeral_server_key(const char *)
-+{
-+	debug("audit create ephemeral server key euid %d fingerprint %s", geteuid(), fp);
- }
- # endif  /* !defined CUSTOM_SSH_AUDIT_EVENTS */
- #endif /* SSH_AUDIT_EVENTS */
-diff -up openssh-6.8p1/audit.h.audit openssh-6.8p1/audit.h
---- openssh-6.8p1/audit.h.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/audit.h	2015-03-20 13:41:15.093883780 +0100
-@@ -28,6 +28,7 @@
- # define _SSH_AUDIT_H
- 
- #include "loginrec.h"
-+#include "key.h"
- 
- enum ssh_audit_event_type {
- 	SSH_LOGIN_EXCEED_MAXTRIES,
-@@ -47,11 +48,25 @@ enum ssh_audit_event_type {
- };
- typedef enum ssh_audit_event_type ssh_audit_event_t;
- 
-+int	listening_for_clients(void);
-+
- void	audit_connection_from(const char *, int);
- void	audit_event(ssh_audit_event_t);
-+void	audit_count_session_open(void);
- void	audit_session_open(struct logininfo *);
- void	audit_session_close(struct logininfo *);
--void	audit_run_command(const char *);
-+int	audit_run_command(const char *);
-+void 	audit_end_command(int, const char *);
- ssh_audit_event_t audit_classify_auth(const char *);
-+int	audit_keyusage(int, const char *, unsigned, char *, int);
-+void	audit_key(int, int *, const Key *);
-+void	audit_unsupported(int);
-+void	audit_kex(int, char *, char *, char *, char *);
-+void	audit_unsupported_body(int);
-+void	audit_kex_body(int, char *, char *, char *, char *, pid_t, uid_t);
-+void	audit_session_key_free(int ctos);
-+void	audit_session_key_free_body(int ctos, pid_t, uid_t);
-+void	audit_destroy_sensitive_data(const char *, pid_t, uid_t);
-+void	audit_generate_ephemeral_server_key(const char *);
- 
- #endif /* _SSH_AUDIT_H */
-diff -up openssh-6.8p1/auditstub.c.audit openssh-6.8p1/auditstub.c
---- openssh-6.8p1/auditstub.c.audit	2015-03-20 13:41:15.093883780 +0100
-+++ openssh-6.8p1/auditstub.c	2015-03-20 13:41:15.093883780 +0100
+diff -up openssh/auditstub.c.audit openssh/auditstub.c
+--- openssh/auditstub.c.audit	2015-06-24 11:53:29.782390464 +0200
++++ openssh/auditstub.c	2015-06-24 11:53:29.782390464 +0200
 @@ -0,0 +1,50 @@
 +/* $Id: auditstub.c,v 1.1 jfch Exp $ */
 +
@@ -778,10 +766,117 @@ diff -up openssh-6.8p1/auditstub.c.audit openssh-6.8p1/auditstub.c
 +audit_session_key_free_body(int ctos, pid_t pid, uid_t uid)
 +{
 +}
-diff -up openssh-6.8p1/auth-rsa.c.audit openssh-6.8p1/auth-rsa.c
---- openssh-6.8p1/auth-rsa.c.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/auth-rsa.c	2015-03-20 13:41:15.094883779 +0100
-@@ -95,7 +95,10 @@ auth_rsa_verify_response(Key *key, BIGNUM *challenge, u_char response[16])
+diff -up openssh/auth2.c.audit openssh/auth2.c
+--- openssh/auth2.c.audit	2015-06-24 11:53:29.731390595 +0200
++++ openssh/auth2.c	2015-06-24 11:53:29.783390462 +0200
+@@ -249,9 +249,6 @@ input_userauth_request(int type, u_int32
+ 		} else {
+ 			logit("input_userauth_request: invalid user %s", user);
+ 			authctxt->pw = fakepw();
+-#ifdef SSH_AUDIT_EVENTS
+-			PRIVSEP(audit_event(SSH_INVALID_USER));
+-#endif
+ 		}
+ #ifdef USE_PAM
+ 		if (options.use_pam)
+diff -up openssh/auth2-hostbased.c.audit openssh/auth2-hostbased.c
+--- openssh/auth2-hostbased.c.audit	2015-06-24 11:53:29.682390720 +0200
++++ openssh/auth2-hostbased.c	2015-06-24 11:53:29.782390464 +0200
+@@ -146,7 +146,7 @@ userauth_hostbased(Authctxt *authctxt)
+ 	/* test for allowed key and correct signature */
+ 	authenticated = 0;
+ 	if (PRIVSEP(hostbased_key_allowed(authctxt->pw, cuser, chost, key)) &&
+-	    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
++	    PRIVSEP(hostbased_key_verify(key, sig, slen, buffer_ptr(&b),
+ 			buffer_len(&b))) == 1)
+ 		authenticated = 1;
+ 
+@@ -163,6 +163,18 @@ done:
+ 	return authenticated;
+ }
+ 
++int
++hostbased_key_verify(const Key *key, const u_char *sig, u_int slen, const u_char *data, u_int datalen)
++{
++	int rv;
++
++	rv = key_verify(key, sig, slen, data, datalen);
++#ifdef SSH_AUDIT_EVENTS
++	audit_key(0, &rv, key);
++#endif
++	return rv;
++}
++
+ /* return 1 if given hostkey is allowed */
+ int
+ hostbased_key_allowed(struct passwd *pw, const char *cuser, char *chost,
+diff -up openssh/auth2-pubkey.c.audit openssh/auth2-pubkey.c
+--- openssh/auth2-pubkey.c.audit	2015-06-24 11:53:29.783390462 +0200
++++ openssh/auth2-pubkey.c	2015-06-24 11:58:49.547572821 +0200
+@@ -175,7 +175,7 @@ userauth_pubkey(Authctxt *authctxt)
+ 		/* test for correct signature */
+ 		authenticated = 0;
+ 		if (PRIVSEP(user_key_allowed(authctxt->pw, key, 1)) &&
+-		    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
++		    PRIVSEP(user_key_verify(key, sig, slen, buffer_ptr(&b),
+ 		    buffer_len(&b))) == 1) {
+ 			authenticated = 1;
+ 			/* Record the successful key to prevent reuse */
+@@ -253,6 +253,18 @@ pubkey_auth_info(Authctxt *authctxt, con
+ 	free(extra);
+ }
+ 
++int
++user_key_verify(const Key *key, const u_char *sig, u_int slen, const u_char *data, u_int datalen)
++{
++	int rv;
++
++	rv = key_verify(key, sig, slen, data, datalen);
++#ifdef SSH_AUDIT_EVENTS
++	audit_key(1, &rv, key);
++#endif
++	return rv;
++}
++
+ /*
+  * Splits 's' into an argument vector. Handles quoted string and basic
+  * escape characters (\\, \", \'). Caller must free the argument vector
+diff -up openssh/auth.c.audit openssh/auth.c
+--- openssh/auth.c.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/auth.c	2015-06-24 11:53:29.782390464 +0200
+@@ -643,9 +643,6 @@ getpwnamallow(const char *user)
+ 		record_failed_login(user,
+ 		    get_canonical_hostname(options.use_dns), "ssh");
+ #endif
+-#ifdef SSH_AUDIT_EVENTS
+-		audit_event(SSH_INVALID_USER);
+-#endif /* SSH_AUDIT_EVENTS */
+ 		return (NULL);
+ 	}
+ 	if (!allowed_user(pw))
+diff -up openssh/auth.h.audit openssh/auth.h
+--- openssh/auth.h.audit	2015-06-24 11:53:29.682390720 +0200
++++ openssh/auth.h	2015-06-24 11:53:29.782390464 +0200
+@@ -195,6 +195,7 @@ void	abandon_challenge_response(Authctxt
+ 
+ char	*expand_authorized_keys(const char *, struct passwd *pw);
+ char	*authorized_principals_file(struct passwd *);
++int	 user_key_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
+ 
+ FILE	*auth_openkeyfile(const char *, struct passwd *, int);
+ FILE	*auth_openprincipals(const char *, struct passwd *, int);
+@@ -213,6 +214,7 @@ int	 get_hostkey_index(Key *, int, struc
+ int	 ssh1_session_key(BIGNUM *);
+ int	 sshd_hostkey_sign(Key *, Key *, u_char **, size_t *,
+ 	     const u_char *, size_t, u_int);
++int	 hostbased_key_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
+ 
+ /* debug messages during authentication */
+ void	 auth_debug_add(const char *fmt,...) __attribute__((format(printf, 1, 2)));
+diff -up openssh/auth-rsa.c.audit openssh/auth-rsa.c
+--- openssh/auth-rsa.c.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/auth-rsa.c	2015-06-24 11:53:29.782390464 +0200
+@@ -95,7 +95,10 @@ auth_rsa_verify_response(Key *key, BIGNU
  {
  	u_char buf[32], mdbuf[16];
  	struct ssh_digest_ctx *md;
@@ -793,7 +888,7 @@ diff -up openssh-6.8p1/auth-rsa.c.audit openssh-6.8p1/auth-rsa.c
  
  	/* don't allow short keys */
  	if (BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE) {
-@@ -119,12 +122,18 @@ auth_rsa_verify_response(Key *key, BIGNUM *challenge, u_char response[16])
+@@ -119,12 +122,18 @@ auth_rsa_verify_response(Key *key, BIGNU
  	ssh_digest_free(md);
  
  	/* Verify that the response is the original challenge. */
@@ -817,117 +912,10 @@ diff -up openssh-6.8p1/auth-rsa.c.audit openssh-6.8p1/auth-rsa.c
  }
  
  /*
-diff -up openssh-6.8p1/auth.c.audit openssh-6.8p1/auth.c
---- openssh-6.8p1/auth.c.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/auth.c	2015-03-20 13:41:15.094883779 +0100
-@@ -644,9 +644,6 @@ getpwnamallow(const char *user)
- 		record_failed_login(user,
- 		    get_canonical_hostname(options.use_dns), "ssh");
- #endif
--#ifdef SSH_AUDIT_EVENTS
--		audit_event(SSH_INVALID_USER);
--#endif /* SSH_AUDIT_EVENTS */
- 		return (NULL);
- 	}
- 	if (!allowed_user(pw))
-diff -up openssh-6.8p1/auth.h.audit openssh-6.8p1/auth.h
---- openssh-6.8p1/auth.h.audit	2015-03-20 13:41:15.002883927 +0100
-+++ openssh-6.8p1/auth.h	2015-03-20 13:41:15.094883779 +0100
-@@ -195,6 +195,7 @@ void	abandon_challenge_response(Authctxt
- 
- char	*expand_authorized_keys(const char *, struct passwd *pw);
- char	*authorized_principals_file(struct passwd *);
-+int	 user_key_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
- 
- FILE	*auth_openkeyfile(const char *, struct passwd *, int);
- FILE	*auth_openprincipals(const char *, struct passwd *, int);
-@@ -213,6 +214,7 @@ int	 get_hostkey_index(Key *, int, struc
- int	 ssh1_session_key(BIGNUM *);
- int	 sshd_hostkey_sign(Key *, Key *, u_char **, size_t *,
- 	     const u_char *, size_t, u_int);
-+int	 hostbased_key_verify(const Key *, const u_char *, u_int, const u_char *, u_int);
- 
- /* debug messages during authentication */
- void	 auth_debug_add(const char *fmt,...) __attribute__((format(printf, 1, 2)));
-diff -up openssh-6.8p1/auth2-hostbased.c.audit openssh-6.8p1/auth2-hostbased.c
---- openssh-6.8p1/auth2-hostbased.c.audit	2015-03-20 13:41:15.002883927 +0100
-+++ openssh-6.8p1/auth2-hostbased.c	2015-03-20 13:41:15.093883780 +0100
-@@ -147,7 +147,7 @@ userauth_hostbased(Authctxt *authctxt)
- 	/* test for allowed key and correct signature */
- 	authenticated = 0;
- 	if (PRIVSEP(hostbased_key_allowed(authctxt->pw, cuser, chost, key)) &&
--	    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
-+	    PRIVSEP(hostbased_key_verify(key, sig, slen, buffer_ptr(&b),
- 			buffer_len(&b))) == 1)
- 		authenticated = 1;
- 
-@@ -164,6 +164,18 @@ done:
- 	return authenticated;
- }
- 
-+int
-+hostbased_key_verify(const Key *key, const u_char *sig, u_int slen, const u_char *data, u_int datalen)
-+{
-+	int rv;
-+
-+	rv = key_verify(key, sig, slen, data, datalen);
-+#ifdef SSH_AUDIT_EVENTS
-+	audit_key(0, &rv, key);
-+#endif
-+	return rv;
-+}
-+
- /* return 1 if given hostkey is allowed */
- int
- hostbased_key_allowed(struct passwd *pw, const char *cuser, char *chost,
-diff -up openssh-6.8p1/auth2-pubkey.c.audit openssh-6.8p1/auth2-pubkey.c
---- openssh-6.8p1/auth2-pubkey.c.audit	2015-03-20 13:41:15.013883910 +0100
-+++ openssh-6.8p1/auth2-pubkey.c	2015-03-20 13:41:15.094883779 +0100
-@@ -172,7 +172,7 @@ userauth_pubkey(Authctxt *authctxt)
- 		/* test for correct signature */
- 		authenticated = 0;
- 		if (PRIVSEP(user_key_allowed(authctxt->pw, key)) &&
--		    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
-+		    PRIVSEP(user_key_verify(key, sig, slen, buffer_ptr(&b),
- 		    buffer_len(&b))) == 1) {
- 			authenticated = 1;
- 			/* Record the successful key to prevent reuse */
-@@ -250,6 +250,18 @@ pubkey_auth_info(Authctxt *authctxt, con
- 	free(extra);
- }
- 
-+int
-+user_key_verify(const Key *key, const u_char *sig, u_int slen, const u_char *data, u_int datalen)
-+{
-+	int rv;
-+
-+	rv = key_verify(key, sig, slen, data, datalen);
-+#ifdef SSH_AUDIT_EVENTS
-+	audit_key(1, &rv, key);
-+#endif
-+	return rv;
-+}
-+
- static int
- match_principals_option(const char *principal_list, struct sshkey_cert *cert)
- {
-diff -up openssh-6.8p1/auth2.c.audit openssh-6.8p1/auth2.c
---- openssh-6.8p1/auth2.c.audit	2015-03-20 13:41:15.044883860 +0100
-+++ openssh-6.8p1/auth2.c	2015-03-20 13:41:15.093883780 +0100
-@@ -249,9 +249,6 @@ input_userauth_request(int type, u_int32
- 		} else {
- 			logit("input_userauth_request: invalid user %s", user);
- 			authctxt->pw = fakepw();
--#ifdef SSH_AUDIT_EVENTS
--			PRIVSEP(audit_event(SSH_INVALID_USER));
--#endif
- 		}
- #ifdef USE_PAM
- 		if (options.use_pam)
-diff -up openssh-6.8p1/cipher.c.audit openssh-6.8p1/cipher.c
---- openssh-6.8p1/cipher.c.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/cipher.c	2015-03-20 13:41:15.101883767 +0100
-@@ -57,26 +59,6 @@ extern const EVP_CIPHER *evp_ssh1_3des(v
+diff -up openssh/cipher.c.audit openssh/cipher.c
+--- openssh/cipher.c.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/cipher.c	2015-06-24 11:53:29.783390462 +0200
+@@ -57,26 +57,6 @@ extern const EVP_CIPHER *evp_ssh1_3des(v
  extern int ssh1_3des_iv(EVP_CIPHER_CTX *, int, u_char *, int);
  #endif
  
@@ -954,9 +942,9 @@ diff -up openssh-6.8p1/cipher.c.audit openssh-6.8p1/cipher.c
  static const struct sshcipher ciphers[] = {
  #ifdef WITH_SSH1
  	{ "des",	SSH_CIPHER_DES, 8, 8, 0, 0, 0, 1, EVP_des_cbc },
-diff -up openssh-6.8p1/cipher.h.audit openssh-6.8p1/cipher.h
---- openssh-6.8p1/cipher.h.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/cipher.h	2015-03-20 13:41:15.094883779 +0100
+diff -up openssh/cipher.h.audit openssh/cipher.h
+--- openssh/cipher.h.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/cipher.h	2015-06-24 11:53:29.783390462 +0200
 @@ -62,7 +62,26 @@
  #define CIPHER_ENCRYPT		1
  #define CIPHER_DECRYPT		0
@@ -985,10 +973,10 @@ diff -up openssh-6.8p1/cipher.h.audit openssh-6.8p1/cipher.h
  struct sshcipher_ctx {
  	int	plaintext;
  	int	encrypt;
-diff -up openssh-6.8p1/kex.c.audit openssh-6.8p1/kex.c
---- openssh-6.8p1/kex.c.audit	2015-03-20 13:41:15.046883856 +0100
-+++ openssh-6.8p1/kex.c	2015-03-20 13:41:15.101883767 +0100
-@@ -54,6 +55,7 @@
+diff -up openssh/kex.c.audit openssh/kex.c
+--- openssh/kex.c.audit	2015-06-24 11:53:29.733390590 +0200
++++ openssh/kex.c	2015-06-24 11:53:29.783390462 +0200
+@@ -54,6 +54,7 @@
  #include "ssherr.h"
  #include "sshbuf.h"
  #include "digest.h"
@@ -996,7 +984,7 @@ diff -up openssh-6.8p1/kex.c.audit openssh-6.8p1/kex.c
  
  #ifdef GSSAPI
  #include "ssh-gss.h"
-@@ -484,8 +508,12 @@ choose_enc(struct sshenc *enc, char *cli
+@@ -486,8 +487,12 @@ choose_enc(struct sshenc *enc, char *cli
  {
  	char *name = match_list(client, server, NULL);
  
@@ -1010,7 +998,7 @@ diff -up openssh-6.8p1/kex.c.audit openssh-6.8p1/kex.c
  	if ((enc->cipher = cipher_by_name(name)) == NULL)
  		return SSH_ERR_INTERNAL_ERROR;
  	enc->name = name;
-@@ -503,8 +531,12 @@ choose_mac(struct ssh *ssh, struct sshma
+@@ -505,8 +510,12 @@ choose_mac(struct ssh *ssh, struct sshma
  {
  	char *name = match_list(client, server, NULL);
  
@@ -1024,7 +1012,7 @@ diff -up openssh-6.8p1/kex.c.audit openssh-6.8p1/kex.c
  	if (mac_setup(mac, name) < 0)
  		return SSH_ERR_INTERNAL_ERROR;
  	/* truncate the key */
-@@ -521,8 +553,12 @@ choose_comp(struct sshcomp *comp, char *
+@@ -523,8 +532,12 @@ choose_comp(struct sshcomp *comp, char *
  {
  	char *name = match_list(client, server, NULL);
  
@@ -1038,7 +1026,7 @@ diff -up openssh-6.8p1/kex.c.audit openssh-6.8p1/kex.c
  	if (strcmp(name, "zlib@openssh.com") == 0) {
  		comp->type = COMP_DELAYED;
  	} else if (strcmp(name, "zlib") == 0) {
-@@ -672,6 +708,10 @@ kex_choose_conf(struct ssh *ssh)
+@@ -674,6 +687,10 @@ kex_choose_conf(struct ssh *ssh)
  		dh_need = MAX(dh_need, newkeys->enc.block_size);
  		dh_need = MAX(dh_need, newkeys->enc.iv_len);
  		dh_need = MAX(dh_need, newkeys->mac.key_len);
@@ -1049,7 +1037,7 @@ diff -up openssh-6.8p1/kex.c.audit openssh-6.8p1/kex.c
  	}
  	/* XXX need runden? */
  	kex->we_need = need;
-@@ -847,3 +887,34 @@ dump_digest(char *msg, u_char *digest, i
+@@ -849,3 +866,34 @@ dump_digest(char *msg, u_char *digest, i
  	sshbuf_dump_data(digest, len, stderr);
  }
  #endif
@@ -1084,9 +1072,9 @@ diff -up openssh-6.8p1/kex.c.audit openssh-6.8p1/kex.c
 +	memset(&newkeys->comp, 0, sizeof(newkeys->comp));
 +}
 +
-diff -up openssh-6.8p1/kex.h.audit openssh-6.8p1/kex.h
---- openssh-6.8p1/kex.h.audit	2015-03-20 13:41:15.046883856 +0100
-+++ openssh-6.8p1/kex.h	2015-03-20 13:41:15.095883777 +0100
+diff -up openssh/kex.h.audit openssh/kex.h
+--- openssh/kex.h.audit	2015-06-24 11:53:29.733390590 +0200
++++ openssh/kex.h	2015-06-24 11:53:29.784390459 +0200
 @@ -199,6 +199,8 @@ int	 kexgss_client(struct ssh *);
  int	 kexgss_server(struct ssh *);
  #endif
@@ -1096,9 +1084,9 @@ diff -up openssh-6.8p1/kex.h.audit openssh-6.8p1/kex.h
  int	 kex_dh_hash(const char *, const char *,
      const u_char *, size_t, const u_char *, size_t, const u_char *, size_t,
      const BIGNUM *, const BIGNUM *, const BIGNUM *, u_char *, size_t *);
-diff -up openssh-6.8p1/key.h.audit openssh-6.8p1/key.h
---- openssh-6.8p1/key.h.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/key.h	2015-03-20 13:41:15.095883777 +0100
+diff -up openssh/key.h.audit openssh/key.h
+--- openssh/key.h.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/key.h	2015-06-24 11:53:29.784390459 +0200
 @@ -50,6 +50,7 @@ typedef struct sshkey Key;
  #define key_ecdsa_bits_to_nid	sshkey_ecdsa_bits_to_nid
  #define key_ecdsa_key_to_nid	sshkey_ecdsa_key_to_nid
@@ -1107,10 +1095,10 @@ diff -up openssh-6.8p1/key.h.audit openssh-6.8p1/key.h
  #define key_type_plain		sshkey_type_plain
  #define key_cert_is_legacy	sshkey_cert_is_legacy
  #define key_curve_name_to_nid	sshkey_curve_name_to_nid
-diff -up openssh-6.8p1/mac.c.audit openssh-6.8p1/mac.c
---- openssh-6.8p1/mac.c.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/mac.c	2015-03-20 13:41:15.102883766 +0100
-@@ -226,6 +246,20 @@ mac_clear(struct sshmac *mac)
+diff -up openssh/mac.c.audit openssh/mac.c
+--- openssh/mac.c.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/mac.c	2015-06-24 11:53:29.784390459 +0200
+@@ -226,6 +226,20 @@ mac_clear(struct sshmac *mac)
  	mac->umac_ctx = NULL;
  }
  
@@ -1131,9 +1119,9 @@ diff -up openssh-6.8p1/mac.c.audit openssh-6.8p1/mac.c
  /* XXX copied from ciphers_valid */
  #define	MAC_SEP	","
  int
-diff -up openssh-6.8p1/mac.h.audit openssh-6.8p1/mac.h
---- openssh-6.8p1/mac.h.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/mac.h	2015-03-20 13:41:15.095883777 +0100
+diff -up openssh/mac.h.audit openssh/mac.h
+--- openssh/mac.h.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/mac.h	2015-06-24 11:53:29.784390459 +0200
 @@ -47,5 +47,6 @@ int	 mac_init(struct sshmac *);
  int	 mac_compute(struct sshmac *, u_int32_t, const u_char *, int,
      u_char *, size_t);
@@ -1141,9 +1129,21 @@ diff -up openssh-6.8p1/mac.h.audit openssh-6.8p1/mac.h
 +void	 mac_destroy(struct sshmac *);
  
  #endif /* SSHMAC_H */
-diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
---- openssh-6.8p1/monitor.c.audit	2015-03-20 13:41:15.072883814 +0100
-+++ openssh-6.8p1/monitor.c	2015-03-20 13:41:15.107883758 +0100
+diff -up openssh/Makefile.in.audit openssh/Makefile.in
+--- openssh/Makefile.in.audit	2015-06-24 11:53:29.752390541 +0200
++++ openssh/Makefile.in	2015-06-24 11:53:29.780390469 +0200
+@@ -98,7 +98,7 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
+ 	sc25519.o ge25519.o fe25519.o ed25519.o verify.o hash.o blocks.o \
+ 	kex.o kexdh.o kexgex.o kexecdh.o kexc25519.o \
+ 	kexdhc.o kexgexc.o kexecdhc.o kexc25519c.o \
+-	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o
++	kexdhs.o kexgexs.o kexecdhs.o kexc25519s.o auditstub.o
+ 
+ SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
+ 	sshconnect.o sshconnect1.o sshconnect2.o mux.o \
+diff -up openssh/monitor.c.audit openssh/monitor.c
+--- openssh/monitor.c.audit	2015-06-24 11:53:29.759390523 +0200
++++ openssh/monitor.c	2015-06-24 11:53:29.784390459 +0200
 @@ -102,6 +102,7 @@
  #include "ssh2.h"
  #include "roaming.h"
@@ -1219,7 +1219,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  #endif
  #endif /* WITH_SSH1 */
      {0, 0, NULL}
-@@ -1466,9 +1493,11 @@ mm_answer_keyverify(int sock, Buffer *m)
+@@ -1467,9 +1493,11 @@ mm_answer_keyverify(int sock, Buffer *m)
  	Key *key;
  	u_char *signature, *data, *blob;
  	u_int signaturelen, datalen, bloblen;
@@ -1231,7 +1231,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  	blob = buffer_get_string(m, &bloblen);
  	signature = buffer_get_string(m, &signaturelen);
  	data = buffer_get_string(m, &datalen);
-@@ -1476,6 +1505,8 @@ mm_answer_keyverify(int sock, Buffer *m)
+@@ -1477,6 +1505,8 @@ mm_answer_keyverify(int sock, Buffer *m)
  	if (hostbased_cuser == NULL || hostbased_chost == NULL ||
  	  !monitor_allowed_key(blob, bloblen))
  		fatal("%s: bad key, not previously allowed", __func__);
@@ -1240,7 +1240,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  
  	key = key_from_blob(blob, bloblen);
  	if (key == NULL)
-@@ -1496,7 +1527,17 @@ mm_answer_keyverify(int sock, Buffer *m)
+@@ -1497,7 +1527,17 @@ mm_answer_keyverify(int sock, Buffer *m)
  	if (!valid_data)
  		fatal("%s: bad signature data blob", __func__);
  
@@ -1259,7 +1259,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  	debug3("%s: key %p signature %s",
  	    __func__, key, (verified == 1) ? "verified" : "unverified");
  
-@@ -1554,6 +1595,12 @@ mm_session_close(Session *s)
+@@ -1558,6 +1598,12 @@ mm_session_close(Session *s)
  		debug3("%s: tty %s ptyfd %d", __func__, s->tty, s->ptyfd);
  		session_pty_cleanup2(s);
  	}
@@ -1272,7 +1272,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  	session_unused(s->self);
  }
  
-@@ -1836,6 +1883,8 @@ mm_answer_term(int sock, Buffer *req)
+@@ -1840,6 +1886,8 @@ mm_answer_term(int sock, Buffer *req)
  		sshpam_cleanup();
  #endif
  
@@ -1281,7 +1281,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  	while (waitpid(pmonitor->m_pid, &status, 0) == -1)
  		if (errno != EINTR)
  			exit(1);
-@@ -1878,11 +1927,43 @@ mm_answer_audit_command(int socket, Buff
+@@ -1882,11 +1930,43 @@ mm_answer_audit_command(int socket, Buff
  {
  	u_int len;
  	char *cmd;
@@ -1326,7 +1326,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  	free(cmd);
  	return (0);
  }
-@@ -1936,6 +2017,7 @@
+@@ -1943,6 +2023,7 @@ monitor_apply_keystate(struct monitor *p
  void
  mm_get_keystate(struct monitor *pmonitor)
  {
@@ -1334,7 +1334,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  	debug3("%s: Waiting for new keys", __func__);
  
  	if ((child_state = sshbuf_new()) == NULL)
-@@ -1946,6 +2027,21 @@ mm_get_keystate(struct monitor *pmonitor
+@@ -1950,6 +2031,21 @@ mm_get_keystate(struct monitor *pmonitor
  	mm_request_receive_expect(pmonitor->m_sendfd, MONITOR_REQ_KEYEXPORT,
  	    child_state);
  	debug3("%s: GOT new keys", __func__);
@@ -1356,7 +1356,7 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
  }
  
  
-@@ -2212,3 +2308,87 @@ mm_answer_gss_updatecreds(int socket, Bu
+@@ -2216,3 +2312,87 @@ mm_answer_gss_updatecreds(int socket, Bu
  
  #endif /* GSSAPI */
  
@@ -1444,9 +1444,9 @@ diff -up openssh-6.8p1/monitor.c.audit openssh-6.8p1/monitor.c
 +	return 0;
 +}
 +#endif /* SSH_AUDIT_EVENTS */
-diff -up openssh-6.8p1/monitor.h.audit openssh-6.8p1/monitor.h
---- openssh-6.8p1/monitor.h.audit	2015-03-20 13:41:15.072883814 +0100
-+++ openssh-6.8p1/monitor.h	2015-03-20 13:41:15.096883775 +0100
+diff -up openssh/monitor.h.audit openssh/monitor.h
+--- openssh/monitor.h.audit	2015-06-24 11:53:29.759390523 +0200
++++ openssh/monitor.h	2015-06-24 11:53:29.785390457 +0200
 @@ -69,7 +69,13 @@ enum monitor_reqtype {
  	MONITOR_REQ_PAM_QUERY = 106, MONITOR_ANS_PAM_QUERY = 107,
  	MONITOR_REQ_PAM_RESPOND = 108, MONITOR_ANS_PAM_RESPOND = 109,
@@ -1462,10 +1462,10 @@ diff -up openssh-6.8p1/monitor.h.audit openssh-6.8p1/monitor.h
  
  };
  
-diff -up openssh-6.8p1/monitor_wrap.c.audit openssh-6.8p1/monitor_wrap.c
---- openssh-6.8p1/monitor_wrap.c.audit	2015-03-20 13:41:15.047883855 +0100
-+++ openssh-6.8p1/monitor_wrap.c	2015-03-20 13:41:15.108883756 +0100
-@@ -461,7 +461,7 @@ mm_key_allowed(enum mm_keytype type, cha
+diff -up openssh/monitor_wrap.c.audit openssh/monitor_wrap.c
+--- openssh/monitor_wrap.c.audit	2015-06-24 11:53:29.734390587 +0200
++++ openssh/monitor_wrap.c	2015-06-24 11:53:29.785390457 +0200
+@@ -462,7 +462,7 @@ mm_key_allowed(enum mm_keytype type, cha
   */
  
  int
@@ -1474,7 +1474,7 @@ diff -up openssh-6.8p1/monitor_wrap.c.audit openssh-6.8p1/monitor_wrap.c
  {
  	Buffer m;
  	u_char *blob;
-@@ -475,6 +475,7 @@ mm_key_verify(Key *key, u_char *sig, u_i
+@@ -476,6 +476,7 @@ mm_key_verify(Key *key, u_char *sig, u_i
  		return (0);
  
  	buffer_init(&m);
@@ -1482,7 +1482,7 @@ diff -up openssh-6.8p1/monitor_wrap.c.audit openssh-6.8p1/monitor_wrap.c
  	buffer_put_string(&m, blob, len);
  	buffer_put_string(&m, sig, siglen);
  	buffer_put_string(&m, data, datalen);
-@@ -492,6 +493,18 @@ mm_key_verify(Key *key, u_char *sig, u_i
+@@ -493,6 +494,18 @@ mm_key_verify(Key *key, u_char *sig, u_i
  	return (verified);
  }
  
@@ -1501,7 +1501,7 @@ diff -up openssh-6.8p1/monitor_wrap.c.audit openssh-6.8p1/monitor_wrap.c
  void
  mm_send_keystate(struct monitor *monitor)
  {
-@@ -1005,10 +1018,11 @@ mm_audit_event(ssh_audit_event_t event)
+@@ -1006,10 +1019,11 @@ mm_audit_event(ssh_audit_event_t event)
  	buffer_free(&m);
  }
  
@@ -1514,7 +1514,7 @@ diff -up openssh-6.8p1/monitor_wrap.c.audit openssh-6.8p1/monitor_wrap.c
  
  	debug3("%s entering command %s", __func__, command);
  
-@@ -1016,6 +1030,26 @@ mm_audit_run_command(const char *command
+@@ -1017,6 +1031,26 @@ mm_audit_run_command(const char *command
  	buffer_put_cstring(&m, command);
  
  	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUDIT_COMMAND, &m);
@@ -1541,7 +1541,7 @@ diff -up openssh-6.8p1/monitor_wrap.c.audit openssh-6.8p1/monitor_wrap.c
  	buffer_free(&m);
  }
  #endif /* SSH_AUDIT_EVENTS */
-@@ -1151,3 +1185,72 @@ mm_ssh_gssapi_update_creds(ssh_gssapi_cc
+@@ -1152,3 +1186,72 @@ mm_ssh_gssapi_update_creds(ssh_gssapi_cc
  
  #endif /* GSSAPI */
  
@@ -1614,11 +1614,11 @@ diff -up openssh-6.8p1/monitor_wrap.c.audit openssh-6.8p1/monitor_wrap.c
 +	buffer_free(&m);
 +}
 +#endif /* SSH_AUDIT_EVENTS */
-diff -up openssh-6.8p1/monitor_wrap.h.audit openssh-6.8p1/monitor_wrap.h
---- openssh-6.8p1/monitor_wrap.h.audit	2015-03-20 13:41:15.048883853 +0100
-+++ openssh-6.8p1/monitor_wrap.h	2015-03-20 13:41:15.096883775 +0100
+diff -up openssh/monitor_wrap.h.audit openssh/monitor_wrap.h
+--- openssh/monitor_wrap.h.audit	2015-06-24 11:53:29.734390587 +0200
++++ openssh/monitor_wrap.h	2015-06-24 11:59:45.086430808 +0200
 @@ -52,7 +52,8 @@ int mm_key_allowed(enum mm_keytype, char
- int mm_user_key_allowed(struct passwd *, Key *);
+ int mm_user_key_allowed(struct passwd *, Key *, int);
  int mm_hostbased_key_allowed(struct passwd *, char *, char *, Key *);
  int mm_auth_rhosts_rsa_key_allowed(struct passwd *, char *, char *, Key *);
 -int mm_key_verify(Key *, u_char *, u_int, u_char *, u_int);
@@ -1641,9 +1641,9 @@ diff -up openssh-6.8p1/monitor_wrap.h.audit openssh-6.8p1/monitor_wrap.h
  #endif
  
  struct Session;
-diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
---- openssh-6.8p1/packet.c.audit	2015-03-20 13:41:14.990883947 +0100
-+++ openssh-6.8p1/packet.c	2015-03-20 13:41:15.097883774 +0100
+diff -up openssh/packet.c.audit openssh/packet.c
+--- openssh/packet.c.audit	2015-06-24 11:53:29.665390763 +0200
++++ openssh/packet.c	2015-06-24 11:53:29.786390454 +0200
 @@ -67,6 +67,7 @@
  #include "key.h"	/* typedefs XXX */
  
@@ -1652,7 +1652,7 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  #include "crc32.h"
  #include "deattack.h"
  #include "compat.h"
-@@ -448,6 +449,13 @@ ssh_packet_get_connection_out(struct ssh
+@@ -449,6 +450,13 @@ ssh_packet_get_connection_out(struct ssh
  	return ssh->state->connection_out;
  }
  
@@ -1666,7 +1666,7 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  /*
   * Returns the IP-address of the remote host as a string.  The returned
   * string must not be freed.
-@@ -478,13 +486,6 @@ ssh_packet_close(struct ssh *ssh)
+@@ -479,13 +487,6 @@ ssh_packet_close(struct ssh *ssh)
  	if (!state->initialized)
  		return;
  	state->initialized = 0;
@@ -1680,7 +1680,7 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  	sshbuf_free(state->input);
  	sshbuf_free(state->output);
  	sshbuf_free(state->outgoing_packet);
-@@ -516,14 +517,24 @@ ssh_packet_close(struct ssh *ssh)
+@@ -517,14 +518,24 @@ ssh_packet_close(struct ssh *ssh)
  				inflateEnd(stream);
  		}
  	}
@@ -1709,7 +1709,7 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  	free(ssh->state);
  	ssh->state = NULL;
  }
-@@ -941,6 +952,7 @@ ssh_set_newkeys(struct ssh *ssh, int mod
+@@ -944,6 +955,7 @@ ssh_set_newkeys(struct ssh *ssh, int mod
  	}
  	if (state->newkeys[mode] != NULL) {
  		debug("set_newkeys: rekeying");
@@ -1717,7 +1717,7 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  		if ((r = cipher_cleanup(cc)) != 0)
  			return r;
  		enc  = &state->newkeys[mode]->enc;
-@@ -2263,6 +2275,75 @@ ssh_packet_get_output(struct ssh *ssh)
+@@ -2281,6 +2293,75 @@ ssh_packet_get_output(struct ssh *ssh)
  	return (void *)ssh->state->output;
  }
  
@@ -1793,7 +1793,7 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  /* XXX TODO update roaming to new API (does not work anyway) */
  /*
   * Save the state for the real connection, and use a separate state when
-@@ -2272,18 +2373,12 @@ void
+@@ -2290,18 +2371,12 @@ void
  ssh_packet_backup_state(struct ssh *ssh,
      struct ssh *backup_state)
  {
@@ -1813,7 +1813,7 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  }
  
  /* XXX FIXME FIXME FIXME */
-@@ -2302,9 +2397,7 @@ ssh_packet_restore_state(struct ssh *ssh
+@@ -2320,9 +2395,7 @@ ssh_packet_restore_state(struct ssh *ssh
  	backup_state = ssh;
  	ssh = tmp;
  	ssh->state->connection_in = backup_state->state->connection_in;
@@ -1823,7 +1823,7 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  	len = sshbuf_len(backup_state->state->input);
  	if (len > 0) {
  		if ((r = sshbuf_putb(ssh->state->input,
-@@ -2313,6 +2406,11 @@ ssh_packet_restore_state(struct ssh *ssh
+@@ -2331,6 +2404,11 @@ ssh_packet_restore_state(struct ssh *ssh
  		sshbuf_reset(backup_state->state->input);
  		add_recv_bytes(len);
  	}
@@ -1835,9 +1835,9 @@ diff -up openssh-6.8p1/packet.c.audit openssh-6.8p1/packet.c
  }
  
  /* Reset after_authentication and reset compression in post-auth privsep */
-diff -up openssh-6.8p1/packet.h.audit openssh-6.8p1/packet.h
---- openssh-6.8p1/packet.h.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/packet.h	2015-03-20 13:41:15.097883774 +0100
+diff -up openssh/packet.h.audit openssh/packet.h
+--- openssh/packet.h.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/packet.h	2015-06-24 11:53:29.786390454 +0200
 @@ -189,7 +189,7 @@ int	sshpkt_get_end(struct ssh *ssh);
  const u_char	*sshpkt_ptr(struct ssh *, size_t *lenp);
  
@@ -1853,9 +1853,25 @@ diff -up openssh-6.8p1/packet.h.audit openssh-6.8p1/packet.h
  
 +void	 packet_destroy_all(int, int);
  #endif				/* PACKET_H */
-diff -up openssh-6.8p1/session.c.audit openssh-6.8p1/session.c
---- openssh-6.8p1/session.c.audit	2015-03-20 13:41:15.073883813 +0100
-+++ openssh-6.8p1/session.c	2015-03-20 13:41:15.097883774 +0100
+diff -up openssh/sandbox-seccomp-filter.c.audit openssh/sandbox-seccomp-filter.c
+--- openssh/sandbox-seccomp-filter.c.audit	2015-06-24 11:53:29.788390449 +0200
++++ openssh/sandbox-seccomp-filter.c	2015-06-24 12:00:37.459296890 +0200
+@@ -147,6 +147,12 @@ static const struct sock_filter preauth_
+ #ifdef __NR_gettimeofday
+ 	SC_ALLOW(gettimeofday),
+ #endif
++#ifdef SSH_AUDIT_EVENTS
++	SC_ALLOW(getuid),
++#ifdef __NR_getuid32 /* not defined on x86_64 */
++	SC_ALLOW(getuid32),
++#endif
++#endif
+ #ifdef __NR_madvise
+ 	SC_ALLOW(madvise),
+ #endif
+diff -up openssh/session.c.audit openssh/session.c
+--- openssh/session.c.audit	2015-06-24 11:53:29.760390520 +0200
++++ openssh/session.c	2015-06-24 11:53:29.786390454 +0200
 @@ -139,7 +139,7 @@ extern int log_stderr;
  extern int debug_flag;
  extern u_int utmp_len;
@@ -1975,7 +1991,7 @@ diff -up openssh-6.8p1/session.c.audit openssh-6.8p1/session.c
  void
  session_close(Session *s)
  {
-@@ -2540,6 +2593,10 @@ session_close(Session *s)
+@@ -2540,6 +2595,10 @@ session_close(Session *s)
  	debug("session_close: session %d pid %ld", s->self, (long)s->pid);
  	if (s->ttyfd != -1)
  		session_pty_cleanup(s);
@@ -1986,7 +2002,7 @@ diff -up openssh-6.8p1/session.c.audit openssh-6.8p1/session.c
  	free(s->term);
  	free(s->display);
  	free(s->x11_chanids);
-@@ -2754,6 +2811,15 @@ do_authenticated2(Authctxt *authctxt)
+@@ -2754,6 +2813,15 @@ do_authenticated2(Authctxt *authctxt)
  	server_loop2(authctxt);
  }
  
@@ -2002,16 +2018,16 @@ diff -up openssh-6.8p1/session.c.audit openssh-6.8p1/session.c
  void
  do_cleanup(Authctxt *authctxt)
  {
-@@ -2802,5 +2868,5 @@ do_cleanup(Authctxt *authctxt)
+@@ -2802,5 +2870,5 @@ do_cleanup(Authctxt *authctxt)
  	 * or if running in monitor.
  	 */
  	if (!use_privsep || mm_is_monitor())
 -		session_destroy_all(session_pty_cleanup2);
 +		session_destroy_all(do_cleanup_one_session);
  }
-diff -up openssh-6.8p1/session.h.audit openssh-6.8p1/session.h
---- openssh-6.8p1/session.h.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/session.h	2015-03-20 13:41:15.097883774 +0100
+diff -up openssh/session.h.audit openssh/session.h
+--- openssh/session.h.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/session.h	2015-06-24 11:53:29.786390454 +0200
 @@ -61,6 +61,12 @@ struct Session {
  		char	*name;
  		char	*val;
@@ -2036,10 +2052,10 @@ diff -up openssh-6.8p1/session.h.audit openssh-6.8p1/session.h
  Session	*session_by_tty(char *);
  void	 session_close(Session *);
  void	 do_setusercontext(struct passwd *);
-diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
---- openssh-6.8p1/sshd.c.audit	2015-03-20 13:41:15.083883796 +0100
-+++ openssh-6.8p1/sshd.c	2015-03-20 13:41:15.110883753 +0100
-@@ -121,6 +124,7 @@
+diff -up openssh/sshd.c.audit openssh/sshd.c
+--- openssh/sshd.c.audit	2015-06-24 11:53:29.770390495 +0200
++++ openssh/sshd.c	2015-06-24 11:53:29.787390451 +0200
+@@ -121,6 +121,7 @@
  #endif
  #include "monitor_wrap.h"
  #include "roaming.h"
@@ -2047,7 +2063,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  #include "ssh-sandbox.h"
  #include "version.h"
  #include "ssherr.h"
-@@ -260,7 +264,7 @@ Buffer loginmsg;
+@@ -260,7 +261,7 @@ Buffer loginmsg;
  struct passwd *privsep_pw = NULL;
  
  /* Prototypes for various functions defined later in this file. */
@@ -2056,7 +2072,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  void demote_sensitive_data(void);
  
  #ifdef WITH_SSH1
-@@ -281,6 +285,15 @@ close_listen_socks(void)
+@@ -281,6 +282,15 @@ close_listen_socks(void)
  	num_listen_socks = -1;
  }
  
@@ -2072,7 +2088,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  static void
  close_startup_pipes(void)
  {
-@@ -560,22 +573,45 @@ sshd_exchange_identification(int sock_in
+@@ -560,22 +570,45 @@ sshd_exchange_identification(int sock_in
  	}
  }
  
@@ -2121,7 +2137,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  			key_free(sensitive_data.host_certificates[i]);
  			sensitive_data.host_certificates[i] = NULL;
  		}
-@@ -589,6 +625,8 @@ void
+@@ -589,6 +622,8 @@ void
  demote_sensitive_data(void)
  {
  	Key *tmp;
@@ -2130,7 +2146,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  	int i;
  
  	if (sensitive_data.server_key) {
-@@ -597,13 +635,25 @@ demote_sensitive_data(void)
+@@ -597,13 +632,25 @@ demote_sensitive_data(void)
  		sensitive_data.server_key = tmp;
  	}
  
@@ -2156,7 +2172,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  		}
  		/* Certs do not need demotion */
  	}
-@@ -675,7 +725,7 @@ privsep_preauth(Authctxt *authctxt)
+@@ -675,7 +722,7 @@ privsep_preauth(Authctxt *authctxt)
  
  	if (use_privsep == PRIVSEP_ON)
  		box = ssh_sandbox_init(pmonitor);
@@ -2165,7 +2181,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  	if (pid == -1) {
  		fatal("fork of unprivileged child failed");
  	} else if (pid != 0) {
-@@ -759,6 +811,12 @@ privsep_postauth(Authctxt *authctxt)
+@@ -759,6 +806,12 @@ privsep_postauth(Authctxt *authctxt)
  	else if (pmonitor->m_pid != 0) {
  		verbose("User child is on pid %ld", (long)pmonitor->m_pid);
  		buffer_clear(&loginmsg);
@@ -2178,7 +2194,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  		monitor_child_postauth(pmonitor);
  
  		/* NEVERREACHED */
-@@ -1286,6 +1341,7 @@ server_accept_loop(int *sock_in, int *so
+@@ -1288,6 +1341,7 @@ server_accept_loop(int *sock_in, int *so
  		if (received_sigterm) {
  			logit("Received signal %d; terminating.",
  			    (int) received_sigterm);
@@ -2186,7 +2202,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  			close_listen_socks();
  			if (options.pid_file != NULL)
  				unlink(options.pid_file);
-@@ -2242,6 +2321,7 @@ main(int ac, char **av)
+@@ -2251,6 +2305,7 @@ main(int ac, char **av)
  	 */
  	if (use_privsep) {
  		mm_send_keystate(pmonitor);
@@ -2194,7 +2210,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  		exit(0);
  	}
  
-@@ -2287,7 +2367,7 @@ main(int ac, char **av)
+@@ -2296,7 +2351,7 @@ main(int ac, char **av)
  		privsep_postauth(authctxt);
  		/* the monitor process [priv] will not return */
  		if (!compat20)
@@ -2203,7 +2219,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  	}
  
  	packet_set_timeout(options.client_alive_interval,
-@@ -2301,6 +2381,9 @@ main(int ac, char **av)
+@@ -2310,6 +2365,9 @@ main(int ac, char **av)
  	do_authenticated(authctxt);
  
  	/* The connection has been terminated. */
@@ -2213,7 +2229,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  	packet_get_bytes(&ibytes, &obytes);
  	verbose("Transferred: sent %llu, received %llu bytes",
  	    (unsigned long long)obytes, (unsigned long long)ibytes);
-@@ -2461,6 +2544,10 @@ do_ssh1_kex(void)
+@@ -2470,6 +2528,10 @@ do_ssh1_kex(void)
  		if (cookie[i] != packet_get_char())
  			packet_disconnect("IP Spoofing check bytes do not match.");
  
@@ -2224,7 +2240,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  	debug("Encryption type: %.200s", cipher_name(cipher_type));
  
  	/* Get the encrypted integer. */
-@@ -2520,7 +2607,7 @@ do_ssh1_kex(void)
+@@ -2529,7 +2591,7 @@ do_ssh1_kex(void)
  	}
  
  	/* Destroy the private and public keys. No longer. */
@@ -2233,7 +2249,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  
  	if (use_privsep)
  		mm_ssh1_session_id(session_id);
-@@ -2703,6 +2802,16 @@ do_ssh2_kex(void)
+@@ -2712,6 +2774,16 @@ do_ssh2_kex(void)
  void
  cleanup_exit(int i)
  {
@@ -2250,7 +2266,7 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  	if (the_authctxt) {
  		do_cleanup(the_authctxt);
  		if (use_privsep && privsep_is_preauth &&
-@@ -2714,9 +2823,14 @@ cleanup_exit(int i)
+@@ -2723,9 +2795,14 @@ cleanup_exit(int i)
  				    pmonitor->m_pid, strerror(errno));
  		}
  	}
@@ -2266,10 +2282,10 @@ diff -up openssh-6.8p1/sshd.c.audit openssh-6.8p1/sshd.c
  		audit_event(SSH_CONNECTION_ABANDON);
  #endif
  	_exit(i);
-diff -up openssh-6.8p1/sshkey.c.audit openssh-6.8p1/sshkey.c
---- openssh-6.8p1/sshkey.c.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/sshkey.c	2015-03-20 13:41:15.111883751 +0100
-@@ -317,6 +319,33 @@ sshkey_type_is_valid_ca(int type)
+diff -up openssh/sshkey.c.audit openssh/sshkey.c
+--- openssh/sshkey.c.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/sshkey.c	2015-06-24 11:53:29.787390451 +0200
+@@ -317,6 +317,33 @@ sshkey_type_is_valid_ca(int type)
  }
  
  int
@@ -2303,9 +2319,9 @@ diff -up openssh-6.8p1/sshkey.c.audit openssh-6.8p1/sshkey.c
  sshkey_is_cert(const struct sshkey *k)
  {
  	if (k == NULL)
-diff -up openssh-6.8p1/sshkey.h.audit openssh-6.8p1/sshkey.h
---- openssh-6.8p1/sshkey.h.audit	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/sshkey.h	2015-03-20 13:41:15.098883772 +0100
+diff -up openssh/sshkey.h.audit openssh/sshkey.h
+--- openssh/sshkey.h.audit	2015-06-23 02:34:47.000000000 +0200
++++ openssh/sshkey.h	2015-06-24 11:53:29.787390451 +0200
 @@ -134,6 +134,7 @@ u_int		 sshkey_size(const struct sshkey
  int		 sshkey_generate(int type, u_int bits, struct sshkey **keyp);
  int		 sshkey_from_private(const struct sshkey *, struct sshkey **);
@@ -2314,19 +2330,3 @@ diff -up openssh-6.8p1/sshkey.h.audit openssh-6.8p1/sshkey.h
  int	 sshkey_is_cert(const struct sshkey *);
  int	 sshkey_type_is_cert(int);
  int	 sshkey_type_plain(int);
-diff -up openssh-6.8p1/sandbox-seccomp-filter.c.audit openssh-6.8p1/sandbox-seccomp-filter.c
---- openssh-6.8p1/sandbox-seccomp-filter.c.audit	2015-03-20 13:41:15.088883788 +0100
-+++ openssh-6.8p1/sandbox-seccomp-filter.c	2015-03-20 13:41:15.097883774 +0100
-@@ -110,6 +110,12 @@ static const struct sock_filter preauth_
- #ifdef __NR_time /* not defined on EABI ARM */
- 	SC_ALLOW(time),
- #endif
-+#ifdef SSH_AUDIT_EVENTS
-+	SC_ALLOW(getuid),
-+#ifdef __NR_getuid32 /* not defined on x86_64 */
-+	SC_ALLOW(getuid32),
-+#endif
-+#endif
- 	SC_ALLOW(read),
- 	SC_ALLOW(write),
- 	SC_ALLOW(close),

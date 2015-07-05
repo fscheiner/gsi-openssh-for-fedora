@@ -1,31 +1,12 @@
-diff --git a/servconf.c b/servconf.c
-index b7f3294..bc1e909 100644
---- a/servconf.c
-+++ b/servconf.c
-@@ -1550,7 +1550,7 @@ process_server_config_line(ServerOptions *options, char *line,
- 		break;
- 
- 	case sForceCommand:
--		if (cp == NULL)
-+		if (cp == NULL || *cp == '\0')
- 			fatal("%.200s line %d: Missing argument.", filename,
- 			    linenum);
- 		len = strspn(cp, WHITESPACE);
-@@ -1595,7 +1595,7 @@ process_server_config_line(ServerOptions *options, char *line,
- 		break;
- 
- 	case sVersionAddendum:
--		if (cp == NULL)
-+		if (cp == NULL || *cp == '\0')
- 			fatal("%.200s line %d: Missing argument.", filename,
- 			    linenum);
- 		len = strspn(cp, WHITESPACE);
-@@ -1630,6 +1630,8 @@ process_server_config_line(ServerOptions *options, char *line,
+diff -up openssh/servconf.c.servconf openssh/servconf.c
+--- openssh/servconf.c.servconf	2015-06-24 11:26:26.186527736 +0200
++++ openssh/servconf.c	2015-06-24 11:26:39.847493075 +0200
+@@ -1815,6 +1815,8 @@ process_server_config_line(ServerOptions
  		break;
  
  	case sAuthenticationMethods:
 +		if (cp == NULL || *cp == '\0')
 +			fatal("%.200s line %d: Missing argument.", filename, linenum);
- 		if (*activep && options->num_auth_methods == 0) {
+ 		if (options->num_auth_methods == 0) {
  			while ((arg = strdelim(&cp)) && *arg != '\0') {
  				if (options->num_auth_methods >=
