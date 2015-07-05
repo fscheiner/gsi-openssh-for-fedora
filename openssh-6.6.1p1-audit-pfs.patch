@@ -121,7 +121,7 @@ index ede7b67..eb5f333 100644
  		dh_need = MAX(dh_need, newkeys->mac.key_len);
 +		debug("kex: %s need=%d dh_need=%d", kex->name, need, dh_need);
 +#ifdef SSH_AUDIT_EVENTS
-+		audit_kex(ctos, newkeys->enc.name, newkeys->mac.name, newkeys->comp.name, kex->name);
++		audit_kex(mode, newkeys->enc.name, newkeys->mac.name, newkeys->comp.name, kex->name);
 +#endif
  	}
  	/* XXX need runden? */

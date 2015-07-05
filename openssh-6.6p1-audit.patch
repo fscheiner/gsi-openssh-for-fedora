@@ -1934,7 +1934,7 @@ index df43592..b186ca1 100644
 -		PRIVSEP(audit_run_command(shell));
 +		s->command = xstrdup(shell);
  	}
-+	if (s->command != NULL)
++	if (s->command != NULL && s->ptyfd == -1)
 +		s->command_handle = PRIVSEP(audit_run_command(s->command));
  #endif
  	if (s->ttyfd != -1)
@@ -1979,7 +1979,7 @@ index df43592..b186ca1 100644
  session_by_tty(char *tty)
  {
  	int i;
-@@ -2531,6 +2560,30 @@ session_exit_message(Session *s, int status)
+@@ -2532,6 +2561,32 @@ session_exit_message(Session *s, int sta
  		chan_write_failed(c);
  }
  
@@ -1988,7 +1988,8 @@ index df43592..b186ca1 100644
 +session_end_command2(Session *s)
 +{
 +	if (s->command != NULL) {
-+		audit_end_command(s->command_handle, s->command);
++		if (s->command_handle != -1)
++			audit_end_command(s->command_handle, s->command);
 +		free(s->command);
 +		s->command = NULL;
 +		s->command_handle = -1;
@@ -1999,7 +2000,8 @@ index df43592..b186ca1 100644
 +session_end_command(Session *s)
 +{
 +	if (s->command != NULL) {
-+		PRIVSEP(audit_end_command(s->command_handle, s->command));
++		if (s->command_handle != -1)
++			PRIVSEP(audit_end_command(s->command_handle, s->command));
 +		free(s->command);
 +		s->command = NULL;
 +		s->command_handle = -1;
