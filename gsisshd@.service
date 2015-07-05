@@ -1,7 +1,7 @@
 [Unit]
 Description=gsissh per-connection server daemon
 Wants=gsisshd-keygen.service
-After=auditd.service gsisshd-keygen.service
+After=gsisshd-keygen.service
 
 [Service]
 EnvironmentFile=-/etc/sysconfig/gsisshd

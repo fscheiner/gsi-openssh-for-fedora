@@ -28,8 +28,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 6.4p1
-%global openssh_rel 2
+%global openssh_ver 6.6.1p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -38,7 +38,7 @@ Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
-Source0: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{version}.tar.gz
+Source0: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-6.6p1.tar.gz
 Source2: gsisshd.pam
 Source7: gsisshd.sysconfig
 Source9: gsisshd@.service
@@ -49,9 +49,9 @@ Source13: gsisshd-keygen
 Source99: README.sshd-and-gsisshd
 
 #?
-Patch100: openssh-6.3p1-coverity.patch
+Patch100: openssh-6.6.1p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1872
-Patch101: openssh-6.3p1-fingerprint.patch
+Patch101: openssh-6.6p1-fingerprint.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
 #https://bugzilla.redhat.com/show_bug.cgi?id=735889
 Patch102: openssh-5.8p1-getaddrinfo.patch
@@ -59,28 +59,27 @@ Patch102: openssh-5.8p1-getaddrinfo.patch
 Patch103: openssh-5.8p1-packet.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
-Patch200: openssh-6.4p1-audit.patch
+Patch200: openssh-6.6p1-audit.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=1171248
+# record pfs= field in CRYPTO_SESSION audit event
+Patch201: openssh-6.6.1p1-audit-pfs.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
-Patch400: openssh-6.3p1-role-mls.patch
+Patch400: openssh-6.6p1-role-mls.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=781634
-Patch404: openssh-6.3p1-privsep-selinux.patch
+Patch404: openssh-6.6p1-privsep-selinux.patch
 
 #?-- unwanted child :(
-Patch501: openssh-6.3p1-ldap.patch
+Patch501: openssh-6.6p1-ldap.patch
 #?
-Patch502: openssh-6.3p1-keycat.patch
+Patch502: openssh-6.6p1-keycat.patch
 
 #http6://bugzilla.mindrot.org/show_bug.cgi?id=1644
-Patch601: openssh-5.2p1-allow-ip-opts.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1701
-Patch602: openssh-5.9p1-randclean.patch
+Patch601: openssh-6.6p1-allow-ip-opts.patch
 #http://cvsweb.netbsd.org/cgi-bin/cvsweb.cgi/src/crypto/dist/ssh/Attic/sftp-glob.c.diff?r1=1.13&r2=1.13.12.1&f=h
 Patch603: openssh-5.8p1-glob.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1893
-Patch604: openssh-5.8p1-keyperm.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1329 (WONTFIX)
-Patch605: openssh-5.8p2-remove-stale-control-socket.patch
+Patch604: openssh-6.6p1-keyperm.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1925
 Patch606: openssh-5.9p1-ipv6man.patch
 #?
@@ -91,61 +90,85 @@ Patch608: openssh-6.1p1-askpass-ld.patch
 Patch609: openssh-5.5p1-x11.patch
 
 #?
-Patch700: openssh-6.3p1-fips.patch
+Patch700: openssh-6.6p1-fips.patch
 #?
-Patch701: openssh-5.6p1-exit-deadlock.patch
+# drop? Patch701: openssh-5.6p1-exit-deadlock.patch
 #?
 Patch702: openssh-5.1p1-askpass-progress.patch
 #?
 Patch703: openssh-4.3p2-askpass-grab-info.patch
-#?
-Patch704: openssh-5.9p1-edns.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=205842
+# drop? Patch704: openssh-5.9p1-edns.patch
 #?
 Patch705: openssh-5.1p1-scp-manpage.patch
 #?
-Patch706: openssh-5.8p1-localdomain.patch
+Patch706: openssh-6.6.1p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
-Patch707: openssh-6.3p1-redhat.patch
+Patch707: openssh-6.6p1-redhat.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
-Patch708: openssh-6.2p1-entropy.patch
+Patch708: openssh-6.6p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
 Patch709: openssh-6.2p1-vendor.patch
 # warn users for unsupported UsePAM=no (#757545)
-Patch711: openssh-6.1p1-log-usepam-no.patch
+Patch711: openssh-6.6p1-log-usepam-no.patch
 # make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
 Patch712: openssh-6.3p1-ctr-evp-fast.patch
 # add cavs test binary for the aes-ctr
-Patch713: openssh-6.3p1-ctr-cavstest.patch
+Patch713: openssh-6.6p1-ctr-cavstest.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 #changed cache storage type - #848228
-Patch800: openssh-6.3p1-gsskex.patch
+Patch800: openssh-6.6p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
-Patch801: openssh-6.3p1-force_krb.patch
+Patch801: openssh-6.6p1-force_krb.patch
+# add new option GSSAPIEnablek5users and disable using ~/.k5users by default (#1169843)
+# CVE-2014-9278
+Patch802: openssh-6.6p1-GSSAPIEnablek5users.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
-Patch901: openssh-6.3p1-kuserok.patch
+Patch901: openssh-6.6p1-kuserok.patch
 # use default_ccache_name from /etc/krb5.conf (#991186)
 Patch902: openssh-6.3p1-krb5-use-default_ccache_name.patch
-# increase the size of the Diffie-Hellman groups (#1010607)
-Patch903: openssh-6.3p1-increase-size-of-DF-groups.patch
-# FIPS mode - adjust the key echange DH groups and ssh-keygen according to SP800-131A (#1001748)
-Patch904: openssh-6.4p1-FIPS-mode-SP800-131A.patch
 # Run ssh-copy-id in the legacy mode when SSH_COPY_ID_LEGACY variable is set (#969375
 Patch905: openssh-6.4p1-legacy-ssh-copy-id.patch
 # Use tty allocation for a remote scp (#985650)
 Patch906: openssh-6.4p1-fromto-remote.patch
-# ssh-keygen - relative-specified certificate expiry time should be relative to current time and
-# not the validity start time (#1058234)
-Patch907: openssh-6.4p1-ssh-keygen-V.patch
-# use the size of security of 3des for DH (#1053107)
-Patch908: openssh-6.4p1-3des-dh-size.patch
-# ignore environment variables with embedded '=' or '\0' characters (#1077843)
-Patch909: openssh-6.4p1-ignore-bad-env-var.patch
+# Try CLOCK_BOOTTIME with fallback (#1091992)
+Patch907: openssh-6.4p1-CLOCK_BOOTTIME.patch
+# Prevents a server from skipping SSHFP lookup and forcing a new-hostkey
+# dialog by offering only certificate keys. (#1081338)
+Patch908: openssh-6.6p1-CVE-2014-2653.patch
+# OpenSSH 6.5 and 6.6 sometimes encode a value used in the curve25519 key exchange incorrectly
+# Disable the curve25519 KEX when speaking to OpenSSH 6.5 or 6.6
+Patch909: openssh-5618210618256bbf5f4f71b2887ff186fd451736.patch
+# standardise on NI_MAXHOST for gethostname() string lengths (#1051490)
+Patch910: openssh-6.6.1p1-NI_MAXHOST.patch
+# set a client's address right after a connection is set
+# http://bugzilla.mindrot.org/show_bug.cgi?id=2257
+Patch911: openssh-6.6p1-set_remote_ipaddr.patch
+# apply RFC3454 stringprep to banners when possible
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2058
+# slightly changed patch from comment 10
+Patch912: openssh-6.6.1p1-utf8-banner.patch
+# don't consider a partial success as a failure
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2270
+Patch913: openssh-6.6.1p1-partial-success.patch
+# log when a client requests an interactive session and only sftp is allowed (#1130198)
+Patch914: openssh-6.6.1p1-log-sftp-only-connections.patch
+# fix parsing of empty options in sshd_conf
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2281
+Patch915: openssh-6.6.1p1-servconf-parser.patch
+# Ignore SIGXFSZ in postauth monitor
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2263
+Patch916: openssh-6.6.1p1-ignore-SIGXFSZ-in-postauth.patch
+# log via monitor in chroots without /dev/log (#1083482)
+Patch918: openssh-6.6.1p1-log-in-chroot.patch
+# MLS labeling according to chosen sensitivity (#1202843)
+Patch919: openssh-6.6.1p1-mls-fix-labeling.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
-Patch98: openssh-6.4p1-gsissh.patch
+Patch98: openssh-6.6p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -240,14 +263,11 @@ securely connect to your SSH server.
 This version of OpenSSH has been modified to support GSI authentication.
 
 %prep
-%setup -q -n openssh-%{version}
+%setup -q -n openssh-6.6p1
 
-%patch100 -p1 -b .coverity
 %patch101 -p1 -b .fingerprint
-%patch102 -p1 -b .getaddrinfo
+# investigate %patch102 -p1 -b .getaddrinfo
 %patch103 -p1 -b .packet
-
-%patch200 -p1 -b .audit
 
 %if %{WITH_SELINUX}
 %patch400 -p1 -b .role-mls
@@ -260,21 +280,19 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch502 -p1 -b .keycat
 
 %patch601 -p1 -b .ip-opts
-%patch602 -p1 -b .randclean
 %patch603 -p1 -b .glob
 %patch604 -p1 -b .keyperm
-%patch605 -p1 -b .remove_stale
 %patch606 -p1 -b .ipv6man
 %patch607 -p1 -b .sigpipe
 %patch608 -p1 -b .askpass-ld
 %patch609 -p1 -b .x11
 
-%patch700 -p1 -b .fips
-%patch701 -p1 -b .exit-deadlock
+# drop? %patch701 -p1 -b .exit-deadlock
 %patch702 -p1 -b .progress
 %patch703 -p1 -b .grab-info
-%patch704 -p1 -b .edns
-%patch705 -p1 -b .manpage
+# investigate - https://bugzilla.redhat.com/show_bug.cgi?id=205842
+# probably not needed anymore %patch704 -p1 -b .edns
+# drop it %patch705 -p1 -b .manpage
 %patch706 -p1 -b .localdomain
 %patch707 -p1 -b .redhat
 %patch708 -p1 -b .entropy
@@ -289,13 +307,27 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
 %patch902 -p1 -b .ccache_name
-%patch903 -p1 -b .dh
-%patch904 -p1 -b .SP800-131A
 %patch905 -p1 -b .legacy-ssh-copy-id
 %patch906 -p1 -b .fromto-remote
-%patch907 -p1 -b .ssh-keygen-V
-%patch908 -p1 -b .3des-dh-size
-%patch909 -p1 -b .bad-env-var
+%patch907 -p1 -b .CLOCK_BOOTTIME
+%patch908 -p1 -b .CVE-2014-2653
+%patch909 -p1 -b .6.6.1
+%patch910 -p1 -b .NI_MAXHOST
+%patch911 -p1 -b .set_remote_ipaddr
+%patch912 -p1 -b .utf8-banner
+%patch913 -p1 -b .partial-success
+%patch914 -p1 -b .log-sftp-only
+%patch915 -p1 -b .servconf
+%patch916 -p1 -b .SIGXFSZ
+%patch918 -p1 -b .log-in-chroot
+%patch919 -p1 -b .mls-labels
+%patch802 -p1 -b .GSSAPIEnablek5users
+
+%patch200 -p1 -b .audit
+%patch201 -p1 -b .audit-fps
+%patch700 -p1 -b .fips
+
+%patch100 -p1 -b .coverity
 
 %patch98 -p1 -b .gsi
 
@@ -344,7 +376,7 @@ fi
 	--with-default-path=/usr/local/bin:/usr/bin \
 	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
 	--with-privsep-path=%{_var}/empty/gsisshd \
-	--enable-vendor-patchlevel="FC-%{version}-%{release}" \
+	--enable-vendor-patchlevel="RHEL7-%{openssh_ver}-%{openssh_rel}" \
 	--disable-strip \
 	--without-zlib-version-check \
 	--with-ssl-engine \
@@ -509,6 +541,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Sun Jul 05 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-1
+- Based on openssh-6.6.1p1-12.el7_1
+
 * Wed Jul 16 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.4p1-2
 - Based on openssh-6.4p1-8.el7
 

@@ -1,0 +1,295 @@
+diff --git a/log.c b/log.c
+index 32e1d2e..d4caeb5 100644
+--- a/log.c
++++ b/log.c
+@@ -241,6 +241,11 @@ debug3(const char *fmt,...)
+ void
+ log_init(char *av0, LogLevel level, SyslogFacility facility, int on_stderr)
+ {
++	log_init_handler(av0, level, facility, on_stderr, 1);
++}
++
++void
++log_init_handler(char *av0, LogLevel level, SyslogFacility facility, int on_stderr, int reset_handler) {
+ #if defined(HAVE_OPENLOG_R) && defined(SYSLOG_DATA_INIT)
+ 	struct syslog_data sdata = SYSLOG_DATA_INIT;
+ #endif
+@@ -264,8 +269,10 @@ log_init(char *av0, LogLevel level, SyslogFacility facility, int on_stderr)
+ 		exit(1);
+ 	}
+ 
+-	log_handler = NULL;
+-	log_handler_ctx = NULL;
++	if (reset_handler) {
++		log_handler = NULL;
++		log_handler_ctx = NULL;
++	}
+ 
+ 	log_on_stderr = on_stderr;
+ 	if (on_stderr)
+diff --git a/log.h b/log.h
+index ae7df25..30c3310 100644
+--- a/log.h
++++ b/log.h
+@@ -49,6 +49,7 @@ typedef enum {
+ typedef void (log_handler_fn)(LogLevel, const char *, void *);
+ 
+ void     log_init(char *, LogLevel, SyslogFacility, int);
++void     log_init_handler(char *, LogLevel, SyslogFacility, int, int);
+ void     log_change_level(LogLevel);
+ int      log_is_on_stderr(void);
+ void     log_redirect_stderr_to(const char *);
+diff --git a/monitor.c b/monitor.c
+index 7461fae..da2f766 100644
+--- a/monitor.c
++++ b/monitor.c
+@@ -364,6 +364,8 @@ monitor_child_preauth(Authctxt *_authctxt, struct monitor *pmonitor)
+ 	close(pmonitor->m_log_sendfd);
+ 	pmonitor->m_log_sendfd = pmonitor->m_recvfd = -1;
+ 
++	pmonitor->m_state = "preauth";
++
+ 	authctxt = _authctxt;
+ 	memset(authctxt, 0, sizeof(*authctxt));
+ 
+@@ -472,6 +474,8 @@ monitor_child_postauth(struct monitor *pmonitor)
+ 	close(pmonitor->m_recvfd);
+ 	pmonitor->m_recvfd = -1;
+ 
++	pmonitor->m_state = "postauth";
++
+ 	monitor_set_child_handler(pmonitor->m_pid);
+ 	signal(SIGHUP, &monitor_child_handler);
+ 	signal(SIGTERM, &monitor_child_handler);
+@@ -552,7 +556,7 @@ monitor_read_log(struct monitor *pmonitor)
+ 	if (log_level_name(level) == NULL)
+ 		fatal("%s: invalid log level %u (corrupted message?)",
+ 		    __func__, level);
+-	do_log2(level, "%s [preauth]", msg);
++	do_log2(level, "%s [%s]", msg, pmonitor->m_state);
+ 
+ 	buffer_free(&logmsg);
+ 	free(msg);
+@@ -2083,13 +2087,28 @@ monitor_init(void)
+ 		mm_init_compression(mon->m_zlib);
+ 	}
+ 
++	mon->m_state = "";
++
+ 	return mon;
+ }
+ 
+ void
+-monitor_reinit(struct monitor *mon)
++monitor_reinit(struct monitor *mon, const char *chroot_dir)
+ {
+-	monitor_openfds(mon, 0);
++	struct stat dev_log_stat;
++	char *dev_log_path;
++	int do_logfds = 0;
++
++	if (chroot_dir != NULL) {
++		xasprintf(&dev_log_path, "%s/dev/log", chroot_dir);
++
++		if (stat(dev_log_path, &dev_log_stat) != 0) {
++			debug("%s: /dev/log doesn't exist in %s chroot - will try to log via monitor using [postauth] suffix", __func__, chroot_dir);
++			do_logfds = 1;
++		}
++		free(dev_log_path);
++	}
++	monitor_openfds(mon, do_logfds);
+ }
+ 
+ #ifdef GSSAPI
+diff --git a/monitor.h b/monitor.h
+index ff79fbb..00c2028 100644
+--- a/monitor.h
++++ b/monitor.h
+@@ -83,10 +83,11 @@ struct monitor {
+ 	struct mm_master	*m_zlib;
+ 	struct Kex		**m_pkex;
+ 	pid_t			 m_pid;
++	char		*m_state;
+ };
+ 
+ struct monitor *monitor_init(void);
+-void monitor_reinit(struct monitor *);
++void monitor_reinit(struct monitor *, const char *);
+ void monitor_sync(struct monitor *);
+ 
+ struct Authctxt;
+diff --git a/session.c b/session.c
+index e4add93..bc4a8dd 100644
+--- a/session.c
++++ b/session.c
+@@ -160,6 +160,8 @@ login_cap_t *lc;
+ 
+ static int is_child = 0;
+ 
++static int have_dev_log = 1;
++
+ /* Name and directory of socket for authentication agent forwarding. */
+ static char *auth_sock_name = NULL;
+ static char *auth_sock_dir = NULL;
+@@ -523,8 +525,8 @@ do_exec_no_pty(Session *s, const char *command)
+ 		is_child = 1;
+ 
+ 		/* Child.  Reinitialize the log since the pid has changed. */
+-		log_init(__progname, options.log_level,
+-		    options.log_facility, log_stderr);
++		log_init_handler(__progname, options.log_level,
++		    options.log_facility, log_stderr, have_dev_log);
+ 
+ 		/*
+ 		 * Create a new session and process group since the 4.4BSD
+@@ -692,8 +694,8 @@ do_exec_pty(Session *s, const char *command)
+ 		close(ptymaster);
+ 
+ 		/* Child.  Reinitialize the log because the pid has changed. */
+-		log_init(__progname, options.log_level,
+-		    options.log_facility, log_stderr);
++		log_init_handler(__progname, options.log_level,
++		    options.log_facility, log_stderr, have_dev_log);
+ 		/* Close the master side of the pseudo tty. */
+ 		close(ptyfd);
+ 
+@@ -797,6 +799,7 @@ do_exec(Session *s, const char *command)
+ 	int ret;
+ 	const char *forced = NULL;
+ 	char session_type[1024], *tty = NULL;
++	struct stat dev_log_stat;
+ 
+ 	if (options.adm_forced_command) {
+ 		original_command = command;
+@@ -854,6 +857,10 @@ do_exec(Session *s, const char *command)
+ 			tty += 5;
+ 	}
+ 
++	if (lstat("/dev/log", &dev_log_stat) != 0) {
++		have_dev_log = 0;
++	}
++
+ 	verbose("Starting session: %s%s%s for %s from %.200s port %d",
+ 	    session_type,
+ 	    tty == NULL ? "" : " on ",
+@@ -1681,14 +1688,6 @@ child_close_fds(void)
+ 	 * descriptors left by system functions.  They will be closed later.
+ 	 */
+ 	endpwent();
+-
+-	/*
+-	 * Close any extra open file descriptors so that we don't have them
+-	 * hanging around in clients.  Note that we want to do this after
+-	 * initgroups, because at least on Solaris 2.3 it leaves file
+-	 * descriptors open.
+-	 */
+-	closefrom(STDERR_FILENO + 1);
+ }
+ 
+ /*
+@@ -1834,8 +1833,6 @@ do_child(Session *s, const char *command)
+ 			exit(1);
+ 	}
+ 
+-	closefrom(STDERR_FILENO + 1);
+-
+ 	if (!options.use_login)
+ 		do_rc_files(s, shell);
+ 
+@@ -1859,9 +1856,17 @@ do_child(Session *s, const char *command)
+ 		argv[i] = NULL;
+ 		optind = optreset = 1;
+ 		__progname = argv[0];
+-		exit(sftp_server_main(i, argv, s->pw));
++		exit(sftp_server_main(i, argv, s->pw, have_dev_log));
+ 	}
+ 
++	/*
++	 * Close any extra open file descriptors so that we don't have them
++	 * hanging around in clients.  Note that we want to do this after
++	 * initgroups, because at least on Solaris 2.3 it leaves file
++	 * descriptors open.
++	 */
++	closefrom(STDERR_FILENO + 1);
++
+ 	fflush(NULL);
+ 
+ 	if (options.use_login) {
+diff --git a/sftp-server-main.c b/sftp-server-main.c
+index 7e644ab..e162b7a 100644
+--- a/sftp-server-main.c
++++ b/sftp-server-main.c
+@@ -47,5 +47,5 @@ main(int argc, char **argv)
+ 		return 1;
+ 	}
+ 
+-	return (sftp_server_main(argc, argv, user_pw));
++	return (sftp_server_main(argc, argv, user_pw, 0));
+ }
+diff --git a/sftp-server.c b/sftp-server.c
+index b8eb59c..a0e644c 100644
+--- a/sftp-server.c
++++ b/sftp-server.c
+@@ -1437,7 +1437,7 @@ sftp_server_usage(void)
+ }
+ 
+ int
+-sftp_server_main(int argc, char **argv, struct passwd *user_pw)
++sftp_server_main(int argc, char **argv, struct passwd *user_pw, int reset_handler)
+ {
+ 	fd_set *rset, *wset;
+ 	int i, in, out, max, ch, skipargs = 0, log_stderr = 0;
+@@ -1450,7 +1450,7 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
+ 	extern char *__progname;
+ 
+ 	__progname = ssh_get_progname(argv[0]);
+-	log_init(__progname, log_level, log_facility, log_stderr);
++	log_init_handler(__progname, log_level, log_facility, log_stderr, reset_handler);
+ 
+ 	pw = pwcopy(user_pw);
+ 
+@@ -1521,7 +1521,7 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
+ 		}
+ 	}
+ 
+-	log_init(__progname, log_level, log_facility, log_stderr);
++	log_init_handler(__progname, log_level, log_facility, log_stderr, reset_handler);
+ 
+ 	if ((cp = getenv("SSH_CONNECTION")) != NULL) {
+ 		client_addr = xstrdup(cp);
+diff --git a/sftp.h b/sftp.h
+index 2bde8bb..ddf1a39 100644
+--- a/sftp.h
++++ b/sftp.h
+@@ -97,5 +97,5 @@
+ 
+ struct passwd;
+ 
+-int	sftp_server_main(int, char **, struct passwd *);
++int	sftp_server_main(int, char **, struct passwd *, int);
+ void	sftp_server_cleanup_exit(int) __attribute__((noreturn));
+diff --git a/sshd.c b/sshd.c
+index 3eee75a..9c00bcb 100644
+--- a/sshd.c
++++ b/sshd.c
+@@ -745,7 +745,7 @@ privsep_postauth(Authctxt *authctxt)
+ 	}
+ 
+ 	/* New socket pair */
+-	monitor_reinit(pmonitor);
++	monitor_reinit(pmonitor, options.chroot_directory);
+ 
+ 	pmonitor->m_pid = fork();
+ 	if (pmonitor->m_pid == -1)
+@@ -763,6 +763,11 @@ privsep_postauth(Authctxt *authctxt)
+ 
+ 	close(pmonitor->m_sendfd);
+ 	pmonitor->m_sendfd = -1;
++	close(pmonitor->m_log_recvfd);
++	pmonitor->m_log_recvfd = -1;
++
++	if (pmonitor->m_log_sendfd != -1)
++		set_log_handler(mm_log_handler, pmonitor);
+ 
+ 	/* Demote the private keys to public keys. */
+ 	demote_sensitive_data();

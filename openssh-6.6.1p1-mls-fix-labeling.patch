@@ -1,0 +1,17 @@
+diff --git a/openbsd-compat/port-linux.c b/openbsd-compat/port-linux.c
+index 22ea8ef..2660085 100644
+--- a/openbsd-compat/port-linux.c
++++ b/openbsd-compat/port-linux.c
+@@ -116,7 +116,11 @@ ssh_selinux_setup_pty(char *pwname, const char *tty)
+ 
+ 	debug3("%s: setting TTY context on %s", __func__, tty);
+ 
+-	user_ctx = ssh_selinux_getctxbyname(pwname);
++	if (getexeccon(&user_ctx) != 0) {
++		error("%s: getexeccon: %s", __func__, strerror(errno));
++		goto out;
++	}
++
+ 
+ 	/* XXX: should these calls fatal() upon failure in enforcing mode? */
+ 

@@ -1,7 +1,7 @@
-diff -up openssh-6.3p1/auth-rsa.c.fingerprint openssh-6.3p1/auth-rsa.c
-diff -up openssh-6.3p1/auth.c.fingerprint openssh-6.3p1/auth.c
---- openssh-6.3p1/auth.c.fingerprint	2013-10-07 14:02:36.998968153 +0200
-+++ openssh-6.3p1/auth.c	2013-10-07 15:42:05.243812405 +0200
+diff --git a/auth.c b/auth.c
+index 9a36f1d..420a85b 100644
+--- a/auth.c
++++ b/auth.c
 @@ -685,9 +685,10 @@ auth_key_is_revoked(Key *key)
  	case 1:
   revoked:
@@ -15,10 +15,11 @@ diff -up openssh-6.3p1/auth.c.fingerprint openssh-6.3p1/auth.c
  		free(key_fp);
  		return 1;
  	}
-diff -up openssh-6.3p1/auth2-hostbased.c.fingerprint openssh-6.3p1/auth2-hostbased.c
---- openssh-6.3p1/auth2-hostbased.c.fingerprint	2013-10-07 14:02:36.998968153 +0200
-+++ openssh-6.3p1/auth2-hostbased.c	2013-10-07 15:43:49.747355927 +0200
-@@ -200,16 +200,18 @@ hostbased_key_allowed(struct passwd *pw,
+diff --git a/auth2-hostbased.c b/auth2-hostbased.c
+index 488008f..eca0069 100644
+--- a/auth2-hostbased.c
++++ b/auth2-hostbased.c
+@@ -206,16 +206,18 @@ hostbased_key_allowed(struct passwd *pw, const char *cuser, char *chost,
  
  	if (host_status == HOST_OK) {
  		if (key_is_cert(key)) {
@@ -44,10 +45,11 @@ diff -up openssh-6.3p1/auth2-hostbased.c.fingerprint openssh-6.3p1/auth2-hostbas
  		}
  		free(fp);
  	}
-diff -up openssh-6.3p1/auth2-pubkey.c.fingerprint openssh-6.3p1/auth2-pubkey.c
---- openssh-6.3p1/auth2-pubkey.c.fingerprint	2013-07-18 08:10:10.000000000 +0200
-+++ openssh-6.3p1/auth2-pubkey.c	2013-10-07 15:50:44.617495624 +0200
-@@ -359,10 +359,10 @@ check_authkeys_file(FILE *f, char *file,
+diff --git a/auth2-pubkey.c b/auth2-pubkey.c
+index 0fd27bb..749b11a 100644
+--- a/auth2-pubkey.c
++++ b/auth2-pubkey.c
+@@ -365,10 +365,10 @@ check_authkeys_file(FILE *f, char *file, Key* key, struct passwd *pw)
  				continue;
  			if (!key_is_cert_authority)
  				continue;
@@ -62,7 +64,7 @@ diff -up openssh-6.3p1/auth2-pubkey.c.fingerprint openssh-6.3p1/auth2-pubkey.c
  			/*
  			 * If the user has specified a list of principals as
  			 * a key option, then prefer that list to matching
-@@ -400,9 +400,9 @@ check_authkeys_file(FILE *f, char *file,
+@@ -406,9 +406,9 @@ check_authkeys_file(FILE *f, char *file, Key* key, struct passwd *pw)
  			if (key_is_cert_authority)
  				continue;
  			found_key = 1;
@@ -75,7 +77,7 @@ diff -up openssh-6.3p1/auth2-pubkey.c.fingerprint openssh-6.3p1/auth2-pubkey.c
  			free(fp);
  			break;
  		}
-@@ -425,13 +425,13 @@ user_cert_trusted_ca(struct passwd *pw,
+@@ -431,13 +431,13 @@ user_cert_trusted_ca(struct passwd *pw, Key *key)
  	if (!key_is_cert(key) || options.trusted_user_ca_keys == NULL)
  		return 0;
  
@@ -93,10 +95,11 @@ diff -up openssh-6.3p1/auth2-pubkey.c.fingerprint openssh-6.3p1/auth2-pubkey.c
  		    options.trusted_user_ca_keys);
  		goto out;
  	}
-diff -up openssh-6.3p1/key.c.fingerprint openssh-6.3p1/key.c
---- openssh-6.3p1/key.c.fingerprint	2013-10-07 14:02:36.971968285 +0200
-+++ openssh-6.3p1/key.c	2013-10-07 14:02:36.999968148 +0200
-@@ -598,6 +598,34 @@ key_fingerprint(const Key *k, enum fp_ty
+diff --git a/key.c b/key.c
+index 168e1b7..eb98ea8 100644
+--- a/key.c
++++ b/key.c
+@@ -628,6 +628,34 @@ key_fingerprint(const Key *k, enum fp_type dgst_type, enum fp_rep dgst_rep)
  	return retval;
  }
  
@@ -131,10 +134,11 @@ diff -up openssh-6.3p1/key.c.fingerprint openssh-6.3p1/key.c
  /*
   * Reads a multiple-precision integer in decimal from the buffer, and advances
   * the pointer.  The integer must already be initialized.  This function is
-diff -up openssh-6.3p1/key.h.fingerprint openssh-6.3p1/key.h
---- openssh-6.3p1/key.h.fingerprint	2013-10-07 14:02:36.999968148 +0200
-+++ openssh-6.3p1/key.h	2013-10-07 15:44:17.574233450 +0200
-@@ -97,6 +97,9 @@ int		 key_equal_public(const Key *, cons
+diff --git a/key.h b/key.h
+index d8ad13d..0e3eea5 100644
+--- a/key.h
++++ b/key.h
+@@ -104,6 +104,9 @@ int		 key_equal_public(const Key *, const Key *);
  int		 key_equal(const Key *, const Key *);
  char		*key_fingerprint(const Key *, enum fp_type, enum fp_rep);
  u_char		*key_fingerprint_raw(const Key *, enum fp_type, u_int *);
@@ -144,10 +148,11 @@ diff -up openssh-6.3p1/key.h.fingerprint openssh-6.3p1/key.h
  const char	*key_type(const Key *);
  const char	*key_cert_type(const Key *);
  int		 key_write(const Key *, FILE *);
-diff -up openssh-6.3p1/ssh-add.c.fingerprint openssh-6.3p1/ssh-add.c
---- openssh-6.3p1/ssh-add.c.fingerprint	2013-10-07 14:02:37.000968143 +0200
-+++ openssh-6.3p1/ssh-add.c	2013-10-07 14:44:57.466515766 +0200
-@@ -326,10 +326,10 @@ list_identities(AuthenticationConnection
+diff --git a/ssh-add.c b/ssh-add.c
+index 3421452..691949f 100644
+--- a/ssh-add.c
++++ b/ssh-add.c
+@@ -330,10 +330,10 @@ list_identities(AuthenticationConnection *ac, int do_fp)
  		    key = ssh_get_next_identity(ac, &comment, version)) {
  			had_identities = 1;
  			if (do_fp) {
@@ -162,9 +167,10 @@ diff -up openssh-6.3p1/ssh-add.c.fingerprint openssh-6.3p1/ssh-add.c
  				free(fp);
  			} else {
  				if (!key_write(key, stdout))
-diff -up openssh-6.3p1/ssh-agent.c.fingerprint openssh-6.3p1/ssh-agent.c
---- openssh-6.3p1/ssh-agent.c.fingerprint	2013-10-07 14:02:37.000968143 +0200
-+++ openssh-6.3p1/ssh-agent.c	2013-10-07 15:41:11.627044336 +0200
+diff --git a/ssh-agent.c b/ssh-agent.c
+index ba24612..117fdde 100644
+--- a/ssh-agent.c
++++ b/ssh-agent.c
 @@ -198,9 +198,9 @@ confirm_key(Identity *id)
  	char *p;
  	int ret = -1;
@@ -178,10 +184,11 @@ diff -up openssh-6.3p1/ssh-agent.c.fingerprint openssh-6.3p1/ssh-agent.c
  		ret = 0;
  	free(p);
  
-diff -up openssh-6.3p1/ssh-keygen.c.fingerprint openssh-6.3p1/ssh-keygen.c
---- openssh-6.3p1/ssh-keygen.c.fingerprint	2013-07-20 05:22:32.000000000 +0200
-+++ openssh-6.3p1/ssh-keygen.c	2013-10-07 14:25:52.864145038 +0200
-@@ -767,13 +767,14 @@ do_fingerprint(struct passwd *pw)
+diff --git a/ssh-keygen.c b/ssh-keygen.c
+index 2a316bc..482dc1c 100644
+--- a/ssh-keygen.c
++++ b/ssh-keygen.c
+@@ -783,13 +783,14 @@ do_fingerprint(struct passwd *pw)
  {
  	FILE *f;
  	Key *public;
@@ -198,7 +205,7 @@ diff -up openssh-6.3p1/ssh-keygen.c.fingerprint openssh-6.3p1/ssh-keygen.c
  	rep =    print_bubblebabble ? SSH_FP_BUBBLEBABBLE : SSH_FP_HEX;
  
  	if (!have_identity)
-@@ -785,8 +786,8 @@ do_fingerprint(struct passwd *pw)
+@@ -801,8 +802,8 @@ do_fingerprint(struct passwd *pw)
  	public = key_load_public(identity_file, &comment);
  	if (public != NULL) {
  		fp = key_fingerprint(public, fptype, rep);
@@ -209,7 +216,7 @@ diff -up openssh-6.3p1/ssh-keygen.c.fingerprint openssh-6.3p1/ssh-keygen.c
  		    key_type(public));
  		if (log_level >= SYSLOG_LEVEL_VERBOSE)
  			printf("%s\n", ra);
-@@ -851,8 +852,8 @@ do_fingerprint(struct passwd *pw)
+@@ -867,8 +868,8 @@ do_fingerprint(struct passwd *pw)
  		}
  		comment = *cp ? cp : comment;
  		fp = key_fingerprint(public, fptype, rep);
@@ -220,7 +227,7 @@ diff -up openssh-6.3p1/ssh-keygen.c.fingerprint openssh-6.3p1/ssh-keygen.c
  		    comment ? comment : "no comment", key_type(public));
  		if (log_level >= SYSLOG_LEVEL_VERBOSE)
  			printf("%s\n", ra);
-@@ -970,13 +971,15 @@ printhost(FILE *f, const char *name, Key
+@@ -986,13 +987,15 @@ printhost(FILE *f, const char *name, Key *public, int ca, int hash)
  	if (print_fingerprint) {
  		enum fp_rep rep;
  		enum fp_type fptype;
@@ -240,7 +247,7 @@ diff -up openssh-6.3p1/ssh-keygen.c.fingerprint openssh-6.3p1/ssh-keygen.c
  		    key_type(public));
  		if (log_level >= SYSLOG_LEVEL_VERBOSE)
  			printf("%s\n", ra);
-@@ -1855,16 +1858,17 @@ do_show_cert(struct passwd *pw)
+@@ -1878,16 +1881,17 @@ do_show_cert(struct passwd *pw)
  		fatal("%s is not a certificate", identity_file);
  	v00 = key->type == KEY_RSA_CERT_V00 || key->type == KEY_DSA_CERT_V00;
  
@@ -264,7 +271,7 @@ diff -up openssh-6.3p1/ssh-keygen.c.fingerprint openssh-6.3p1/ssh-keygen.c
  	printf("        Key ID: \"%s\"\n", key->cert->key_id);
  	if (!v00) {
  		printf("        Serial: %llu\n",
-@@ -2655,13 +2659,12 @@ passphrase_again:
+@@ -2686,13 +2690,12 @@ passphrase_again:
  	fclose(f);
  
  	if (!quiet) {
@@ -281,10 +288,11 @@ diff -up openssh-6.3p1/ssh-keygen.c.fingerprint openssh-6.3p1/ssh-keygen.c
  		printf("The key's randomart image is:\n");
  		printf("%s\n", ra);
  		free(ra);
-diff -up openssh-6.3p1/sshconnect.c.fingerprint openssh-6.3p1/sshconnect.c
---- openssh-6.3p1/sshconnect.c.fingerprint	2013-06-01 23:31:19.000000000 +0200
-+++ openssh-6.3p1/sshconnect.c	2013-10-07 14:43:54.859822036 +0200
-@@ -830,10 +830,10 @@ check_host_key(char *hostname, struct so
+diff --git a/sshconnect.c b/sshconnect.c
+index 573d7a8..394cca8 100644
+--- a/sshconnect.c
++++ b/sshconnect.c
+@@ -914,10 +914,10 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
  				    "key for IP address '%.128s' to the list "
  				    "of known hosts.", type, ip);
  		} else if (options.visual_host_key) {
@@ -299,7 +307,7 @@ diff -up openssh-6.3p1/sshconnect.c.fingerprint openssh-6.3p1/sshconnect.c
  			free(ra);
  			free(fp);
  		}
-@@ -871,9 +871,8 @@ check_host_key(char *hostname, struct so
+@@ -955,9 +955,8 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
  			else
  				snprintf(msg1, sizeof(msg1), ".");
  			/* The default */
@@ -311,7 +319,7 @@ diff -up openssh-6.3p1/sshconnect.c.fingerprint openssh-6.3p1/sshconnect.c
  			msg2[0] = '\0';
  			if (options.verify_host_key_dns) {
  				if (matching_host_key_dns)
-@@ -888,10 +887,11 @@ check_host_key(char *hostname, struct so
+@@ -972,10 +971,11 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
  			snprintf(msg, sizeof(msg),
  			    "The authenticity of host '%.200s (%s)' can't be "
  			    "established%s\n"
@@ -325,7 +333,7 @@ diff -up openssh-6.3p1/sshconnect.c.fingerprint openssh-6.3p1/sshconnect.c
  			    options.visual_host_key ? "\n" : "",
  			    options.visual_host_key ? ra : "",
  			    msg2);
-@@ -1136,8 +1136,9 @@ verify_host_key(char *host, struct socka
+@@ -1220,8 +1220,9 @@ verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
  	int flags = 0;
  	char *fp;
  
@@ -337,7 +345,7 @@ diff -up openssh-6.3p1/sshconnect.c.fingerprint openssh-6.3p1/sshconnect.c
  	free(fp);
  
  	/* XXX certs are not yet supported for DNS */
-@@ -1238,14 +1239,15 @@ show_other_keys(struct hostkeys *hostkey
+@@ -1327,14 +1328,15 @@ show_other_keys(struct hostkeys *hostkeys, Key *key)
  			continue;
  		if (!lookup_key_in_hostkeys_by_type(hostkeys, type[i], &found))
  			continue;
@@ -357,7 +365,7 @@ diff -up openssh-6.3p1/sshconnect.c.fingerprint openssh-6.3p1/sshconnect.c
  		if (options.visual_host_key)
  			logit("%s", ra);
  		free(ra);
-@@ -1260,7 +1262,7 @@ warn_changed_key(Key *host_key)
+@@ -1349,7 +1351,7 @@ warn_changed_key(Key *host_key)
  {
  	char *fp;
  
@@ -366,7 +374,7 @@ diff -up openssh-6.3p1/sshconnect.c.fingerprint openssh-6.3p1/sshconnect.c
  
  	error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
  	error("@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @");
-@@ -1268,8 +1270,8 @@ warn_changed_key(Key *host_key)
+@@ -1357,8 +1359,8 @@ warn_changed_key(Key *host_key)
  	error("IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!");
  	error("Someone could be eavesdropping on you right now (man-in-the-middle attack)!");
  	error("It is also possible that a host key has just been changed.");
@@ -377,10 +385,11 @@ diff -up openssh-6.3p1/sshconnect.c.fingerprint openssh-6.3p1/sshconnect.c
  	error("Please contact your system administrator.");
  
  	free(fp);
-diff -up openssh-6.3p1/sshconnect2.c.fingerprint openssh-6.3p1/sshconnect2.c
---- openssh-6.3p1/sshconnect2.c.fingerprint	2013-10-07 14:02:37.001968139 +0200
-+++ openssh-6.3p1/sshconnect2.c	2013-10-07 15:20:09.403234714 +0200
-@@ -590,8 +590,9 @@ input_userauth_pk_ok(int type, u_int32_t
+diff --git a/sshconnect2.c b/sshconnect2.c
+index 7f4ff41..adbbfc7 100644
+--- a/sshconnect2.c
++++ b/sshconnect2.c
+@@ -577,8 +577,9 @@ input_userauth_pk_ok(int type, u_int32_t seq, void *ctxt)
  		    key->type, pktype);
  		goto done;
  	}
@@ -392,7 +401,7 @@ diff -up openssh-6.3p1/sshconnect2.c.fingerprint openssh-6.3p1/sshconnect2.c
  	free(fp);
  
  	/*
-@@ -1202,8 +1203,9 @@ sign_and_send_pubkey(Authctxt *authctxt,
+@@ -986,8 +987,9 @@ sign_and_send_pubkey(Authctxt *authctxt, Identity *id)
  	int have_sig = 1;
  	char *fp;
  
