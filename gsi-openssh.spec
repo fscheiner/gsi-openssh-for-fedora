@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 6
+%global openssh_rel 7
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -177,6 +177,8 @@ Patch922: openssh-6.7p1-ssh-copy-id-truncated-keys.patch
 # XSECURITY restrictions bypass under certain conditions in ssh(1) (#1238231)
 # weakness of agent locking (ssh-add -x) to password guessing (#1238238)
 Patch923: openssh-6.6p1-security-from-6.9.patch
+# authentication limits (MaxAuthTries) bypass [security] (#1245971)
+Patch924: openssh-6.6p1-authentication-limits-bypass.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
@@ -339,6 +341,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch921 -p1 -b .ssh-copy-id
 %patch922 -p1 -b .newline
 %patch923 -p1 -b .security
+%patch924 -p1 -b .kbd
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-fps
@@ -562,6 +565,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Jul 27 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-7
+- Based on openssh-6.6.1p1-14.fc21
+
 * Sun Jul 05 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-6
 - Based on openssh-6.6.1p1-13.fc21
 
