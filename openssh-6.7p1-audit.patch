@@ -1356,7 +1356,7 @@ diff -up openssh/monitor.c.audit openssh/monitor.c
  }
  
  
-@@ -2216,3 +2312,87 @@ mm_answer_gss_updatecreds(int socket, Bu
+@@ -2216,3 +2312,86 @@ mm_answer_gss_updatecreds(int socket, Bu
  
  #endif /* GSSAPI */
  
@@ -1440,7 +1440,6 @@ diff -up openssh/monitor.c.audit openssh/monitor.c
 +	free(fp);
 +	buffer_clear(m);
 +
-+	mm_request_send(sock, MONITOR_ANS_AUDIT_SERVER_KEY_FREE, m);
 +	return 0;
 +}
 +#endif /* SSH_AUDIT_EVENTS */
@@ -1458,7 +1457,7 @@ diff -up openssh/monitor.h.audit openssh/monitor.h
 +	MONITOR_REQ_AUDIT_UNSUPPORTED = 118, MONITOR_ANS_AUDIT_UNSUPPORTED = 119,
 +	MONITOR_REQ_AUDIT_KEX = 120, MONITOR_ANS_AUDIT_KEX = 121,
 +	MONITOR_REQ_AUDIT_SESSION_KEY_FREE = 122, MONITOR_ANS_AUDIT_SESSION_KEY_FREE = 123,
-+	MONITOR_REQ_AUDIT_SERVER_KEY_FREE = 124, MONITOR_ANS_AUDIT_SERVER_KEY_FREE = 125
++	MONITOR_REQ_AUDIT_SERVER_KEY_FREE = 124
  
  };
  
@@ -1541,7 +1540,7 @@ diff -up openssh/monitor_wrap.c.audit openssh/monitor_wrap.c
  	buffer_free(&m);
  }
  #endif /* SSH_AUDIT_EVENTS */
-@@ -1152,3 +1186,72 @@ mm_ssh_gssapi_update_creds(ssh_gssapi_cc
+@@ -1152,3 +1186,70 @@ mm_ssh_gssapi_update_creds(ssh_gssapi_cc
  
  #endif /* GSSAPI */
  
@@ -1609,8 +1608,6 @@ diff -up openssh/monitor_wrap.c.audit openssh/monitor_wrap.c
 +	buffer_put_int64(&m, uid);
 +
 +	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUDIT_SERVER_KEY_FREE, &m);
-+	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_AUDIT_SERVER_KEY_FREE,
-+				  &m);
 +	buffer_free(&m);
 +}
 +#endif /* SSH_AUDIT_EVENTS */

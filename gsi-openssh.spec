@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 6.9p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -154,8 +154,8 @@ Patch921: openssh-6.7p1-debian-restore-tcp-wrappers.patch
 Patch922: openssh-6.8p1-sshdT-output.patch
 # fix ssh-copy-id on non-sh shells (#1045191)
 Patch923: openssh-6.8p1-fix-ssh-copy-id-on-non-sh-shell.patch
-# AArch64 has seccomp support since 3.19 kernel (#1195065)
-Patch924: openssh-6.7p1-seccomp-aarch64.patch
+# Seccomp support for secondary architectures (#1195065)
+Patch924: openssh-6.9p1-seccomp-secondary.patch
 # Solve issue with ssh-copy-id and keys without trailing newline (#1093168)
 Patch925: openssh-6.7p1-ssh-copy-id-truncated-keys.patch
 # Add sftp option to force mode of created files (#1191055)
@@ -165,6 +165,8 @@ Patch926: openssh-6.7p1-sftp-force-permission.patch
 Patch928: openssh-6.8p1-memory-problems.patch
 # Restore compatible default (#89216)
 Patch929: openssh-6.9p1-permit-root-login.patch
+# authentication limits (MaxAuthTries) bypass [security] (#1245971)
+Patch930: openssh-6.9p1-authentication-limits-bypass.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.9p1.patch
@@ -322,6 +324,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch926 -p1 -b .sftp-force-mode
 %patch928 -p1 -b .memory
 %patch929 -p1 -b .root-login
+%patch930 -p1 -b .kbd
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
@@ -387,7 +390,7 @@ fi
 	--with-pam \
 %if %{WITH_SELINUX}
 	--with-selinux --with-audit=linux \
-%ifarch %{ix86} x86_64 %{arm} aarch64
+%ifarch %{ix86} x86_64 %{arm} aarch64 s390x x390
 	--with-sandbox=seccomp_filter \
 %else
 	--with-sandbox=rlimit \
@@ -546,8 +549,11 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Jul 27 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.9p1-2
+- Based on openssh-6.9p1-3.fc22
+
 * Sun Jul 05 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.9p1-1
-- Based on openssh-6.8p1-10.fc22
+- Based on openssh-6.9p1-1.fc22
 
 * Wed Jun 17 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 6.8p1-2.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
