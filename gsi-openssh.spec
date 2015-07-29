@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 6.9p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -167,6 +167,8 @@ Patch928: openssh-6.8p1-memory-problems.patch
 Patch929: openssh-6.9p1-permit-root-login.patch
 # authentication limits (MaxAuthTries) bypass [security] (#1245971)
 Patch930: openssh-6.9p1-authentication-limits-bypass.patch
+# Handle terminal control characters in scp progressmeter (#1247204)
+Patch931: openssh-6.9p1-scp-progressmeter.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.9p1.patch
@@ -325,6 +327,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch928 -p1 -b .memory
 %patch929 -p1 -b .root-login
 %patch930 -p1 -b .kbd
+%patch931 -p1 -b .progressmeter
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
@@ -493,14 +496,6 @@ getent passwd sshd >/dev/null || \
 %postun server
 %systemd_postun_with_restart gsisshd.service
 
-%triggerun server -- gsi-openssh-server < 5.8p2-1
-/usr/bin/systemd-sysv-convert --save gsisshd >/dev/null 2>&1 || :
-/sbin/chkconfig --del gsisshd >/dev/null 2>&1 || :
-/bin/systemctl try-restart gsisshd.service >/dev/null 2>&1 || :
-
-%triggerun server -- gsi-openssh-server < 5.9p1-6
-/bin/systemctl --no-reload disable gsisshd-keygen.service >/dev/null 2>&1 || :
-
 %files
 %defattr(-,root,root)
 %{!?_licensedir:%global license %%doc}
@@ -549,6 +544,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Jul 29 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.9p1-3
+- Based on openssh-6.9p1-4.fc22
+
 * Mon Jul 27 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.9p1-2
 - Based on openssh-6.9p1-3.fc22
 
