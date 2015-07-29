@@ -1,0 +1,38 @@
+diff -up openssh-6.6p1/Makefile.in.progressmeter openssh-6.6p1/Makefile.in
+--- openssh-6.6p1/Makefile.in.progressmeter	2015-07-28 14:22:08.740278100 +0200
++++ openssh-6.6p1/Makefile.in	2015-07-28 14:22:08.769278063 +0200
+@@ -158,8 +158,8 @@ ssh$(EXEEXT): $(LIBCOMPAT) libssh.a $(SS
+ sshd$(EXEEXT): libssh.a	$(LIBCOMPAT) $(SSHDOBJS)
+ 	$(LD) -o $@ $(SSHDOBJS) $(LDFLAGS) -lssh -lopenbsd-compat $(SSHDLIBS) $(LIBS) $(GSSLIBS) $(K5LIBS)
+ 
+-scp$(EXEEXT): $(LIBCOMPAT) libssh.a scp.o progressmeter.o
+-	$(LD) -o $@ scp.o progressmeter.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
++scp$(EXEEXT): $(LIBCOMPAT) libssh.a scp.o progressmeter.o utf8_stringprep.o
++	$(LD) -o $@ scp.o progressmeter.o bufaux.o utf8_stringprep.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
+ 
+ ssh-add$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-add.o
+ 	$(LD) -o $@ ssh-add.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
+diff -up openssh-6.6p1/progressmeter.c.progressmeter openssh-6.6p1/progressmeter.c
+--- openssh-6.6p1/progressmeter.c.progressmeter	2015-07-28 14:22:08.768278064 +0200
++++ openssh-6.6p1/progressmeter.c	2015-07-28 14:23:51.464143827 +0200
+@@ -66,6 +66,7 @@ static void update_progress_meter(int);
+ static time_t start;		/* start progress */
+ static time_t last_update;	/* last progress update */
+ static char *file;		/* name of the file being transferred */
++static size_t file_len = 0;	/* allocated length of file */
+ static off_t start_pos;		/* initial position of transfer */
+ static off_t end_pos;		/* ending position of transfer */
+ static off_t cur_pos;		/* transfer position as of last refresh */
+@@ -251,7 +252,11 @@ void
+ start_progress_meter(char *f, off_t filesize, off_t *ctr)
+ {
+ 	start = last_update = monotime();
+-	file = f;
++	if (strlen(f) > file_len) {
++		file_len = strlen(f);
++		file = realloc(file, file_len * 4 + 1);
++	}
++	sanitize_utf8(file, f, file_len);
+ 	start_pos = *ctr;
+ 	end_pos = filesize;
+ 	cur_pos = 0;

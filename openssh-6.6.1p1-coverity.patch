@@ -168,15 +168,6 @@ diff --git a/progressmeter.c b/progressmeter.c
 index bbbc706..ae6d1aa 100644
 --- a/progressmeter.c
 +++ b/progressmeter.c
-@@ -65,7 +65,7 @@ static void update_progress_meter(int);
- 
- static time_t start;		/* start progress */
- static time_t last_update;	/* last progress update */
--static char *file;		/* name of the file being transferred */
-+static const char *file;	/* name of the file being transferred */
- static off_t start_pos;		/* initial position of transfer */
- static off_t end_pos;		/* ending position of transfer */
- static off_t cur_pos;		/* transfer position as of last refresh */
 @@ -248,7 +248,7 @@ update_progress_meter(int ignore)
  }
  
@@ -185,7 +176,7 @@ index bbbc706..ae6d1aa 100644
 +start_progress_meter(const char *f, off_t filesize, off_t *ctr)
  {
  	start = last_update = monotime();
- 	file = f;
+ 	if (strlen(f) > file_len) {
 diff --git a/progressmeter.h b/progressmeter.h
 index 10bab99..e9ca8f0 100644
 --- a/progressmeter.h

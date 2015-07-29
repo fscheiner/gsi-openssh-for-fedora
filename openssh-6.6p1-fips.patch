@@ -13,8 +13,8 @@ index 3bb7f00..294bef5 100644
 -	$(LD) -o $@ $(SSHDOBJS) $(LDFLAGS) -lssh -lopenbsd-compat $(SSHDLIBS) $(LIBS) $(GSSLIBS) $(K5LIBS)
 +	$(LD) -o $@ $(SSHDOBJS) $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(SSHDLIBS) $(LIBS) $(GSSLIBS) $(K5LIBS)
  
- scp$(EXEEXT): $(LIBCOMPAT) libssh.a scp.o progressmeter.o
- 	$(LD) -o $@ scp.o progressmeter.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
+ scp$(EXEEXT): $(LIBCOMPAT) libssh.a scp.o progressmeter.o utf8_stringprep.o
+ 	$(LD) -o $@ scp.o progressmeter.o bufaux.o utf8_stringprep.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
  
  ssh-add$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-add.o
 -	$(LD) -o $@ ssh-add.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
