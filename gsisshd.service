@@ -1,7 +1,7 @@
 [Unit]
 Description=gsissh server daemon
-After=network.target gsisshd-keaygen.service
-Wants:gsisshd-keaygen.service
+After=network.target gsisshd-keygen.service
+Wants=gsisshd-keygen.service
 
 [Service]
 EnvironmentFile=/etc/sysconfig/gsisshd
