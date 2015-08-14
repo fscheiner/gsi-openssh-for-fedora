@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 8
+%global openssh_rel 9
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -181,6 +181,10 @@ Patch923: openssh-6.6p1-security-from-6.9.patch
 Patch924: openssh-6.6p1-authentication-limits-bypass.patch
 # Handle terminal control characters in scp progressmeter (#1247204)
 Patch925: openssh-6.6p1-scp-progressmeter.patch
+# Vulnerabilities published with openssh-7.0:
+#  Privilege separation weakness related to PAM support (#1252844)
+#  Use-after-free bug related to PAM support (#1252852)
+Patch926: openssh-6.6p1-security-7.0.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
@@ -345,6 +349,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch923 -p1 -b .security
 %patch924 -p1 -b .kbd
 %patch925 -p1 -b .progressmeter
+%patch926 -p1 -b .security
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-fps
@@ -568,6 +573,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Aug 14 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-9
+- Based on openssh-6.6.1p1-16.fc21
+
 * Wed Jul 29 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-8
 - Based on openssh-6.6.1p1-15.fc21
 

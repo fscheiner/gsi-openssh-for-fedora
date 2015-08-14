@@ -2,7 +2,7 @@
 Description=gsissh Server Key Generation
 ConditionPathExists=|!/etc/gsissh/ssh_host_rsa_key
 ConditionPathExists=|!/etc/gsissh/ssh_host_ecdsa_key
-ConditionPathExists=|!/etc/gsissh/ssh_host_ec25519_key
+ConditionPathExists=|!/etc/gsissh/ssh_host_ed25519_key
 PartOf=gsisshd.service gsisshd.socket
 
 [Service]
