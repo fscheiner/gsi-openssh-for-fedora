@@ -3000,7 +3000,7 @@ diff -Nur openssh-6.9p1.orig/version.h openssh-6.9p1/version.h
 +#define KRB5_VERSION	""
 +#endif
 +
-+#define NCSA_VERSION	" GSI_GSSAPI_20150323"
++#define NCSA_VERSION	" GSI_GSSAPI_20150707"
 +
  #define SSH_VERSION	"OpenSSH_6.9"
  
