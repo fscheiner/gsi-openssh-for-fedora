@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 6.9p1
-%global openssh_rel 3
+%global openssh_ver 7.0p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -165,14 +165,12 @@ Patch926: openssh-6.7p1-sftp-force-permission.patch
 Patch928: openssh-6.8p1-memory-problems.patch
 # Restore compatible default (#89216)
 Patch929: openssh-6.9p1-permit-root-login.patch
-# authentication limits (MaxAuthTries) bypass [security] (#1245971)
-Patch930: openssh-6.9p1-authentication-limits-bypass.patch
 # Handle terminal control characters in scp progressmeter (#1247204)
 Patch931: openssh-6.9p1-scp-progressmeter.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.9p1.patch
-Patch98: openssh-6.9p1-gsissh.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
+Patch98: openssh-7.0p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -326,7 +324,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch926 -p1 -b .sftp-force-mode
 %patch928 -p1 -b .memory
 %patch929 -p1 -b .root-login
-%patch930 -p1 -b .kbd
 %patch931 -p1 -b .progressmeter
 
 %patch200 -p1 -b .audit
@@ -544,6 +541,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Aug 14 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.0p1-1
+- Based on openssh-7.0p1-1.fc23
+
 * Wed Jul 29 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.9p1-3
 - Based on openssh-6.9p1-4.fc22
 

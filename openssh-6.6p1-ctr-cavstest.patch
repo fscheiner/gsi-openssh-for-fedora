@@ -141,8 +141,8 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +int main (int argc, char *argv[])
 +{
 +
-+        const Cipher *c;
-+        CipherContext cc;
++        const struct sshcipher *c;
++        struct sshcipher_ctx cc;
 +        char *algo = "aes128-ctr";
 +        char *hexkey = NULL;
 +        char *hexiv = "00000000000000000000000000000000";
