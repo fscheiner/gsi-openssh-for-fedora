@@ -1,0 +1,406 @@
+diff -up openssh-6.9p1/gss-genr.c.gsskexalg openssh-6.9p1/gss-genr.c
+--- openssh-6.9p1/gss-genr.c.gsskexalg	2015-08-20 11:54:50.468693843 +0200
++++ openssh-6.9p1/gss-genr.c	2015-08-20 11:54:50.525693732 +0200
+@@ -78,7 +78,8 @@ ssh_gssapi_oid_table_ok() {
+  */
+ 
+ char *
+-ssh_gssapi_client_mechanisms(const char *host, const char *client) {
++ssh_gssapi_client_mechanisms(const char *host, const char *client,
++    const char *kex) {
+ 	gss_OID_set gss_supported;
+ 	OM_uint32 min_status;
+ 
+@@ -86,12 +87,12 @@ ssh_gssapi_client_mechanisms(const char
+ 		return NULL;
+ 
+ 	return(ssh_gssapi_kex_mechs(gss_supported, ssh_gssapi_check_mechanism,
+-	    host, client));
++	    host, client, kex));
+ }
+ 
+ char *
+ ssh_gssapi_kex_mechs(gss_OID_set gss_supported, ssh_gssapi_check_fn *check,
+-    const char *host, const char *client) {
++    const char *host, const char *client, const char *kex) {
+ 	Buffer buf;
+ 	size_t i;
+ 	int oidpos, enclen;
+@@ -100,6 +101,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
+ 	char deroid[2];
+ 	const EVP_MD *evp_md = EVP_md5();
+ 	EVP_MD_CTX md;
++	char *s, *cp, *p;
+ 
+ 	if (gss_enc2oid != NULL) {
+ 		for (i = 0; gss_enc2oid[i].encoded != NULL; i++)
+@@ -113,6 +115,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
+ 	buffer_init(&buf);
+ 
+ 	oidpos = 0;
++	s = cp = xstrdup(kex);
+ 	for (i = 0; i < gss_supported->count; i++) {
+ 		if (gss_supported->elements[i].length < 128 &&
+ 		    (*check)(NULL, &(gss_supported->elements[i]), host, client)) {
+@@ -131,26 +134,22 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
+ 			enclen = __b64_ntop(digest, EVP_MD_size(evp_md),
+ 			    encoded, EVP_MD_size(evp_md) * 2);
+ 
+-			if (oidpos != 0)
+-				buffer_put_char(&buf, ',');
+-
+-			buffer_append(&buf, KEX_GSS_GEX_SHA1_ID,
+-			    sizeof(KEX_GSS_GEX_SHA1_ID) - 1);
+-			buffer_append(&buf, encoded, enclen);
+-			buffer_put_char(&buf, ',');
+-			buffer_append(&buf, KEX_GSS_GRP1_SHA1_ID, 
+-			    sizeof(KEX_GSS_GRP1_SHA1_ID) - 1);
+-			buffer_append(&buf, encoded, enclen);
+-			buffer_put_char(&buf, ',');
+-			buffer_append(&buf, KEX_GSS_GRP14_SHA1_ID,
+-			    sizeof(KEX_GSS_GRP14_SHA1_ID) - 1);
+-			buffer_append(&buf, encoded, enclen);
++			cp = strncpy(s, kex, strlen(kex));
++			for ((p = strsep(&cp, ",")); p && *p != '\0';
++				(p = strsep(&cp, ","))) {
++				if (buffer_len(&buf) != 0)
++					buffer_put_char(&buf, ',');
++				buffer_append(&buf, p,
++				    strlen(p));
++				buffer_append(&buf, encoded, enclen);
++			}
+ 
+ 			gss_enc2oid[oidpos].oid = &(gss_supported->elements[i]);
+ 			gss_enc2oid[oidpos].encoded = encoded;
+ 			oidpos++;
+ 		}
+ 	}
++	free(s);
+ 	gss_enc2oid[oidpos].oid = NULL;
+ 	gss_enc2oid[oidpos].encoded = NULL;
+ 
+diff -up openssh-6.9p1/gss-serv.c.gsskexalg openssh-6.9p1/gss-serv.c
+--- openssh-6.9p1/gss-serv.c.gsskexalg	2015-08-20 11:54:50.468693843 +0200
++++ openssh-6.9p1/gss-serv.c	2015-08-20 11:54:50.525693732 +0200
+@@ -150,7 +150,7 @@ ssh_gssapi_server_mechanisms() {
+ 
+ 	ssh_gssapi_supported_oids(&supported);
+ 	return (ssh_gssapi_kex_mechs(supported, &ssh_gssapi_server_check_mech,
+-	    NULL, NULL));
++	    NULL, NULL, options.gss_kex_algorithms));
+ }
+ 
+ /* Unprivileged */
+diff -up openssh-6.9p1/kex.c.gsskexalg openssh-6.9p1/kex.c
+--- openssh-6.9p1/kex.c.gsskexalg	2015-08-20 11:54:50.526693730 +0200
++++ openssh-6.9p1/kex.c	2015-08-20 11:56:10.413537466 +0200
+@@ -170,6 +170,29 @@ kex_names_valid(const char *names)
+ 	return 1;
+ }
+ 
++/* Validate GSS KEX method name list */
++int
++gss_kex_names_valid(const char *names)
++{
++	char *s, *cp, *p;
++
++	if (names == NULL || *names == '\0')
++		return 0;
++	s = cp = xstrdup(names);
++	for ((p = strsep(&cp, ",")); p && *p != '\0';
++	    (p = strsep(&cp, ","))) {
++		if (strncmp(p, "gss-", 4) != 0
++		  || kex_alg_by_name(p) == NULL) {
++			error("Unsupported KEX algorithm \"%.100s\"", p);
++			free(s);
++			return 0;
++		}
++	}
++	debug3("gss kex names ok: [%s]", names);
++	free(s);
++	return 1;
++}
++
+ /* put algorithm proposal into buffer */
+ int
+ kex_prop2buf(struct sshbuf *b, char *proposal[PROPOSAL_MAX])
+diff -up openssh-6.9p1/kex.h.gsskexalg openssh-6.9p1/kex.h
+--- openssh-6.9p1/kex.h.gsskexalg	2015-08-20 11:54:50.526693730 +0200
++++ openssh-6.9p1/kex.h	2015-08-20 11:56:28.588501914 +0200
+@@ -169,6 +169,7 @@ struct kex {
+ };
+ 
+ int	 kex_names_valid(const char *);
++int	 gss_kex_names_valid(const char *);
+ char	*kex_alg_list(char);
+ 
+ int	 kex_new(struct ssh *, char *[PROPOSAL_MAX], struct kex **);
+diff -up openssh-6.9p1/readconf.c.gsskexalg openssh-6.9p1/readconf.c
+--- openssh-6.9p1/readconf.c.gsskexalg	2015-08-20 11:54:50.523693736 +0200
++++ openssh-6.9p1/readconf.c	2015-08-20 11:54:50.527693728 +0200
+@@ -61,6 +61,7 @@
+ #include "uidswap.h"
+ #include "myproposal.h"
+ #include "digest.h"
++#include "ssh-gss.h"
+ 
+ /* Format of the configuration file:
+ 
+@@ -148,7 +149,7 @@ typedef enum {
+ 	oEnableSSHKeysign, oRekeyLimit, oVerifyHostKeyDNS, oConnectTimeout,
+ 	oAddressFamily, oGssAuthentication, oGssDelegateCreds,
+ 	oGssTrustDns, oGssKeyEx, oGssClientIdentity, oGssRenewalRekey,
+-	oGssServerIdentity, 
++	oGssServerIdentity, oGssKexAlgorithms,
+ 	oServerAliveInterval, oServerAliveCountMax, oIdentitiesOnly,
+ 	oSendEnv, oControlPath, oControlMaster, oControlPersist,
+ 	oHashKnownHosts,
+@@ -199,6 +200,7 @@ static struct {
+ 	{ "gssapiclientidentity", oGssClientIdentity },
+ 	{ "gssapiserveridentity", oGssServerIdentity },
+ 	{ "gssapirenewalforcesrekey", oGssRenewalRekey },
++	{ "gssapikexalgorithms", oGssKexAlgorithms },
+ #else
+ 	{ "gssapiauthentication", oUnsupported },
+ 	{ "gssapikeyexchange", oUnsupported },
+@@ -206,6 +208,7 @@ static struct {
+ 	{ "gssapitrustdns", oUnsupported },
+ 	{ "gssapiclientidentity", oUnsupported },
+ 	{ "gssapirenewalforcesrekey", oUnsupported },
++	{ "gssapikexalgorithms", oUnsupported },
+ #endif
+ 	{ "fallbacktorsh", oDeprecated },
+ 	{ "usersh", oDeprecated },
+@@ -927,6 +930,18 @@ parse_time:
+ 		intptr = &options->gss_renewal_rekey;
+ 		goto parse_flag;
+ 
++	case oGssKexAlgorithms:
++		arg = strdelim(&s);
++		if (!arg || *arg == '\0')
++			fatal("%.200s line %d: Missing argument.",
++			    filename, linenum);
++		if (!gss_kex_names_valid(arg))
++			fatal("%.200s line %d: Bad GSSAPI KexAlgorithms '%s'.",
++			    filename, linenum, arg ? arg : "<NONE>");
++		if (*activep && options->gss_kex_algorithms == NULL)
++			options->gss_kex_algorithms = xstrdup(arg);
++		break;
++
+ 	case oBatchMode:
+ 		intptr = &options->batch_mode;
+ 		goto parse_flag;
+@@ -1640,6 +1655,7 @@ initialize_options(Options * options)
+ 	options->gss_renewal_rekey = -1;
+ 	options->gss_client_identity = NULL;
+ 	options->gss_server_identity = NULL;
++	options->gss_kex_algorithms = NULL;
+ 	options->password_authentication = -1;
+ 	options->kbd_interactive_authentication = -1;
+ 	options->kbd_interactive_devices = NULL;
+@@ -1774,6 +1790,8 @@ fill_default_options(Options * options)
+ 		options->gss_trust_dns = 0;
+ 	if (options->gss_renewal_rekey == -1)
+ 		options->gss_renewal_rekey = 0;
++	if (options->gss_kex_algorithms == NULL)
++		options->gss_kex_algorithms = strdup(GSS_KEX_DEFAULT_KEX);
+ 	if (options->password_authentication == -1)
+ 		options->password_authentication = 1;
+ 	if (options->kbd_interactive_authentication == -1)
+diff -up openssh-6.9p1/readconf.h.gsskexalg openssh-6.9p1/readconf.h
+--- openssh-6.9p1/readconf.h.gsskexalg	2015-08-20 11:54:50.523693736 +0200
++++ openssh-6.9p1/readconf.h	2015-08-20 11:54:50.527693728 +0200
+@@ -52,6 +52,7 @@ typedef struct {
+ 	int	gss_renewal_rekey;	/* Credential renewal forces rekey */
+ 	char    *gss_client_identity;   /* Principal to initiate GSSAPI with */
+ 	char    *gss_server_identity;   /* GSSAPI target principal */
++	char   *gss_kex_algorithms;	/* GSSAPI kex methods to be offered by client. */
+ 	int     password_authentication;	/* Try password
+ 						 * authentication. */
+ 	int     kbd_interactive_authentication; /* Try keyboard-interactive auth. */
+diff -up openssh-6.9p1/servconf.c.gsskexalg openssh-6.9p1/servconf.c
+--- openssh-6.9p1/servconf.c.gsskexalg	2015-08-20 11:54:50.515693751 +0200
++++ openssh-6.9p1/servconf.c	2015-08-20 11:57:16.443398237 +0200
+@@ -56,6 +56,7 @@
+ #include "auth.h"
+ #include "myproposal.h"
+ #include "digest.h"
++#include "ssh-gss.h"
+ 
+ static void add_listen_addr(ServerOptions *, char *, int);
+ static void add_one_listen_addr(ServerOptions *, char *, int);
+@@ -119,6 +120,7 @@ initialize_server_options(ServerOptions
+ 	options->gss_cleanup_creds = -1;
+ 	options->gss_strict_acceptor = -1;
+ 	options->gss_store_rekey = -1;
++	options->gss_kex_algorithms = NULL;
+ 	options->password_authentication = -1;
+ 	options->kbd_interactive_authentication = -1;
+ 	options->challenge_response_authentication = -1;
+@@ -288,6 +290,8 @@ fill_default_server_options(ServerOption
+ 		options->gss_strict_acceptor = 0;
+ 	if (options->gss_store_rekey == -1)
+ 		options->gss_store_rekey = 0;
++	if (options->gss_kex_algorithms == NULL)
++		options->gss_kex_algorithms = strdup(GSS_KEX_DEFAULT_KEX);
+ 	if (options->password_authentication == -1)
+ 		options->password_authentication = 1;
+ 	if (options->kbd_interactive_authentication == -1)
+@@ -416,7 +420,7 @@ typedef enum {
+ 	sHostbasedUsesNameFromPacketOnly, sHostbasedAcceptedKeyTypes,
+ 	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,
+ 	sGssAuthentication, sGssCleanupCreds, sGssEnablek5users, sGssStrictAcceptor,
+-	sGssKeyEx, sGssStoreRekey, sAcceptEnv, sPermitTunnel,
++	sGssKeyEx, sGssStoreRekey, sGssKexAlgorithms, sAcceptEnv, sPermitTunnel,
+ 	sMatch, sPermitOpen, sForceCommand, sChrootDirectory,
+ 	sUsePrivilegeSeparation, sAllowAgentForwarding,
+ 	sHostCertificate,
+@@ -494,6 +498,7 @@ static struct {
+ 	{ "gssapikeyexchange", sGssKeyEx, SSHCFG_GLOBAL },
+ 	{ "gssapistorecredentialsonrekey", sGssStoreRekey, SSHCFG_GLOBAL },
+ 	{ "gssapienablek5users", sGssEnablek5users, SSHCFG_ALL },
++	{ "gssapikexalgorithms", sGssKexAlgorithms, SSHCFG_GLOBAL },
+ #else
+ 	{ "gssapiauthentication", sUnsupported, SSHCFG_ALL },
+ 	{ "gssapicleanupcredentials", sUnsupported, SSHCFG_GLOBAL },
+@@ -501,6 +506,7 @@ static struct {
+ 	{ "gssapikeyexchange", sUnsupported, SSHCFG_GLOBAL },
+ 	{ "gssapistorecredentialsonrekey", sUnsupported, SSHCFG_GLOBAL },
+ 	{ "gssapienablek5users", sUnsupported, SSHCFG_ALL },
++	{ "gssapikexalgorithms", sUnsupported, SSHCFG_GLOBAL },
+ #endif
+ 	{ "gssusesessionccache", sUnsupported, SSHCFG_GLOBAL },
+ 	{ "gssapiusesessioncredcache", sUnsupported, SSHCFG_GLOBAL },
+@@ -1256,6 +1262,18 @@ process_server_config_line(ServerOptions
+ 		intptr = &options->gss_store_rekey;
+ 		goto parse_flag;
+ 
++	case sGssKexAlgorithms:
++		arg = strdelim(&cp);
++		if (!arg || *arg == '\0')
++			fatal("%.200s line %d: Missing argument.",
++			    filename, linenum);
++		if (!gss_kex_names_valid(arg))
++			fatal("%.200s line %d: Bad GSSAPI KexAlgorithms '%s'.",
++			    filename, linenum, arg ? arg : "<NONE>");
++		if (*activep && options->gss_kex_algorithms == NULL)
++			options->gss_kex_algorithms = xstrdup(arg);
++		break;
++
+ 	case sPasswordAuthentication:
+ 		intptr = &options->password_authentication;
+ 		goto parse_flag;
+@@ -2287,6 +2305,7 @@ dump_config(ServerOptions *o)
+ 	dump_cfg_fmtint(sGssKeyEx, o->gss_keyex);
+ 	dump_cfg_fmtint(sGssStrictAcceptor, o->gss_strict_acceptor);
+ 	dump_cfg_fmtint(sGssStoreRekey, o->gss_store_rekey);
++	dump_cfg_string(sGssKexAlgorithms, o->gss_kex_algorithms);
+ #endif
+ 	dump_cfg_fmtint(sPasswordAuthentication, o->password_authentication);
+ 	dump_cfg_fmtint(sKbdInteractiveAuthentication,
+diff -up openssh-6.9p1/servconf.h.gsskexalg openssh-6.9p1/servconf.h
+--- openssh-6.9p1/servconf.h.gsskexalg	2015-08-20 11:54:50.501693779 +0200
++++ openssh-6.9p1/servconf.h	2015-08-20 11:54:50.528693726 +0200
+@@ -121,6 +121,7 @@ typedef struct {
+ 	int     gss_cleanup_creds;	/* If true, destroy cred cache on logout */
+ 	int     gss_strict_acceptor;	/* If true, restrict the GSSAPI acceptor name */
+ 	int 	gss_store_rekey;
++	char   *gss_kex_algorithms;	/* GSSAPI kex methods to be offered by client. */
+ 	int     password_authentication;	/* If true, permit password
+ 						 * authentication. */
+ 	int     kbd_interactive_authentication;	/* If true, permit */
+diff -up openssh-6.9p1/ssh.1.gsskexalg openssh-6.9p1/ssh.1
+--- openssh-6.9p1/ssh.1.gsskexalg	2015-08-20 11:54:50.505693771 +0200
++++ openssh-6.9p1/ssh.1	2015-08-20 11:54:50.528693726 +0200
+@@ -446,6 +446,7 @@ For full details of the options listed b
+ .It GSSAPIDelegateCredentials
+ .It GSSAPIRenewalForcesRekey
+ .It GSSAPITrustDNS
++.It GSSAPIKexAlgorithms
+ .It HashKnownHosts
+ .It Host
+ .It HostbasedAuthentication
+diff -up openssh-6.9p1/ssh_config.5.gsskexalg openssh-6.9p1/ssh_config.5
+--- openssh-6.9p1/ssh_config.5.gsskexalg	2015-08-20 11:54:50.523693736 +0200
++++ openssh-6.9p1/ssh_config.5	2015-08-20 11:54:50.528693726 +0200
+@@ -781,6 +781,18 @@ command line will be passed untouched to
+ The default is
+ .Dq no .
+ This option only applies to protocol version 2 connections using GSSAPI.
++.It Cm GSSAPIKexAlgorithms
++The list of key exchange algorithms that are offered for GSSAPI
++key exchange. Possible values are
++.Bd -literal -offset 3n
++gss-gex-sha1-,
++gss-group1-sha1-,
++gss-group14-sha1-
++.Ed
++.Pp
++The default is
++.Dq gss-gex-sha1-,gss-group1-sha1-,gss-group14-sha1- .
++This option only applies to protocol version 2 connections using GSSAPI.
+ .It Cm HashKnownHosts
+ Indicates that
+ .Xr ssh 1
+diff -up openssh-6.9p1/sshconnect2.c.gsskexalg openssh-6.9p1/sshconnect2.c
+--- openssh-6.9p1/sshconnect2.c.gsskexalg	2015-08-20 11:54:50.523693736 +0200
++++ openssh-6.9p1/sshconnect2.c	2015-08-20 11:54:50.529693724 +0200
+@@ -179,7 +179,8 @@ ssh_kex2(char *host, struct sockaddr *ho
+ 		else
+ 			gss_host = host;
+ 
+-		gss = ssh_gssapi_client_mechanisms(gss_host, options.gss_client_identity);
++		gss = ssh_gssapi_client_mechanisms(gss_host,
++		    options.gss_client_identity, options.gss_kex_algorithms);
+ 		if (gss) {
+ 			debug("Offering GSSAPI proposal: %s", gss);
+ 			xasprintf(&myproposal[PROPOSAL_KEX_ALGS],
+diff -up openssh-6.9p1/sshd_config.5.gsskexalg openssh-6.9p1/sshd_config.5
+--- openssh-6.9p1/sshd_config.5.gsskexalg	2015-08-20 11:54:50.517693747 +0200
++++ openssh-6.9p1/sshd_config.5	2015-08-20 11:54:50.529693724 +0200
+@@ -654,6 +654,18 @@ Controls whether the user's GSSAPI crede
+ successful connection rekeying. This option can be used to accepted renewed 
+ or updated credentials from a compatible client. The default is
+ .Dq no .
++.It Cm GSSAPIKexAlgorithms
++The list of key exchange algorithms that are accepted by GSSAPI
++key exchange. Possible values are
++.Bd -literal -offset 3n
++gss-gex-sha1-,
++gss-group1-sha1-,
++gss-group14-sha1-
++.Ed
++.Pp
++The default is
++.Dq gss-gex-sha1-,gss-group1-sha1-,gss-group14-sha1- .
++This option only applies to protocol version 2 connections using GSSAPI.
+ .It Cm HostbasedAcceptedKeyTypes
+ Specifies the key types that will be accepted for hostbased authentication
+ as a comma-separated pattern list.
+diff -up openssh-6.9p1/ssh-gss.h.gsskexalg openssh-6.9p1/ssh-gss.h
+--- openssh-6.9p1/ssh-gss.h.gsskexalg	2015-08-20 11:54:50.475693830 +0200
++++ openssh-6.9p1/ssh-gss.h	2015-08-20 11:54:50.529693724 +0200
+@@ -76,6 +76,11 @@ extern char **k5users_allowed_cmds;
+ #define KEX_GSS_GRP14_SHA1_ID				"gss-group14-sha1-"
+ #define KEX_GSS_GEX_SHA1_ID				"gss-gex-sha1-"
+ 
++#define        GSS_KEX_DEFAULT_KEX \
++	KEX_GSS_GEX_SHA1_ID "," \
++	KEX_GSS_GRP1_SHA1_ID "," \
++	KEX_GSS_GRP14_SHA1_ID
++
+ typedef struct {
+ 	char *filename;
+ 	char *envvar;
+@@ -147,9 +152,9 @@ int ssh_gssapi_credentials_updated(Gssct
+ /* In the server */
+ typedef int ssh_gssapi_check_fn(Gssctxt **, gss_OID, const char *, 
+     const char *);
+-char *ssh_gssapi_client_mechanisms(const char *, const char *);
++char *ssh_gssapi_client_mechanisms(const char *, const char *, const char *);
+ char *ssh_gssapi_kex_mechs(gss_OID_set, ssh_gssapi_check_fn *, const char *,
+-    const char *);
++    const char *, const char *);
+ gss_OID ssh_gssapi_id_kex(Gssctxt *, char *, int);
+ int ssh_gssapi_server_check_mech(Gssctxt **,gss_OID, const char *, 
+     const char *);
