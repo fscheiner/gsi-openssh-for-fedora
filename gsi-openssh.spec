@@ -30,7 +30,7 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.0p1
+%global openssh_ver 7.1p1
 %global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
@@ -167,10 +167,17 @@ Patch928: openssh-6.8p1-memory-problems.patch
 Patch929: openssh-6.9p1-permit-root-login.patch
 # Handle terminal control characters in scp progressmeter (#1247204)
 Patch931: openssh-6.9p1-scp-progressmeter.patch
+# Add GSSAPIKexAlgorithms option for server and client application
+Patch932: openssh-7.0p1-gssKexAlgorithms.patch
+# Possibility to validate legacy systems by more fingerprints (#1249626)(#2439)
+Patch933: openssh-7.0p1-show-more-fingerprints.patch
+# Brokend HostKeyAlgorthms on server using + sign
+# from http://lists.mindrot.org/pipermail/openssh-unix-dev/2015-August/034324.html
+Patch934: openssh-7.1p1-hostkeyalgorithms.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
-Patch98: openssh-7.0p1-gsissh.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.1p1.patch
+Patch98: openssh-7.1p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -325,6 +332,9 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch928 -p1 -b .memory
 %patch929 -p1 -b .root-login
 %patch931 -p1 -b .progressmeter
+%patch932 -p1 -b .gsskexalg
+%patch933 -p1 -b .fingerprint
+%patch934 -p1 -b .hosttkey
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
@@ -541,6 +551,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Aug 24 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.1p1-1
+- Based on openssh-7.1p1-1.fc23
+
 * Fri Aug 14 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.0p1-1
 - Based on openssh-7.0p1-1.fc23
 
