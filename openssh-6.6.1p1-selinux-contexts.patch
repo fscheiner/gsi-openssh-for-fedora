@@ -116,3 +116,38 @@ index 2871fe9..39b9c08 100644
  #endif
  
  	/* Change our root directory */
+diff --git a/openbsd-compat/port-linux.c b/openbsd-compat/port-linux.c
+index 12c014e..c5ef2ff 100644
+--- a/openbsd-compat/port-linux.c
++++ b/openbsd-compat/port-linux.c
+@@ -35,7 +35,6 @@
+ 
+ #ifdef WITH_SELINUX
+ #include <selinux/selinux.h>
+-#include <selinux/flask.h>
+ #include <selinux/get_context_list.h>
+ 
+ #ifndef SSH_SELINUX_UNCONFINED_TYPE
+@@ -110,6 +109,7 @@ ssh_selinux_setup_pty(char *pwname, const char *tty)
+ 	security_context_t new_tty_ctx = NULL;
+ 	security_context_t user_ctx = NULL;
+ 	security_context_t old_tty_ctx = NULL;
++	security_class_t class;
+ 
+ 	if (!ssh_selinux_enabled())
+ 		return;
+@@ -129,8 +129,13 @@ ssh_selinux_setup_pty(char *pwname, const char *tty)
+ 		goto out;
+ 	}
+ 
++	class = string_to_security_class("chr_file");
++	if (!class) {
++		error("string_to_security_class failed to translate security class context");
++		goto out;
++	}
+ 	if (security_compute_relabel(user_ctx, old_tty_ctx,
+-	    SECCLASS_CHR_FILE, &new_tty_ctx) != 0) {
++	    class, &new_tty_ctx) != 0) {
+ 		error("%s: security_compute_relabel: %s",
+ 		    __func__, strerror(errno));
+ 		goto out;

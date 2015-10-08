@@ -191,12 +191,9 @@ diff -up openssh-7.0p1/kexgexc.c.fips openssh-7.0p1/kexgexc.c
 diff -up openssh-7.0p1/kexgexs.c.fips openssh-7.0p1/kexgexs.c
 --- openssh-7.0p1/kexgexs.c.fips	2015-08-11 10:57:29.000000000 +0200
 +++ openssh-7.0p1/kexgexs.c	2015-08-19 12:36:51.151412892 +0200
-@@ -81,11 +81,11 @@ input_kex_dh_gex_request(int type, u_int
- 	    (r = sshpkt_get_end(ssh)) != 0)
- 		goto out;
+@@ -81,9 +81,9 @@ input_kex_dh_gex_request(int type, u_int
  	kex->nbits = nbits;
--	kex->min = min;
-+	kex->min = min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
+	kex->min = min;
  	kex->max = max;
 -	min = MAX(DH_GRP_MIN, min);
 +	min = MAX(FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN, min);
@@ -495,7 +492,7 @@ diff -up openssh-7.0p1/sshconnect2.c.fips openssh-7.0p1/sshconnect2.c
  	if (options.gss_keyex) {
 -		/* Add the GSSAPI mechanisms currently supported on this 
 -		 * client to the key exchange algorithm proposal */
--		orig = myproposal[PROPOSAL_KEX_ALGS];
+-		orig = options.kex_algorithms;
 -
 -		if (options.gss_trust_dns)
 -			gss_host = (char *)get_canonical_hostname(1);
@@ -506,7 +503,7 @@ diff -up openssh-7.0p1/sshconnect2.c.fips openssh-7.0p1/sshconnect2.c
 -		    options.gss_client_identity, options.gss_kex_algorithms);
 -		if (gss) {
 -			debug("Offering GSSAPI proposal: %s", gss);
--			xasprintf(&myproposal[PROPOSAL_KEX_ALGS],
+-			xasprintf(&options.kex_algorithms,
 -			    "%s,%s", gss, orig);
 +		if (FIPS_mode()) {
 +			logit("Disabling GSSAPIKeyExchange. Not usable in FIPS mode");
@@ -514,7 +511,7 @@ diff -up openssh-7.0p1/sshconnect2.c.fips openssh-7.0p1/sshconnect2.c
 +		} else {
 +			/* Add the GSSAPI mechanisms currently supported on this
 +			 * client to the key exchange algorithm proposal */
-+			orig = myproposal[PROPOSAL_KEX_ALGS];
++			orig = options.kex_algorithms;
 +
 +			if (options.gss_trust_dns)
 +				gss_host = (char *)get_canonical_hostname(1);
@@ -525,7 +522,7 @@ diff -up openssh-7.0p1/sshconnect2.c.fips openssh-7.0p1/sshconnect2.c
 +			    options.gss_client_identity, options.gss_kex_algorithms);
 +			if (gss) {
 +				debug("Offering GSSAPI proposal: %s", gss);
-+				xasprintf(&myproposal[PROPOSAL_KEX_ALGS],
++				xasprintf(&options.kex_algorithms,
 +				    "%s,%s", gss, orig);
 +			}
  		}

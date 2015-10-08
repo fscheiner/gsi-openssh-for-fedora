@@ -312,6 +312,20 @@ index 7751031..82ed92e 100644
  	    SSH_FP_DEFAULT)) == NULL) {
  		error("%s: sshkey_fingerprint failed", __func__);
  		goto out;
+diff --git a/ssh-keysign.c b/ssh-keysign.c
+index 1dca3e2..23bff7d 100644
+--- a/ssh-keysign.c
++++ b/ssh-keysign.c
+@@ -275,7 +275,7 @@ main(int argc, char **argv)
+ 		}
+ 	}
+ 	if (!found) {
+-		if ((fp = sshkey_fingerprint(key, options.fingerprint_hash,
++		if ((fp = sshkey_fingerprint(key, options.fingerprint_hash[0],
+ 		    SSH_FP_DEFAULT)) == NULL)
+ 			fatal("%s: sshkey_fingerprint failed", __func__);
+ 		fatal("no matching hostkey found for key %s %s",
+
 -- 
 2.1.0
 

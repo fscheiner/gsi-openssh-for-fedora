@@ -378,7 +378,7 @@ diff -up openssh-6.8p1/openbsd-compat/Makefile.in.role-mls openssh-6.8p1/openbsd
 diff -up openssh-6.8p1/openbsd-compat/port-linux-sshd.c.role-mls openssh-6.8p1/openbsd-compat/port-linux-sshd.c
 --- openssh-6.8p1/openbsd-compat/port-linux-sshd.c.role-mls	2015-03-18 11:04:21.048817114 +0100
 +++ openssh-6.8p1/openbsd-compat/port-linux-sshd.c	2015-03-18 11:04:21.048817114 +0100
-@@ -0,0 +1,415 @@
+@@ -0,0 +1,424 @@
 +/*
 + * Copyright (c) 2005 Daniel Walsh <dwalsh@redhat.com>
 + * Copyright (c) 2014 Petr Lautrbach <plautrba@redhat.com>
@@ -419,11 +419,9 @@ diff -up openssh-6.8p1/openbsd-compat/port-linux-sshd.c.role-mls openssh-6.8p1/o
 +
 +#ifdef WITH_SELINUX
 +#include <selinux/selinux.h>
-+#include <selinux/flask.h>
 +#include <selinux/context.h>
 +#include <selinux/get_context_list.h>
 +#include <selinux/get_default_type.h>
-+#include <selinux/av_permissions.h>
 +
 +#ifdef HAVE_LINUX_AUDIT
 +#include <libaudit.h>
@@ -488,10 +486,21 @@ diff -up openssh-6.8p1/openbsd-compat/port-linux-sshd.c.role-mls openssh-6.8p1/o
 +{
 +	struct av_decision avd;
 +	int retval;
-+	unsigned int bit = CONTEXT__CONTAINS;
++	access_vector_t bit;
++	security_class_t class;
 +
 +	debug("%s: src:%s dst:%s", __func__, src, dst);
-+	retval = security_compute_av(src, dst, SECCLASS_CONTEXT, bit, &avd);
++	class = string_to_security_class("context");
++	if (!class) {
++		error("string_to_security_class failed to translate security class context");
++		return 1;
++	}
++	bit = string_to_av_perm(class, "contains");
++	if (!bit) {
++		error("string_to_av_perm failed to translate av perm contains");
++		return 1;
++	}
++	retval = security_compute_av(src, dst, class, bit, &avd);
 +	if (retval || ((bit & avd.allowed) != bit))
 +		return 0;
 +
