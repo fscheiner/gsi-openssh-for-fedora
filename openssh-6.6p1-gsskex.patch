@@ -2476,6 +2476,18 @@ diff -up openssh/sshconnect2.c.gsskex openssh/sshconnect2.c
 diff -up openssh/sshd.c.gsskex openssh/sshd.c
 --- openssh/sshd.c.gsskex	2015-06-24 11:07:36.217389832 +0200
 +++ openssh/sshd.c	2015-06-24 11:07:36.235389787 +0200
+@@ -1043,8 +1043,9 @@ notify_hostkeys(struct ssh *ssh)
+ 	}
+ 	debug3("%s: sent %d hostkeys", __func__, nkeys);
+ 	if (nkeys == 0)
+-		fatal("%s: no hostkeys", __func__);
+-	packet_send();
++		debug3("%s: no hostkeys", __func__);
++	else
++		packet_send();
+ 	sshbuf_free(buf);
+ }
+ 
 @@ -1839,10 +1839,13 @@ main(int ac, char **av)
  		logit("Disabling protocol version 1. Could not load host key");
  		options.protocol &= ~SSH_PROTO_1;
@@ -2695,3 +2707,26 @@ diff -up openssh/ssh-gss.h.gsskex openssh/ssh-gss.h
  #endif /* GSSAPI */
  
  #endif /* _SSH_GSS_H */
+
+diff -up openssh-7.1p1/sshkey.c.gsskex openssh-7.1p1/sshkey.c
+--- openssh-7.1p1/sshkey.c.gsskex	2015-09-17 15:54:32.135673460 +0200
++++ openssh-7.1p1/sshkey.c	2015-09-17 15:55:23.014666159 +0200
+@@ -112,6 +112,7 @@ static const struct keytype keytypes[] =
+ 	{ "ssh-dss-cert-v00@openssh.com", "DSA-CERT-V00",
+ 	    KEY_DSA_CERT_V00, 0, 1 },
+ #endif /* WITH_OPENSSL */
++	{ "null", "null", KEY_NULL, 0, 0 },
+ 	{ NULL, NULL, -1, -1, 0 }
+ };
+ 
+diff -up openssh-7.1p1/sshkey.h.gsskex openssh-7.1p1/sshkey.h
+--- openssh-7.1p1/sshkey.h.gsskex	2015-09-17 15:54:32.135673460 +0200
++++ openssh-7.1p1/sshkey.h	2015-09-17 15:55:45.885662877 +0200
+@@ -62,6 +62,7 @@ enum sshkey_types {
+ 	KEY_ED25519_CERT,
+ 	KEY_RSA_CERT_V00,
+ 	KEY_DSA_CERT_V00,
++	KEY_NULL,
+ 	KEY_UNSPEC
+ };
+ 

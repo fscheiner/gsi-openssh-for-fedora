@@ -94,6 +94,14 @@ diff -up openssh-6.9p1/gss-serv.c.gsskexalg openssh-6.9p1/gss-serv.c
 diff -up openssh-6.9p1/kex.c.gsskexalg openssh-6.9p1/kex.c
 --- openssh-6.9p1/kex.c.gsskexalg	2015-08-20 11:54:50.526693730 +0200
 +++ openssh-6.9p1/kex.c	2015-08-20 11:56:10.413537466 +0200
+@@ -50,6 +50,7 @@
+ #include "dispatch.h"
+ #include "monitor.h"
+ #include "roaming.h"
++#include "xmalloc.h"
+ 
+ #include "ssherr.h"
+ #include "sshbuf.h"
 @@ -170,6 +170,29 @@ kex_names_valid(const char *names)
  	return 1;
  }
