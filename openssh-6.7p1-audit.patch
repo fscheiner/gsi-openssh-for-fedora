@@ -1569,7 +1569,7 @@ diff -up openssh-7.0p1/monitor_wrap.c.audit openssh-7.0p1/monitor_wrap.c
 +	buffer_init(&m);
 +	buffer_put_int(&m, ctos);
 +	buffer_put_cstring(&m, cipher);
-+	buffer_put_cstring(&m, (mac ? mac : ""));
++	buffer_put_cstring(&m, (mac ? mac : "<implicit>"));
 +	buffer_put_cstring(&m, compress);
 +	buffer_put_cstring(&m, fps);
 +	buffer_put_int64(&m, pid);
@@ -2282,13 +2282,14 @@ diff -up openssh-7.0p1/sshd.c.audit openssh-7.0p1/sshd.c
 diff -up openssh-7.0p1/sshkey.c.audit openssh-7.0p1/sshkey.c
 --- openssh-7.0p1/sshkey.c.audit	2015-08-11 10:57:29.000000000 +0200
 +++ openssh-7.0p1/sshkey.c	2015-08-12 11:33:00.417914278 +0200
-@@ -299,6 +299,31 @@ sshkey_type_is_valid_ca(int type)
+@@ -299,6 +299,33 @@ sshkey_type_is_valid_ca(int type)
  }
  
  int
 +sshkey_is_private(const struct sshkey *k)
 +{
 +      switch (k->type) {
++#ifdef WITH_OPENSSL
 +      case KEY_RSA_CERT:
 +      case KEY_RSA1:
 +      case KEY_RSA:
@@ -2300,7 +2301,8 @@ diff -up openssh-7.0p1/sshkey.c.audit openssh-7.0p1/sshkey.c
 +      case KEY_ECDSA_CERT:
 +      case KEY_ECDSA:
 +              return EC_KEY_get0_private_key(k->ecdsa) != NULL;
-+#endif
++#endif /* OPENSSL_HAS_ECC */
++#endif /* WITH_OPENSSL */
 +      case KEY_ED25519_CERT:
 +      case KEY_ED25519:
 +              return (k->ed25519_pk != NULL);

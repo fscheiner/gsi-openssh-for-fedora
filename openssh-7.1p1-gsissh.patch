@@ -1758,7 +1758,7 @@ diff -Nur openssh-7.1p1.orig/readconf.c openssh-7.1p1/readconf.c
 +		options->gss_trust_dns = 1;
  	if (options->gss_renewal_rekey == -1)
  		options->gss_renewal_rekey = 0;
- 	if (options->gss_kex_algorithms == NULL)
+ #ifdef GSSAPI
 diff -Nur openssh-7.1p1.orig/readconf.h openssh-7.1p1/readconf.h
 --- openssh-7.1p1.orig/readconf.h	2015-08-24 19:39:35.639354106 +0200
 +++ openssh-7.1p1/readconf.h	2015-08-24 19:40:08.250717609 +0200
@@ -1832,7 +1832,7 @@ diff -Nur openssh-7.1p1.orig/servconf.c openssh-7.1p1/servconf.c
 +		options->gsi_allow_limited_proxy = 0;
  	if (options->gss_store_rekey == -1)
  		options->gss_store_rekey = 0;
- 	if (options->gss_kex_algorithms == NULL)
+ #ifdef GSSAPI
 @@ -411,7 +422,7 @@
  typedef enum {
  	sBadOption,		/* == unknown option */
@@ -3006,7 +3006,7 @@ diff -Nur openssh-7.1p1.orig/version.h openssh-7.1p1/version.h
 +
  #define SSH_VERSION	"OpenSSH_7.1"
  
- #define SSH_PORTABLE	"p1"
+ #define SSH_PORTABLE	"p2"
 -#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE
 +#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE \
 +				    NCSA_VERSION GSI_VERSION KRB5_VERSION

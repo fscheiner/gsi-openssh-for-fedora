@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.1p1
-%global openssh_rel 2
+%global openssh_ver 7.1p2
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -118,13 +118,15 @@ Patch801: openssh-6.6p1-force_krb.patch
 # add new option GSSAPIEnablek5users and disable using ~/.k5users by default (#1169843)
 # CVE-2014-9278
 Patch802: openssh-6.6p1-GSSAPIEnablek5users.patch
+# Documentation about GSSAPI
+# from https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=765655
+Patch803: openssh-7.1p1-gssapi-documentation.patch
+
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-6.6p1-kuserok.patch
 # use default_ccache_name from /etc/krb5.conf (#991186)
 Patch902: openssh-6.3p1-krb5-use-default_ccache_name.patch
-# Run ssh-copy-id in the legacy mode when SSH_COPY_ID_LEGACY variable is set (#969375
-Patch905: openssh-6.4p1-legacy-ssh-copy-id.patch
 # Use tty allocation for a remote scp (#985650)
 Patch906: openssh-6.4p1-fromto-remote.patch
 # set a client's address right after a connection is set
@@ -152,12 +154,8 @@ Patch920: openssh-6.6.1p1-ip-port-config-parser.patch
 Patch921: openssh-6.7p1-debian-restore-tcp-wrappers.patch
 # apply upstream patch and make sshd -T more consistent (#1187521)
 Patch922: openssh-6.8p1-sshdT-output.patch
-# fix ssh-copy-id on non-sh shells (#1045191)
-Patch923: openssh-6.8p1-fix-ssh-copy-id-on-non-sh-shell.patch
 # Seccomp support for secondary architectures (#1195065)
 Patch924: openssh-6.9p1-seccomp-secondary.patch
-# Solve issue with ssh-copy-id and keys without trailing newline (#1093168)
-Patch925: openssh-6.7p1-ssh-copy-id-truncated-keys.patch
 # Add sftp option to force mode of created files (#1191055)
 Patch926: openssh-6.7p1-sftp-force-permission.patch
 # Memory problems
@@ -174,6 +172,12 @@ Patch933: openssh-7.0p1-show-more-fingerprints.patch
 # Brokend HostKeyAlgorthms on server using + sign
 # from http://lists.mindrot.org/pipermail/openssh-unix-dev/2015-August/034324.html
 Patch934: openssh-7.1p1-hostkeyalgorithms.patch
+# Updated version of ssh-copy-id
+# http://git.hands.com/ssh-copy-id
+Patch935: openssh-7.1p1-ssh-copy-id.patch
+# Preserve IUTF8 tty mode flag over ssh connections (#1270248)
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2477
+Patch936: openssh-7.1p1-iutf8.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.1p1.patch
@@ -308,11 +312,11 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 %patch800 -p1 -b .gsskex
 %patch801 -p1 -b .force_krb
+%patch803 -p1 -b .gss-docs
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
 %patch902 -p1 -b .ccache_name
-%patch905 -p1 -b .legacy-ssh-copy-id
 %patch906 -p1 -b .fromto-remote
 %patch911 -p1 -b .set_remote_ipaddr
 %patch912 -p1 -b .utf8-banner
@@ -325,16 +329,16 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch802 -p1 -b .GSSAPIEnablek5users
 %patch921 -p1 -b .tcp_wrappers
 %patch922 -p1 -b .sshdt
-%patch923 -p1 -b .ssh-copy-id
 %patch924 -p1 -b .seccomp
-%patch925 -p1 -b .newline
 %patch926 -p1 -b .sftp-force-mode
 %patch928 -p1 -b .memory
 %patch929 -p1 -b .root-login
 %patch931 -p1 -b .progressmeter
 %patch932 -p1 -b .gsskexalg
 %patch933 -p1 -b .fingerprint
-%patch934 -p1 -b .hosttkey
+%patch934 -p1 -b .hostkey
+%patch935 -p1 -b .ssh-copy-id
+%patch936 -p1 -b .iutf8
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
@@ -426,10 +430,10 @@ make SSH_PROGRAM=%{_bindir}/gsissh \
      ASKPASS_PROGRAM=%{_libexecdir}/openssh/ssh-askpass
 
 # Add generation of HMAC checksums of the final stripped binaries
-%define __spec_install_post \
-    %{?__debug_package:%{__debug_install_post}} \
-    %{__arch_install_post} \
-    %{__os_install_post} \
+%global __spec_install_post \
+    %%{?__debug_package:%%{__debug_install_post}} \
+    %%{__arch_install_post} \
+    %%{__os_install_post} \
     fipshmac -d $RPM_BUILD_ROOT%{_libdir}/fipscheck $RPM_BUILD_ROOT%{_bindir}/gsissh $RPM_BUILD_ROOT%{_sbindir}/gsisshd \
 %{nil}
 
@@ -505,7 +509,6 @@ getent passwd sshd >/dev/null || \
 
 %files
 %defattr(-,root,root)
-%{!?_licensedir:%global license %%doc}
 %license LICENCE LICENSE.globus_usage
 %doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
@@ -551,6 +554,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Jan 19 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.1p2-1
+- Based on openssh-7.1p2-1.fc23
+
 * Thu Oct 08 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.1p1-2
 - Based on openssh-7.1p1-3.fc23
 

@@ -2,7 +2,7 @@ diff --git a/openbsd-compat/port-linux-sshd.c b/openbsd-compat/port-linux-sshd.c
 index c18524e..d04f4ed 100644
 --- a/openbsd-compat/port-linux-sshd.c
 +++ b/openbsd-compat/port-linux-sshd.c
-@@ -409,6 +409,25 @@ sshd_selinux_setup_exec_context(char *pwname)
+@@ -409,6 +409,28 @@ sshd_selinux_setup_exec_context(char *pwname)
  	debug3("%s: done", __func__);
  }
  
@@ -19,8 +19,11 @@ index c18524e..d04f4ed 100644
 +		return;
 +	}
 +	if (ctx != NULL) {
++		/* unset exec context before we will lose this capabililty */
++		if (setexeccon(NULL) != 0)
++			fatal("%s: setexeccon failed with %s", __func__, strerror (errno));
 +		if (setcon(ctx) != 0)
-+			logit("%s: setcon failed with %s", __func__, strerror (errno));
++			fatal("%s: setcon failed with %s", __func__, strerror (errno));
 +		freecon(ctx);
 +	}
 +}
@@ -44,6 +47,15 @@ diff --git a/session.c b/session.c
 index 2bcf818..b5dc144 100644
 --- a/session.c
 +++ b/session.c
+@@ -1532,7 +1532,7 @@ void
+ do_setusercontext(struct passwd *pw)
+ {
+ 	char *chroot_path, *tmp;
+-#ifdef USE_LIBIAF
++#if defined(USE_LIBIAF) || defined(WITH_SELINUX)
+ 	int doing_chroot = 0;
+ #endif
+ 
 @@ -1538,6 +1538,9 @@ do_setusercontext(struct passwd *pw)
  			    pw->pw_uid);
  			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
@@ -54,19 +66,37 @@ index 2bcf818..b5dc144 100644
  			safely_chroot(chroot_path, pw->pw_uid);
  			free(tmp);
  			free(chroot_path);
-@@ -1565,6 +1568,12 @@ do_setusercontext(struct passwd *pw)
+@@ -1557,7 +1557,7 @@ do_setusercontext(struct passwd *pw)
+ 			/* Make sure we don't attempt to chroot again */
+ 			free(options.chroot_directory);
+ 			options.chroot_directory = NULL;
+-#ifdef USE_LIBIAF
++#if defined(USE_LIBIAF) || defined(WITH_SELINUX)
+ 			doing_chroot = 1;
+ #endif
+ 		}
+@@ -1565,6 +1568,11 @@ do_setusercontext(struct passwd *pw)
  		/* Permanently switch to the desired uid. */
  		permanently_set_uid(pw);
  #endif
 +
 +#ifdef WITH_SELINUX
-+		if (options.chroot_directory == NULL ||
-+		    strcasecmp(options.chroot_directory, "none") == 0)
++		if (doing_chroot == 0)
 +			sshd_selinux_copy_context();
 +#endif
  	} else if (options.chroot_directory != NULL &&
  	    strcasecmp(options.chroot_directory, "none") != 0) {
  		fatal("server lacks privileges to chroot to ChrootDirectory");
+@@ -1588,9 +1588,6 @@ do_pwchange(Session *s)
+ 	if (s->ttyfd != -1) {
+ 		fprintf(stderr,
+ 		    "You must change your password now and login again!\n");
+-#ifdef WITH_SELINUX
+-		setexeccon(NULL);
+-#endif
+ #ifdef PASSWD_NEEDS_USERNAME
+ 		execl(_PATH_PASSWD_PROG, "passwd", s->pw->pw_name,
+ 		    (char *)NULL);
 @@ -1826,9 +1835,6 @@ do_child(Session *s, const char *command)
  		argv[i] = NULL;
  		optind = optreset = 1;
@@ -92,17 +122,26 @@ index 07f9926..a97f8b7 100644
  	/* Change our root directory */
  	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
  		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
-@@ -768,6 +772,13 @@ privsep_postauth(Authctxt *authctxt)
- 	do_setusercontext(authctxt->pw);
+@@ -755,6 +755,9 @@ privsep_postauth(Authctxt *authctxt)
  
-  skip:
-+#ifdef WITH_SELINUX
-+	/* switch SELinux content for root too */
-+	if (authctxt->pw->pw_uid == 0) {
-+		sshd_selinux_copy_context();
-+	}
-+#endif
-+
- 	/* It is safe now to apply the key state */
- 	monitor_apply_keystate(pmonitor);
+ #ifdef DISABLE_FD_PASSING
+ 	if (1) {
++#elif defined(WITH_SELINUX)
++	if (options.use_login) {
++		/* even root user can be confined by SELinux */
+ #else
+ 	if (authctxt->pw->pw_uid == 0 || options.use_login) {
+ #endif
+diff --git a/session.c b/session.c
+index 684f867..09048bc 100644
+--- a/session.c
++++ b/session.c
+@@ -1538,7 +1538,7 @@ do_setusercontext(struct passwd *pw)
  
+ 	platform_setusercontext(pw);
+ 
+-	if (platform_privileged_uidswap()) {
++	if (platform_privileged_uidswap() && !is_child) {
+ #ifdef HAVE_LOGIN_CAP
+ 		if (setusercontext(lc, pw, pw->pw_uid,
+ 		    (LOGIN_SETALL & ~(LOGIN_SETPATH|LOGIN_SETUSER))) < 0) {

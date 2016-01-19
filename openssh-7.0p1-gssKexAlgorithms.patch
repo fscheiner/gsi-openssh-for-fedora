@@ -206,12 +206,14 @@ diff -up openssh-7.0p1/readconf.c.gsskexalg openssh-7.0p1/readconf.c
  	options->password_authentication = -1;
  	options->kbd_interactive_authentication = -1;
  	options->kbd_interactive_devices = NULL;
-@@ -1773,6 +1789,8 @@ fill_default_options(Options * options)
+@@ -1773,6 +1789,10 @@ fill_default_options(Options * options)
  		options->gss_trust_dns = 0;
  	if (options->gss_renewal_rekey == -1)
  		options->gss_renewal_rekey = 0;
++#ifdef GSSAPI
 +	if (options->gss_kex_algorithms == NULL)
 +		options->gss_kex_algorithms = strdup(GSS_KEX_DEFAULT_KEX);
++#endif
  	if (options->password_authentication == -1)
  		options->password_authentication = 1;
  	if (options->kbd_interactive_authentication == -1)
@@ -245,12 +247,14 @@ diff -up openssh-7.0p1/servconf.c.gsskexalg openssh-7.0p1/servconf.c
  	options->password_authentication = -1;
  	options->kbd_interactive_authentication = -1;
  	options->challenge_response_authentication = -1;
-@@ -288,6 +290,8 @@ fill_default_server_options(ServerOption
+@@ -288,6 +290,10 @@ fill_default_server_options(ServerOption
  		options->gss_strict_acceptor = 0;
  	if (options->gss_store_rekey == -1)
  		options->gss_store_rekey = 0;
++#ifdef GSSAPI
 +	if (options->gss_kex_algorithms == NULL)
 +		options->gss_kex_algorithms = strdup(GSS_KEX_DEFAULT_KEX);
++#endif
  	if (options->password_authentication == -1)
  		options->password_authentication = 1;
  	if (options->kbd_interactive_authentication == -1)
@@ -363,13 +367,12 @@ diff -up openssh-7.0p1/sshconnect2.c.gsskexalg openssh-7.0p1/sshconnect2.c
  		if (gss) {
  			debug("Offering GSSAPI proposal: %s", gss);
  			xasprintf(&options.kex_algorithms,
-diff -up openssh-7.0p1/sshd_config.5.gsskexalg openssh-7.0p1/sshd_config.5
---- openssh-7.0p1/sshd_config.5.gsskexalg	2015-08-19 12:28:38.082518830 +0200
-+++ openssh-7.0p1/sshd_config.5	2015-08-19 12:36:25.121471501 +0200
-@@ -659,6 +659,18 @@ Controls whether the user's GSSAPI crede
- successful connection rekeying. This option can be used to accepted renewed 
- or updated credentials from a compatible client. The default is
- .Dq no .
+--- openssh-7.1p1/sshd_config.5.gsskexalg	2015-12-10 15:32:48.105418092 +0100
++++ openssh-7.1p1/sshd_config.5	2015-12-10 15:33:47.771279548 +0100
+@@ -663,6 +663,18 @@ or updated credentials from a compatible
+ For this to work
+ .Cm GSSAPIKeyExchange
+ needs to be enabled in the server and also used by the client.
 +.It Cm GSSAPIKexAlgorithms
 +The list of key exchange algorithms that are accepted by GSSAPI
 +key exchange. Possible values are
