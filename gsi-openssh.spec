@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -165,6 +165,33 @@ Patch916: openssh-6.6.1p1-ignore-SIGXFSZ-in-postauth.patch
 Patch918: openssh-6.6.1p1-log-in-chroot.patch
 # MLS labeling according to chosen sensitivity (#1202843)
 Patch919: openssh-6.6.1p1-mls-fix-labeling.patch
+# sshd test mode show all config values (#1187597)
+Patch920: openssh-6.6p1-test-mode-all-values.patch
+# Add sftp option to force mode of created files (#1191055)
+Patch921: openssh-6.6p1-sftp-force-permission.patch
+# TERM env variable is always accepted by sshd, regardless the empty AcceptEnv setting (#1162683)
+Patch922: openssh-6.6p1-document-TERM-env.patch
+# fix ssh-copy-id on non-sh remote shells (#1201758)
+Patch923: openssh-6.6p1-fix-ssh-copy-id-on-non-sh-shell.patch
+# fix memory problem (#1223218)
+Patch924: openssh-6.6p1-memory-problems.patch
+# Enhance AllowGroups documentation in man page (#1150007)
+Patch925: openssh-6.6p1-allowGroups-documentation.patch
+# authentication limits (MaxAuthTries) bypass [security] (#1246521)
+Patch926: openssh-6.6p1-authentication-limits-bypass.patch
+# CVE-2015-5352: Security fixes backported from openssh-6.9 (#1247864)
+# XSECURITY restrictions bypass under certain conditions in ssh(1) (#1238231)
+# weakness of agent locking (ssh-add -x) to password guessing (#1238238)
+Patch927: openssh-6.6p1-ssh-agent-and-xsecurity-bypass.patch
+# provide option GssKexAlgorithms to disable vulnerable groun1 kex
+Patch928: openssh-6.6p1-gssKexAlgorithms.patch
+# Vulnerabilities published with openssh-7.0 (#1265807):
+#  Privilege separation weakness related to PAM support
+#  Use-after-free bug related to PAM support
+Patch929: openssh-6.6p1-security-7.0.patch
+# Disable completely Roaming feature on client (#1298218) (#1298217)
+# Mitigates CVE-2016-0777 and CVE-2016-0778
+Patch930: openssh-6.6p1-disable-roaming.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
@@ -322,6 +349,17 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch918 -p1 -b .log-in-chroot
 %patch919 -p1 -b .mls-labels
 %patch802 -p1 -b .GSSAPIEnablek5users
+%patch920 -p1 -b .sshd-t
+%patch921 -p1 -b .sftp-force-mode
+%patch922 -p1 -b .term
+%patch923 -p1 -b .ssh-copy-id
+%patch924 -p1 -b .memory-problems
+%patch925 -p1 -b .allowGroups
+%patch926 -p1 -b .kbd
+%patch927 -p1 -b .xsecurity
+%patch928 -p1 -b .gsskexalg
+%patch929 -p1 -b .security7
+%patch930 -p1 -b .roaming
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-fps
@@ -414,10 +452,10 @@ make SSH_PROGRAM=%{_bindir}/gsissh \
      ASKPASS_PROGRAM=%{_libexecdir}/openssh/ssh-askpass
 
 # Add generation of HMAC checksums of the final stripped binaries
-%define __spec_install_post \
-    %{?__debug_package:%{__debug_install_post}} \
-    %{__arch_install_post} \
-    %{__os_install_post} \
+%global __spec_install_post \
+    %%{?__debug_package:%%{__debug_install_post}} \
+    %%{__arch_install_post} \
+    %%{__os_install_post} \
     fipshmac -d $RPM_BUILD_ROOT%{_libdir}/fipscheck $RPM_BUILD_ROOT%{_bindir}/gsissh $RPM_BUILD_ROOT%{_sbindir}/gsisshd \
 %{nil}
 
@@ -541,6 +579,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Tue Jan 19 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-3
+- Based on openssh-6.6.1p1-23.el7_2
+
 * Wed Aug 05 2015 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-2
 - Fix typos in gsisshd.service file
 

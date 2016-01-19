@@ -1040,7 +1040,7 @@ index bce2ab8..bc3e53e 100644
  	}
  	choose_kex(kex, cprop[PROPOSAL_KEX_ALGS], sprop[PROPOSAL_KEX_ALGS]);
  	choose_hostkeyalg(kex, cprop[PROPOSAL_SERVER_HOST_KEY_ALGS],
-@@ -702,3 +718,34 @@ dump_digest(char *msg, u_char *digest, int len)
+@@ -702,3 +718,53 @@ dump_digest(char *msg, u_char *digest, int len)
  	fprintf(stderr, "\n");
  }
  #endif
@@ -1070,20 +1070,40 @@ index bce2ab8..bc3e53e 100644
 +	if (newkeys == NULL)
 +		return;
 +
++	free(newkeys->enc.name);
 +	enc_destroy(&newkeys->enc);
-+	mac_destroy(&newkeys->mac);
++
++	if (newkeys->mac.enabled) {
++		mac_clear(&newkeys->mac);
++		free(newkeys->mac.name);
++		mac_destroy(&newkeys->mac);
++	}
++
++	free(newkeys->comp.name);
++
 +	memset(&newkeys->comp, 0, sizeof(newkeys->comp));
++}
++
++void
++newkeys_destroy_and_free(Newkeys *newkeys)
++{
++	if (newkeys == NULL)
++		return;
++
++	newkeys_destroy(newkeys);
++	free(newkeys);
 +}
 +
 diff --git a/kex.h b/kex.h
 index 313bb51..c643250 100644
 --- a/kex.h
 +++ b/kex.h
-@@ -182,6 +182,8 @@ void	 kexgss_client(Kex *);
+@@ -182,6 +182,9 @@ void	 kexgss_client(Kex *);
  void	 kexgss_server(Kex *);
  #endif
  
 +void	newkeys_destroy(Newkeys *newkeys);
++void	newkeys_destroy_and_free(Newkeys *newkeys);
 +
  void
  kex_dh_hash(char *, char *, char *, int, char *, int, u_char *, int,
@@ -1394,7 +1414,7 @@ index 8b18086..5a65114 100644
  }
  
  
-@@ -2277,3 +2374,85 @@ mm_answer_gss_updatecreds(int socket, Buffer *m) {
+@@ -2277,3 +2374,84 @@ mm_answer_gss_updatecreds(int socket, Buffer *m) {
  
  #endif /* GSSAPI */
  
@@ -1476,7 +1496,6 @@ index 8b18086..5a65114 100644
 +	free(fp);
 +	buffer_clear(m);
 +
-+	mm_request_send(sock, MONITOR_ANS_AUDIT_SERVER_KEY_FREE, m);
 +	return 0;
 +}
 +#endif /* SSH_AUDIT_EVENTS */
@@ -1495,7 +1514,7 @@ index ff79fbb..6dfb234 100644
 +	MONITOR_REQ_AUDIT_UNSUPPORTED = 118, MONITOR_ANS_AUDIT_UNSUPPORTED = 119,
 +	MONITOR_REQ_AUDIT_KEX = 120, MONITOR_ANS_AUDIT_KEX = 121,
 +	MONITOR_REQ_AUDIT_SESSION_KEY_FREE = 122, MONITOR_ANS_AUDIT_SESSION_KEY_FREE = 123,
-+	MONITOR_REQ_AUDIT_SERVER_KEY_FREE = 124, MONITOR_ANS_AUDIT_SERVER_KEY_FREE = 125
++	MONITOR_REQ_AUDIT_SERVER_KEY_FREE = 124
  
  };
  
@@ -1595,7 +1614,7 @@ index d1e1caa..6df236a 100644
  	buffer_free(&m);
  }
  #endif /* SSH_AUDIT_EVENTS */
-@@ -1354,3 +1391,71 @@ mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *store)
+@@ -1354,3 +1391,69 @@ mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *store)
  
  #endif /* GSSAPI */
  
@@ -1662,8 +1681,6 @@ index d1e1caa..6df236a 100644
 +	buffer_put_int64(&m, uid);
 +
 +	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUDIT_SERVER_KEY_FREE, &m);
-+	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_AUDIT_SERVER_KEY_FREE,
-+				  &m);
 +	buffer_free(&m);
 +}
 +#endif /* SSH_AUDIT_EVENTS */
@@ -1756,32 +1773,6 @@ index 660a9fc..f5b122b 100644
  }
  
  /* Sets remote side protocol flags. */
-@@ -736,6 +747,25 @@ packet_send1(void)
- 	 */
- }
- 
-+static void
-+newkeys_destroy_and_free(Newkeys *newkeys)
-+{
-+	if (newkeys == NULL)
-+		return;
-+
-+	free(newkeys->enc.name);
-+
-+	if (newkeys->mac.enabled) {
-+		mac_clear(&newkeys->mac);
-+		free(newkeys->mac.name);
-+	}
-+
-+	free(newkeys->comp.name);
-+
-+	newkeys_destroy(newkeys);
-+	free(newkeys);
-+}
-+
- void
- set_newkeys(int mode)
- {
 @@ -761,6 +791,7 @@ set_newkeys(int mode)
  	}
  	if (active_state->newkeys[mode] != NULL) {
@@ -1934,7 +1925,7 @@ index df43592..b186ca1 100644
 -		PRIVSEP(audit_run_command(shell));
 +		s->command = xstrdup(shell);
  	}
-+	if (s->command != NULL)
++	if (s->command != NULL && s->ptyfd == -1)
 +		s->command_handle = PRIVSEP(audit_run_command(s->command));
  #endif
  	if (s->ttyfd != -1)
@@ -1979,7 +1970,7 @@ index df43592..b186ca1 100644
  session_by_tty(char *tty)
  {
  	int i;
-@@ -2531,6 +2560,30 @@ session_exit_message(Session *s, int status)
+@@ -2531,6 +2560,32 @@ session_exit_message(Session *s, int status)
  		chan_write_failed(c);
  }
  
@@ -1988,7 +1979,8 @@ index df43592..b186ca1 100644
 +session_end_command2(Session *s)
 +{
 +	if (s->command != NULL) {
-+		audit_end_command(s->command_handle, s->command);
++		if (s->command_handle != -1)
++			audit_end_command(s->command_handle, s->command);
 +		free(s->command);
 +		s->command = NULL;
 +		s->command_handle = -1;
@@ -1999,7 +1991,8 @@ index df43592..b186ca1 100644
 +session_end_command(Session *s)
 +{
 +	if (s->command != NULL) {
-+		PRIVSEP(audit_end_command(s->command_handle, s->command));
++		if (s->command_handle != -1)
++			PRIVSEP(audit_end_command(s->command_handle, s->command));
 +		free(s->command);
 +		s->command = NULL;
 +		s->command_handle = -1;
@@ -2215,7 +2208,7 @@ index 8a0740a..2813aa2 100644
  	else if (pmonitor->m_pid != 0) {
  		verbose("User child is on pid %ld", (long)pmonitor->m_pid);
  		buffer_clear(&loginmsg);
-+ 		newkeys_destroy(current_keys[MODE_OUT]);
++		newkeys_destroy(current_keys[MODE_OUT]);
 +		newkeys_destroy(current_keys[MODE_IN]);
 +		audit_session_key_free_body(2, getpid(), getuid());
 +		packet_destroy_all(0, 0);

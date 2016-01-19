@@ -1,0 +1,214 @@
+diff -up openssh-6.6p1/channels.c.security openssh-6.6p1/channels.c
+--- openssh-6.6p1/channels.c.security	2015-07-01 19:27:08.521162690 +0200
++++ openssh-6.6p1/channels.c	2015-07-01 19:27:08.597162521 +0200
+@@ -151,6 +151,9 @@ static char *x11_saved_proto = NULL;
+ static char *x11_saved_data = NULL;
+ static u_int x11_saved_data_len = 0;
+ 
++/* Deadline after which all X11 connections are refused */
++static u_int x11_refuse_time;
++
+ /*
+  * Fake X11 authentication data.  This is what the server will be sending us;
+  * we should replace any occurrences of this by the real data.
+@@ -894,6 +897,13 @@ x11_open_helper(Buffer *b)
+ 	u_char *ucp;
+ 	u_int proto_len, data_len;
+ 
++	/* Is this being called after the refusal deadline? */
++	if (x11_refuse_time != 0 && (u_int)monotime() >= x11_refuse_time) {
++		verbose("Rejected X11 connection after ForwardX11Timeout "
++		    "expired");
++		return -1;
++	}
++
+ 	/* Check if the fixed size part of the packet is in buffer. */
+ 	if (buffer_len(b) < 12)
+ 		return 0;
+@@ -1457,6 +1467,12 @@ channel_set_reuseaddr(int fd)
+ 		error("setsockopt SO_REUSEADDR fd %d: %s", fd, strerror(errno));
+ }
+ 
++void
++channel_set_x11_refuse_time(u_int refuse_time)
++{
++	x11_refuse_time = refuse_time;
++}
++
+ /*
+  * This socket is listening for connections to a forwarded TCP/IP port.
+  */
+diff -up openssh-6.6p1/channels.h.security openssh-6.6p1/channels.h
+--- openssh-6.6p1/channels.h.security	2015-07-01 19:27:08.597162521 +0200
++++ openssh-6.6p1/channels.h	2015-07-01 19:43:32.900950560 +0200
+@@ -279,6 +279,7 @@ int	 permitopen_port(const char *);
+ 
+ /* x11 forwarding */
+ 
++void	 channel_set_x11_refuse_time(u_int);
+ int	 x11_connect_display(void);
+ int	 x11_create_display_inet(int, int, int, u_int *, int **);
+ void     x11_input_open(int, u_int32_t, void *);
+diff -up openssh-6.6p1/clientloop.c.security openssh-6.6p1/clientloop.c
+--- openssh-6.6p1/clientloop.c.security	2015-07-01 19:27:08.540162648 +0200
++++ openssh-6.6p1/clientloop.c	2015-07-01 19:44:51.139761508 +0200
+@@ -164,7 +164,7 @@ static int connection_in;	/* Connection
+ static int connection_out;	/* Connection to server (output). */
+ static int need_rekeying;	/* Set to non-zero if rekeying is requested. */
+ static int session_closed;	/* In SSH2: login session closed. */
+-static int x11_refuse_time;	/* If >0, refuse x11 opens after this time. */
++static u_int x11_refuse_time;	/* If >0, refuse x11 opens after this time. */
+ 
+ static void client_init_dispatch(void);
+ int	session_ident = -1;
+@@ -302,7 +302,8 @@ client_x11_display_valid(const char *dis
+ 	return 1;
+ }
+ 
+-#define SSH_X11_PROTO "MIT-MAGIC-COOKIE-1"
++#define SSH_X11_PROTO		"MIT-MAGIC-COOKIE-1"
++#define X11_TIMEOUT_SLACK	60
+ void
+ client_x11_get_proto(const char *display, const char *xauth_path,
+     u_int trusted, u_int timeout, char **_proto, char **_data)
+@@ -315,7 +316,7 @@ client_x11_get_proto(const char *display
+ 	int got_data = 0, generated = 0, do_unlink = 0, i;
+ 	char *xauthdir, *xauthfile;
+ 	struct stat st;
+-	u_int now;
++	u_int now, x11_timeout_real;
+ 
+ 	xauthdir = xauthfile = NULL;
+ 	*_proto = proto;
+@@ -348,6 +349,15 @@ client_x11_get_proto(const char *display
+ 			xauthdir = xmalloc(MAXPATHLEN);
+ 			xauthfile = xmalloc(MAXPATHLEN);
+ 			mktemp_proto(xauthdir, MAXPATHLEN);
++			/*
++			 * The authentication cookie should briefly outlive
++			 * ssh's willingness to forward X11 connections to
++			 * avoid nasty fail-open behaviour in the X server.
++			 */
++			if (timeout >= UINT_MAX - X11_TIMEOUT_SLACK)
++				x11_timeout_real = UINT_MAX;
++			else
++				x11_timeout_real = timeout + X11_TIMEOUT_SLACK;
+ 			if (mkdtemp(xauthdir) != NULL) {
+ 				do_unlink = 1;
+ 				snprintf(xauthfile, MAXPATHLEN, "%s/xauthfile",
+@@ -355,17 +365,20 @@ client_x11_get_proto(const char *display
+ 				snprintf(cmd, sizeof(cmd),
+ 				    "%s -f %s generate %s " SSH_X11_PROTO
+ 				    " untrusted timeout %u 2>" _PATH_DEVNULL,
+-				    xauth_path, xauthfile, display, timeout);
++				    xauth_path, xauthfile, display,
++				    x11_timeout_real);
+ 				debug2("x11_get_proto: %s", cmd);
+-				if (system(cmd) == 0)
+-					generated = 1;
+ 				if (x11_refuse_time == 0) {
+ 					now = monotime() + 1;
+ 					if (UINT_MAX - timeout < now)
+ 						x11_refuse_time = UINT_MAX;
+ 					else
+ 						x11_refuse_time = now + timeout;
++					channel_set_x11_refuse_time(
++					    x11_refuse_time);
+ 				}
++				if (system(cmd) == 0)
++					generated = 1;
+ 			}
+ 		}
+ 
+@@ -1884,7 +1897,7 @@ client_request_x11(const char *request_t
+ 		    "malicious server.");
+ 		return NULL;
+ 	}
+-	if (x11_refuse_time != 0 && monotime() >= x11_refuse_time) {
++	if (x11_refuse_time != 0 && (u_int)monotime() >= x11_refuse_time) {
+ 		verbose("Rejected X11 connection after ForwardX11Timeout "
+ 		    "expired");
+ 		return NULL;
+diff -up openssh-6.6p1/ssh-agent.c.security openssh-6.6p1/ssh-agent.c
+--- openssh-6.6p1/ssh-agent.c.security	2015-07-01 19:27:08.597162521 +0200
++++ openssh-6.6p1/ssh-agent.c	2015-07-01 19:42:35.691088800 +0200
+@@ -64,6 +64,9 @@
+ #include <time.h>
+ #include <string.h>
+ #include <unistd.h>
++#ifdef HAVE_UTIL_H
++#include <util.h>
++#endif
+ 
+ #include "xmalloc.h"
+ #include "ssh.h"
+@@ -129,8 +130,12 @@ char socket_name[MAXPATHLEN];
+ char socket_dir[MAXPATHLEN];
+ 
+ /* locking */
++#define LOCK_SIZE	32
++#define LOCK_SALT_SIZE	16
++#define LOCK_ROUNDS	1
+ int locked = 0;
+-char *lock_passwd = NULL;
++char lock_passwd[LOCK_SIZE];
++char lock_salt[LOCK_SALT_SIZE];
+ 
+ extern char *__progname;
+ 
+@@ -548,22 +553,45 @@ send:
+ static void
+ process_lock_agent(SocketEntry *e, int lock)
+ {
+-	int success = 0;
+-	char *passwd;
++	int success = 0, delay;
++	char *passwd, passwdhash[LOCK_SIZE];
++	static u_int fail_count = 0;
++	size_t pwlen;
+ 
+ 	passwd = buffer_get_string(&e->request, NULL);
+-	if (locked && !lock && strcmp(passwd, lock_passwd) == 0) {
+-		locked = 0;
+-		explicit_bzero(lock_passwd, strlen(lock_passwd));
+-		free(lock_passwd);
+-		lock_passwd = NULL;
+-		success = 1;
++	pwlen = strlen(passwd);
++	if (pwlen == 0) {
++		debug("empty password not supported");
++	} else if (locked && !lock) {
++		if (bcrypt_pbkdf(passwd, pwlen, lock_salt, sizeof(lock_salt),
++		    passwdhash, sizeof(passwdhash), LOCK_ROUNDS) < 0)
++			fatal("bcrypt_pbkdf");
++		if (timingsafe_bcmp(passwdhash, lock_passwd, LOCK_SIZE) == 0) {
++			debug("agent unlocked");
++			locked = 0;
++			fail_count = 0;
++			explicit_bzero(lock_passwd, sizeof(lock_passwd));
++			success = 1;
++		} else {
++			/* delay in 0.1s increments up to 10s */
++			if (fail_count < 100)
++				fail_count++;
++			delay = 100000 * fail_count;
++			debug("unlock failed, delaying %0.1lf seconds",
++			    (double)delay/1000000);
++			usleep(delay);
++		}
++		explicit_bzero(passwdhash, sizeof(passwdhash));
+ 	} else if (!locked && lock) {
++		debug("agent locked");
+ 		locked = 1;
+-		lock_passwd = xstrdup(passwd);
++		arc4random_buf(lock_salt, sizeof(lock_salt));
++		if (bcrypt_pbkdf(passwd, pwlen, lock_salt, sizeof(lock_salt),
++		    lock_passwd, sizeof(lock_passwd), LOCK_ROUNDS) < 0)
++			fatal("bcrypt_pbkdf");
+ 		success = 1;
+ 	}
+-	explicit_bzero(passwd, strlen(passwd));
++	explicit_bzero(passwd, pwlen);
+ 	free(passwd);
+ 
+ 	buffer_put_int(&e->output, 1);

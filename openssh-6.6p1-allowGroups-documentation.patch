@@ -1,0 +1,40 @@
+diff --git a/sshd_config.5 b/sshd_config.5
+index 2320128..6244e68 100644
+--- a/sshd_config.5
++++ b/sshd_config.5
+@@ -120,6 +120,8 @@ The allow/deny directives are processed in the following order:
+ .Cm DenyGroups ,
+ and finally
+ .Cm AllowGroups .
++All of the specified user and group tests must succeed, before user
++is allowed to log in.
+ .Pp
+ See PATTERNS in
+ .Xr ssh_config 5
+@@ -160,6 +162,8 @@ The allow/deny directives are processed in the following order:
+ .Cm DenyGroups ,
+ and finally
+ .Cm AllowGroups .
++All of the specified user and group tests must succeed, before user
++is allowed to log in.
+ .Pp
+ See PATTERNS in
+ .Xr ssh_config 5
+@@ -430,6 +434,8 @@ The allow/deny directives are processed in the following order:
+ .Cm DenyGroups ,
+ and finally
+ .Cm AllowGroups .
++All of the specified user and group tests must succeed, before user
++is allowed to log in.
+ .Pp
+ See PATTERNS in
+ .Xr ssh_config 5
+@@ -449,6 +455,8 @@ The allow/deny directives are processed in the following order:
+ .Cm DenyGroups ,
+ and finally
+ .Cm AllowGroups .
++All of the specified user and group tests must succeed, before user
++is allowed to log in.
+ .Pp
+ See PATTERNS in
+ .Xr ssh_config 5
