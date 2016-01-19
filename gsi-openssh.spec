@@ -35,7 +35,7 @@
 %global nologin 1
 
 %global openssh_ver 5.3p1
-%global openssh_rel 11
+%global openssh_rel 12
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -173,6 +173,30 @@ Patch135: openssh-5.3p1-ControlPersist-avoid-race-between-bind-and-listen.patch
 Patch136: openssh-5.3p1-sigpipe.patch
 # Ignore SIGXFSZ in postauth monitor child (#1133906)
 Patch137: openssh-5.3p1-ignore-SIGXFSZ.patch
+# Fix ControlPersist option with ProxyCommand (#1160487)
+Patch138: openssh-5.3p1-ControlPersist-fix-ProxyCommand.patch
+# Fix ssh-keygen with error : gethostname: File name too long (#1161454)
+Patch139: openssh-5.3p1-NI_MAXHOST.patch
+# set a client's address right after a connection is set (#1161449)
+Patch140: openssh-5.3p1-set_remote_ipaddr.patch
+# fix printing of extensions in v01 certificates (#1093869)
+Patch141: openssh-5.3p1-fix-printing-of-extensions.patch
+# don't close fds for internal sftp sessions (#1085710)
+Patch142: openssh-5.3p1-dont-close-fds-for-internal-sftp.patch
+# fix config parsing elements in quotes (#1134938)
+Patch143: openssh-5.3p1-fix-config-parsing-quotes.patch
+# fix ssh-copy-id on non-sh remote shells (#1135521)
+Patch144: openssh-5.3p1-fix-ssh-copy-id-on-non-sh-shell.patch
+# Backport wildcard functionality for PermitOpen in sshd_config file (#1159055)
+Patch145: openssh-5.3p1-backport-permit-open-wildcard.patch
+# Add sftp option to force mode of created files (#1191055)
+Patch146: openssh-5.3p1-sftp-force-permission.patch
+# Fix sshd -T does not show all (default) options, inconsistency (#1109251)
+Patch147: openssh-5.3p1-test-mode-all-values.patch
+# Missing options in man ssh (#1197763)
+Patch148: openssh-5.3p1-man-ssh-missing-options.patch
+# SSH2_MSG_DISCONNECT for user initiated disconnect does not follow RFC 4253
+Patch149: openssh-5.3p1-ssh2-mgs-disconnect.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
@@ -362,6 +386,18 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch135 -p1 -b .ControlPersist-race
 %patch136 -p1 -b .sigpipe
 %patch137 -p1 -b .SIGXFSZ
+%patch138 -p1 -b .ControlPersist-ProxyCommand
+%patch139 -p1 -b .1161454
+%patch140 -p1 -b .unknown
+%patch141 -p1 -b .certs
+%patch142 -p1 -b .1085710
+%patch143 -p1 -b .config-quotes
+%patch144 -p1 -b .ssh-copy-id
+%patch145 -p1 -b .permitopen
+%patch146 -p1 -b .sftp-force-mode
+%patch147 -p1 -b .sshd-t
+%patch148 -p1 -b .man-ssh
+%patch149 -p1 -b .ssh2-msg-disconnect
 
 %patch200 -p1 -b .gsi
 
@@ -567,6 +603,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Tue Jan 19 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-12
+- Based on openssh-5.3p1-112.el6_7
+
 * Wed Oct 22 2014 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-11
 - Based on openssh-5.3p1-104.el6
 

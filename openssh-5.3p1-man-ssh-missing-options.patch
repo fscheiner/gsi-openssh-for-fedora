@@ -1,0 +1,25 @@
+--- openssh-5.3p1.orig/ssh.1	2015-02-18 15:14:28.615653334 +0100
++++ openssh-5.3p1/ssh.1	2015-04-30 14:46:12.575631408 +0200
+@@ -457,7 +458,11 @@
+ .It GatewayPorts
+ .It GlobalKnownHostsFile
+ .It GSSAPIAuthentication
++.It GSSAPIKeyExchange
++.It GSSAPIClientIdentity
+ .It GSSAPIDelegateCredentials
++.It GSSAPIRenewalForcesRekey
++.It GSSAPITrustDns
+ .It HashKnownHosts
+ .It Host
+ .It HostbasedAuthentication
+@@ -466,7 +470,9 @@
+ .It HostName
+ .It IdentityFile
+ .It IdentitiesOnly
++.It KbdInteractiveAuthentication
+ .It KbdInteractiveDevices
++.It KexAlgorithms
+ .It LocalCommand
+ .It LocalForward
+ .It LogLevel
+

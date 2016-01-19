@@ -107,7 +107,7 @@
 --- a/openbsd-compat/port-linux.h	
 +++ a/openbsd-compat/port-linux.h	
 @@ -27,4 +27,9 @@ void ssh_selinux_change_context(const char *);
- void ssh_selinux_chopy_context(void);
+ void ssh_selinux_copy_context(void);
  #endif
  
 +#ifdef LINUX_OOM_ADJUST

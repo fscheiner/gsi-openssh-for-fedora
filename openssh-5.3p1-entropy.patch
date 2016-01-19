@@ -249,3 +249,13 @@ diff -up openssh-5.3p1/ssh-keysign.8.entropy openssh-5.3p1/ssh-keysign.8
  .Sh SEE ALSO
  .Xr ssh 1 ,
  .Xr ssh-keygen 1 ,
+--- openssh-5.3p1.orig/openbsd-compat/port-linux.h	2015-02-18 15:14:28.545653498 +0100
++++ openssh-5.3p1/openbsd-compat/port-linux.h	2015-04-30 15:26:09.289401504 +0200
+@@ -18,6 +18,7 @@
+ 
+ #ifndef _PORT_LINUX_H
+ #define _PORT_LINUX_H
++void linux_seed(void);
+ 
+ #ifdef WITH_SELINUX
+ int ssh_selinux_enabled(void);

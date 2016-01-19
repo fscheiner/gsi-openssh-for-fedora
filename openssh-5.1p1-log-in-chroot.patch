@@ -98,11 +98,22 @@ diff -up openssh-5.3p1/log.h.log-chroot openssh-5.3p1/log.h
 diff -up openssh-5.3p1/session.c.log-chroot openssh-5.3p1/session.c
 --- openssh-5.3p1/session.c.log-chroot	2013-04-16 15:19:36.348871199 +0200
 +++ openssh-5.3p1/session.c	2013-04-16 15:19:36.355871167 +0200
-@@ -1440,6 +1440,8 @@ safely_chroot(const char *path, uid_t ui
+@@ -1427,6 +1427,7 @@ safely_chroot(const char *path, uid_t uid)
+ {
+ 	const char *cp;
+ 	char component[MAXPATHLEN];
++	char *chrooted_log;
+ 	struct stat st;
+ 
+ 	if (*path != '/')
+@@ -1441,6 +1441,11 @@
  
  	}
  
-+	open_log ();
++	xasprintf(&chrooted_log, "%s/dev/log", path);
++	if (lstat(chrooted_log, &st) != 0)
++		open_log ();
++	free(chrooted_log);
 +
  	if (chdir(path) == -1)
  		fatal("Unable to chdir to chroot path \"%s\": "

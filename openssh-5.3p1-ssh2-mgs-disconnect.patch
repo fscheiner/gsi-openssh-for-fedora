@@ -1,0 +1,19 @@
+diff -U0 openssh-5.3p1/ChangeLog.ssh2-msg-disconnect openssh-5.3p1/ChangeLog
+--- openssh-5.3p1/ChangeLog.ssh2-msg-disconnect	2015-07-17 10:10:00.563182363 +0200
++++ openssh-5.3p1/ChangeLog	2015-07-17 10:12:32.121807390 +0200
+@@ -302,0 +303,4 @@
++  - djm@cvs.openbsd.org 2010/03/13 21:10:38
++    [clientloop.c]
++    protocol conformance fix: send language tag when disconnecting normally;
++    spotted by 1.41421 AT gmail.com, ok markus@ deraadt@
+diff -up openssh-5.3p1/clientloop.c.ssh2-msg-disconnect openssh-5.3p1/clientloop.c
+--- openssh-5.3p1/clientloop.c.ssh2-msg-disconnect	2015-07-17 10:10:00.539182422 +0200
++++ openssh-5.3p1/clientloop.c	2015-07-17 10:10:00.563182363 +0200
+@@ -1537,6 +1537,7 @@ client_loop(int have_pty, int escape_cha
+ 		packet_start(SSH2_MSG_DISCONNECT);
+ 		packet_put_int(SSH2_DISCONNECT_BY_APPLICATION);
+ 		packet_put_cstring("disconnected by user");
++		packet_put_cstring(""); /* language tag */
+ 		packet_send();
+ 		packet_write_wait();
+ 	}

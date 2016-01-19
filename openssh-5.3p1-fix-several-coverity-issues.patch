@@ -91,3 +91,37 @@ index a19b7d8..22b7638 100644
  
  	if (gss && orig)
  		xasprintf(&newstr, "%s,%s", gss, orig);
+--- a/buffer.c
++++ b/buffer.c
+@@ -160,7 +160,7 @@
+ /* Returns the number of bytes of data in the buffer. */
+ 
+ u_int
+-buffer_len(Buffer *buffer)
++buffer_len(const Buffer *buffer)
+ {
+ 	return buffer->end - buffer->offset;
+ }
+@@ -228,7 +228,7 @@
+ /* Returns a pointer to the first used byte in the buffer. */
+ 
+ void *
+-buffer_ptr(Buffer *buffer)
++buffer_ptr(const Buffer *buffer)
+ {
+ 	return buffer->buf + buffer->offset;
+ }
+--- a/buffer.h
++++ b/buffer.h
+@@ -27,8 +27,8 @@
+ void	 buffer_clear(Buffer *);
+ void	 buffer_free(Buffer *);
+ 
+-u_int	 buffer_len(Buffer *);
+-void	*buffer_ptr(Buffer *);
++u_int	 buffer_len(const Buffer *);
++void	*buffer_ptr(const Buffer *);
+ 
+ void	 buffer_append(Buffer *, const void *, u_int);
+ void	*buffer_append_space(Buffer *, u_int);
+

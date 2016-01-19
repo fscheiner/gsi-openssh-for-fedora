@@ -68,12 +68,3 @@ diff -up openssh-5.3p1/ssh-ldap.conf.5.man openssh-5.3p1/ssh-ldap.conf.5
  session is immediately terminated.
  The default is
  .Dq hard .
-@@ -356,7 +356,7 @@ There is no default.
- Specifies the debug level used for logging by the LDAP client library.
- There is no default.
- .It Cm SSH_Filter
--Specifies the user filter applied on the LDAP serch.
-+Specifies the user filter applied on the LDAP search.
- The default is no filter.
- .El
- .Sh FILES

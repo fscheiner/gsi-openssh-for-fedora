@@ -14,9 +14,9 @@ index c25fb32..3304206 100644
 +     was incorrectly requesting the forward in both the control master and
 +     slave. skip requesting it in the master to fix. ok markus@
 +
- 20101021
-    - djm@cvs.openbsd.org 2010/08/31 12:24:09
-      [regress/cert-hostkey.sh regress/cert-userkey.sh]
+ 20110106
+  - (djm) OpenBSD CVS Sync
+    - otto@cvs.openbsd.org 2011/01/04 20:44:13
 @@ -74,6 +82,9 @@
     platforms that don't have the requisite OpenSSL support. ok dtucker@
   - (dtucker) [kex.h key.c packet.h ssh-agent.c ssh.c] A few more ECC ifdefs
@@ -3336,3 +3336,15 @@ index 0dd1178..b9d95c8 100644
  .It Cm DynamicForward
  Specifies that a TCP port on the local machine be forwarded
  over the secure channel, and the application
+diff --git a/ssh.1 b/ssh.1
+index b4ebf2b..b364bb7 100644
+--- a/ssh.1
++++ b/ssh.1
+@@ -448,6 +448,7 @@ For full details of the options listed below, and their possible values, see
+ .It ConnectTimeout
+ .It ControlMaster
+ .It ControlPath
++.It ControlPersist
+ .It DynamicForward
+ .It EscapeChar
+ .It ExitOnForwardFailure

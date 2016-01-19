@@ -1,0 +1,117 @@
+--- openssh-5.3p1/servconf.c.orig	2015-01-29 18:22:58.516164775 +0100
++++ openssh-5.3p1/servconf.c	2015-01-29 18:32:38.265164416 +0100
+@@ -43,6 +43,7 @@
+ #include "match.h"
+ #include "channels.h"
+ #include "groupaccess.h"
++#include "myproposal.h"
+ 
+ static void add_listen_addr(ServerOptions *, char *, int);
+ static void add_one_listen_addr(ServerOptions *, char *, int);
+@@ -1750,7 +1760,7 @@
+ 
+ 	/* integer arguments */
+ #ifdef USE_PAM
+-	dump_cfg_int(sUsePAM, o->use_pam);
++	dump_cfg_fmtint(sUsePAM, o->use_pam);
+ #endif
+ 	dump_cfg_int(sServerKeyBits, o->server_key_bits);
+ 	dump_cfg_int(sLoginGraceTime, o->login_grace_time);
+@@ -1781,7 +1791,10 @@
+ #endif
+ #ifdef GSSAPI
+ 	dump_cfg_fmtint(sGssAuthentication, o->gss_authentication);
++	dump_cfg_fmtint(sGssKeyEx, o->gss_keyex);
+ 	dump_cfg_fmtint(sGssCleanupCreds, o->gss_cleanup_creds);
++	dump_cfg_fmtint(sGssStrictAcceptor, o->gss_strict_acceptor);
++	dump_cfg_fmtint(sGssStoreRekey, o->gss_store_rekey);
+ #endif
+ #ifdef JPAKE
+ 	dump_cfg_fmtint(sZeroKnowledgePasswordAuthentication,
+@@ -1806,15 +1819,20 @@
+ 	dump_cfg_fmtint(sShowPatchLevel, o->show_patchlevel);
+ 	dump_cfg_fmtint(sUseDNS, o->use_dns);
+ 	dump_cfg_fmtint(sAllowTcpForwarding, o->allow_tcp_forwarding);
++	dump_cfg_fmtint(sAllowAgentForwarding, o->allow_agent_forwarding);
+ 	dump_cfg_fmtint(sUsePrivilegeSeparation, use_privsep);
+ 	dump_cfg_fmtint(sKerberosUseKuserok, o->use_kuserok);
+ 
+ 	/* string arguments */
+ 	dump_cfg_string(sPidFile, o->pid_file);
+ 	dump_cfg_string(sXAuthLocation, o->xauth_location);
+-	dump_cfg_string(sCiphers, o->ciphers);
+-	dump_cfg_string(sMacs, o->macs);
+-	dump_cfg_string(sBanner, o->banner);
++	dump_cfg_string(sCiphers, o->ciphers ? o->ciphers : FIPS_mode()
++		? KEX_FIPS_ENCRYPT : KEX_DEFAULT_ENCRYPT);
++	dump_cfg_string(sMacs, o->macs ? o->macs : FIPS_mode()
++		? KEX_FIPS_MAC : KEX_DEFAULT_MAC);
++	dump_cfg_string(sKexAlgorithms, o->kex_algorithms ? o->kex_algorithms
++		: FIPS_mode() ? KEX_DEFAULT_KEX_FIPS : KEX_DEFAULT_KEX);
++	dump_cfg_string(sBanner, o->banner ? o->banner : "none");
+ 	dump_cfg_string(sAuthorizedKeysFile, o->authorized_keys_file);
+ 	dump_cfg_string(sAuthorizedKeysFile2, o->authorized_keys_file2);
+ 	dump_cfg_string(sForceCommand, o->adm_forced_command);
+@@ -1833,13 +1851,14 @@
+ 	/* string array arguments */
+ 	dump_cfg_strarray(sHostKeyFile, o->num_host_key_files,
+ 	     o->host_key_files);
+-	dump_cfg_strarray(sHostKeyFile, o->num_host_cert_files,
++	dump_cfg_strarray(sHostCertificate, o->num_host_cert_files,
+ 	     o->host_cert_files);
+ 	dump_cfg_strarray(sAllowUsers, o->num_allow_users, o->allow_users);
+ 	dump_cfg_strarray(sDenyUsers, o->num_deny_users, o->deny_users);
+ 	dump_cfg_strarray(sAllowGroups, o->num_allow_groups, o->allow_groups);
+ 	dump_cfg_strarray(sDenyGroups, o->num_deny_groups, o->deny_groups);
+ 	dump_cfg_strarray(sAcceptEnv, o->num_accept_env, o->accept_env);
++	dump_cfg_string(sRequiredAuthentications1, o->required_auth1);
+ 	dump_cfg_string(sRequiredAuthentications2, o->required_auth2);
+ 
+ 	/* other arguments */
+--- openssh-5.3p1.git/sshd_config.5	2015-01-28 11:53:01.736021538 +0100
++++ openssh-5.3p1/sshd_config.5	2015-02-03 16:42:13.471000676 +0100
+@@ -277,13 +277,14 @@
+ .Dq arcfour256 ,
+ .Dq arcfour ,
+ .Dq blowfish-cbc ,
++.Dq rijndael-cbc@lysator.liu.se ,
+ and
+ .Dq cast128-cbc .
+ The default is:
+ .Bd -literal -offset 3n
+ aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,
+ aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,aes192-cbc,
+-aes256-cbc,arcfour
++aes256-cbc,arcfour,rijndael-cbc@lysator.liu.se
+ .Ed
+ .It Cm ClientAliveCountMax
+ Sets the number of client alive messages (see below) which may be
+@@ -639,7 +640,7 @@
+ .Bd -literal -offset indent
+ hmac-md5,hmac-sha1,umac-64@openssh.com,
+ hmac-ripemd160,hmac-sha1-96,hmac-md5-96,
+-hmac-sha2-256,hmac-sha2-512
++hmac-sha2-256,hmac-sha2-512,hmac-ripemd160@openssh.com
+ .Ed
+ .It Cm Match
+ Introduces a conditional block.
+--- openssh-5.3p1.orig/sshd_config.5	2015-02-18 15:14:28.659653230 +0100
++++ openssh-5.3p1/sshd_config.5	2015-04-30 14:34:21.184303784 +0200
+@@ -533,6 +533,17 @@
+ .Cm HostbasedAuthentication .
+ The default is
+ .Dq no .
++.It Cm KbdInteractiveAuthentication
++Specifies whether to allow keyboard-interactive authentication.
++The argument to this keyword must be
++.Dq yes
++or
++.Dq no .
++The default is to use whatever value
++.Cm ChallengeResponseAuthentication
++is set to
++(by default
++.Dq yes ) .
+ .It Cm KerberosAuthentication
+ Specifies whether the password provided by the user for
+ .Cm PasswordAuthentication

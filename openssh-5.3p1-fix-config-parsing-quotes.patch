@@ -1,0 +1,32 @@
+diff --git a/ChangeLog b/ChangeLog
+index dc60221..ea087e8 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -178,6 +178,15 @@
+      [ssh-keygen.c]
+      fix printing of extensions in v01 certificates that I broke in r1.190
+ 
++20100716
++ - (djm) OpenBSD CVS Sync
++   - djm@cvs.openbsd.org 2010/07/02 04:32:44
++     [misc.c]
++     unbreak strdelim() skipping past quoted strings, e.g.
++     AllowUsers "blah blah" blah
++     was broken; report and fix in bz#1757 from bitman.zhou AT centrify.com
++     ok dtucker;
++
+ 20100521
+  - (djm) OpenBSD CVS Sync
+    - djm@cvs.openbsd.org 2010/05/07 11:31:26
+diff --git a/misc.c b/misc.c
+index b19ece8..4500b7a 100644
+--- a/misc.c
++++ b/misc.c
+@@ -178,6 +178,7 @@ strdelim(char **s)
+ 			return (NULL);		/* no matching quote */
+ 		} else {
+ 			*s[0] = '\0';
++			*s += strspn(*s + 1, WHITESPACE) + 1;
+ 			return (old);
+ 		}
+ 	}

@@ -139,7 +139,23 @@ diff -up openssh-5.3p1/audit.c.audit openssh-5.3p1/audit.c
  
  /*
   * Care must be taken when using this since it WILL NOT be initialized when
-@@ -111,6 +118,40 @@ audit_event_lookup(ssh_audit_event_t ev)
+@@ -71,13 +75,10 @@ audit_classify_auth(const char *method)
+ const char *
+ audit_username(void)
+ {
+-	static const char unknownuser[] = "(unknown user)";
+-	static const char invaliduser[] = "(invalid user)";
++	static const char unknownuser[] = "(unknown)";
+ 
+-	if (the_authctxt == NULL || the_authctxt->user == NULL)
++	if (the_authctxt == NULL || the_authctxt->user == NULL || !the_authctxt->valid)
+ 		return (unknownuser);
+-	if (!the_authctxt->valid)
+-		return (invaliduser);
+ 	return (the_authctxt->user);
+ }
+ 
+@@ -111,6 +112,40 @@ audit_event_lookup(ssh_audit_event_t ev)
  	return(event_lookup[i].name);
  }
  
@@ -412,9 +428,9 @@ diff -up openssh-5.3p1/audit.h.audit openssh-5.3p1/audit.h
  
  #endif /* _SSH_AUDIT_H */
 diff -up openssh-5.3p1/audit-linux.c.audit openssh-5.3p1/audit-linux.c
---- openssh-5.3p1/audit-linux.c.audit	2011-04-04 20:10:08.218648913 +0200
-+++ openssh-5.3p1/audit-linux.c	2011-04-04 20:10:09.610648556 +0200
-@@ -0,0 +1,405 @@
+--- openssh-5.3p1/audit-linux.c.audit	2015-03-09 13:58:47.058546970 +0100
++++ openssh-5.3p1/audit-linux.c	2015-03-27 08:52:27.974173304 +0100
+@@ -0,0 +1,412 @@
 +/* $Id: audit-linux.c,v 1.1 2011/01/17 10:15:30 dtucker Exp $ */
 +
 +/*
@@ -459,6 +475,7 @@ diff -up openssh-5.3p1/audit-linux.c.audit openssh-5.3p1/audit-linux.c
 +#include "canohost.h"
 +#include "packet.h"
 +#include "cipher.h"
++#include "xmalloc.h"
 +
 +#define AUDIT_LOG_SIZE 128
 +
@@ -701,10 +718,12 @@ diff -up openssh-5.3p1/audit-linux.c.audit openssh-5.3p1/audit-linux.c
 +	char buf[AUDIT_LOG_SIZE];
 +	const static char *name[] = { "cipher", "mac", "comp" };
 +	int audit_fd;
++	char *addr;
 +
 +	snprintf(buf, sizeof(buf), "op=unsupported-%s direction=? cipher=? ksize=? rport=%d laddr=%s lport=%d ",
-+		name[what], get_remote_port(), get_local_ipaddr(packet_get_connection_in()),
++		name[what], get_remote_port(), (addr = get_local_ipaddr(packet_get_connection_in())),
 +		get_local_port());
++	xfree(addr);
 +	audit_fd = audit_open();
 +	if (audit_fd < 0)
 +		/* no problem, the next instruction will be fatal() */
@@ -725,11 +744,13 @@ diff -up openssh-5.3p1/audit-linux.c.audit openssh-5.3p1/audit-linux.c
 +	char buf[AUDIT_LOG_SIZE];
 +	int audit_fd, audit_ok;
 +	Cipher *cipher = cipher_by_name(enc);
++	char *addr;
 +
 +	snprintf(buf, sizeof(buf), "op=start direction=%s cipher=%s ksize=%d spid=%jd suid=%jd rport=%d laddr=%s lport=%d ",
 +		direction[ctos], enc, cipher ? 8 * cipher->key_len : 0,
 +		(intmax_t)pid, (intmax_t)uid,
-+		get_remote_port(), get_local_ipaddr(packet_get_connection_in()), get_local_port());
++		get_remote_port(), (addr = get_local_ipaddr(packet_get_connection_in())), get_local_port());
++	xfree(addr);
 +	audit_fd = audit_open();
 +	if (audit_fd < 0) {
 +		if (errno == EINVAL || errno == EPROTONOSUPPORT ||
@@ -752,12 +773,14 @@ diff -up openssh-5.3p1/audit-linux.c.audit openssh-5.3p1/audit-linux.c
 +{
 +	char buf[AUDIT_LOG_SIZE];
 +	int audit_fd, audit_ok;
++	char *addr;
 +
 +	snprintf(buf, sizeof(buf), "op=destroy kind=session fp=? direction=%s spid=%jd suid=%jd rport=%d laddr=%s lport=%d ",
 +		 direction[ctos], (intmax_t)pid, (intmax_t)uid,
 +		 get_remote_port(),
-+		 get_local_ipaddr(packet_get_connection_in()),
++		 (addr = get_local_ipaddr(packet_get_connection_in())),
 +		 get_local_port());
++	xfree(addr);
 +	audit_fd = audit_open();
 +	if (audit_fd < 0) {
 +		if (errno != EINVAL && errno != EPROTONOSUPPORT &&
@@ -949,6 +972,19 @@ diff -up openssh-5.3p1/auth2-pubkey.c.audit openssh-5.3p1/auth2-pubkey.c
  /* return 1 if user allows given key */
  static int
  user_search_key_in_file(FILE *f, char *file, Key* key, struct passwd *pw)
+diff --git a/auth.c b/auth.c
+--- a/auth.c
++++ b/auth.c
+@@ -628,9 +628,6 @@ getpwnamallow(const char *user)
+ 		record_failed_login(user,
+ 		    get_canonical_hostname(options.use_dns), "ssh");
+ #endif
+-#ifdef SSH_AUDIT_EVENTS
+-		audit_event(SSH_INVALID_USER);
+-#endif /* SSH_AUDIT_EVENTS */
+ 		return (NULL);
+ 	}
+ 	if (!allowed_user(pw))
 diff -up openssh-5.3p1/auth.h.audit openssh-5.3p1/auth.h
 --- openssh-5.3p1/auth.h.audit	2011-04-04 20:10:05.390648642 +0200
 +++ openssh-5.3p1/auth.h	2011-04-04 20:10:08.414648880 +0200
@@ -1160,7 +1196,7 @@ diff -up openssh-5.3p1/kex.c.audit openssh-5.3p1/kex.c
  	}
  	choose_kex(kex, cprop[PROPOSAL_KEX_ALGS], sprop[PROPOSAL_KEX_ALGS]);
  	choose_hostkeyalg(kex, cprop[PROPOSAL_SERVER_HOST_KEY_ALGS],
-@@ -583,3 +599,34 @@ dump_digest(char *msg, u_char *digest, i
+@@ -583,3 +599,51 @@ dump_digest(char *msg, u_char *digest, i
  	fprintf(stderr, "\n");
  }
  #endif
@@ -1190,19 +1226,37 @@ diff -up openssh-5.3p1/kex.c.audit openssh-5.3p1/kex.c
 +	if (newkeys == NULL)
 +		return;
 +
++	xfree(newkeys->enc.name);
 +	enc_destroy(&newkeys->enc);
++
++	xfree(newkeys->mac.name);
 +	mac_destroy(&newkeys->mac);
++
++	xfree(newkeys->comp.name);
++
 +	memset(&newkeys->comp, 0, sizeof(newkeys->comp));
++}
++
++void
++newkeys_destroy_and_free(Newkeys *newkeys)
++{
++	if (newkeys == NULL)
++		return;
++
++	mac_clear(&newkeys->mac);
++	newkeys_destroy(newkeys);
++	xfree(newkeys);
 +}
 +
 diff -up openssh-5.3p1/kex.h.audit openssh-5.3p1/kex.h
 --- openssh-5.3p1/kex.h.audit	2011-04-04 20:10:05.888648695 +0200
 +++ openssh-5.3p1/kex.h	2011-04-04 20:10:08.743648972 +0200
-@@ -157,6 +157,8 @@ void	kexgss_client(Kex *);
+@@ -157,6 +157,9 @@ void	kexgss_client(Kex *);
  void	kexgss_server(Kex *);
  #endif
  
 +void	newkeys_destroy(Newkeys *newkeys);
++void	newkeys_destroy_and_free(Newkeys *newkeys);
 +
  void
  kex_dh_hash(char *, char *, char *, int, char *, int, u_char *, int,
@@ -1528,7 +1582,7 @@ diff -up openssh-5.3p1/monitor.c.audit openssh-5.3p1/monitor.c
  }
  
  
-@@ -2347,3 +2440,82 @@ mm_answer_jpake_check_confirm(int sock, 
+@@ -2347,3 +2440,86 @@ mm_answer_jpake_check_confirm(int sock, 
  }
  
  #endif /* JPAKE */
@@ -1566,6 +1620,9 @@ diff -up openssh-5.3p1/monitor.c.audit openssh-5.3p1/monitor.c
 +
 +	audit_kex_body(ctos, cipher, mac, compress, pid, uid);
 +
++	xfree(cipher);
++	xfree(mac);
++	xfree(compress);
 +	buffer_clear(m);
 +
 +	mm_request_send(sock, MONITOR_ANS_AUDIT_KEX, m);
@@ -1605,6 +1662,7 @@ diff -up openssh-5.3p1/monitor.c.audit openssh-5.3p1/monitor.c
 +
 +	audit_destroy_sensitive_data(fp, pid, uid);
 +
++	xfree(fp);
 +	buffer_clear(m);
 +
 +	mm_request_send(sock, MONITOR_ANS_AUDIT_SERVER_KEY_FREE, m);
@@ -1909,30 +1967,6 @@ diff -up openssh-5.3p1/packet.c.audit openssh-5.3p1/packet.c
  }
  
  /* Sets remote side protocol flags. */
-@@ -724,6 +741,23 @@ packet_send1(void)
- 	 */
- }
- 
-+static void
-+newkeys_destroy_and_free(Newkeys *newkeys)
-+{
-+	if (newkeys == NULL)
-+		return;
-+
-+	xfree(newkeys->enc.name);
-+
-+	mac_clear(&newkeys->mac);
-+	xfree(newkeys->mac.name);
-+
-+	xfree(newkeys->comp.name);
-+
-+	newkeys_destroy(newkeys);
-+	xfree(newkeys);
-+}
-+
- void
- set_newkeys(int mode)
- {
 @@ -749,18 +783,9 @@ set_newkeys(int mode)
  	}
  	if (active_state->newkeys[mode] != NULL) {
@@ -2104,7 +2138,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
 -		PRIVSEP(audit_run_command(shell));
 +		s->command = xstrdup(shell);
  	}
-+	if (s->command != NULL)
++	if (s->command != NULL && s->ptyfd == -1)
 +		s->command_handle = PRIVSEP(audit_run_command(s->command));
  #endif
  	if (s->ttyfd != -1)
@@ -2149,7 +2183,7 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
  session_by_tty(char *tty)
  {
  	int i;
-@@ -2501,6 +2530,30 @@ session_exit_message(Session *s, int sta
+@@ -2501,6 +2530,32 @@ session_exit_message(Session *s, int sta
  		chan_write_failed(c);
  }
  
@@ -2158,7 +2192,8 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
 +session_end_command2(Session *s)
 +{
 +	if (s->command != NULL) {
-+		audit_end_command(s->command_handle, s->command);
++		if (s->command_handle != -1)
++			audit_end_command(s->command_handle, s->command);
 +		xfree(s->command);
 +		s->command = NULL;
 +		s->command_handle = -1;
@@ -2169,7 +2204,8 @@ diff -up openssh-5.3p1/session.c.audit openssh-5.3p1/session.c
 +session_end_command(Session *s)
 +{
 +	if (s->command != NULL) {
-+		PRIVSEP(audit_end_command(s->command_handle, s->command));
++		if (s->command_handle != -1)
++			PRIVSEP(audit_end_command(s->command_handle, s->command));
 +		xfree(s->command);
 +		s->command = NULL;
 +		s->command_handle = -1;

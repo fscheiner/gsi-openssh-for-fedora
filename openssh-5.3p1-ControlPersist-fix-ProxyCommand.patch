@@ -1,0 +1,97 @@
+diff --git a/clientloop.c b/clientloop.c
+index a4f35cc..5a5f6e3 100644
+--- a/clientloop.c
++++ b/clientloop.c
+@@ -1910,8 +1910,9 @@ client_input_channel_req(int type, u_int32_t seq, void *ctxt)
+ 			success = 1;
+ 			exit_status = exitval;
+ 		} else {
+-			error("client_input_channel_req: unexpected channel %d",
+-			    session_ident);
++			/* Probably for a mux channel that has already closed */
++			debug("%s: no sink for exit-status on channel %d",
++			    __func__, id);
+ 		}
+ 		packet_check_eom();
+ 	}
+diff --git a/mux.c b/mux.c
+index 0c17d5e..780bd27 100644
+--- a/mux.c
++++ b/mux.c
+@@ -209,7 +209,16 @@ mux_master_control_cleanup_cb(int cid, void *unused)
+ 			    __func__, c->self, c->remote_id);
+ 		c->remote_id = -1;
+ 		sc->ctl_chan = -1;
+-		chan_mark_dead(sc);
++		if (sc->type != SSH_CHANNEL_OPEN &&
++		    sc->type != SSH_CHANNEL_OPENING) {
++			debug2("%s: channel %d: not open", __func__, sc->self);
++			chan_mark_dead(sc);
++		} else {
++			if (sc->istate == CHAN_INPUT_OPEN)
++				chan_read_failed(sc);
++			if (sc->ostate == CHAN_OUTPUT_OPEN)
++				chan_write_failed(sc);
++		}
+ 	}
+ 	channel_cancel_cleanup(c->self);
+ }
+diff --git a/ssh.c b/ssh.c
+index 94465e4..cdb96bf 100644
+--- a/ssh.c
++++ b/ssh.c
+@@ -114,6 +114,11 @@
+ 
+ extern char *__progname;
+ 
++/* Saves a copy of argv for setproctitle emulation */
++#ifndef HAVE_SETPROCTITLE
++static char **saved_av;
++#endif
++
+ /* Flag indicating whether debug mode is on.  May be set on the command line. */
+ int debug_flag = 0;
+ 
+@@ -251,6 +256,17 @@ main(int ac, char **av)
+ 
+ 	init_rng();
+ 
++#ifndef HAVE_SETPROCTITLE
++	/* Prepare for later setproctitle emulation */
++	/* Save argv so it isn't clobbered by setproctitle() emulation */
++	saved_av = xcalloc(ac + 1, sizeof(*saved_av));
++	for (i = 0; i < ac; i++)
++		saved_av[i] = xstrdup(av[i]);
++	saved_av[i] = NULL;
++	compat_init_setproctitle(ac, av);
++	av = saved_av;
++#endif
++
+ 	/*
+ 	 * Discard other fds that are hanging around. These can cause problem
+ 	 * with backgrounded ssh processes started by ControlPersist.
+@@ -969,6 +985,8 @@ control_persist_detach(void)
+ 		if (devnull > STDERR_FILENO)
+ 			close(devnull);
+ 	}
++	daemon(1, 1);
++	setproctitle("%s [mux]", options.control_path);
+ }
+ 
+ /* Do fork() after authentication. Used by "ssh -f" */
+@@ -1424,9 +1442,12 @@ ssh_session2(void)
+ 
+ 	/* If requested, let ssh continue in the background. */
+ 	if (fork_after_authentication_flag) {
+-		fork_after_authentication_flag = 0;
+-		if (daemon(1, 1) < 0)
+-			fatal("daemon() failed: %.200s", strerror(errno));
++		if (options.exit_on_forward_failure &&
++		    options.num_remote_forwards > 0) {
++			debug("deferring postauth fork until remote forward "
++			    "confirmation received");
++		} else
++			fork_postauth();
+ 	}
+ 
+ 	return client_loop(tty_flag, tty_flag ?

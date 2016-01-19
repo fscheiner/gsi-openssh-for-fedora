@@ -71,10 +71,10 @@ diff -up openssh-5.3p1/openbsd-compat/port-linux.h.sftp-chroot openssh-5.3p1/ope
 --- openssh-5.3p1/openbsd-compat/port-linux.h.sftp-chroot	2012-05-14 15:07:37.072823237 +0200
 +++ openssh-5.3p1/openbsd-compat/port-linux.h	2012-05-14 15:07:37.224698177 +0200
 @@ -24,6 +24,7 @@ int ssh_selinux_enabled(void);
- void ssh_selinux_setup_pty(char *, const char *);
  void ssh_selinux_setup_exec_context(char *);
  void ssh_selinux_change_context(const char *);
-+void ssh_selinux_chopy_context(void);
+ int ssh_selinux_setup_env_variables(void);
++void ssh_selinux_copy_context(void);
  #endif
  
  #endif /* ! _PORT_LINUX_H */

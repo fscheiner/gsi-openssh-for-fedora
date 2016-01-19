@@ -1,75 +1,19 @@
-From 69360ff02b4fc792f75c85c6bea9439e87a3d01a Mon Sep 17 00:00:00 2001
-From: Petr Lautrbach <plautrba@redhat.com>
-Date: Mon, 10 Mar 2014 16:02:53 +0100
-Subject: [PATCH] openssh-5.3p1-ecdsa-ecdh.patch
-
----
- ChangeLog               |  78 ++++++
- Makefile.in             |   9 +-
- PROTOCOL                |  43 +++-
- PROTOCOL.agent          |  44 +++-
- PROTOCOL.certkeys       |  87 ++++---
- auth2-jpake.c           |   7 +-
- authfd.c                |  20 +-
- authfile.c              |  33 +++
- bufec.c                 | 146 +++++++++++
- buffer.h                |   9 +
- configure.ac            | 116 +++++++++
- dns.c                   |   3 +-
- kex.c                   |  18 +-
- kex.h                   |  23 +-
- kexecdh.c               | 117 +++++++++
- kexecdhc.c              | 169 +++++++++++++
- kexecdhs.c              | 174 +++++++++++++
- key.c                   | 644 +++++++++++++++++++++++++++++++++++++++++++++++-
- key.h                   |  34 ++-
- monitor.c               |   7 +-
- monitor_wrap.c          |   1 +
- myproposal.h            |   2 +-
- packet.c                |  16 ++
- packet.h                |   9 +
- pathnames.h             |   2 +
- readconf.c              |   7 +
- regress/cert-hostkey.sh |  57 ++++-
- regress/cert-userkey.sh |  17 +-
- ssh-add.1               |   9 +-
- ssh-add.c               |   1 +
- ssh-agent.1             |   7 +-
- ssh-agent.c             |  61 ++++-
- ssh-ecdsa.c             | 168 +++++++++++++
- ssh-keygen.1            |  39 ++-
- ssh-keygen.c            |  53 +++-
- ssh-keyscan.1           |  16 +-
- ssh-keyscan.c           |  11 +-
- ssh-keysign.8           |   2 +-
- ssh.1                   |  26 +-
- ssh.c                   |  17 +-
- ssh2.h                  |   4 +
- ssh_config.5            |  18 +-
- sshconnect.c            |   2 +-
- sshconnect2.c           |   1 +
- sshd.8                  |  15 +-
- sshd.c                  |   5 +
- sshd_config.5           |   8 +-
- uuencode.c              |   4 +-
- uuencode.h              |   4 +-
- 49 files changed, 2193 insertions(+), 170 deletions(-)
- create mode 100644 bufec.c
- create mode 100644 kexecdh.c
- create mode 100644 kexecdhc.c
- create mode 100644 kexecdhs.c
- create mode 100644 ssh-ecdsa.c
-
 diff --git a/ChangeLog b/ChangeLog
 index ed12723..e1ab9ca 100644
 --- a/ChangeLog
 +++ b/ChangeLog
-@@ -1,4 +1,22 @@
+@@ -1,4 +1,28 @@
 +20131109
 + - (dtucker) [configure.ac kex.c key.c myproposal.h] Test for the presence of
 +   NID_X9_62_prime256v1, NID_secp384r1 and NID_secp521r1 and test that the
 +   latter actually works before using it.  Fedora (at least) has NID_secp521r1
 +   that doesn't work (see https://bugzilla.redhat.com/show_bug.cgi?id=1021897).
++
++20110106
++ - (djm) OpenBSD CVS Sync
++   - otto@cvs.openbsd.org 2011/01/04 20:44:13
++     [ssh-keyscan.c]
++     handle ecdsa-sha2 with various key lengths; hint and ok djm@
 +
 +20101021
 +   - djm@cvs.openbsd.org 2010/08/31 12:24:09
@@ -4100,6 +4044,26 @@ index fec55b4..4d98881 100644
  int	 uudecode(const char *, u_char *, size_t);
 -void	 dump_base64(FILE *, u_char *, u_int);
 +void	 dump_base64(FILE *, const u_char *, u_int);
--- 
-1.8.3.1
-
+diff --git a/ssh-keyscan.c b/ssh-keyscan.c
+index 9dcee73..cc814d9 100644
+--- a/ssh-keyscan.c
++++ b/ssh-keyscan.c
+@@ -246,7 +246,8 @@ keygrab_ssh2(con *c)
+ 	packet_set_connection(c->c_fd, c->c_fd);
+ 	enable_compat20();
+ 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = c->c_keytype == KT_DSA?
+-	    "ssh-dss": "ssh-rsa";
++	    "ssh-dss" : (c->c_keytype == KT_RSA ? "ssh-rsa" :
++	    "ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521");
+ 	c->c_kex = kex_setup(myproposal);
+ 	c->c_kex->kex[KEX_DH_GRP1_SHA1] = kexdh_client;
+ 	c->c_kex->kex[KEX_DH_GRP14_SHA1] = kexdh_client;
+@@ -689,7 +689,7 @@ do_host(char *host)
+ 
+ 	if (name == NULL)
+ 		return;
+-	for (j = KT_RSA1; j <= KT_RSA; j *= 2) {
++	for (j = KT_RSA1; j <= KT_ECDSA; j *= 2) {
+ 		if (get_keytypes & j) {
+ 			while (ncon >= MAXCON)
+ 				conloop();

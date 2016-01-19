@@ -369,3 +369,13 @@ diff -up openssh-5.3p1/ssh-keycat.c.keycat openssh-5.3p1/ssh-keycat.c
 +	}
 +	return ev;
 +}
+--- openssh-5.3p1.orig/openbsd-compat/port-linux.h	2015-04-30 15:50:19.169062890 +0200
++++ openssh-5.3p1/openbsd-compat/port-linux.h	2015-04-30 15:51:59.988984473 +0200
+@@ -26,6 +26,7 @@
+ void ssh_selinux_setup_pty(char *, const char *);
+ void ssh_selinux_setup_exec_context(char *);
+ void ssh_selinux_change_context(const char *);
++int ssh_selinux_setup_env_variables(void);
+ #endif
+ 
+ #endif /* ! _PORT_LINUX_H */

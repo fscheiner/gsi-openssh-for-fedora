@@ -1,0 +1,70 @@
+diff --git a/ChangeLog b/ChangeLog
+index 928999d..3887495 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,10 @@
++20140703
++ - OpenBSD CVS Sync
++   - djm@cvs.openbsd.org 2014/07/03 03:34:09
++     [gss-serv.c session.c ssh-keygen.c]
++     standardise on NI_MAXHOST for gethostname() string lengths; about
++     1/2 the cases were using it already. Fixes bz#2239 en passant
++
+ 20140304
+  - OpenBSD CVS Sync
+    - djm@cvs.openbsd.org 2014/03/03 22:22:30
+diff --git a/gss-serv.c b/gss-serv.c
+index 14f540e..29916d3 100644
+--- a/gss-serv.c
++++ b/gss-serv.c
+@@ -102,14 +102,14 @@ static OM_uint32
+ ssh_gssapi_acquire_cred(Gssctxt *ctx)
+ {
+ 	OM_uint32 status;
+-	char lname[MAXHOSTNAMELEN];
++	char lname[NI_MAXHOST];
+ 	gss_OID_set oidset;
+ 
+ 	if (options.gss_strict_acceptor) {
+ 		gss_create_empty_oid_set(&status, &oidset);
+ 		gss_add_oid_set_member(&status, ctx->oid, &oidset);
+ 
+-		if (gethostname(lname, MAXHOSTNAMELEN)) {
++		if (gethostname(lname, sizeof(lname))) {
+ 			gss_release_oid_set(&status, &oidset);
+ 			return (-1);
+ 		}
+diff --git a/session.c b/session.c
+index ba4589b..e4add93 100644
+--- a/session.c
++++ b/session.c
+@@ -49,6 +49,7 @@
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <grp.h>
++#include <netdb.h>
+ #ifdef HAVE_PATHS_H
+ #include <paths.h>
+ #endif
+@@ -2669,7 +2670,7 @@ session_setup_x11fwd(Session *s)
+ {
+ 	struct stat st;
+ 	char display[512], auth_display[512];
+-	char hostname[MAXHOSTNAMELEN];
++	char hostname[NI_MAXHOST];
+ 	u_int i;
+ 
+ 	if (no_x11_forwarding_flag) {
+diff --git a/ssh-keygen.c b/ssh-keygen.c
+index 482dc1c..66198e6 100644
+--- a/ssh-keygen.c
++++ b/ssh-keygen.c
+@@ -165,7 +165,7 @@ int rounds = 0;
+ /* argv0 */
+ extern char *__progname;
+ 
+-char hostname[MAXHOSTNAMELEN];
++char hostname[NI_MAXHOST];
+ 
+ /* moduli.c */
+ int gen_candidates(FILE *, u_int32_t, u_int32_t, BIGNUM *);
