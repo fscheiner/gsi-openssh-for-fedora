@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.1p2
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -74,7 +74,7 @@ Patch501: openssh-6.7p1-ldap.patch
 #?
 Patch502: openssh-6.6p1-keycat.patch
 
-#http6://bugzilla.mindrot.org/show_bug.cgi?id=1644
+#https://bugzilla.mindrot.org/show_bug.cgi?id=1644
 Patch601: openssh-6.6p1-allow-ip-opts.patch
 #http://cvsweb.netbsd.org/cgi-bin/cvsweb.cgi/src/crypto/dist/ssh/Attic/sftp-glob.c.diff?r1=1.13&r2=1.13.12.1&f=h
 Patch603: openssh-5.8p1-glob.patch
@@ -178,6 +178,8 @@ Patch935: openssh-7.1p1-ssh-copy-id.patch
 # Preserve IUTF8 tty mode flag over ssh connections (#1270248)
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2477
 Patch936: openssh-7.1p1-iutf8.patch
+# CVE-2016-1908: possible fallback from untrusted to trusted X11 forwarding
+Patch937: openssh-7.1p2-fallback-x11-untrusted.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.1p1.patch
@@ -339,6 +341,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch934 -p1 -b .hostkey
 %patch935 -p1 -b .ssh-copy-id
 %patch936 -p1 -b .iutf8
+%patch937 -p1 -b .x11-fallback
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
@@ -508,7 +511,6 @@ getent passwd sshd >/dev/null || \
 %systemd_postun_with_restart gsisshd.service
 
 %files
-%defattr(-,root,root)
 %license LICENCE LICENSE.globus_usage
 %doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
@@ -520,7 +522,6 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_mandir}/man8/gsissh-keysign.8*
 
 %files clients
-%defattr(-,root,root)
 %attr(0755,root,root) %{_bindir}/gsissh
 %attr(0644,root,root) %{_libdir}/fipscheck/gsissh.hmac
 %attr(0644,root,root) %{_mandir}/man1/gsissh.1*
@@ -534,7 +535,6 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_mandir}/man1/gsisftp.1*
 
 %files server
-%defattr(-,root,root)
 %dir %attr(0711,root,root) %{_var}/empty/gsisshd
 %attr(0755,root,root) %{_sbindir}/gsisshd
 %attr(0755,root,root) %{_sbindir}/gsisshd-keygen
@@ -554,6 +554,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Jan 29 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.1p2-2
+- Based on openssh-7.1p2-2.fc23
+
 * Tue Jan 19 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.1p2-1
 - Based on openssh-7.1p2-1.fc23
 
