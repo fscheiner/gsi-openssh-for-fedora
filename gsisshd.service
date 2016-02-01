@@ -5,8 +5,10 @@ After=network.target gsisshd-keygen.service
 Wants=gsisshd-keygen.service
 
 [Service]
+Type=forking
+PIDFile=/var/run/gsisshd.pid
 EnvironmentFile=-/etc/sysconfig/gsisshd
-ExecStart=/usr/sbin/gsisshd -D $OPTIONS
+ExecStart=/usr/sbin/gsisshd $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure

@@ -113,7 +113,7 @@ index f555451..c0386d5 100644
 -	} else if (!client_x11_display_valid(display)) {
 -		logit("DISPLAY '%s' invalid, falling back to fake xauth data",
 +	if (!client_x11_display_valid(display)) {
-+		logit("DISPLAY \"%s\" invalid; disabling X11 forwarding",
++		debug("DISPLAY \"%s\" invalid; disabling X11 forwarding",
  		    display);
 -	} else {
 -		if (display == NULL) {
