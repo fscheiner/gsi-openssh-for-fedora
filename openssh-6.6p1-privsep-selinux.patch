@@ -141,7 +141,7 @@ index 684f867..09048bc 100644
  	platform_setusercontext(pw);
  
 -	if (platform_privileged_uidswap()) {
-+	if (platform_privileged_uidswap() && !is_child) {
++	if (platform_privileged_uidswap() && (!is_child || !use_privsep)) {
  #ifdef HAVE_LOGIN_CAP
  		if (setusercontext(lc, pw, pw->pw_uid,
  		    (LOGIN_SETALL & ~(LOGIN_SETPATH|LOGIN_SETUSER))) < 0) {

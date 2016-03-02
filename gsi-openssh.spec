@@ -31,12 +31,12 @@
 %global ldap 1
 
 %global openssh_ver 7.1p2
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -63,6 +63,8 @@ Patch103: openssh-5.8p1-packet.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=1171248
 # record pfs= field in CRYPTO_SESSION audit event
 Patch200: openssh-6.7p1-audit.patch
+# Audit race condition in forked child (#1310684)
+Patch201: openssh-7.1p2-audit-race-condition.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
 Patch400: openssh-6.6p1-role-mls.patch
@@ -76,8 +78,6 @@ Patch502: openssh-6.6p1-keycat.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1644
 Patch601: openssh-6.6p1-allow-ip-opts.patch
-#http://cvsweb.netbsd.org/cgi-bin/cvsweb.cgi/src/crypto/dist/ssh/Attic/sftp-glob.c.diff?r1=1.13&r2=1.13.12.1&f=h
-Patch603: openssh-5.8p1-glob.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1893
 Patch604: openssh-6.6p1-keyperm.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1925
@@ -295,7 +295,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch502 -p1 -b .keycat
 
 %patch601 -p1 -b .ip-opts
-%patch603 -p1 -b .glob
 %patch604 -p1 -b .keyperm
 %patch606 -p1 -b .ipv6man
 %patch607 -p1 -b .sigpipe
@@ -344,6 +343,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch937 -p1 -b .x11-fallback
 
 %patch200 -p1 -b .audit
+%patch201 -p1 -b .audit-race
 %patch700 -p1 -b .fips
 
 %patch100 -p1 -b .coverity
@@ -554,6 +554,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Mar 02 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.1p2-4
+- Based on openssh-7.1p2-4.fc23
+
 * Wed Feb 03 2016 Fedora Release Engineering <releng@fedoraproject.org> - 7.1p2-3.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
 
