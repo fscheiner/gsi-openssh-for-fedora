@@ -199,7 +199,7 @@ index f41960c..e12932f 100644
 +			    options.fingerprint_hash[0], SSH_FP_RANDOMART);
  			if (fp == NULL || ra == NULL)
  				fatal("%s: sshkey_fingerprint fail", __func__);
- 			logit("Host key fingerprint is %s\n%s\n", fp, ra);
+ 			logit("Host key fingerprint is %s\n%s", fp, ra);
 @@ -964,12 +964,6 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
  			else
  				snprintf(msg1, sizeof(msg1), ".");
@@ -295,14 +295,14 @@ index 7751031..82ed92e 100644
  		goto done;
  	debug2("input_userauth_pk_ok: fp %s", fp);
 @@ -1009,7 +1009,7 @@ sign_and_send_pubkey(Authctxt *authctxt, Identity *id)
- 	int have_sig = 1;
+ 	int matched, ret = -1, have_sig = 1;
  	char *fp;
  
 -	if ((fp = sshkey_fingerprint(id->key, options.fingerprint_hash,
 +	if ((fp = sshkey_fingerprint(id->key, options.fingerprint_hash[0],
  	    SSH_FP_DEFAULT)) == NULL)
  		return 0;
- 	debug3("sign_and_send_pubkey: %s %s", key_type(id->key), fp);
+ 	debug3("%s: %s %s", __func__, key_type(id->key), fp);
 @@ -1635,7 +1635,7 @@ userauth_hostbased(Authctxt *authctxt)
  		goto out;
  	}
@@ -323,10 +323,23 @@ index 1dca3e2..23bff7d 100644
 -		if ((fp = sshkey_fingerprint(key, options.fingerprint_hash,
 +		if ((fp = sshkey_fingerprint(key, options.fingerprint_hash[0],
  		    SSH_FP_DEFAULT)) == NULL)
- 			fatal("%s: sshkey_fingerprint failed", __func__);
+ 			fatal("%s: sshkey_fingerprint failed", __progname);
  		fatal("no matching hostkey found for key %s %s",
 
 -- 
 2.1.0
 
 
+diff --git a/sshconnect.c b/sshconnect.c
+index de7ace6..f16e606 100644
+--- a/sshconnect.c
++++ b/sshconnect.c
+@@ -1262,7 +1262,7 @@ verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
+ 
+ 	if (sshkey_is_cert(host_key)) {
+ 		if ((cafp = sshkey_fingerprint(host_key->cert->signature_key,
+-		    options.fingerprint_hash, SSH_FP_DEFAULT)) == NULL) {
++		    options.fingerprint_hash[0], SSH_FP_DEFAULT)) == NULL) {
+ 			error("%s: fingerprint CA key: %s",
+ 			    __func__, ssh_err(r));
+ 			r = -1;

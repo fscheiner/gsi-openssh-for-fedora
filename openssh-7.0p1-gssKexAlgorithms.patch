@@ -95,9 +95,9 @@ diff -up openssh-7.0p1/kex.c.gsskexalg openssh-7.0p1/kex.c
 --- openssh-7.0p1/kex.c.gsskexalg	2015-08-19 12:28:38.078518839 +0200
 +++ openssh-7.0p1/kex.c	2015-08-19 12:30:13.249306371 +0200
 @@ -50,6 +50,7 @@
+ #include "misc.h"
  #include "dispatch.h"
  #include "monitor.h"
- #include "roaming.h"
 +#include "xmalloc.h"
  
  #include "ssherr.h"
@@ -336,9 +336,9 @@ diff -up openssh-7.0p1/ssh_config.5.gsskexalg openssh-7.0p1/ssh_config.5
 --- openssh-7.0p1/ssh_config.5.gsskexalg	2015-08-19 12:28:38.028518950 +0200
 +++ openssh-7.0p1/ssh_config.5	2015-08-19 12:28:38.082518830 +0200
 @@ -786,6 +786,18 @@ command line will be passed untouched to
+ command line will be passed untouched to the GSSAPI library.
  The default is
  .Dq no .
- This option only applies to protocol version 2 connections using GSSAPI.
 +.It Cm GSSAPIKexAlgorithms
 +The list of key exchange algorithms that are offered for GSSAPI
 +key exchange. Possible values are

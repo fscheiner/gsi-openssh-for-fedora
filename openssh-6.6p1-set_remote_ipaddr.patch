@@ -59,9 +59,9 @@ diff -up openssh-6.8p1/sshconnect.c.set_remote_ipaddr openssh-6.8p1/sshconnect.c
 --- openssh-6.8p1/sshconnect.c.set_remote_ipaddr	2015-03-17 06:49:20.000000000 +0100
 +++ openssh-6.8p1/sshconnect.c	2015-03-18 12:40:58.096788804 +0100
 @@ -65,6 +65,7 @@
- #include "version.h"
  #include "authfile.h"
  #include "ssherr.h"
+ #include "authfd.h"
 +#include "canohost.h"
  
  char *client_version_string = NULL;

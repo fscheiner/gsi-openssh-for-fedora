@@ -115,7 +115,7 @@ index 2871fe9..39b9c08 100644
 +	sshd_selinux_change_privsep_preauth_context();
  #endif
  
- 	/* Change our root directory */
+ 	/* Demote the child */
 diff --git a/openbsd-compat/port-linux.c b/openbsd-compat/port-linux.c
 index 12c014e..c5ef2ff 100644
 --- a/openbsd-compat/port-linux.c

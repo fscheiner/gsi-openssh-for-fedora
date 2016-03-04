@@ -77,7 +77,7 @@ index 8949fd1..9afb764 100644
 +#endif
 +
  static int is_child = 0;
- 
+ static int in_chroot = 0;
  static int have_dev_log = 1;
 @@ -875,6 +879,8 @@ do_exec(Session *s, const char *command)
  	}

@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.1p2
-%global openssh_rel 4
+%global openssh_ver 7.2p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -62,7 +62,7 @@ Patch103: openssh-5.8p1-packet.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 # https://bugzilla.redhat.com/show_bug.cgi?id=1171248
 # record pfs= field in CRYPTO_SESSION audit event
-Patch200: openssh-6.7p1-audit.patch
+Patch200: openssh-7.2p1-audit.patch
 # Audit race condition in forked child (#1310684)
 Patch201: openssh-7.1p2-audit-race-condition.patch
 
@@ -88,7 +88,7 @@ Patch607: openssh-5.8p2-sigpipe.patch
 Patch609: openssh-5.5p1-x11.patch
 
 #?
-Patch700: openssh-6.7p1-fips.patch
+Patch700: openssh-7.2p1-fips.patch
 #?
 Patch702: openssh-5.1p1-askpass-progress.patch
 #?
@@ -112,7 +112,7 @@ Patch714: openssh-6.7p1-kdf-cavs.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 #changed cache storage type - #848228
-Patch800: openssh-6.6p1-gsskex.patch
+Patch800: openssh-7.2p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
 Patch801: openssh-6.6p1-force_krb.patch
 # add new option GSSAPIEnablek5users and disable using ~/.k5users by default (#1169843)
@@ -169,21 +169,13 @@ Patch931: openssh-6.9p1-scp-progressmeter.patch
 Patch932: openssh-7.0p1-gssKexAlgorithms.patch
 # Possibility to validate legacy systems by more fingerprints (#1249626)(#2439)
 Patch933: openssh-7.0p1-show-more-fingerprints.patch
-# Brokend HostKeyAlgorthms on server using + sign
-# from http://lists.mindrot.org/pipermail/openssh-unix-dev/2015-August/034324.html
-Patch934: openssh-7.1p1-hostkeyalgorithms.patch
-# Updated version of ssh-copy-id
-# http://git.hands.com/ssh-copy-id
-Patch935: openssh-7.1p1-ssh-copy-id.patch
 # Preserve IUTF8 tty mode flag over ssh connections (#1270248)
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2477
 Patch936: openssh-7.1p1-iutf8.patch
-# CVE-2016-1908: possible fallback from untrusted to trusted X11 forwarding
-Patch937: openssh-7.1p2-fallback-x11-untrusted.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.1p1.patch
-Patch98: openssh-7.1p1-gsissh.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
+Patch98: openssh-7.2p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -337,10 +329,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch931 -p1 -b .progressmeter
 %patch932 -p1 -b .gsskexalg
 %patch933 -p1 -b .fingerprint
-%patch934 -p1 -b .hostkey
-%patch935 -p1 -b .ssh-copy-id
 %patch936 -p1 -b .iutf8
-%patch937 -p1 -b .x11-fallback
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -554,6 +543,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Mar 04 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p1-1
+- Based on openssh-7.2p1-2.fc23
+
 * Wed Mar 02 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.1p2-4
 - Based on openssh-7.1p2-4.fc23
 

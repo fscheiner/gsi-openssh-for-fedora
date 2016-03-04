@@ -47,15 +47,6 @@ diff --git a/session.c b/session.c
 index 2bcf818..b5dc144 100644
 --- a/session.c
 +++ b/session.c
-@@ -1532,7 +1532,7 @@ void
- do_setusercontext(struct passwd *pw)
- {
- 	char *chroot_path, *tmp;
--#ifdef USE_LIBIAF
-+#if defined(USE_LIBIAF) || defined(WITH_SELINUX)
- 	int doing_chroot = 0;
- #endif
- 
 @@ -1538,6 +1538,9 @@ do_setusercontext(struct passwd *pw)
  			    pw->pw_uid);
  			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
@@ -66,22 +57,13 @@ index 2bcf818..b5dc144 100644
  			safely_chroot(chroot_path, pw->pw_uid);
  			free(tmp);
  			free(chroot_path);
-@@ -1557,7 +1557,7 @@ do_setusercontext(struct passwd *pw)
- 			/* Make sure we don't attempt to chroot again */
- 			free(options.chroot_directory);
- 			options.chroot_directory = NULL;
--#ifdef USE_LIBIAF
-+#if defined(USE_LIBIAF) || defined(WITH_SELINUX)
- 			doing_chroot = 1;
- #endif
- 		}
 @@ -1565,6 +1568,11 @@ do_setusercontext(struct passwd *pw)
  		/* Permanently switch to the desired uid. */
  		permanently_set_uid(pw);
  #endif
 +
 +#ifdef WITH_SELINUX
-+		if (doing_chroot == 0)
++		if (in_chroot == 0)
 +			sshd_selinux_copy_context();
 +#endif
  	} else if (options.chroot_directory != NULL &&
@@ -119,9 +101,9 @@ index 07f9926..a97f8b7 100644
 +	ssh_selinux_change_context("sshd_net_t");
 +#endif
 +
- 	/* Change our root directory */
- 	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
- 		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
+ 	/* Demote the child */
+ 	if (getuid() == 0 || geteuid() == 0) {
+ 		/* Change our root directory */
 @@ -755,6 +755,9 @@ privsep_postauth(Authctxt *authctxt)
  
  #ifdef DISABLE_FD_PASSING

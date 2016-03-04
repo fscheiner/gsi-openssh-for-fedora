@@ -117,15 +117,14 @@ diff -up openssh-6.8p1/monitor.h.log-in-chroot openssh-6.8p1/monitor.h
 diff -up openssh-6.8p1/session.c.log-in-chroot openssh-6.8p1/session.c
 --- openssh-6.8p1/session.c.log-in-chroot	2015-03-18 12:59:29.675022359 +0100
 +++ openssh-6.8p1/session.c	2015-03-18 12:59:29.696022308 +0100
-@@ -161,6 +161,8 @@ login_cap_t *lc;
+@@ -161,6 +161,7 @@ login_cap_t *lc;
  
  static int is_child = 0;
- 
+ static int in_chroot = 0;
 +static int have_dev_log = 1;
-+
+ 
  /* Name and directory of socket for authentication agent forwarding. */
  static char *auth_sock_name = NULL;
- static char *auth_sock_dir = NULL;
 @@ -506,8 +508,8 @@ do_exec_no_pty(Session *s, const char *c
  		is_child = 1;
  
@@ -150,8 +149,8 @@ diff -up openssh-6.8p1/session.c.log-in-chroot openssh-6.8p1/session.c
  
 @@ -780,6 +782,7 @@ do_exec(Session *s, const char *command)
  	int ret;
- 	const char *forced = NULL;
- 	char session_type[1024], *tty = NULL;
+ 	const char *forced = NULL, *tty = NULL;
+ 	char session_type[1024];
 +	struct stat dev_log_stat;
  
  	if (options.adm_forced_command) {
@@ -164,7 +163,7 @@ diff -up openssh-6.8p1/session.c.log-in-chroot openssh-6.8p1/session.c
 +		have_dev_log = 0;
 +	}
 +
- 	verbose("Starting session: %s%s%s for %s from %.200s port %d",
+ 	verbose("Starting session: %s%s%s for %s from %.200s port %d id %d",
  	    session_type,
  	    tty == NULL ? "" : " on ",
 @@ -1678,14 +1685,6 @@ child_close_fds(void)
@@ -233,8 +232,8 @@ diff -up openssh-6.8p1/sftp-server.c.log-in-chroot openssh-6.8p1/sftp-server.c
  	fd_set *rset, *wset;
  	int i, r, in, out, max, ch, skipargs = 0, log_stderr = 0;
 @@ -1515,7 +1515,7 @@ sftp_server_main(int argc, char **argv,
- 	extern char *__progname;
  
+ 	ssh_malloc_init();	/* must be called before any mallocs */
  	__progname = ssh_get_progname(argv[0]);
 -	log_init(__progname, log_level, log_facility, log_stderr);
 +	log_init_handler(__progname, log_level, log_facility, log_stderr, reset_handler);

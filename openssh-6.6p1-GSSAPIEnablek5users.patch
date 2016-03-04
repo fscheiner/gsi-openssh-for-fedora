@@ -106,9 +106,9 @@ diff -up openssh-7.0p1/sshd_config.5.GSSAPIEnablek5users openssh-7.0p1/sshd_conf
 --- openssh-7.0p1/sshd_config.5.GSSAPIEnablek5users	2015-08-12 11:27:44.023407950 +0200
 +++ openssh-7.0p1/sshd_config.5	2015-08-12 11:27:44.048407911 +0200
 @@ -633,6 +633,12 @@ on logout.
+ on logout.
  The default is
  .Dq yes .
- Note that this option applies to protocol version 2 only.
 +.It Cm GSSAPIEnablek5users
 +Specifies whether to look at .k5users file for GSSAPI authentication
 +access control. Further details are described in

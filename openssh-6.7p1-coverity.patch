@@ -415,8 +415,8 @@ diff -up openssh-6.8p1/sshd.c.coverity openssh-6.8p1/sshd.c
 --- openssh-6.8p1/sshd.c.coverity	2015-03-18 17:21:51.893264839 +0100
 +++ openssh-6.8p1/sshd.c	2015-03-18 17:21:58.284251454 +0100
 @@ -778,8 +778,10 @@ privsep_preauth(Authctxt *authctxt)
- 		if (getuid() == 0 || geteuid() == 0)
- 			privsep_preauth_child();
+ 
+ 		privsep_preauth_child();
  		setproctitle("%s", "[net]");
 -		if (box != NULL)
 +		if (box != NULL) {

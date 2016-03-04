@@ -190,8 +190,8 @@ diff -up openssh-7.0p1/servconf.c.kuserok openssh-7.0p1/servconf.c
 +	if (options->use_kuserok == -1)
 +		options->use_kuserok = 1;
  
- 	if (kex_assemble_names(KEX_SERVER_ENCRYPT, &options->ciphers) != 0 ||
- 	    kex_assemble_names(KEX_SERVER_MAC, &options->macs) != 0 ||
+ 	assemble_algorithms(options);
+ 
 @@ -404,7 +407,7 @@ typedef enum {
  	sKeyRegenerationTime, sPermitRootLogin, sLogFacility, sLogLevel,
  	sRhostsRSAAuthentication, sRSAAuthentication,
