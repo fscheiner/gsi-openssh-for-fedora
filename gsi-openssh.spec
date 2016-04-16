@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 6.9p1
-%global openssh_rel 7
+%global openssh_rel 8
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -182,6 +182,8 @@ Patch934: openssh-6.9p1-gssKexAlgorithms.patch
 #  CVE-2016-0777 OpenSSH: Client Information leak due to use of roaming connection feature
 #  Fix an out of-bound read access in the packet handling code
 Patch935: openssh-6.9p1-security-7.1.patch
+# Fix for security issue (openssh-7.2p2): sanitise characters destined for xauth(1)
+Patch936: openssh-6.9p1-xauth.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.9p1.patch
@@ -345,6 +347,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch933 -p1 -b .fingerprint
 %patch934 -p1 -b .gsskexalg
 %patch935 -p1 -b .security71
+%patch936 -p1 -b .xauth
 
 %patch200 -p1 -b .audit
 %patch700 -p1 -b .fips
@@ -561,6 +564,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Sat Apr 16 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.9p1-8
+- Based on openssh-6.9p1-11.fc22
+
 * Tue Jan 19 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.9p1-7
 - Based on openssh-6.9p1-10.fc22
 
