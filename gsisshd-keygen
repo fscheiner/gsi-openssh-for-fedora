@@ -6,8 +6,22 @@
 # variable.
 AUTOCREATE_SERVER_KEYS="RSA ECDSA ED25519"
 
-# source function library
-. /etc/rc.d/init.d/functions
+if [ -f /etc/rc.d/init.d/functions ]; then
+    # source function library
+    . /etc/rc.d/init.d/functions
+else
+    # minimal implementation of success and failure function
+    success()
+    {
+        echo -en $"[  OK  ]\r"
+        return 0
+    }
+    failure()
+    {
+        echo -en $"[FAILED]\r"
+        return 1
+    }
+fi
 
 # Some functions to make the below more readable
 KEYGEN=/usr/bin/gsissh-keygen

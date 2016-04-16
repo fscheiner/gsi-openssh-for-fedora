@@ -30,7 +30,7 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.2p1
+%global openssh_ver 7.2p2
 %global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
@@ -175,7 +175,7 @@ Patch936: openssh-7.1p1-iutf8.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
-Patch98: openssh-7.2p1-gsissh.patch
+Patch98: openssh-7.2p2-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -543,6 +543,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Sat Apr 16 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p2-1
+- Based on openssh-7.2p2-2.fc23
+
 * Fri Mar 04 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p1-1
 - Based on openssh-7.2p1-2.fc23
 

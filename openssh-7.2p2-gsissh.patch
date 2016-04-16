@@ -3006,7 +3006,7 @@ diff -Nur openssh-7.2p1.orig/version.h openssh-7.2p1/version.h
 +
  #define SSH_VERSION	"OpenSSH_7.2"
  
- #define SSH_PORTABLE	"p1"
+ #define SSH_PORTABLE	"p2"
 -#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE
 +#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE \
 +				    NCSA_VERSION GSI_VERSION KRB5_VERSION
