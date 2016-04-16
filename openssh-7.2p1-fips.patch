@@ -637,3 +637,63 @@ diff -up openssh-7.2p1/sshkey.c.fips openssh-7.2p1/sshkey.c
  		ret = SSH_ERR_LIBCRYPTO_ERROR;
  		goto out;
  	}
+diff --git a/cipher.c b/cipher.c
+index f282907..51bbffb 100644
+--- a/cipher.c
++++ b/cipher.c
+@@ -112,12 +112,6 @@ static const struct sshcipher fips_ciphers[] = {
+ 	{ "aes128-ctr",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 0, EVP_aes_128_ctr },
+ 	{ "aes192-ctr",	SSH_CIPHER_SSH2, 16, 24, 0, 0, 0, 0, EVP_aes_192_ctr },
+ 	{ "aes256-ctr",	SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 0, EVP_aes_256_ctr },
+-#ifdef OPENSSL_HAVE_EVPGCM
+-	{ "aes128-gcm@openssh.com",
+-			SSH_CIPHER_SSH2, 16, 16, 12, 16, 0, 0, EVP_aes_128_gcm },
+-	{ "aes256-gcm@openssh.com",
+-			SSH_CIPHER_SSH2, 16, 32, 12, 16, 0, 0, EVP_aes_256_gcm },
+-#endif
+ 	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
+ };
+ 
+diff --git a/kex.c b/kex.c
+index f07a636..4ce5843 100644
+--- a/kex.c
++++ b/kex.c
+@@ -123,8 +123,6 @@ static const struct kexalg kexalgs[] = {
+ };
+ 
+ static const struct kexalg kexalgs_fips[] = {
+-	{ KEX_DH14, KEX_DH_GRP14_SHA1, 0, SSH_DIGEST_SHA1 },
+-	{ KEX_DHGEX_SHA1, KEX_DH_GEX_SHA1, 0, SSH_DIGEST_SHA1 },
+ #ifdef HAVE_EVP_SHA256
+ 	{ KEX_DHGEX_SHA256, KEX_DH_GEX_SHA256, 0, SSH_DIGEST_SHA256 },
+ #endif
+diff --git a/myproposal.h b/myproposal.h
+index 7efe312..bcf2ae1 100644
+--- a/myproposal.h
++++ b/myproposal.h
+@@ -131,9 +131,7 @@
+ 
+ #define KEX_DEFAULT_KEX_FIPS		\
+ 	KEX_ECDH_METHODS \
+-	KEX_SHA256_METHODS \
+-	"diffie-hellman-group-exchange-sha1," \
+-	"diffie-hellman-group14-sha1"
++	KEX_SHA256_METHODS
+ #define	KEX_FIPS_ENCRYPT \
+ 	"aes128-ctr,aes192-ctr,aes256-ctr," \
+ 	"aes128-cbc,3des-cbc," \
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index a3975eb..5224084 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -112,6 +112,9 @@ static const struct sock_filter preauth_insns[] = {
+ #ifdef __NR_open
+ 	SC_DENY(open, EACCES),
+ #endif
++#ifdef __NR_socket
++	SC_DENY(socket, EACCES),
++#endif
+ #ifdef __NR_openat
+ 	SC_DENY(openat, EACCES),
+ #endif
+

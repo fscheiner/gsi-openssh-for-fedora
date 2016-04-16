@@ -1,0 +1,5 @@
+[Unit]
+Wants=gsisshd-keygen@rsa.service
+Wants=gsisshd-keygen@ecdsa.service
+Wants=gsisshd-keygen@ed25519.service
+PartOf=gsisshd.service

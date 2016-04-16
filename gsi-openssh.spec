@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.2p2
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -46,9 +46,10 @@ Source7: gsisshd.sysconfig
 Source9: gsisshd@.service
 Source10: gsisshd.socket
 Source11: gsisshd.service
-Source12: gsisshd-keygen.service
+Source12: gsisshd-keygen@.service
 Source13: gsisshd-keygen
 Source14: gsisshd.tmpfiles
+Source15: gsisshd-keygen.target
 Source99: README.sshd-and-gsisshd
 
 #?
@@ -443,12 +444,13 @@ install -d $RPM_BUILD_ROOT%{_libexecdir}/gsissh
 install -d $RPM_BUILD_ROOT%{_libdir}/fipscheck
 install -m644 %{SOURCE2} $RPM_BUILD_ROOT/etc/pam.d/gsisshd
 install -m644 %{SOURCE7} $RPM_BUILD_ROOT/etc/sysconfig/gsisshd
-install -m755 %{SOURCE13} $RPM_BUILD_ROOT/%{_sbindir}/sshd-keygen
 install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
 install -m644 %{SOURCE9} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd@.service
 install -m644 %{SOURCE10} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.socket
 install -m644 %{SOURCE11} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.service
-install -m644 %{SOURCE12} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd-keygen.service
+install -m644 %{SOURCE12} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd-keygen@.service
+install -m644 %{SOURCE15} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd-keygen.target
+install -m755 %{SOURCE13} $RPM_BUILD_ROOT/%{_libexecdir}/gsissh/sshd-keygen
 install -m644 -D %{SOURCE14} $RPM_BUILD_ROOT%{_tmpfilesdir}/gsissh.conf
 
 rm $RPM_BUILD_ROOT%{_bindir}/ssh-add
@@ -526,9 +528,9 @@ getent passwd sshd >/dev/null || \
 %files server
 %dir %attr(0711,root,root) %{_var}/empty/gsisshd
 %attr(0755,root,root) %{_sbindir}/gsisshd
-%attr(0755,root,root) %{_sbindir}/gsisshd-keygen
 %attr(0644,root,root) %{_libdir}/fipscheck/gsisshd.hmac
 %attr(0755,root,root) %{_libexecdir}/gsissh/sftp-server
+%attr(0755,root,root) %{_libexecdir}/gsissh/sshd-keygen
 %attr(0644,root,root) %{_mandir}/man5/gsisshd_config.5*
 %attr(0644,root,root) %{_mandir}/man5/gsimoduli.5*
 %attr(0644,root,root) %{_mandir}/man8/gsisshd.8*
@@ -539,10 +541,14 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
 %attr(0644,root,root) %{_unitdir}/gsisshd@.service
 %attr(0644,root,root) %{_unitdir}/gsisshd.socket
-%attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
+%attr(0644,root,root) %{_unitdir}/gsisshd-keygen@.service
+%attr(0644,root,root) %{_unitdir}/gsisshd-keygen.target
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Sat Apr 16 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p2-2
+- Based on openssh-7.2p2-4.fc24
+
 * Sat Apr 16 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p2-1
 - Based on openssh-7.2p2-2.fc23
 

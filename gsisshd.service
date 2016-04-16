@@ -1,8 +1,8 @@
 [Unit]
 Description=gsissh server daemon
 Documentation=man:gsisshd(8) man:gsisshd_config(5)
-After=network.target gsisshd-keygen.service
-Wants=gsisshd-keygen.service
+After=network.target gsisshd-keygen.target
+Wants=gsisshd-keygen.target
 
 [Service]
 Type=forking

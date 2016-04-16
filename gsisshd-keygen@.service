@@ -1,0 +1,11 @@
+[Unit]
+Description=gsissh %i Server Key Generation
+ConditionFileNotEmpty=|!/etc/gsissh/ssh_host_%i_key
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/sysconfig/gsisshd
+ExecStart=/usr/libexec/gsissh/sshd-keygen %i
+
+[Install]
+WantedBy=gsisshd-keygen.target
