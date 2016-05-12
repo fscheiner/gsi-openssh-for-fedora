@@ -2,7 +2,9 @@
 
 # The server keys are automatically generated if they are missing.
 # To change the automatic creation, adjust gsisshd.service options for
-# example using  systemctl enable gsisshd-config@dsa.service for DSA keys
+# example using  systemctl enable gsisshd-keygen@dsa.service  to allow creation
+# of DSA key or  systemctl mask gsisshd-keygen@rsa.service  to disable RSA key
+# creation.
 
 # Do not change this option unless you have hardware random
 # generator and you REALLY know what you are doing

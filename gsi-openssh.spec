@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.2p2
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -173,6 +173,8 @@ Patch933: openssh-7.0p1-show-more-fingerprints.patch
 # Preserve IUTF8 tty mode flag over ssh connections (#1270248)
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2477
 Patch936: openssh-7.1p1-iutf8.patch
+# CVE-2015-8325: ignore PAM environment vars when UseLogin=yes
+Patch937: openssh-7.2p2-CVE-2015-8325.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
@@ -331,6 +333,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch932 -p1 -b .gsskexalg
 %patch933 -p1 -b .fingerprint
 %patch936 -p1 -b .iutf8
+%patch937 -p1 -b .pam_uselogin_cve
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -546,6 +549,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu May 12 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p2-3
+- Based on openssh-7.2p2-5.fc24
+
 * Sat Apr 16 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p2-2
 - Based on openssh-7.2p2-4.fc24
 
