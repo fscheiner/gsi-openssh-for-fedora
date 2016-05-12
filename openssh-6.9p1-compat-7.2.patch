@@ -1,0 +1,13 @@
+diff --git a/kexgexs.c b/kexgexs.c
+index a81fd1e..f69068c 100644
+--- a/kexgexs.c
++++ b/kexgexs.c
+@@ -81,7 +81,7 @@ input_kex_dh_gex_request(int type, u_int32_t seq, void *ctxt)
+ 	    (r = sshpkt_get_end(ssh)) != 0)
+ 		goto out;
+ 	kex->nbits = nbits;
+-	kex->min = min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
++	kex->min = min;
+ 	kex->max = max;
+ 	min = MAX(FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN, min);
+ 	max = MIN(DH_GRP_MAX, max);
