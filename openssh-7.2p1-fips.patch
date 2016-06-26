@@ -628,6 +628,14 @@ diff -up openssh-7.2p1/sshkey.c.fips openssh-7.2p1/sshkey.c
  #endif
  
  #include "crypto_api.h"
+@@ -58,6 +58,7 @@
+ #include "digest.h"
+ #define SSHKEY_INTERNAL
+ #include "sshkey.h"
++#include "log.h"
+ #include "match.h"
+ 
+ /* openssh private key file format */
 @@ -1554,6 +1555,8 @@ rsa_generate_private_key(u_int bits, RSA
  	}
  	if (!BN_set_word(f4, RSA_F4) ||

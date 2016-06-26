@@ -48,33 +48,6 @@ diff -up openssh-6.8p1/channels.c.coverity openssh-6.8p1/channels.c
  			set_nonblock(efd);
  	}
  }
-@@ -3972,13 +3972,13 @@ connect_local_xsocket_path(const char *p
- 	int sock;
- 	struct sockaddr_un addr;
- 
-+	if (len <= 0)
-+		return -1;
- 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
- 	if (sock < 0)
- 		error("socket: %.100s", strerror(errno));
- 	memset(&addr, 0, sizeof(addr));
- 	addr.sun_family = AF_UNIX;
--	if (len <= 0)
--		return -1;
- 	if (len > sizeof addr.sun_path)
- 		len = sizeof addr.sun_path;
- 	memcpy(addr.sun_path, pathname, len);
-diff -up openssh-6.8p1/entropy.c.coverity openssh-6.8p1/entropy.c
---- openssh-6.8p1/entropy.c.coverity	2015-03-18 17:21:51.891264843 +0100
-+++ openssh-6.8p1/entropy.c	2015-03-18 17:21:51.897264831 +0100
-@@ -46,6 +46,7 @@
- #include <openssl/err.h>
- 
- #include "openbsd-compat/openssl-compat.h"
-+#include "openbsd-compat/port-linux.h"
- 
- #include "ssh.h"
- #include "misc.h"
 diff -up openssh-6.8p1/monitor.c.coverity openssh-6.8p1/monitor.c
 --- openssh-6.8p1/monitor.c.coverity	2015-03-18 17:21:51.887264852 +0100
 +++ openssh-6.8p1/monitor.c	2015-03-18 17:21:51.897264831 +0100
@@ -137,16 +110,6 @@ diff -up openssh-6.8p1/openbsd-compat/bindresvport.c.coverity openssh-6.8p1/open
  	int i;
  
  	if (sa == NULL) {
-diff -up openssh-6.8p1/openbsd-compat/port-linux.h.coverity openssh-6.8p1/openbsd-compat/port-linux.h
---- openssh-6.8p1/openbsd-compat/port-linux.h.coverity	2015-03-18 17:21:51.861264906 +0100
-+++ openssh-6.8p1/openbsd-compat/port-linux.h	2015-03-18 17:21:51.897264831 +0100
-@@ -37,4 +37,6 @@ void oom_adjust_restore(void);
- void oom_adjust_setup(void);
- #endif
- 
-+void linux_seed(void);
-+
- #endif /* ! _PORT_LINUX_H */
 diff -up openssh-6.8p1/scp.c.coverity openssh-6.8p1/scp.c
 --- openssh-6.8p1/scp.c.coverity	2015-03-18 17:21:51.868264891 +0100
 +++ openssh-6.8p1/scp.c	2015-03-18 17:21:58.281251460 +0100
@@ -436,14 +399,3 @@ diff -up openssh-6.8p1/sshd.c.coverity openssh-6.8p1/sshd.c
  }
  
  
-diff -up openssh-6.8p1/sshkey.c.coverity openssh-6.8p1/sshkey.c
---- openssh-6.8p1/sshkey.c.coverity	2015-03-18 17:21:58.285251452 +0100
-+++ openssh-6.8p1/sshkey.c	2015-03-18 17:45:32.232705363 +0100
-@@ -58,6 +58,7 @@
- #include "digest.h"
- #define SSHKEY_INTERNAL
- #include "sshkey.h"
-+#include "log.h"
- #include "match.h"
- 
- /* openssh private key file format */

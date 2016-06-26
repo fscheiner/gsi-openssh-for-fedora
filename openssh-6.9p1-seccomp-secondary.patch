@@ -1,22 +1,8 @@
-diff -up openssh/configure.ac.seccomp openssh/configure.ac
-diff -up openssh/sandbox-seccomp-filter.c.seccomp openssh/sandbox-seccomp-filter.c
---- openssh/sandbox-seccomp-filter.c.seccomp	2015-06-24 11:45:44.001581471 +0200
-+++ openssh/sandbox-seccomp-filter.c	2015-06-24 11:51:54.032635297 +0200
-@@ -165,6 +165,9 @@ static const struct sock_filter preauth_
- #ifdef __NR__newselect
- 	SC_ALLOW(_newselect),
- #endif
-+#ifdef __NR_pselect6 /* AArch64 */
-+	SC_ALLOW(pselect6),
-+#endif
- #ifdef __NR_poll
- 	SC_ALLOW(poll),
- #endif
 diff --git a/configure.ac b/configure.ac
 index 24378a7..0bed910 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -811,6 +811,12 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
+@@ -811,6 +811,30 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
  	aarch64*-*)
  		seccomp_audit_arch=AUDIT_ARCH_AARCH64
  		;;
@@ -25,6 +11,24 @@ index 24378a7..0bed910 100644
 +		;;
 +	s390-*)
 +		seccomp_audit_arch=AUDIT_ARCH_S390
++		;;
++	powerpc64-*)
++		seccomp_audit_arch=AUDIT_ARCH_PPC64
++		;;
++	powerpc64le-*)
++		seccomp_audit_arch=AUDIT_ARCH_PPC64LE
++		;;
++	mips-*)
++		seccomp_audit_arch=AUDIT_ARCH_MIPS
++		;;
++	mipsel-*)
++		seccomp_audit_arch=AUDIT_ARCH_MIPSEL
++		;;
++	mips64-*)
++		seccomp_audit_arch=AUDIT_ARCH_MIPS64
++		;;
++	mips64el-*)
++		seccomp_audit_arch=AUDIT_ARCH_MIPSEL64
 +		;;
  	esac
  	if test "x$seccomp_audit_arch" != "x" ; then

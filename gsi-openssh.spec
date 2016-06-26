@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.2p2
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -52,11 +52,11 @@ Source14: gsisshd.tmpfiles
 Source15: gsisshd-keygen.target
 Source99: README.sshd-and-gsisshd
 
-#?
+#https://bugzilla.mindrot.org/show_bug.cgi?id=2581
 Patch100: openssh-6.7p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
 #https://bugzilla.redhat.com/show_bug.cgi?id=735889
-Patch102: openssh-5.8p1-getaddrinfo.patch
+#Patch102: openssh-5.8p1-getaddrinfo.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1889
 Patch103: openssh-5.8p1-packet.patch
 
@@ -79,23 +79,21 @@ Patch502: openssh-6.6p1-keycat.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1644
 Patch601: openssh-6.6p1-allow-ip-opts.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1893
+#https://bugzilla.mindrot.org/show_bug.cgi?id=1893 (WONTFIX)
 Patch604: openssh-6.6p1-keyperm.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1925
+#(drop?) https://bugzilla.mindrot.org/show_bug.cgi?id=1925
 Patch606: openssh-5.9p1-ipv6man.patch
 #?
 Patch607: openssh-5.8p2-sigpipe.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1789
-Patch609: openssh-5.5p1-x11.patch
+Patch609: openssh-7.2p2-x11.patch
 
 #?
 Patch700: openssh-7.2p1-fips.patch
 #?
 Patch702: openssh-5.1p1-askpass-progress.patch
-#?
+#https://bugzilla.redhat.com/show_bug.cgi?id=198332
 Patch703: openssh-4.3p2-askpass-grab-info.patch
-#?
-Patch706: openssh-6.6.1p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
 Patch707: openssh-6.6p1-redhat.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
@@ -103,7 +101,7 @@ Patch708: openssh-6.6p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
 Patch709: openssh-6.2p1-vendor.patch
 # warn users for unsupported UsePAM=no (#757545)
-Patch711: openssh-6.6p1-log-usepam-no.patch
+Patch711: openssh-7.2p2-UsePAM-UseLogin-warning.patch
 # make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
 Patch712: openssh-6.3p1-ctr-evp-fast.patch
 # add cavs test binary for the aes-ctr
@@ -122,12 +120,14 @@ Patch802: openssh-6.6p1-GSSAPIEnablek5users.patch
 # Documentation about GSSAPI
 # from https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=765655
 Patch803: openssh-7.1p1-gssapi-documentation.patch
+# use default_ccache_name from /etc/krb5.conf (#991186)
+Patch804: openssh-6.3p1-krb5-use-default_ccache_name.patch
+# Respect k5login_directory option in krk5.conf (#1328243)
+Patch805: openssh-7.2p2-k5login_directory.patch
 
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-6.6p1-kuserok.patch
-# use default_ccache_name from /etc/krb5.conf (#991186)
-Patch902: openssh-6.3p1-krb5-use-default_ccache_name.patch
 # Use tty allocation for a remote scp (#985650)
 Patch906: openssh-6.4p1-fromto-remote.patch
 # set a client's address right after a connection is set
@@ -175,6 +175,8 @@ Patch933: openssh-7.0p1-show-more-fingerprints.patch
 Patch936: openssh-7.1p1-iutf8.patch
 # CVE-2015-8325: ignore PAM environment vars when UseLogin=yes
 Patch937: openssh-7.2p2-CVE-2015-8325.patch
+# Regression in certificate based authentication (#1333498)
+Patch938: openssh-7.2p2-certificats-regress.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
@@ -189,7 +191,7 @@ Obsoletes: %{name}-clients-fips, %{name}-server-fips
 %if %{ldap}
 BuildRequires: openldap-devel
 %endif
-BuildRequires: autoconf, automake, perl, zlib-devel
+BuildRequires: autoconf, automake, perl, perl-generators, zlib-devel
 BuildRequires: audit-libs-devel >= 2.0.5
 BuildRequires: util-linux, groff
 BuildRequires: pam-devel
@@ -297,7 +299,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 %patch702 -p1 -b .progress
 %patch703 -p1 -b .grab-info
-%patch706 -p1 -b .localdomain
 %patch707 -p1 -b .redhat
 %patch708 -p1 -b .entropy
 %patch709 -p1 -b .vendor
@@ -309,10 +310,11 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch800 -p1 -b .gsskex
 %patch801 -p1 -b .force_krb
 %patch803 -p1 -b .gss-docs
+%patch804 -p1 -b .ccache_name
+%patch805 -p1 -b .k5login
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
-%patch902 -p1 -b .ccache_name
 %patch906 -p1 -b .fromto-remote
 %patch911 -p1 -b .set_remote_ipaddr
 %patch912 -p1 -b .utf8-banner
@@ -334,6 +336,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch933 -p1 -b .fingerprint
 %patch936 -p1 -b .iutf8
 %patch937 -p1 -b .pam_uselogin_cve
+%patch938 -p1 -b .certificates
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -400,7 +403,7 @@ fi
 	--with-pam \
 %if %{WITH_SELINUX}
 	--with-selinux --with-audit=linux \
-%ifarch %{ix86} x86_64 %{arm} aarch64 s390x x390
+%ifnarch ppc
 	--with-sandbox=seccomp_filter \
 %else
 	--with-sandbox=rlimit \
@@ -549,6 +552,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Sun Jun 26 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p2-4
+- Based on openssh-7.2p2-8.fc24
+
 * Thu May 12 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p2-3
 - Based on openssh-7.2p2-5.fc24
 
