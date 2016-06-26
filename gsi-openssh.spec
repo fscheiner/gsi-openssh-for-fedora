@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -192,6 +192,10 @@ Patch929: openssh-6.6p1-security-7.0.patch
 # Disable completely Roaming feature on client (#1298218) (#1298217)
 # Mitigates CVE-2016-0777 and CVE-2016-0778
 Patch930: openssh-6.6p1-disable-roaming.patch
+# CVE-2016-3115: missing sanitisation of input for X11 forwarding (#1316829)
+Patch931: openssh-6.6p1-CVE-2016-3115.patch
+# CVE-2016-1908: possible fallback from untrusted X11 forwarding (#1298741)
+Patch932: openssh-6.6p1-fallback-X11-untrusted.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
@@ -360,6 +364,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch928 -p1 -b .gsskexalg
 %patch929 -p1 -b .security7
 %patch930 -p1 -b .roaming
+%patch931 -p1 -b .xauth
+%patch932 -p1 -b .untrusted
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-fps
@@ -579,6 +585,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Sun Jun 26 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-4
+- Based on openssh-6.6.1p1-25.el7_2
+
 * Tue Jan 19 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-3
 - Based on openssh-6.6.1p1-23.el7_2
 
