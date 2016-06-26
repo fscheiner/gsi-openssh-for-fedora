@@ -3986,13 +3986,12 @@ diff --git a/sshd_config.5 b/sshd_config.5
 index 035dea9..9d76bd0 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -489,9 +489,10 @@ used by SSH.
+@@ -489,9 +489,9 @@ used by SSH.
  The default is
  .Pa /etc/ssh/ssh_host_key
  for protocol version 1, and
 -.Pa /etc/ssh/ssh_host_rsa_key
-+.Pa /etc/ssh/ssh_host_dsa_key ,
-+.Pa /etc/ssh/ssh_host_ecdsa_key
++.Pa /etc/ssh/ssh_host_dsa_key
  and
 -.Pa /etc/ssh/ssh_host_dsa_key
 +.Pa /etc/ssh/ssh_host_rsa_key

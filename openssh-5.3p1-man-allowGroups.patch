@@ -1,0 +1,39 @@
+diff -up openssh-5.3p1/sshd_config.5.allowGroups openssh-5.3p1/sshd_config.5
+--- openssh-5.3p1/sshd_config.5.allowGroups	2015-12-07 13:38:04.140909409 +0100
++++ openssh-5.3p1/sshd_config.5	2015-12-07 13:39:23.070754718 +0100
+@@ -121,6 +121,8 @@ The allow/deny directives are processed
+ .Cm DenyGroups ,
+ and finally
+ .Cm AllowGroups .
++All of the specified user and group tests must succeed, before user
++is allowed to log in.
+ .Pp
+ See
+ .Sx PATTERNS
+@@ -150,6 +152,8 @@ The allow/deny directives are processed
+ .Cm DenyGroups ,
+ and finally
+ .Cm AllowGroups .
++All of the specified user and group tests must succeed, before user
++is allowed to log in.
+ .Pp
+ See
+ .Sx PATTERNS
+@@ -349,6 +353,8 @@ The allow/deny directives are processed
+ .Cm DenyGroups ,
+ and finally
+ .Cm AllowGroups .
++All of the specified user and group tests must succeed, before user
++is allowed to log in.
+ .Pp
+ See
+ .Sx PATTERNS
+@@ -370,6 +376,8 @@ The allow/deny directives are processed
+ .Cm DenyGroups ,
+ and finally
+ .Cm AllowGroups .
++All of the specified user and group tests must succeed, before user
++is allowed to log in.
+ .Pp
+ See
+ .Sx PATTERNS

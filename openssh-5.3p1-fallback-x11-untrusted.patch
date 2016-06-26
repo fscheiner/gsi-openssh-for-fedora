@@ -1,0 +1,249 @@
+diff -up openssh-5.3p1/clientloop.c.untrusted openssh-5.3p1/clientloop.c
+--- openssh-5.3p1/clientloop.c.untrusted	2016-01-20 15:09:46.986257274 +0100
++++ openssh-5.3p1/clientloop.c	2016-01-20 15:15:28.141004047 +0100
+@@ -282,9 +282,29 @@ set_control_persist_exit_time(void)
+ 	/* else we are already counting down to the timeout */
+ }
+ 
++#define SSH_X11_VALID_DISPLAY_CHARS ":/.-_"
++static int
++client_x11_display_valid(const char *display)
++{
++	size_t i, dlen;
++
++	if (display == NULL)
++		return 0;
++
++	dlen = strlen(display);
++	for (i = 0; i < dlen; i++) {
++		if (!isalnum((u_char)display[i]) &&
++			strchr(SSH_X11_VALID_DISPLAY_CHARS, display[i]) == NULL) {
++			debug("Invalid character '%c' in DISPLAY", display[i]);
++			return 0;
++		}
++	}
++	return 1;
++}
++
+ #define SSH_X11_PROTO		"MIT-MAGIC-COOKIE-1"
+ #define X11_TIMEOUT_SLACK	60
+-void
++int
+ client_x11_get_proto(const char *display, const char *xauth_path,
+     u_int trusted, char **_proto, char **_data)
+ {
+@@ -293,23 +313,27 @@ client_x11_get_proto(const char *display
+ 	char xdisplay[512];
+ 	static char proto[512], data[512];
+ 	FILE *f;
+-	int got_data = 0, generated = 0, do_unlink = 0, i;
+-	char *xauthdir, *xauthfile;
++	int got_data = 0, generated = 0, do_unlink = 0, i, r;
++	char xauthdir[PATH_MAX] = "", xauthfile[PATH_MAX] = "";
+ 	struct stat st;
+ 	u_int now, x11_timeout_real, timeout = 1200;
+ 
+-	xauthdir = xauthfile = NULL;
+ 	*_proto = proto;
+ 	*_data = data;
+-	proto[0] = data[0] = '\0';
++	proto[0] = data[0] = xauthfile[0] = xauthdir[0] = '\0';
+ 
+-	if (xauth_path == NULL ||(stat(xauth_path, &st) == -1)) {
++	if (!client_x11_display_valid(display)) {
++		if (display != NULL)
++			logit("DISPLAY \"%s\" invalid; disabling X11 forwarding",
++ 			    display);
++		return -1;
++	}
++	if (xauth_path != NULL && stat(xauth_path, &st) == -1) {
+ 		debug("No xauth program.");
+-	} else {
+-		if (display == NULL) {
+-			debug("x11_get_proto: DISPLAY not set");
+-			return;
+-		}
++		xauth_path = NULL;
++	}
++
++	if (xauth_path != NULL) {
+ 		/*
+ 		 * Handle FamilyLocal case where $DISPLAY does
+ 		 * not match an authorization entry.  For this we
+@@ -318,45 +341,58 @@ client_x11_get_proto(const char *display
+ 		 *      is not perfect.
+ 		 */
+ 		if (strncmp(display, "localhost:", 10) == 0) {
+-			snprintf(xdisplay, sizeof(xdisplay), "unix:%s",
+-			    display + 10);
++			if ((r = snprintf(xdisplay, sizeof(xdisplay), "unix:%s",
++			    display + 10)) < 0 ||
++			    (size_t)r >= sizeof(xdisplay)) {
++				error("%s: display name too long", __func__);
++				return -1;
++			}
+ 			display = xdisplay;
+ 		}
+ 		if (trusted == 0) {
+-			xauthdir = xmalloc(MAXPATHLEN);
+-			xauthfile = xmalloc(MAXPATHLEN);
+ 			strlcpy(xauthdir, "/tmp/ssh-XXXXXXXXXX", MAXPATHLEN);
+ 			/*
+ 			 * The authentication cookie should briefly outlive
+ 			 * ssh's willingness to forward X11 connections to
+ 			 * avoid nasty fail-open behaviour in the X server.
+ 			 */
++			if (mkdtemp(xauthdir) == NULL) {
++				error("%s: mkdtemp: %s",
++				    __func__, strerror(errno));
++				return -1;
++			}
++			do_unlink = 1;
++			if ((r = snprintf(xauthfile, sizeof(xauthfile),
++			    "%s/xauthfile", xauthdir)) < 0 ||
++			    (size_t)r >= sizeof(xauthfile)) {
++				error("%s: xauthfile path too long", __func__);
++				unlink(xauthfile);
++				rmdir(xauthdir);
++				return -1;
++			}
++
+ 			if (timeout >= UINT_MAX - X11_TIMEOUT_SLACK)
+ 				x11_timeout_real = UINT_MAX;
+ 			else
+ 				x11_timeout_real = timeout + X11_TIMEOUT_SLACK;
+-			if (mkdtemp(xauthdir) != NULL) {
+-				do_unlink = 1;
+-				snprintf(xauthfile, MAXPATHLEN, "%s/xauthfile",
+-				    xauthdir);
+-				snprintf(cmd, sizeof(cmd),
+-				    "%s -f %s generate %s " SSH_X11_PROTO
+-				    " untrusted timeout %u 2>" _PATH_DEVNULL,
+-				    xauth_path, xauthfile, display,
+-				    x11_timeout_real);
+-				debug2("x11_get_proto: %s", cmd);
+- 				if (x11_refuse_time == 0) {
+-					now = time(NULL) + 1;
+-					if (UINT_MAX - timeout < now)
+-						x11_refuse_time = UINT_MAX;
+-					else
+-						x11_refuse_time = now + timeout;
+-					channel_set_x11_refuse_time(
+-					    x11_refuse_time);
+-				}
+-				if (system(cmd) == 0)
+-					generated = 1;
++			if ((r = snprintf(cmd, sizeof(cmd),
++			    "%s -f %s generate %s " SSH_X11_PROTO
++			    " untrusted timeout %u 2>" _PATH_DEVNULL,
++			    xauth_path, xauthfile, display,
++			    x11_timeout_real)) < 0 ||
++			    (size_t)r >= sizeof(cmd))
++				fatal("%s: cmd too long", __func__);
++			debug2("%s: %s", __func__, cmd);
++			if (x11_refuse_time == 0) {
++				now = time(NULL) + 1;
++				if (UINT_MAX - timeout < now)
++					x11_refuse_time = UINT_MAX;
++				else
++					x11_refuse_time = now + timeout;
++				channel_set_x11_refuse_time(x11_refuse_time);
+ 			}
++			if (system(cmd) == 0)
++				generated = 1;
+ 		}
+ 
+ 		/*
+@@ -378,19 +414,20 @@ client_x11_get_proto(const char *display
+ 				got_data = 1;
+ 			if (f)
+ 				pclose(f);
+-		} else
+-			error("Warning: untrusted X11 forwarding setup failed: "
+-			    "xauth key data not generated");
++		}
+ 	}
+ 
+ 	if (do_unlink) {
+ 		unlink(xauthfile);
+ 		rmdir(xauthdir);
+ 	}
+-	if (xauthdir)
+-		xfree(xauthdir);
+-	if (xauthfile)
+-		xfree(xauthfile);
++
++	/* Don't fall back to fake X11 data for untrusted forwarding */
++	if (!trusted && !got_data) {
++		error("Warning: untrusted X11 forwarding setup failed: "
++		    "xauth key data not generated");
++		return -1;
++	}
+ 
+ 	/*
+ 	 * If we didn't get authentication data, just make up some
+@@ -414,6 +451,8 @@ client_x11_get_proto(const char *display
+ 			rnd >>= 8;
+ 		}
+ 	}
++
++	return 0;
+ }
+ 
+ /*
+diff -up openssh-5.3p1/clientloop.h.untrusted openssh-5.3p1/clientloop.h
+--- openssh-5.3p1/clientloop.h.untrusted	2016-01-20 15:09:46.929257316 +0100
++++ openssh-5.3p1/clientloop.h	2016-01-20 15:09:46.996257266 +0100
+@@ -39,7 +39,7 @@
+ 
+ /* Client side main loop for the interactive session. */
+ int	 client_loop(int, int, int);
+-void	 client_x11_get_proto(const char *, const char *, u_int,
++int	 client_x11_get_proto(const char *, const char *, u_int,
+ 	    char **, char **);
+ void	 client_global_request_reply_fwd(int, u_int32_t, void *);
+ void	 client_session2_setup(int, int, int, const char *, struct termios *,
+diff -up openssh-5.3p1/mux.c.untrusted openssh-5.3p1/mux.c
+--- openssh-5.3p1/mux.c.untrusted	2016-01-20 15:09:46.950257300 +0100
++++ openssh-5.3p1/mux.c	2016-01-20 15:09:46.997257265 +0100
+@@ -1059,12 +1059,13 @@ mux_session_confirm(int id, void *arg)
+ 	if (cctx->want_x_fwd && options.forward_x11 && display != NULL) {
+ 		char *proto, *data;
+ 		/* Get reasonable local authentication information. */
+-		client_x11_get_proto(display, options.xauth_location,
+-		    options.forward_x11_trusted, &proto, &data);
+-		/* Request forwarding with authentication spoofing. */
+-		debug("Requesting X11 forwarding with authentication spoofing.");
+-		x11_request_forwarding_with_spoofing(id, display, proto, data);
+-		/* XXX wait for reply */
++		if (client_x11_get_proto(display, options.xauth_location,
++		    options.forward_x11_trusted, &proto, &data) == 0) {
++			/* Request forwarding with authentication spoofing. */
++			debug("Requesting X11 forwarding with authentication spoofing.");
++			x11_request_forwarding_with_spoofing(id, display, proto, data);
++			/* XXX wait for reply */
++		}
+ 	}
+ 
+ 	if (cctx->want_agent_fwd && options.forward_agent) {
+diff -up openssh-5.3p1/ssh.c.untrusted openssh-5.3p1/ssh.c
+--- openssh-5.3p1/ssh.c.untrusted	2016-01-20 15:09:46.951257300 +0100
++++ openssh-5.3p1/ssh.c	2016-01-20 15:09:46.997257265 +0100
+@@ -1307,13 +1308,12 @@ ssh_session2_setup(int id, void *arg)
+ 	extern char **environ;
+ 	const char *display;
+ 	int interactive = tty_flag;
++	char *proto = NULL, *data = NULL;
+ 
+ 	display = getenv("DISPLAY");
+-	if (options.forward_x11 && display != NULL) {
+-		char *proto, *data;
+-		/* Get reasonable local authentication information. */
+-		client_x11_get_proto(display, options.xauth_location,
+-		    options.forward_x11_trusted, &proto, &data);
++	if (options.forward_x11 && client_x11_get_proto(display,
++	    options.xauth_location, options.forward_x11_trusted,
++	    &proto, &data) == 0) {
+ 		/* Request forwarding with authentication spoofing. */
+ 		debug("Requesting X11 forwarding with authentication "
+ 		    "spoofing.");

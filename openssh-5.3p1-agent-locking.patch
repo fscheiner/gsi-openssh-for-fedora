@@ -1,0 +1,39 @@
+diff -up openssh-5.3p1/ssh-agent.c.agent-locking openssh-5.3p1/ssh-agent.c
+--- openssh-5.3p1/ssh-agent.c.agent-locking	2015-12-01 13:48:25.066096722 +0100
++++ openssh-5.3p1/ssh-agent.c	2015-12-01 14:15:34.429476530 +0100
+@@ -663,16 +664,28 @@ send:
+ static void
+ process_lock_agent(SocketEntry *e, int lock)
+ {
+-	int success = 0;
++	int success = 0, delay;
++	static u_int fail_count = 0;
+ 	char *passwd;
+ 
+ 	passwd = buffer_get_string(&e->request, NULL);
+-	if (locked && !lock && strcmp(passwd, lock_passwd) == 0) {
+-		locked = 0;
+-		memset(lock_passwd, 0, strlen(lock_passwd));
+-		xfree(lock_passwd);
+-		lock_passwd = NULL;
+-		success = 1;
++	if (locked && !lock) {
++		if (strcmp(passwd, lock_passwd) == 0) {
++			locked = 0;
++			fail_count = 0;
++			memset(lock_passwd, 0, strlen(lock_passwd));
++			xfree(lock_passwd);
++			lock_passwd = NULL;
++			success = 1;
++		} else {
++			/* delay in 0.1s increments up to 10s */
++			if (fail_count < 100)
++				fail_count++;
++			delay = 100000 * fail_count;
++			debug("unlock failed, delaying %0.1lf seconds",
++			    (double)delay/1000000);
++			usleep(delay);
++		}
+ 	} else if (!locked && lock) {
+ 		locked = 1;
+ 		lock_passwd = xstrdup(passwd);

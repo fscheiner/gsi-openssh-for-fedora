@@ -1,0 +1,11 @@
+diff -up openssh-5.3p1/ssh-agent.c.fixed openssh-5.3p1/ssh-agent.c
+--- openssh-5.3p1/ssh-agent.c.fixed	2015-08-13 10:12:27.062065433 -0400
++++ openssh-5.3p1/ssh-agent.c	2015-08-13 10:16:24.878022956 -0400
+@@ -844,6 +844,7 @@
+ 		tab = idtab_lookup(version);
+ 		if (lookup_identity(k, version) == NULL) {
+ 			id = xmalloc(sizeof(Identity));
++			id->provider = NULL; /* USN:NSWC:CRANE:JXSNN:SCHMIDT:20150813 */
+ 			id->key = k;
+ 			id->comment = nss_get_key_label(k);
+ 			id->death = death;

@@ -1,0 +1,125 @@
+commit 85b96ef41374f3ddc9139581f87da09b2cd9199e
+Author: dtucker@openbsd.org <dtucker@openbsd.org>
+Date:   Tue Apr 28 10:17:58 2015 +0000
+
+    upstream commit
+    
+    Document that the TERM environment variable is not
+     subject to SendEnv and AcceptEnv.  bz#2386, based loosely on a patch from
+     jjelen at redhat, help and ok jmc@
+
+diff --git a/ssh_config.5 b/ssh_config.5
+index 2208204..3048119 100644
+--- a/ssh_config.5
++++ b/ssh_config.5
+@@ -1333,6 +1333,10 @@ should be sent to the server.
+ Note that environment passing is only supported for protocol 2.
+ The server must also support it, and the server must be configured to
+ accept these environment variables.
++Note that the
++.Ev TERM
++enviroment variable is always sent whenever a
++pseudo-terminal is requested as it is required by the protocol.
+ Refer to
+ .Cm AcceptEnv
+ in
+diff --git a/sshd_config.5 b/sshd_config.5
+index d3148c2..9d7a8e8 100644
+--- a/sshd_config.5
++++ b/sshd_config.5
+@@ -70,7 +70,11 @@ See
+ in
+ .Xr ssh_config 5
+ for how to configure the client.
+-Note that environment passing is only supported for protocol 2.
++Note that environment passing is only supported for protocol 2, and
++that the
++.Ev TERM
++enviroment variable is always sent whenever the client
++requests  apseudo-terminal is requested as it is required by the protocol.
+ Variables are specified by name, which may contain the wildcard characters
+ .Ql *
+ and
+
+commit 43beea053db191cac47c2cd8d3dc1930158aff1a
+Author: dtucker@openbsd.org <dtucker@openbsd.org>
+Date:   Tue Apr 28 10:25:15 2015 +0000
+
+    upstream commit
+    
+    Fix typo in previous
+
+diff --git a/sshd_config.5 b/sshd_config.5
+index 9d7a8e8..f09adfc 100644
+--- a/sshd_config.5
++++ b/sshd_config.5
+@@ -74,7 +74,7 @@ Note that environment passing is only supported for protocol 2, and
+ that the
+ .Ev TERM
+ enviroment variable is always sent whenever the client
+-requests  apseudo-terminal is requested as it is required by the protocol.
++requests a pseudo-terminal is requested as it is required by the protocol.
+ Variables are specified by name, which may contain the wildcard characters
+ .Ql *
+ and
+
+commit c1d5bcf1aaf1209af02f79e48ba1cbc76a87b56f
+Author: jmc@openbsd.org <jmc@openbsd.org>
+Date:   Tue Apr 28 13:47:38 2015 +0000
+
+    upstream commit
+    
+    enviroment -> environment: apologies to darren for not
+     spotting that first time round...
+
+diff --git a/ssh_config.5 b/ssh_config.5
+index 3048119..844556b 100644
+--- a/ssh_config.5
++++ b/ssh_config.5
+@@ -1335,7 +1335,7 @@ The server must also support it, and the server must be configured to
+ accept these environment variables.
+ Note that the
+ .Ev TERM
+-enviroment variable is always sent whenever a
++environment variable is always sent whenever a
+ pseudo-terminal is requested as it is required by the protocol.
+ Refer to
+ .Cm AcceptEnv
+diff --git a/sshd_config.5 b/sshd_config.5
+index f09adfc..33e4011 100644
+--- a/sshd_config.5
++++ b/sshd_config.5
+@@ -73,7 +73,7 @@ for how to configure the client.
+ Note that environment passing is only supported for protocol 2, and
+ that the
+ .Ev TERM
+-enviroment variable is always sent whenever the client
++environment variable is always sent whenever the client
+ requests a pseudo-terminal is requested as it is required by the protocol.
+ Variables are specified by name, which may contain the wildcard characters
+ .Ql *
+
+commit 732d61f417a6aea0aa5308b59cb0f563bcd6edd6
+Author: djm@openbsd.org <djm@openbsd.org>
+Date:   Fri Jun 5 03:44:14 2015 +0000
+
+    upstream commit
+    
+    typo: accidental repetition; bz#2386
+    
+    Upstream-ID: 45e620d99f6bc301e5949d34a54027374991c88b
+
+diff --git a/sshd_config.5 b/sshd_config.5
+index 76179ad..5ab4318 100644
+--- a/sshd_config.5
++++ b/sshd_config.5
+@@ -74,7 +74,7 @@ Note that environment passing is only supported for protocol 2, and
+ that the
+ .Ev TERM
+ environment variable is always sent whenever the client
+-requests a pseudo-terminal is requested as it is required by the protocol.
++requests a pseudo-terminal as it is required by the protocol.
+ Variables are specified by name, which may contain the wildcard characters
+ .Ql *
+ and
+

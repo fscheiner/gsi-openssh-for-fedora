@@ -1,0 +1,24 @@
+diff -U0 openssh-5.3p1/ChangeLog.match openssh-5.3p1/ChangeLog
+--- openssh-5.3p1/ChangeLog.match	2015-12-07 12:53:26.913208822 +0100
++++ openssh-5.3p1/ChangeLog	2015-12-07 12:57:18.423753735 +0100
+@@ -25,0 +26,6 @@
++20140227
++   - djm@cvs.openbsd.org 2014/02/27 22:47:07
++     [sshd_config.5]
++     bz#2184 clarify behaviour of a keyword that appears in multiple
++     matching Match blocks; ok dtucker@
++
+diff -up openssh-5.3p1/sshd_config.5.match openssh-5.3p1/sshd_config.5
+--- openssh-5.3p1/sshd_config.5.match	2015-12-07 12:53:26.906208835 +0100
++++ openssh-5.3p1/sshd_config.5	2015-12-07 12:53:26.913208822 +0100
+@@ -672,6 +672,10 @@ line are satisfied, the keywords on the
+ set in the global section of the config file, until either another
+ .Cm Match
+ line or the end of the file.
++If a keyword appears in multiple
++.Cm Match
++blocks that are satisfied, only the first instance of the keyword is
++applied.
+ .Pp
+ The arguments to
+ .Cm Match

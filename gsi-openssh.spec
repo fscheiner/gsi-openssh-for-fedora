@@ -35,7 +35,7 @@
 %global nologin 1
 
 %global openssh_ver 5.3p1
-%global openssh_rel 12
+%global openssh_rel 13
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -197,6 +197,32 @@ Patch147: openssh-5.3p1-test-mode-all-values.patch
 Patch148: openssh-5.3p1-man-ssh-missing-options.patch
 # SSH2_MSG_DISCONNECT for user initiated disconnect does not follow RFC 4253
 Patch149: openssh-5.3p1-ssh2-mgs-disconnect.patch
+# ssh-agent segfaults when removing CAC credentials (#1253612)
+Patch150: openssh-5.3p1-nss-keys-fix.patch
+# Add GSSAPIKexAlgorithms option for both server and client application (#1253060)
+Patch151: openssh-5.3p1-gssKexAlgorithms.patch
+# Backport Match LocalAddress and LocalPort (#1211673)
+Patch153: openssh-5.3p1-match-localaddress-localport.patch
+# Backport security patches from openssh-6.9 and 7.0 (#1281468)
+#  CVE-2015-5352: XSECURITY restrictions bypass under certain conditions
+#  CVE-2015-5600: MaxAuthTries limit bypass via duplicates in KbdInteractiveDevices
+#  CVE-2015-6563: Privilege separation weakness related to PAM support
+#  CVE-2015-6564: Use-after-free bug related to PAM support
+Patch154: openssh-5.3p1-security7.patch
+# Fix weakness of agent locking (ssh-add -x) to password guessing (#1281468)
+Patch155: openssh-5.3p1-agent-locking.patch
+# Clarity of Match block (#1219820)
+Patch156: openssh-5.3p1-man-match.patch
+# Clarity of TERM variable in AcceptEnv and SendEnv (#1285003)
+Patch157: openssh-5.3p1-man-TERM.patch
+# Clarity of AllowGroups and similar documentation (#1284997)
+Patch158: openssh-5.3p1-man-allowGroups.patch
+# CVE-2016-1908: Prevent fallback of untrusted X11 to trusted (#1299048)
+Patch159: openssh-5.3p1-fallback-x11-untrusted.patch
+# CVE-2016-3115: missing sanitisation of input for X11 forwarding (#1316829)
+Patch161: openssh-5.3p1-CVE-2016-3115.patch
+# ssh-copy-id: SunOS does not understand ~ (#1327547)
+Patch162: openssh-5.3p1-ssh-copy-id-tilde.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
@@ -398,6 +424,17 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch147 -p1 -b .sshd-t
 %patch148 -p1 -b .man-ssh
 %patch149 -p1 -b .ssh2-msg-disconnect
+%patch150 -p1 -b .cac
+%patch151 -p1 -b .gsskex-algs
+%patch153 -p1 -b .localaddress
+%patch154 -p1 -b .security7
+%patch155 -p1 -b .agent-locking
+%patch156 -p1 -b .match
+%patch157 -p1 -b .TERM
+%patch158 -p1 -b .allowGroups
+%patch159 -p1 -b .untrusted
+%patch161 -p1 -b .xauth
+%patch162 -p1 -b .tilde
 
 %patch200 -p1 -b .gsi
 
@@ -603,6 +640,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Sun Jun 26 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-13
+- Based on openssh-5.3p1-118.1.el6_8
+
 * Tue Jan 19 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-12
 - Based on openssh-5.3p1-112.el6_7
 
