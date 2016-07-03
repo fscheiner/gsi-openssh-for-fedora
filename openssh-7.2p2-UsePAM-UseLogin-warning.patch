@@ -6,7 +6,7 @@ diff --git a/sshd.c b/sshd.c
  	    &cfg, NULL);
  
 +	/* 'UseLogin yes' is not supported in Fedora */
-+	if (options.use_login)
++	if (options.use_login == 1)
 +		logit("WARNING: 'UseLogin yes' is not supported in Fedora and may cause several problems.");
 +
 +	/* 'UsePAM no' is not supported in Fedora */
