@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.2p2
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -174,6 +174,10 @@ Patch933: openssh-7.0p1-show-more-fingerprints.patch
 Patch936: openssh-7.1p1-iutf8.patch
 # CVE-2015-8325: ignore PAM environment vars when UseLogin=yes
 Patch937: openssh-7.2p2-CVE-2015-8325.patch
+# Prevent user enumeration via covert timing channel (#1357443)
+# https://github.com/openssh/openssh-portable/commit/9286875a
+# https://github.com/openssh/openssh-portable/commit/283b97ff
+Patch941: openssh-7.2p2-user-enumeration.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
@@ -333,6 +337,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch933 -p1 -b .fingerprint
 %patch936 -p1 -b .iutf8
 %patch937 -p1 -b .pam_uselogin_cve
+%patch941 -p1 -b .user-enumeration
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -546,6 +551,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Jul 18 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.2p2-3
+- Based on openssh-7.2p2-4.fc23
+
 * Thu May 12 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 7.2p2-2
 - Based on openssh-7.2p2-3.fc23
 
