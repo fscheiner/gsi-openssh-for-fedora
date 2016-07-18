@@ -258,8 +258,8 @@ diff -Nur openssh-7.2p1.orig/auth2-gss.c openssh-7.2p1/auth2-gss.c
 +		authenticated = 0;
 +	}
  
- 	authctxt->postponed = 0;
- 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
+ 	if (authenticated)
+ 		authctxt->last_details = ssh_gssapi_get_displayname();
 @@ -316,9 +368,16 @@
  	gssbuf.value = buffer_ptr(&b);
  	gssbuf.length = buffer_len(&b);
@@ -522,8 +522,8 @@ diff -Nur openssh-7.2p1.orig/auth-pam.c openssh-7.2p1/auth-pam.c
 +		sshpam_check_userchanged();
 +	}
  	sshpam_password = NULL;
+ 	free(fake);
  	if (sshpam_err == PAM_SUCCESS && authctxt->valid) {
- 		debug("PAM: password authentication accepted for %.100s",
 diff -Nur openssh-7.2p1.orig/auth-pam.h openssh-7.2p1/auth-pam.h
 --- openssh-7.2p1.orig/auth-pam.h	2016-03-02 19:04:36.265961563 +0100
 +++ openssh-7.2p1/auth-pam.h	2016-03-02 19:05:41.292212905 +0100
@@ -1523,7 +1523,7 @@ diff -Nur openssh-7.2p1.orig/monitor.c openssh-7.2p1/monitor.c
  
  	buffer_clear(m);
  	buffer_put_int(m, authenticated);
-@@ -2235,12 +2253,77 @@
+@@ -2235,15 +2253,80 @@
  	debug3("%s: sending result %d", __func__, authenticated);
  	mm_request_send(sock, MONITOR_ANS_GSSUSEROK, m);
  
@@ -1532,6 +1532,9 @@ diff -Nur openssh-7.2p1.orig/monitor.c openssh-7.2p1/monitor.c
 +		auth_method = "gssapi-keyex";
 +	else
 +		auth_method = "gssapi-with-mic";
+ 
+ 	if (authenticated)
+ 		authctxt->last_details = ssh_gssapi_get_displayname();
  
  	/* Monitor loop will terminate if authenticated */
  	return (authenticated);
@@ -2319,9 +2322,9 @@ diff -Nur openssh-7.2p1.orig/sshd_config.5 openssh-7.2p1/sshd_config.5
 --- openssh-7.2p1.orig/sshd_config.5	2016-03-02 19:04:36.367960389 +0100
 +++ openssh-7.2p1/sshd_config.5	2016-03-02 19:07:15.338130138 +0100
 @@ -570,6 +570,15 @@
- See PATTERNS in
- .Xr ssh_config 5
- for more information on patterns.
+ (Expose them to PAM and keep them in the shell environment).
+ The default is
+ .Dq never .
 +.It Cm DisableUsageStats
 +This keyword can be followed by one of the keywords "true", "enabled", "yes",
 +"on" or "1" to disable reporting of usage metrics. Or it can be set to "false",
@@ -2973,9 +2976,9 @@ diff -Nur openssh-7.2p1.orig/ssh-gss.h openssh-7.2p1/ssh-gss.h
  OM_uint32 ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
 -int ssh_gssapi_userok(char *name, struct passwd *);
 +int ssh_gssapi_userok(char *name, struct passwd *, int gssapi_keyex);
+ char* ssh_gssapi_get_displayname(void);
  OM_uint32 ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
  void ssh_gssapi_do_child(char ***, u_int *);
- void ssh_gssapi_cleanup_creds(void);
 @@ -170,6 +174,7 @@
  int ssh_gssapi_update_creds(ssh_gssapi_ccache *store);
  

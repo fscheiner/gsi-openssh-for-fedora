@@ -792,9 +792,9 @@ diff -up openssh-7.2p1/auth2-hostbased.c.audit openssh-7.2p1/auth2-hostbased.c
  	if (PRIVSEP(hostbased_key_allowed(authctxt->pw, cuser, chost, key)) &&
 -	    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
 +	    PRIVSEP(hostbased_key_verify(key, sig, slen, buffer_ptr(&b),
- 			buffer_len(&b))) == 1)
+ 			buffer_len(&b))) == 1) {
  		authenticated = 1;
- 
+ 		authctxt->last_details = pubkey;
 @@ -163,6 +163,18 @@ done:
  	return authenticated;
  }
@@ -825,7 +825,7 @@ diff -up openssh-7.2p1/auth2-pubkey.c.audit openssh-7.2p1/auth2-pubkey.c
 +		    PRIVSEP(user_key_verify(key, sig, slen, buffer_ptr(&b),
  		    buffer_len(&b))) == 1) {
  			authenticated = 1;
- 			/* Record the successful key to prevent reuse */
+ 			authctxt->last_details = pubkey;
 @@ -258,6 +258,18 @@ pubkey_auth_info(Authctxt *authctxt, con
  	free(extra);
  }
