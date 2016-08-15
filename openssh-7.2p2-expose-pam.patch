@@ -331,8 +331,8 @@ diff -up openssh-7.2p2/servconf.c.expose-pam openssh-7.2p2/servconf.c
  	M_CP_INTOPT(rekey_interval);
 +	M_CP_INTOPT(expose_auth_methods);
  
- 	/* M_CP_STROPT and M_CP_STRARRAYOPT should not appear before here */
- #define M_CP_STROPT(n) do {\
+ 	/*
+ 	 * The bind_mask is a mode_t that may be unsigned, so we can't use
 @@ -2181,6 +2198,8 @@ fmt_intarg(ServerOpCodes code, int val)
  		return fmt_multistate_int(val, multistate_tcpfwd);
  	case sFingerprintHash:

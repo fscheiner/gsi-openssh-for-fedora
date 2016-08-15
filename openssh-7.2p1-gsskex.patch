@@ -179,7 +179,7 @@ diff -up openssh-7.2p1/configure.ac.gsskex openssh-7.2p1/configure.ac
 +		[AC_MSG_RESULT(no)]
 +	)
  	m4_pattern_allow([AU_IPv])
- 	AC_CHECK_DECL([AU_IPv4], [], 
+ 	AC_CHECK_DECL([AU_IPv4], [],
  	    AC_DEFINE([AU_IPv4], [0], [System only supports IPv4 audit records])
 diff -up openssh-7.2p1/gss-genr.c.gsskex openssh-7.2p1/gss-genr.c
 --- openssh-7.2p1/gss-genr.c.gsskex	2016-02-12 11:47:25.000000000 +0100
@@ -1251,7 +1251,7 @@ diff -up openssh-7.2p1/kexgssc.c.gsskex openssh-7.2p1/kexgssc.c
 +	switch (ssh->kex->kex_type) {
 +	case KEX_GSS_GRP1_SHA1:
 +	case KEX_GSS_GRP14_SHA1:
-+		kex_dh_hash( ssh->kex->client_version_string, 
++		kex_dh_hash(ssh->kex->hash_alg, ssh->kex->client_version_string, 
 +		    ssh->kex->server_version_string,
 +		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
 +		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
@@ -1320,7 +1320,7 @@ diff -up openssh-7.2p1/kexgssc.c.gsskex openssh-7.2p1/kexgssc.c
 diff -up openssh-7.2p1/kexgsss.c.gsskex openssh-7.2p1/kexgsss.c
 --- openssh-7.2p1/kexgsss.c.gsskex	2016-02-19 10:01:04.868969323 +0100
 +++ openssh-7.2p1/kexgsss.c	2016-02-19 10:01:04.868969323 +0100
-@@ -0,0 +1,295 @@
+@@ -0,0 +1,297 @@
 +/*
 + * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
 + *
@@ -1392,6 +1392,7 @@ diff -up openssh-7.2p1/kexgsss.c.gsskex openssh-7.2p1/kexgsss.c
 +	u_char *kbuf;
 +	DH *dh;
 +	int min = -1, max = -1, nbits = -1;
++	int cmin = -1, cmax = -1; /* client proposal */
 +	BIGNUM *shared_secret = NULL;
 +	BIGNUM *dh_client_pub = NULL;
 +	int type = 0;
@@ -1430,11 +1431,12 @@ diff -up openssh-7.2p1/kexgsss.c.gsskex openssh-7.2p1/kexgsss.c
 +	case KEX_GSS_GEX_SHA1:
 +		debug("Doing group exchange");
 +		packet_read_expect(SSH2_MSG_KEXGSS_GROUPREQ);
-+		min = packet_get_int();
++		/* store client proposal to provide valid signature */
++		cmin = packet_get_int();
 +		nbits = packet_get_int();
-+		max = packet_get_int();
-+		min = MAX(DH_GRP_MIN, min);
-+		max = MIN(DH_GRP_MAX, max);
++		cmax = packet_get_int();
++		min = MAX(DH_GRP_MIN, cmin);
++		max = MIN(DH_GRP_MAX, cmax);
 +		packet_check_eom();
 +		if (max < min || nbits < min || max < nbits)
 +			fatal("GSS_GEX, bad parameters: %d !< %d !< %d",
@@ -1541,7 +1543,7 @@ diff -up openssh-7.2p1/kexgsss.c.gsskex openssh-7.2p1/kexgsss.c
 +	switch (ssh->kex->kex_type) {
 +	case KEX_GSS_GRP1_SHA1:
 +	case KEX_GSS_GRP14_SHA1:
-+		kex_dh_hash(
++		kex_dh_hash(ssh->kex->hash_alg,
 +		    ssh->kex->client_version_string, ssh->kex->server_version_string,
 +		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
 +		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
@@ -1557,7 +1559,7 @@ diff -up openssh-7.2p1/kexgsss.c.gsskex openssh-7.2p1/kexgsss.c
 +		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
 +		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
 +		    NULL, 0,
-+		    min, nbits, max,
++		    cmin, nbits, cmax,
 +		    dh->p, dh->g,
 +		    dh_client_pub,
 +		    dh->pub_key,
@@ -1653,14 +1655,14 @@ diff -up openssh-7.2p1/kex.h.gsskex openssh-7.2p1/kex.h
 +int	 kexgss_server(struct ssh *);
 +#endif
  
- int	 kex_dh_hash(const char *, const char *,
+ int	 kex_dh_hash(int, const char *, const char *,
      const u_char *, size_t, const u_char *, size_t, const u_char *, size_t,
-diff -up openssh-7.2p1/Makefile.in.gsskex openssh-7.2p1/Makefile.in
---- openssh-7.2p1/Makefile.in.gsskex	2016-02-19 10:01:04.864969325 +0100
-+++ openssh-7.2p1/Makefile.in	2016-02-19 10:01:04.868969323 +0100
+diff -up openssh/Makefile.in.gsskex openssh/Makefile.in
+--- openssh/Makefile.in.gsskex	2016-07-25 14:11:42.978324182 +0200
++++ openssh/Makefile.in	2016-07-25 14:14:15.560289050 +0200
 @@ -90,6 +90,7 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
  	readpass.o rsa.o ttymodes.o xmalloc.o addrmatch.o \
- 	atomicio.o key.o dispatch.o mac.o uidswap.o uuencode.o misc.o \
+ 	atomicio.o key.o dispatch.o mac.o uidswap.o uuencode.o misc.o utf8.o \
  	monitor_fdpass.o rijndael.o ssh-dss.o ssh-ecdsa.o ssh-rsa.o dh.o \
 +	kexgssc.o \
  	msg.o progressmeter.o dns.o entropy.o gss-genr.o umac.o umac128.o \
@@ -2064,21 +2066,21 @@ diff -up openssh-7.2p1/readconf.h.gsskex openssh-7.2p1/readconf.h
  	int     password_authentication;	/* Try password
  						 * authentication. */
  	int     kbd_interactive_authentication; /* Try keyboard-interactive auth. */
-diff -up openssh-7.2p1/regress/cert-hostkey.sh.gsskex openssh-7.2p1/regress/cert-hostkey.sh
---- openssh-7.2p1/regress/cert-hostkey.sh.gsskex	2016-02-12 11:47:25.000000000 +0100
-+++ openssh-7.2p1/regress/cert-hostkey.sh	2016-02-19 10:01:04.870969322 +0100
-@@ -46,7 +46,7 @@ touch $OBJ/host_revoked_plain
+diff -up openssh/regress/cert-hostkey.sh.gsskex openssh/regress/cert-hostkey.sh
+--- openssh/regress/cert-hostkey.sh.gsskex	2016-07-25 14:11:42.986324181 +0200
++++ openssh/regress/cert-hostkey.sh	2016-07-25 14:15:17.784274722 +0200
+@@ -59,7 +59,7 @@ touch $OBJ/host_revoked_plain
  touch $OBJ/host_revoked_cert
- cp $OBJ/host_ca_key.pub $OBJ/host_revoked_ca
+ cat $OBJ/host_ca_key.pub $OBJ/host_ca_key2.pub > $OBJ/host_revoked_ca
  
 -PLAIN_TYPES=`$SSH -Q key-plain | sed 's/^ssh-dss/ssh-dsa/g;s/^ssh-//'`
 +PLAIN_TYPES=`$SSH -Q key-plain | grep -v null | sed 's/^ssh-dss/ssh-dsa/g;s/^ssh-//'`
  
- # Prepare certificate, plain key and CA KRLs
- ${SSHKEYGEN} -kf $OBJ/host_krl_empty || fatal "KRL init failed"
-diff -up openssh-7.2p1/regress/cert-userkey.sh.gsskex openssh-7.2p1/regress/cert-userkey.sh
---- openssh-7.2p1/regress/cert-userkey.sh.gsskex	2016-02-12 11:47:25.000000000 +0100
-+++ openssh-7.2p1/regress/cert-userkey.sh	2016-02-19 10:01:04.870969322 +0100
+ if echo "$PLAIN_TYPES" | grep '^rsa$' >/dev/null 2>&1 ; then
+ 	PLAIN_TYPES="$PLAIN_TYPES rsa-sha2-256 rsa-sha2-512"
+diff -up openssh/regress/cert-userkey.sh.gsskex openssh/regress/cert-userkey.sh
+--- openssh/regress/cert-userkey.sh.gsskex	2016-07-25 14:11:42.986324181 +0200
++++ openssh/regress/cert-userkey.sh	2016-07-25 14:15:36.769270354 +0200
 @@ -7,7 +7,7 @@ rm -f $OBJ/authorized_keys_$USER $OBJ/us
  cp $OBJ/sshd_proxy $OBJ/sshd_proxy_bak
  cp $OBJ/ssh_proxy $OBJ/ssh_proxy_bak
@@ -2086,11 +2088,11 @@ diff -up openssh-7.2p1/regress/cert-userkey.sh.gsskex openssh-7.2p1/regress/cert
 -PLAIN_TYPES=`$SSH -Q key-plain | sed 's/^ssh-dss/ssh-dsa/;s/^ssh-//'`
 +PLAIN_TYPES=`$SSH -Q key-plain | grep -v null | sed 's/^ssh-dss/ssh-dsa/;s/^ssh-//'`
  
- kname() {
- 	n=`echo "$1" | sed 's/^dsa/ssh-dss/;s/^rsa/ssh-rsa/;s/^ed/ssh-ed/'`
-diff -up openssh-7.2p1/regress/kextype.sh.gsskex openssh-7.2p1/regress/kextype.sh
---- openssh-7.2p1/regress/kextype.sh.gsskex	2016-02-12 11:47:25.000000000 +0100
-+++ openssh-7.2p1/regress/kextype.sh	2016-02-19 10:01:04.870969322 +0100
+ if echo "$PLAIN_TYPES" | grep '^rsa$' >/dev/null 2>&1 ; then
+ 	PLAIN_TYPES="$PLAIN_TYPES rsa-sha2-256 rsa-sha2-512"
+diff -up openssh/regress/kextype.sh.gsskex openssh/regress/kextype.sh
+--- openssh/regress/kextype.sh.gsskex	2016-07-24 13:50:13.000000000 +0200
++++ openssh/regress/kextype.sh	2016-07-25 14:11:42.987324180 +0200
 @@ -14,6 +14,9 @@ echo "KexAlgorithms=$KEXOPT" >> $OBJ/ssh
  
  tries="1 2 3 4"
@@ -2304,7 +2306,7 @@ diff -up openssh-7.2p1/sshconnect2.c.gsskex openssh-7.2p1/sshconnect2.c
 +		orig = options.kex_algorithms;
 +
 +		if (options.gss_trust_dns)
-+			gss_host = (char *)get_canonical_hostname(1);
++			gss_host = (char *)get_canonical_hostname(active_state, 1);
 +		else
 +			gss_host = host;
 +
@@ -2399,7 +2401,7 @@ diff -up openssh-7.2p1/sshconnect2.c.gsskex openssh-7.2p1/sshconnect2.c
 +	if (options.gss_server_identity)
 +		gss_host = options.gss_server_identity;
 +	else if (options.gss_trust_dns)
-+		gss_host = get_canonical_hostname(1);
++		gss_host = get_canonical_hostname(active_state, 1);
 +	else
 +		gss_host = authctxt->host;
  
@@ -2739,41 +2741,264 @@ diff -up openssh-7.2p1/sshkey.h.gsskex openssh-7.2p1/sshkey.h
  	KEY_UNSPEC
  };
  
-diff --git a/kexgsss.c b/kexgsss.c
-index b2f9658..2d33ff7 100644
---- a/kexgsss.c
-+++ b/kexgsss.c
-@@ -69,6 +69,7 @@ kexgss_server(struct ssh *ssh)
- 	u_char *kbuf;
- 	DH *dh;
- 	int min = -1, max = -1, nbits = -1;
-+	int cmin = -1, cmax = -1; /* client proposal */
- 	BIGNUM *shared_secret = NULL;
- 	BIGNUM *dh_client_pub = NULL;
- 	int type = 0;
-@@ -107,11 +108,12 @@ kexgss_server(struct ssh *ssh)
- 	case KEX_GSS_GEX_SHA1:
- 		debug("Doing group exchange");
- 		packet_read_expect(SSH2_MSG_KEXGSS_GROUPREQ);
--		min = packet_get_int();
-+		/* store client proposal to provide valid signature */
-+		cmin = packet_get_int();
- 		nbits = packet_get_int();
--		max = packet_get_int();
--		min = MAX(DH_GRP_MIN, min);
--		max = MIN(DH_GRP_MAX, max);
-+		cmax = packet_get_int();
-+		min = MAX(DH_GRP_MIN, cmin);
-+		max = MIN(DH_GRP_MAX, cmax);
- 		packet_check_eom();
- 		if (max < min || nbits < min || max < nbits)
- 			fatal("GSS_GEX, bad parameters: %d !< %d !< %d",
-@@ -234,7 +236,7 @@ kexgss_server(struct ssh *ssh)
- 		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
- 		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
- 		    NULL, 0,
--		    min, nbits, max,
-+		    cmin, nbits, cmax,
- 		    dh->p, dh->g,
- 		    dh_client_pub,
- 		    dh->pub_key,
+diff --git a/auth.c b/auth.c
+index e0f7639..a5a346e 100644
+--- a/auth.c
++++ b/auth.c
+@@ -784,99 +784,6 @@ fakepw(void)
+ }
+ 
+ /*
+- * Returns the remote DNS hostname as a string. The returned string must not
+- * be freed. NB. this will usually trigger a DNS query the first time it is
+- * called.
+- * This function does additional checks on the hostname to mitigate some
+- * attacks on legacy rhosts-style authentication.
+- * XXX is RhostsRSAAuthentication vulnerable to these?
+- * XXX Can we remove these checks? (or if not, remove RhostsRSAAuthentication?)
+- */
+-
+-static char *
+-remote_hostname(struct ssh *ssh)
+-{
+-	struct sockaddr_storage from;
+-	socklen_t fromlen;
+-	struct addrinfo hints, *ai, *aitop;
+-	char name[NI_MAXHOST], ntop2[NI_MAXHOST];
+-	const char *ntop = ssh_remote_ipaddr(ssh);
+-
+-	/* Get IP address of client. */
+-	fromlen = sizeof(from);
+-	memset(&from, 0, sizeof(from));
+-	if (getpeername(ssh_packet_get_connection_in(ssh),
+-	    (struct sockaddr *)&from, &fromlen) < 0) {
+-		debug("getpeername failed: %.100s", strerror(errno));
+-		return strdup(ntop);
+-	}
+-
+-	ipv64_normalise_mapped(&from, &fromlen);
+-	if (from.ss_family == AF_INET6)
+-		fromlen = sizeof(struct sockaddr_in6);
+-
+-	debug3("Trying to reverse map address %.100s.", ntop);
+-	/* Map the IP address to a host name. */
+-	if (getnameinfo((struct sockaddr *)&from, fromlen, name, sizeof(name),
+-	    NULL, 0, NI_NAMEREQD) != 0) {
+-		/* Host name not found.  Use ip address. */
+-		return strdup(ntop);
+-	}
+-
+-	/*
+-	 * if reverse lookup result looks like a numeric hostname,
+-	 * someone is trying to trick us by PTR record like following:
+-	 *	1.1.1.10.in-addr.arpa.	IN PTR	2.3.4.5
+-	 */
+-	memset(&hints, 0, sizeof(hints));
+-	hints.ai_socktype = SOCK_DGRAM;	/*dummy*/
+-	hints.ai_flags = AI_NUMERICHOST;
+-	if (getaddrinfo(name, NULL, &hints, &ai) == 0) {
+-		logit("Nasty PTR record \"%s\" is set up for %s, ignoring",
+-		    name, ntop);
+-		freeaddrinfo(ai);
+-		return strdup(ntop);
+-	}
+-
+-	/* Names are stored in lowercase. */
+-	lowercase(name);
+-
+-	/*
+-	 * Map it back to an IP address and check that the given
+-	 * address actually is an address of this host.  This is
+-	 * necessary because anyone with access to a name server can
+-	 * define arbitrary names for an IP address. Mapping from
+-	 * name to IP address can be trusted better (but can still be
+-	 * fooled if the intruder has access to the name server of
+-	 * the domain).
+-	 */
+-	memset(&hints, 0, sizeof(hints));
+-	hints.ai_family = from.ss_family;
+-	hints.ai_socktype = SOCK_STREAM;
+-	if (getaddrinfo(name, NULL, &hints, &aitop) != 0) {
+-		logit("reverse mapping checking getaddrinfo for %.700s "
+-		    "[%s] failed.", name, ntop);
+-		return strdup(ntop);
+-	}
+-	/* Look for the address from the list of addresses. */
+-	for (ai = aitop; ai; ai = ai->ai_next) {
+-		if (getnameinfo(ai->ai_addr, ai->ai_addrlen, ntop2,
+-		    sizeof(ntop2), NULL, 0, NI_NUMERICHOST) == 0 &&
+-		    (strcmp(ntop, ntop2) == 0))
+-				break;
+-	}
+-	freeaddrinfo(aitop);
+-	/* If we reached the end of the list, the address was not there. */
+-	if (ai == NULL) {
+-		/* Address not found for the host name. */
+-		logit("Address %.100s maps to %.600s, but this does not "
+-		    "map back to the address.", ntop, name);
+-		return strdup(ntop);
+-	}
+-	return strdup(name);
+-}
+-
+-/*
+  * Return the canonical name of the host in the other side of the current
+  * connection.  The host name is cached, so it is efficient to call this
+  * several times.
+diff --git a/openbsd-compat/port-linux.c b/openbsd-compat/port-linux.c
+index 80729b3..93a1b04 100644
+--- a/openbsd-compat/port-linux.c
++++ b/openbsd-compat/port-linux.c
+@@ -32,6 +32,8 @@
+ #include "log.h"
+ #include "xmalloc.h"
+ #include "port-linux.h"
++#include "canohost.h"
++#include "misc.h"
+ 
+ #ifdef WITH_SELINUX
+ #include <selinux/selinux.h>
+@@ -286,4 +288,121 @@ oom_adjust_restore(void)
+ 	return;
+ }
+ #endif /* LINUX_OOM_ADJUST */
++
++/****************  XXX moved from auth.c ****************/
++
++/*
++ * Returns the remote DNS hostname as a string. The returned string must not
++ * be freed. NB. this will usually trigger a DNS query the first time it is
++ * called.
++ * This function does additional checks on the hostname to mitigate some
++ * attacks on legacy rhosts-style authentication.
++ * XXX is RhostsRSAAuthentication vulnerable to these?
++ * XXX Can we remove these checks? (or if not, remove RhostsRSAAuthentication?)
++ */
++
++char *
++remote_hostname(struct ssh *ssh)
++{
++	struct sockaddr_storage from;
++	socklen_t fromlen;
++	struct addrinfo hints, *ai, *aitop;
++	char name[NI_MAXHOST], ntop2[NI_MAXHOST];
++	const char *ntop = ssh_remote_ipaddr(ssh);
++
++	/* Get IP address of client. */
++	fromlen = sizeof(from);
++	memset(&from, 0, sizeof(from));
++	if (getpeername(ssh_packet_get_connection_in(ssh),
++	    (struct sockaddr *)&from, &fromlen) < 0) {
++		debug("getpeername failed: %.100s", strerror(errno));
++		return strdup(ntop);
++	}
++
++	ipv64_normalise_mapped(&from, &fromlen);
++	if (from.ss_family == AF_INET6)
++		fromlen = sizeof(struct sockaddr_in6);
++
++	debug3("Trying to reverse map address %.100s.", ntop);
++	/* Map the IP address to a host name. */
++	if (getnameinfo((struct sockaddr *)&from, fromlen, name, sizeof(name),
++	    NULL, 0, NI_NAMEREQD) != 0) {
++		/* Host name not found.  Use ip address. */
++		return strdup(ntop);
++	}
++
++	/*
++	 * if reverse lookup result looks like a numeric hostname,
++	 * someone is trying to trick us by PTR record like following:
++	 *	1.1.1.10.in-addr.arpa.	IN PTR	2.3.4.5
++	 */
++	memset(&hints, 0, sizeof(hints));
++	hints.ai_socktype = SOCK_DGRAM;	/*dummy*/
++	hints.ai_flags = AI_NUMERICHOST;
++	if (getaddrinfo(name, NULL, &hints, &ai) == 0) {
++		logit("Nasty PTR record \"%s\" is set up for %s, ignoring",
++		    name, ntop);
++		freeaddrinfo(ai);
++		return strdup(ntop);
++	}
++
++	/* Names are stored in lowercase. */
++	lowercase(name);
++
++	/*
++	 * Map it back to an IP address and check that the given
++	 * address actually is an address of this host.  This is
++	 * necessary because anyone with access to a name server can
++	 * define arbitrary names for an IP address. Mapping from
++	 * name to IP address can be trusted better (but can still be
++	 * fooled if the intruder has access to the name server of
++	 * the domain).
++	 */
++	memset(&hints, 0, sizeof(hints));
++	hints.ai_family = from.ss_family;
++	hints.ai_socktype = SOCK_STREAM;
++	if (getaddrinfo(name, NULL, &hints, &aitop) != 0) {
++		logit("reverse mapping checking getaddrinfo for %.700s "
++		    "[%s] failed - POSSIBLE BREAK-IN ATTEMPT!", name, ntop);
++		return strdup(ntop);
++	}
++	/* Look for the address from the list of addresses. */
++	for (ai = aitop; ai; ai = ai->ai_next) {
++		if (getnameinfo(ai->ai_addr, ai->ai_addrlen, ntop2,
++		    sizeof(ntop2), NULL, 0, NI_NUMERICHOST) == 0 &&
++		    (strcmp(ntop, ntop2) == 0))
++				break;
++	}
++	freeaddrinfo(aitop);
++	/* If we reached the end of the list, the address was not there. */
++	if (ai == NULL) {
++		/* Address not found for the host name. */
++		logit("Address %.100s maps to %.600s, but this does not "
++		    "map back to the address - POSSIBLE BREAK-IN ATTEMPT!",
++		    ntop, name);
++		return strdup(ntop);
++	}
++	return strdup(name);
++}
++
++/*
++ * Return the canonical name of the host in the other side of the current
++ * connection.  The host name is cached, so it is efficient to call this
++ * several times.
++ */
++
++const char *
++get_canonical_hostname(struct ssh *ssh, int use_dns)
++{
++	static char *dnsname;
++
++	if (!use_dns)
++		return ssh_remote_ipaddr(ssh);
++	else if (dnsname != NULL)
++		return dnsname;
++	else {
++		dnsname = remote_hostname(ssh);
++		return dnsname;
++	}
++}
+ #endif /* WITH_SELINUX || LINUX_OOM_ADJUST */
+diff --git a/openbsd-compat/port-linux.h b/openbsd-compat/port-linux.h
+index e2ca8a1..6c5ac3f 100644
+--- a/openbsd-compat/port-linux.h
++++ b/openbsd-compat/port-linux.h
+@@ -18,6 +18,7 @@
+ 
+ #ifndef _PORT_LINUX_H
+ #define _PORT_LINUX_H
++#include "packet.h"
+ 
+ #ifdef WITH_SELINUX
+ int ssh_selinux_enabled(void);
+@@ -39,4 +40,8 @@ void oom_adjust_setup(void);
+ 
+ void linux_seed(void);
+ 
++const char *get_canonical_hostname(struct ssh *, int);
++char *remote_hostname(struct ssh *);
++
++
+ #endif /* ! _PORT_LINUX_H */
+

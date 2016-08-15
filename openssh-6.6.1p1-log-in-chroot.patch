@@ -247,8 +247,8 @@ diff -up openssh-6.8p1/sftp-server.c.log-in-chroot openssh-6.8p1/sftp-server.c
 -	log_init(__progname, log_level, log_facility, log_stderr);
 +	log_init_handler(__progname, log_level, log_facility, log_stderr, reset_handler);
  
- #if defined(HAVE_PRCTL) && defined(PR_SET_DUMPABLE)
  	/*
+ 	 * On platforms where we can, avoid making /proc/self/{mem,maps}
 diff -up openssh-6.8p1/sftp.h.log-in-chroot openssh-6.8p1/sftp.h
 --- openssh-6.8p1/sftp.h.log-in-chroot	2015-03-17 06:49:20.000000000 +0100
 +++ openssh-6.8p1/sftp.h	2015-03-18 12:59:29.696022308 +0100

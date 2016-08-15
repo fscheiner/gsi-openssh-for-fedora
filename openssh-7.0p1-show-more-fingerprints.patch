@@ -127,8 +127,8 @@ index 1d03bdf..6af4c62 100644
  {
  	u_int i;
 @@ -2259,7 +2274,6 @@ dump_client_config(Options *o, const char *host)
- 	dump_cfg_fmtint(oControlMaster, o->control_master);
  	dump_cfg_fmtint(oEnableSSHKeysign, o->enable_ssh_keysign);
+ 	dump_cfg_fmtint(oClearAllForwardings, o->clear_forwardings);
  	dump_cfg_fmtint(oExitOnForwardFailure, o->exit_on_forward_failure);
 -	dump_cfg_fmtint(oFingerprintHash, o->fingerprint_hash);
  	dump_cfg_fmtint(oForwardAgent, o->forward_agent);

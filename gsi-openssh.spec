@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.2p2
-%global openssh_rel 6
+%global openssh_ver 7.3p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -130,16 +130,6 @@ Patch900: openssh-6.1p1-gssapi-canohost.patch
 Patch901: openssh-6.6p1-kuserok.patch
 # Use tty allocation for a remote scp (#985650)
 Patch906: openssh-6.4p1-fromto-remote.patch
-# set a client's address right after a connection is set
-# http://bugzilla.mindrot.org/show_bug.cgi?id=2257
-Patch911: openssh-6.6p1-set_remote_ipaddr.patch
-# apply RFC3454 stringprep to banners when possible
-# https://bugzilla.mindrot.org/show_bug.cgi?id=2058
-# slightly changed patch from comment 10
-Patch912: openssh-6.6.1p1-utf8-banner.patch
-# fix parsing of empty options in sshd_conf
-# https://bugzilla.mindrot.org/show_bug.cgi?id=2281
-Patch914: openssh-6.6.1p1-servconf-parser.patch
 # privsep_preauth: use SELinux context from selinux-policy (#1008580)
 Patch916: openssh-6.6.1p1-selinux-contexts.patch
 # use different values for DH for Cisco servers (#1026430)
@@ -155,8 +145,6 @@ Patch920: openssh-6.6.1p1-ip-port-config-parser.patch
 Patch921: openssh-6.7p1-debian-restore-tcp-wrappers.patch
 # apply upstream patch and make sshd -T more consistent (#1187521)
 Patch922: openssh-6.8p1-sshdT-output.patch
-# Seccomp support for secondary architectures (#1195065)
-Patch924: openssh-6.9p1-seccomp-secondary.patch
 # Add sftp option to force mode of created files (#1191055)
 Patch926: openssh-6.7p1-sftp-force-permission.patch
 # Memory problems
@@ -164,32 +152,21 @@ Patch926: openssh-6.7p1-sftp-force-permission.patch
 Patch928: openssh-6.8p1-memory-problems.patch
 # Restore compatible default (#89216)
 Patch929: openssh-6.9p1-permit-root-login.patch
-# Handle terminal control characters in scp progressmeter (#1247204)
-Patch931: openssh-6.9p1-scp-progressmeter.patch
 # Add GSSAPIKexAlgorithms option for server and client application
 Patch932: openssh-7.0p1-gssKexAlgorithms.patch
 # Possibility to validate legacy systems by more fingerprints (#1249626)(#2439)
 Patch933: openssh-7.0p1-show-more-fingerprints.patch
-# Preserve IUTF8 tty mode flag over ssh connections (#1270248)
-# https://bugzilla.mindrot.org/show_bug.cgi?id=2477
-Patch936: openssh-7.1p1-iutf8.patch
-# CVE-2015-8325: ignore PAM environment vars when UseLogin=yes
-Patch937: openssh-7.2p2-CVE-2015-8325.patch
-# Regression in certificate based authentication (#1333498)
-Patch938: openssh-7.2p2-certificats-regress.patch
 # make s390 use /dev/ crypto devices -- ignore closefrom
 Patch939: openssh-7.2p2-s390-closefrom.patch
 # expose more information to PAM
 # https://github.com/openssh/openssh-portable/pull/47
 Patch940: openssh-7.2p2-expose-pam.patch
-# Prevent user enumeration via covert timing channel (#1357443)
-# https://github.com/openssh/openssh-portable/commit/9286875a
-# https://github.com/openssh/openssh-portable/commit/283b97ff
-Patch941: openssh-7.2p2-user-enumeration.patch
+# Rework SELinux context handling with chroot (#1357860)
+Patch942: openssh-7.2p2-chroot-capabilities.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
-Patch98: openssh-7.2p2-gsissh.patch
+Patch98: openssh-7.3p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -207,6 +184,7 @@ BuildRequires: pam-devel
 BuildRequires: tcp_wrappers-devel
 BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
+BuildRequires: libcap-ng-devel
 
 %if %{kerberos5}
 BuildRequires: krb5-devel
@@ -325,9 +303,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
 %patch906 -p1 -b .fromto-remote
-%patch911 -p1 -b .set_remote_ipaddr
-%patch912 -p1 -b .utf8-banner
-%patch914 -p1 -b .servconf
 %patch916 -p1 -b .contexts
 #%patch917 -p1 -b .cisco-dh # investigate
 %patch918 -p1 -b .log-in-chroot
@@ -336,19 +311,14 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch802 -p1 -b .GSSAPIEnablek5users
 %patch921 -p1 -b .tcp_wrappers
 %patch922 -p1 -b .sshdt
-%patch924 -p1 -b .seccomp
 %patch926 -p1 -b .sftp-force-mode
 %patch928 -p1 -b .memory
 %patch929 -p1 -b .root-login
-%patch931 -p1 -b .progressmeter
 %patch932 -p1 -b .gsskexalg
 %patch933 -p1 -b .fingerprint
-%patch936 -p1 -b .iutf8
-%patch937 -p1 -b .pam_uselogin_cve
-%patch938 -p1 -b .certificates
 %patch939 -p1 -b .s390-dev
 %patch940 -p1 -b .expose-pam
-%patch941 -p1 -b .user-enumeration
+%patch942 -p1 -b .chroot-cap
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -451,6 +421,7 @@ make SSH_PROGRAM=%{_bindir}/gsissh \
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p -m755 $RPM_BUILD_ROOT%{_sysconfdir}/gsissh
+mkdir -p -m755 $RPM_BUILD_ROOT%{_sysconfdir}/gsissh/ssh_config.d
 mkdir -p -m755 $RPM_BUILD_ROOT%{_libexecdir}/gsissh
 mkdir -p -m755 $RPM_BUILD_ROOT%{_var}/empty/gsisshd
 make install DESTDIR=$RPM_BUILD_ROOT
@@ -462,6 +433,7 @@ install -d $RPM_BUILD_ROOT%{_libexecdir}/gsissh
 install -d $RPM_BUILD_ROOT%{_libdir}/fipscheck
 install -m644 %{SOURCE2} $RPM_BUILD_ROOT/etc/pam.d/gsisshd
 install -m644 %{SOURCE7} $RPM_BUILD_ROOT/etc/sysconfig/gsisshd
+install -m644 ssh_config_redhat $RPM_BUILD_ROOT/etc/gsissh/ssh_config.d/05-redhat.conf
 install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
 install -m644 %{SOURCE9} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd@.service
 install -m644 %{SOURCE10} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.socket
@@ -493,8 +465,6 @@ for f in $RPM_BUILD_ROOT%{_bindir}/* \
 	 $RPM_BUILD_ROOT%{_mandir}/man*/* ; do
     mv $f `dirname $f`/gsi`basename $f`
 done
-ln -sf gsissh $RPM_BUILD_ROOT%{_bindir}/gsislogin
-ln -sf gsissh.1 $RPM_BUILD_ROOT%{_mandir}/man1/gsislogin.1
 
 perl -pi -e "s|$RPM_BUILD_ROOT||g" $RPM_BUILD_ROOT%{_mandir}/man*/*
 
@@ -537,8 +507,8 @@ getent passwd sshd >/dev/null || \
 %attr(0755,root,root) %{_bindir}/gsiscp
 %attr(0644,root,root) %{_mandir}/man1/gsiscp.1*
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/ssh_config
-%attr(0755,root,root) %{_bindir}/gsislogin
-%attr(0644,root,root) %{_mandir}/man1/gsislogin.1*
+%dir %attr(0755,root,root) %{_sysconfdir}/gsissh/ssh_config.d/
+%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/ssh_config.d/05-redhat.conf
 %attr(0644,root,root) %{_mandir}/man5/gsissh_config.5*
 %attr(0755,root,root) %{_bindir}/gsisftp
 %attr(0644,root,root) %{_mandir}/man1/gsisftp.1*
@@ -564,6 +534,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Aug 15 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.3p1-1
+- Based on openssh-7.3p1-3.fc25
+
 * Mon Jul 18 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.2p2-6
 - Based on openssh-7.2p2-10.fc24
 
