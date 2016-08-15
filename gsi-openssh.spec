@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.2p2
-%global openssh_rel 6
+%global openssh_rel 7
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -186,6 +186,8 @@ Patch940: openssh-7.2p2-expose-pam.patch
 # https://github.com/openssh/openssh-portable/commit/9286875a
 # https://github.com/openssh/openssh-portable/commit/283b97ff
 Patch941: openssh-7.2p2-user-enumeration.patch
+# Rework SELinux context handling with chroot (#1357860)
+Patch942: openssh-7.2p2-chroot-capabilities.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
@@ -207,6 +209,7 @@ BuildRequires: pam-devel
 BuildRequires: tcp_wrappers-devel
 BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
+BuildRequires: libcap-ng-devel
 
 %if %{kerberos5}
 BuildRequires: krb5-devel
@@ -349,6 +352,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch939 -p1 -b .s390-dev
 %patch940 -p1 -b .expose-pam
 %patch941 -p1 -b .user-enumeration
+%patch942 -p1 -b .chroot-cap
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -564,6 +568,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Aug 15 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.2p2-7
+- Based on openssh-7.2p2-12.fc24
+
 * Mon Jul 18 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.2p2-6
 - Based on openssh-7.2p2-10.fc24
 
