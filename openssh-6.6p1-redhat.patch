@@ -7,15 +7,16 @@ index 49a4f6c..3f83c40 100644
  #   ProxyCommand ssh -q -W %h:%p gateway.example.com
  #   RekeyLimit 1G 1h
 +#
-+# To modify the system-wide ssh configuration, create a file under
-+#  /etc/ssh/ssh_config.d/  which will get automatically included below
++# To modify the system-wide ssh configuration, create a  *.conf  file under
++#  /etc/ssh/ssh_config.d/  which will be automatically included below
 +Include /etc/ssh/ssh_config.d/*.conf
 diff --git a/ssh_config_redhat b/ssh_config_redhat
-new file mode 100644
-index 0000000..9082a13
 --- /dev/null
 +++ b/ssh_config_redhat
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,20 @@
++# Follow system-wide Crypto Poliicy, if defined:
++Include /etc/crypto-policies/back-ends/openssh.txt
++
 +# Uncomment this if you want to use .local domain
 +# Host *.local
 +#   CheckHostIP no

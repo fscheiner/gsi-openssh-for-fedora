@@ -1285,7 +1285,7 @@ diff -up openssh-7.3p1/monitor.c.audit openssh-7.3p1/monitor.c
  	while (waitpid(pmonitor->m_pid, &status, 0) == -1)
  		if (errno != EINTR)
  			exit(1);
-@@ -1908,11 +1956,43 @@ mm_answer_audit_command(int socket, Buff
+@@ -1908,11 +1956,45 @@ mm_answer_audit_command(int socket, Buff
  {
  	u_int len;
  	char *cmd;
@@ -1300,7 +1300,9 @@ diff -up openssh-7.3p1/monitor.c.audit openssh-7.3p1/monitor.c
 +	if (s == NULL)
 +		fatal("%s: error allocating a session", __func__);
 +	s->command = cmd;
++#ifdef SSH_AUDIT_EVENTS
 +	s->command_handle = audit_run_command(cmd);
++#endif
 +
 +	buffer_clear(m);
 +	buffer_put_int(m, s->self);
@@ -1875,11 +1877,13 @@ diff -up openssh-7.3p1/session.c.audit openssh-7.3p1/session.c
  
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
-@@ -1986,6 +2001,7 @@ session_unused(int id)
+@@ -1986,6 +2001,9 @@ session_unused(int id)
  	sessions[id].ttyfd = -1;
  	sessions[id].ptymaster = -1;
  	sessions[id].x11_chanids = NULL;
++#ifdef SSH_AUDIT_EVENTS
 +	sessions[id].command_handle = -1;
++#endif
  	sessions[id].next_unused = sessions_first_unused;
  	sessions_first_unused = id;
  }

@@ -131,7 +131,7 @@ diff -up openssh/auth2-hostbased.c.role-mls openssh/auth2-hostbased.c
 diff -up openssh/auth2-pubkey.c.role-mls openssh/auth2-pubkey.c
 --- openssh/auth2-pubkey.c.role-mls	2016-07-24 13:50:13.000000000 +0200
 +++ openssh/auth2-pubkey.c	2016-07-26 12:37:48.794593332 +0200
-@@ -151,9 +151,11 @@ userauth_pubkey(Authctxt *authctxt)
+@@ -151,9 +151,15 @@ userauth_pubkey(Authctxt *authctxt)
  		}
  		/* reconstruct packet */
  		buffer_put_char(&b, SSH2_MSG_USERAUTH_REQUEST);
@@ -140,8 +140,12 @@ diff -up openssh/auth2-pubkey.c.role-mls openssh/auth2-pubkey.c
  		    authctxt->style ? ":" : "",
 -		    authctxt->style ? authctxt->style : "");
 +		    authctxt->style ? authctxt->style : "",
++#ifdef WITH_SELINUX
 +		    authctxt->role ? "/" : "",
 +		    authctxt->role ? authctxt->role : "");
++#else
++		    "", "");
++#endif
  		buffer_put_cstring(&b, userstyle);
  		free(userstyle);
  		buffer_put_cstring(&b,
