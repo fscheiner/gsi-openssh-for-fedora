@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.2p2
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -180,6 +180,8 @@ Patch937: openssh-7.2p2-CVE-2015-8325.patch
 Patch941: openssh-7.2p2-user-enumeration.patch
 # Rework SELinux context handling with chroot (#1357860)
 Patch942: openssh-7.2p2-chroot-capabilities.patch
+# Null dereference in newkeys code (#1380297)
+Patch943: openssh-7.3p1-null-deref.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
@@ -342,6 +344,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch937 -p1 -b .pam_uselogin_cve
 %patch941 -p1 -b .user-enumeration
 %patch942 -p1 -b .chroot-cap
+%patch943 -p1 -b .deref
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -555,6 +558,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Nov 02 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.2p2-5
+- Based on openssh-7.2p2-6.fc23
+
 * Mon Aug 15 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.2p2-4
 - Based on openssh-7.2p2-5.fc23
 
