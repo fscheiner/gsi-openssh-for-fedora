@@ -63,7 +63,7 @@ index 6cfcba4..80d2806 100644
  
  	platform_setusercontext(pw);
  
-@@ -1619,10 +1624,24 @@ do_setusercontext(struct passwd *pw)
+@@ -1619,10 +1624,25 @@ do_setusercontext(struct passwd *pw)
  			    pw->pw_uid);
  			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
  			    "u", pw->pw_name, (char *)NULL);
@@ -71,7 +71,8 @@ index 6cfcba4..80d2806 100644
 +			/* drop suid soon, retain SYS_CHROOT capability */
 +			capng_clear(CAPNG_SELECT_BOTH);
 +			capng_update(CAPNG_ADD, CAPNG_EFFECTIVE|CAPNG_PERMITTED, CAP_SYS_CHROOT);
-+			if ((dropped_suid = capng_change_id(pw->pw_uid, pw->pw_gid, CAPNG_DROP_SUPP_GRP | CAPNG_CLEAR_BOUNDING)) != 0)
++			if (pw->pw_uid != 0 &&
++			    (dropped_suid = capng_change_id(pw->pw_uid, pw->pw_gid, CAPNG_INIT_SUPP_GRP)) != 0)
 +				logit("capng_change_id() = %d (failure): Try to drop UID later", dropped_suid);
 +#endif
  #ifdef WITH_SELINUX

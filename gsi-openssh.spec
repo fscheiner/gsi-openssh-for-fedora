@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.3p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -59,6 +59,8 @@ Patch100: openssh-6.7p1-coverity.patch
 #Patch102: openssh-5.8p1-getaddrinfo.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1889
 Patch103: openssh-5.8p1-packet.patch
+# OpenSSL 1.1.0 compatibility
+Patch104: openssh-7.3p1-openssl-1.1.0.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 # https://bugzilla.redhat.com/show_bug.cgi?id=1171248
@@ -219,6 +221,7 @@ Obsoletes: gsissh-clients < 5.8p2-2
 Group: Applications/Internet
 Requires: %{name} = %{version}-%{release}
 Requires: fipscheck-lib%{_isa} >= 1.3.0
+Recommends: crypto-policies
 
 %package server
 Summary: SSH server daemon with GSI authentication
@@ -326,6 +329,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch700 -p1 -b .fips
 
 %patch100 -p1 -b .coverity
+%patch104 -p1 -b .openssl
 
 %patch98 -p1 -b .gsi
 
@@ -535,6 +539,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Nov 02 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.3p1-3
+- Based on openssh-7.3p1-5.fc26
+
 * Thu Oct 20 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.3p1-2
 - Based on openssh-7.3p1-4.fc25
 
