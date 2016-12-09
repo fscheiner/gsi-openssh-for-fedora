@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.3p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -167,6 +167,8 @@ Patch940: openssh-7.2p2-expose-pam.patch
 Patch942: openssh-7.2p2-chroot-capabilities.patch
 # Null dereference in newkeys code (#1380297)
 Patch943: openssh-7.3p1-null-deref.patch
+# Move MAX_DISPLAYS to a configuration option (#1341302)
+Patch944: openssh-7.3p1-x11-max-displays.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
@@ -323,6 +325,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch940 -p1 -b .expose-pam
 %patch942 -p1 -b .chroot-cap
 %patch943 -p1 -b .deref
+%patch944 -p1 -b .x11max
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -539,6 +542,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Dec 09 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.3p1-4
+- Based on openssh-7.3p1-7.fc25
+
 * Wed Nov 02 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.3p1-3
 - Based on openssh-7.3p1-5.fc26
 
