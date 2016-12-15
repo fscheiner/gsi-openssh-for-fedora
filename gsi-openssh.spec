@@ -219,7 +219,7 @@ BuildRequires: krb5-devel
 
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
-BuildRequires: globus-gssapi-gsi-devel >= 10
+BuildRequires: globus-gssapi-gsi-devel >= 12.12
 BuildRequires: globus-common-devel >= 14
 BuildRequires: globus-usage-devel >= 3
 %endif
