@@ -2811,3 +2811,15 @@ index 95b5f8c..1fb002d 100644
  .It Cm HostbasedAuthentication
  Specifies whether rhosts or /etc/hosts.equiv authentication together
  with successful public key client host authentication is allowed
+diff --git a/ssh-gss.h b/ssh-gss.h
+index 132fd0d..39f6645 100644
+--- a/ssh-gss.h
++++ b/ssh-gss.h
+@@ -169,6 +169,7 @@ char *ssh_gssapi_server_mechanisms(void);
+ int ssh_gssapi_oid_table_ok();
+ 
+ int ssh_gssapi_update_creds(ssh_gssapi_ccache *store);
++void ssh_gssapi_rekey_creds();
+ #endif /* GSSAPI */
+ 
+ #endif /* _SSH_GSS_H */

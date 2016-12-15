@@ -21,7 +21,7 @@ index 4ab6717..581b121 100644
  	canohost.o channels.o cipher.o cipher-aes.o \
 @@ -180,6 +181,9 @@ ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o
  ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o
- 	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(SSHDLIBS) $(SSHLIBS)
+ 	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(KEYCATLIBS) $(SSHLIBS)
  
 +ctr-cavstest$(EXEEXT): $(LIBCOMPAT) libssh.a ctr-cavstest.o
 +	$(LD) -o $@ ctr-cavstest.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(LIBS)

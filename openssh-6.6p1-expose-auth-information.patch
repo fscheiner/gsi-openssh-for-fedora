@@ -1,0 +1,512 @@
+diff -up openssh-6.6p1/auth2.c.expose-auth openssh-6.6p1/auth2.c
+--- openssh-6.6p1/auth2.c.expose-auth	2016-06-27 12:19:39.134443822 +0200
++++ openssh-6.6p1/auth2.c	2016-06-27 12:19:39.178443747 +0200
+@@ -309,6 +309,7 @@ userauth_finish(Authctxt *authctxt, int
+     const char *submethod)
+ {
+ 	char *methods;
++	char *prev_auth_details;
+ 	int partial = 0;
+ 
+ 	if (!authctxt->valid && authenticated)
+@@ -339,6 +340,18 @@ userauth_finish(Authctxt *authctxt, int
+ 	if (authctxt->postponed)
+ 		return;
+ 
++	if (authenticated || partial) {
++		prev_auth_details = authctxt->auth_details;
++		xasprintf(&authctxt->auth_details, "%s%s%s%s%s",
++		    prev_auth_details ? prev_auth_details : "",
++		    prev_auth_details ? ", " : "", method,
++		    authctxt->last_details ? ": " : "",
++		    authctxt->last_details ? authctxt->last_details : "");
++		free(authctxt->last_details);
++		authctxt->last_details = NULL;
++		free(prev_auth_details);
++	}
++
+ #ifdef USE_PAM
+ 	if (options.use_pam && authenticated) {
+ 		if (!PRIVSEP(do_pam_account())) {
+diff -up openssh-6.6p1/auth2-gss.c.expose-auth openssh-6.6p1/auth2-gss.c
+--- openssh-6.6p1/auth2-gss.c.expose-auth	2016-06-27 12:19:39.102443877 +0200
++++ openssh-6.6p1/auth2-gss.c	2016-06-27 12:19:39.179443745 +0200
+@@ -272,6 +272,9 @@ input_gssapi_exchange_complete(int type,
+ 	authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
+ 	    authctxt->pw));
+ 
++	if (authenticated)
++		authctxt->last_details = ssh_gssapi_get_displayname();
++
+ 	authctxt->postponed = 0;
+ 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
+ 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_ERRTOK, NULL);
+@@ -317,6 +320,9 @@ input_gssapi_mic(int type, u_int32_t ple
+ 	else
+ 		logit("GSSAPI MIC check failed");
+ 
++	if (authenticated)
++		authctxt->last_details = ssh_gssapi_get_displayname();
++
+ 	buffer_free(&b);
+ 	if (micuser != authctxt->user)
+ 		free(micuser);
+diff -up openssh-6.6p1/auth2-hostbased.c.expose-auth openssh-6.6p1/auth2-hostbased.c
+--- openssh-6.6p1/auth2-hostbased.c.expose-auth	2016-06-27 12:19:39.051443964 +0200
++++ openssh-6.6p1/auth2-hostbased.c	2016-06-27 12:19:39.179443745 +0200
+@@ -58,7 +58,7 @@ userauth_hostbased(Authctxt *authctxt)
+ {
+ 	Buffer b;
+ 	Key *key = NULL;
+-	char *pkalg, *cuser, *chost, *service;
++	char *pkalg, *cuser, *chost, *service, *pubkey;
+ 	u_char *pkblob, *sig;
+ 	u_int alen, blen, slen;
+ 	int pktype;
+@@ -131,15 +131,21 @@ userauth_hostbased(Authctxt *authctxt)
+ 	buffer_dump(&b);
+ #endif
+ 
+-	pubkey_auth_info(authctxt, key,
+-	    "client user \"%.100s\", client host \"%.100s\"", cuser, chost);
++	pubkey = key_format_oneline(key);
++	auth_info(authctxt,
++	    "%s, client user \"%.100s\", client host \"%.100s\"",
++	    pubkey, cuser, chost);
+ 
+ 	/* test for allowed key and correct signature */
+ 	authenticated = 0;
+ 	if (PRIVSEP(hostbased_key_allowed(authctxt->pw, cuser, chost, key)) &&
+ 	    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
+-			buffer_len(&b))) == 1)
++			buffer_len(&b))) == 1) {
+ 		authenticated = 1;
++		authctxt->last_details = pubkey;
++	} else {
++		free(pubkey);
++	}
+ 
+ 	buffer_free(&b);
+ done:
+diff -up openssh-6.6p1/auth2-pubkey.c.expose-auth openssh-6.6p1/auth2-pubkey.c
+--- openssh-6.6p1/auth2-pubkey.c.expose-auth	2016-06-27 12:19:39.068443935 +0200
++++ openssh-6.6p1/auth2-pubkey.c	2016-06-27 12:19:39.179443745 +0200
+@@ -75,7 +75,7 @@ userauth_pubkey(Authctxt *authctxt)
+ {
+ 	Buffer b;
+ 	Key *key = NULL;
+-	char *pkalg, *userstyle;
++	char *pkalg, *userstyle, *pubkey;
+ 	u_char *pkblob, *sig;
+ 	u_int alen, blen, slen;
+ 	int have_sig, pktype;
+@@ -155,14 +155,19 @@ userauth_pubkey(Authctxt *authctxt)
+ #ifdef DEBUG_PK
+ 		buffer_dump(&b);
+ #endif
+-		pubkey_auth_info(authctxt, key, NULL);
++		pubkey = key_format_oneline(key);
++		auth_info(authctxt, "%s", pubkey);
+ 
+ 		/* test for correct signature */
+ 		authenticated = 0;
+ 		if (PRIVSEP(user_key_allowed(authctxt->pw, key)) &&
+ 		    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
+-		    buffer_len(&b))) == 1)
++		    buffer_len(&b))) == 1) {
++			authctxt->last_details = pubkey;
+ 			authenticated = 1;
++		} else {
++			free(pubkey);
++ 		}
+ 		buffer_free(&b);
+ 		free(sig);
+ 	} else {
+@@ -200,7 +205,7 @@ done:
+ void
+ pubkey_auth_info(Authctxt *authctxt, const Key *key, const char *fmt, ...)
+ {
+-	char *fp, *extra;
++	char *extra, *pubkey;
+ 	va_list ap;
+ 	int i;
+ 
+@@ -210,24 +215,13 @@ pubkey_auth_info(Authctxt *authctxt, con
+ 		i = vasprintf(&extra, fmt, ap);
+ 		va_end(ap);
+ 		if (i < 0 || extra == NULL)
+-			fatal("%s: vasprintf failed", __func__);	
++			fatal("%s: vasprintf failed", __func__);
+ 	}
+ 
+-	if (key_is_cert(key)) {
+-		fp = key_fingerprint(key->cert->signature_key,
+-		    SSH_FP_MD5, SSH_FP_HEX);
+-		auth_info(authctxt, "%s ID %s (serial %llu) CA %s %s%s%s", 
+-		    key_type(key), key->cert->key_id,
+-		    (unsigned long long)key->cert->serial,
+-		    key_type(key->cert->signature_key), fp,
+-		    extra == NULL ? "" : ", ", extra == NULL ? "" : extra);
+-		free(fp);
+-	} else {
+-		fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
+-		auth_info(authctxt, "%s %s%s%s", key_type(key), fp,
+-		    extra == NULL ? "" : ", ", extra == NULL ? "" : extra);
+-		free(fp);
+-	}
++	pubkey = key_format_oneline(key);
++	auth_info(authctxt, "%s%s%s", pubkey, extra == NULL ? "" : ", ",
++	    extra == NULL ? "" : extra);
++	free(pubkey);
+ 	free(extra);
+ }
+ 
+diff -up openssh-6.6p1/auth.h.expose-auth openssh-6.6p1/auth.h
+--- openssh-6.6p1/auth.h.expose-auth	2016-06-27 12:19:39.144443805 +0200
++++ openssh-6.6p1/auth.h	2016-06-27 12:19:39.179443745 +0200
+@@ -78,6 +78,9 @@ struct Authctxt {
+ #endif
+ 	Buffer		*loginmsg;
+ 	void		*methoddata;
++
++	char		*last_details;
++	char		*auth_details;
+ };
+ /*
+  * Every authentication method has to handle authentication requests for
+diff -up openssh-6.6p1/auth-pam.c.expose-auth openssh-6.6p1/auth-pam.c
+--- openssh-6.6p1/auth-pam.c.expose-auth	2016-06-27 12:19:39.049443967 +0200
++++ openssh-6.6p1/auth-pam.c	2016-06-27 12:19:39.179443745 +0200
+@@ -688,6 +688,11 @@ sshpam_init_ctx(Authctxt *authctxt)
+ 		return (NULL);
+ 	}
+ 
++	/* Notify PAM about any already successful auth methods */
++	if (options.expose_auth_methods >= EXPOSE_AUTHMETH_PAMONLY &&
++			authctxt->auth_details)
++		do_pam_putenv("SSH_USER_AUTH", authctxt->auth_details);
++
+ 	ctxt = xcalloc(1, sizeof *ctxt);
+ 
+ 	/* Start the authentication thread */
+diff -up openssh-6.6p1/gss-serv.c.expose-auth openssh-6.6p1/gss-serv.c
+--- openssh-6.6p1/gss-serv.c.expose-auth	2016-06-27 12:19:39.160443778 +0200
++++ openssh-6.6p1/gss-serv.c	2016-06-27 12:19:39.180443743 +0200
+@@ -471,6 +471,16 @@ ssh_gssapi_userok(char *user, struct pas
+ 	return (0);
+ }
+ 
++/* Privileged */
++char*
++ssh_gssapi_get_displayname(void)
++{
++	if (gssapi_client.displayname.length != 0 &&
++	    gssapi_client.displayname.value != NULL)
++		return strdup((char *)gssapi_client.displayname.value);
++	return NULL;
++}
++
+ /* These bits are only used for rekeying. The unpriviledged child is running 
+  * as the user, the monitor is root.
+  *
+diff -up openssh-6.6p1/key.c.expose-auth openssh-6.6p1/key.c
+--- openssh-6.6p1/key.c.expose-auth	2016-06-27 12:19:39.105443872 +0200
++++ openssh-6.6p1/key.c	2016-06-27 12:19:39.180443743 +0200
+@@ -57,6 +57,7 @@
+ #include "misc.h"
+ #include "ssh2.h"
+ #include "digest.h"
++#include "xmalloc.h"
+ 
+ static int to_blob(const Key *, u_char **, u_int *, int);
+ static Key *key_from_blob2(const u_char *, u_int, int);
+@@ -628,6 +629,30 @@ key_fingerprint(const Key *k, enum fp_ty
+ 	return retval;
+ }
+ 
++char *
++key_format_oneline(const Key *key)
++{
++	char *fp, *result;
++
++	if (key_is_cert(key)) {
++		fp = key_fingerprint(key->cert->signature_key, SSH_FP_MD5,
++		    SSH_FP_HEX);
++		xasprintf(&result, "%s ID %s (serial %llu) CA %s %s",
++		    key_type(key), key->cert->key_id,
++		    (unsigned long long)key->cert->serial,
++		    key_type(key->cert->signature_key),
++		    fp == NULL ? "(null)" : fp);
++		free(fp);
++	} else {
++		fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
++		xasprintf(&result, "%s %s", key_type(key),
++		    fp == NULL ? "(null)" : fp);
++		free(fp);
++	}
++
++	return result;
++}
++
+ enum fp_type
+ key_fingerprint_selection(void)
+ {
+diff -up openssh-6.6p1/key.h.expose-auth openssh-6.6p1/key.h
+--- openssh-6.6p1/key.h.expose-auth	2016-06-27 12:19:43.322436657 +0200
++++ openssh-6.6p1/key.h	2016-06-27 12:20:25.898363835 +0200
+@@ -108,6 +108,7 @@ u_char		*key_fingerprint_raw(const Key *
+ enum fp_type	 key_fingerprint_selection(void);
+ char		*key_selected_fingerprint(Key *, enum fp_rep);
+ char		*key_fingerprint_prefix(void);
++char		*key_format_oneline(const Key *k);
+ const char	*key_type(const Key *);
+ const char	*key_cert_type(const Key *);
+ int		 key_write(const Key *, FILE *);
+diff -up openssh-6.6p1/monitor.c.expose-auth openssh-6.6p1/monitor.c
+--- openssh-6.6p1/monitor.c.expose-auth	2016-06-27 12:19:39.165443769 +0200
++++ openssh-6.6p1/monitor.c	2016-06-27 12:19:39.180443743 +0200
+@@ -357,6 +357,7 @@ monitor_child_preauth(Authctxt *_authctx
+ {
+ 	struct mon_table *ent;
+ 	int authenticated = 0, partial = 0;
++	char *prev_auth_details;
+ 
+ 	debug3("preauth child monitor started");
+ 
+@@ -394,6 +395,18 @@ monitor_child_preauth(Authctxt *_authctx
+ 		auth_submethod = NULL;
+ 		authenticated = (monitor_read(pmonitor, mon_dispatch, &ent) == 1);
+ 
++		if (authenticated) {
++			prev_auth_details = authctxt->auth_details;
++			xasprintf(&authctxt->auth_details, "%s%s%s%s%s",
++			    prev_auth_details ? prev_auth_details : "",
++			    prev_auth_details ? ", " : "", auth_method,
++			    authctxt->last_details ? ": " : "",
++			    authctxt->last_details ? authctxt->last_details : "");
++			free(authctxt->last_details);
++			authctxt->last_details = NULL;
++			free(prev_auth_details);
++		}
++
+ 		/* Special handling for multiple required authentications */
+ 		if (options.num_auth_methods != 0) {
+ 			if (!compat20)
+@@ -1432,6 +1445,9 @@ mm_answer_keyverify(int sock, Buffer *m)
+ 	debug3("%s: key %p signature %s",
+ 	    __func__, key, (verified == 1) ? "verified" : "unverified");
+ 
++	if (verified == 1)
++		authctxt->last_details = key_format_oneline(key);
++
+ 	key_free(key);
+ 	free(blob);
+ 	free(signature);
+@@ -2224,6 +2240,9 @@ mm_answer_gss_userok(int sock, Buffer *m
+ 
+ 	auth_method = "gssapi-with-mic";
+ 
++	if (authenticated)
++		authctxt->last_details = ssh_gssapi_get_displayname();
++
+ 	/* Monitor loop will terminate if authenticated */
+ 	return (authenticated);
+ }
+diff -up openssh-6.6p1/servconf.c.expose-auth openssh-6.6p1/servconf.c
+--- openssh-6.6p1/servconf.c.expose-auth	2016-06-27 12:19:39.177443748 +0200
++++ openssh-6.6p1/servconf.c	2016-06-27 12:19:39.181443742 +0200
+@@ -161,6 +161,7 @@ initialize_server_options(ServerOptions
+ 	options->version_addendum = NULL;
+ 	options->use_kuserok = -1;
+ 	options->enable_k5users = -1;
++	options->expose_auth_methods = -1;
+ }
+ 
+ void
+@@ -322,6 +323,8 @@ fill_default_server_options(ServerOption
+ 		options->use_kuserok = 1;
+ 	if (options->enable_k5users == -1)
+ 		options->enable_k5users = 0;
++	if (options->expose_auth_methods == -1)
++		options->expose_auth_methods = EXPOSE_AUTHMETH_NEVER;
+ 
+ 	/* Turn privilege separation on by default */
+ 	if (use_privsep == -1)
+@@ -380,6 +383,7 @@ typedef enum {
+ 	sKexAlgorithms, sIPQoS, sVersionAddendum,
+ 	sAuthorizedKeysCommand, sAuthorizedKeysCommandUser,
+ 	sAuthenticationMethods, sHostKeyAgent,
++	sExposeAuthenticationMethods,
+ 	sDeprecated, sUnsupported
+ } ServerOpCodes;
+ 
+@@ -523,6 +527,7 @@ static struct {
+ 	{ "authorizedkeyscommanduser", sAuthorizedKeysCommandUser, SSHCFG_ALL },
+ 	{ "versionaddendum", sVersionAddendum, SSHCFG_GLOBAL },
+ 	{ "authenticationmethods", sAuthenticationMethods, SSHCFG_ALL },
++	{ "exposeauthenticationmethods", sExposeAuthenticationMethods, SSHCFG_ALL },
+ 	{ NULL, sBadOption, 0 }
+ };
+ 
+@@ -869,6 +874,12 @@ static const struct multistate multistat
+ 	{ "local",			FORWARD_LOCAL },
+ 	{ NULL, -1 }
+ };
++static const struct multistate multistate_exposeauthmeth[] = {
++	{ "never",			EXPOSE_AUTHMETH_NEVER },
++	{ "pam-only",			EXPOSE_AUTHMETH_PAMONLY },
++	{ "pam-and-env",		EXPOSE_AUTHMETH_PAMENV },
++	{ NULL, -1}
++};
+ 
+ int
+ process_server_config_line(ServerOptions *options, char *line,
+@@ -1727,6 +1738,11 @@ process_server_config_line(ServerOptions
+ 		}
+ 		return 0;
+ 
++	case sExposeAuthenticationMethods:
++		intptr = &options->expose_auth_methods;
++		multistate_ptr = multistate_exposeauthmeth;
++		goto parse_multistate;
++
+ 	case sDeprecated:
+ 		logit("%s line %d: Deprecated option %s",
+ 		    filename, linenum, arg);
+@@ -1883,6 +1899,7 @@ copy_set_server_options(ServerOptions *d
+ 	M_CP_INTOPT(enable_k5users);
+ 	M_CP_INTOPT(rekey_limit);
+ 	M_CP_INTOPT(rekey_interval);
++	M_CP_INTOPT(expose_auth_methods);
+ 
+ 	/* M_CP_STROPT and M_CP_STRARRAYOPT should not appear before here */
+ #define M_CP_STROPT(n) do {\
+@@ -1971,6 +1988,8 @@ fmt_intarg(ServerOpCodes code, int val)
+ 		return fmt_multistate_int(val, multistate_privsep);
+ 	case sAllowTcpForwarding:
+ 		return fmt_multistate_int(val, multistate_tcpfwd);
++	case sExposeAuthenticationMethods:
++		return fmt_multistate_int(val, multistate_exposeauthmeth);
+ 	case sProtocol:
+ 		switch (val) {
+ 		case SSH_PROTO_1:
+@@ -2182,6 +2201,7 @@ dump_config(ServerOptions *o)
+ 	dump_cfg_strarray(sAcceptEnv, o->num_accept_env, o->accept_env);
+ 	dump_cfg_strarray_oneline(sAuthenticationMethods,
+ 	    o->num_auth_methods, o->auth_methods);
++	dump_cfg_fmtint(sExposeAuthenticationMethods, o->expose_auth_methods);
+ 
+ 	/* other arguments */
+ 	for (i = 0; i < o->num_subsystems; i++)
+diff -up openssh-6.6p1/servconf.h.expose-auth openssh-6.6p1/servconf.h
+--- openssh-6.6p1/servconf.h.expose-auth	2016-06-27 12:19:39.162443774 +0200
++++ openssh-6.6p1/servconf.h	2016-06-27 12:19:39.181443742 +0200
+@@ -48,6 +48,11 @@
+ #define FORWARD_LOCAL		(1<<1)
+ #define FORWARD_ALLOW		(FORWARD_REMOTE|FORWARD_LOCAL)
+ 
++/* Expose AuthenticationMethods */
++#define EXPOSE_AUTHMETH_NEVER   0
++#define EXPOSE_AUTHMETH_PAMONLY 1
++#define EXPOSE_AUTHMETH_PAMENV  2
++
+ #define DEFAULT_AUTH_FAIL_MAX	6	/* Default for MaxAuthTries */
+ #define DEFAULT_SESSIONS_MAX	10	/* Default for MaxSessions */
+ 
+@@ -190,6 +195,8 @@ typedef struct {
+ 
+ 	u_int	num_auth_methods;
+ 	char   *auth_methods[MAX_AUTH_METHODS];
++
++	int	expose_auth_methods; /* EXPOSE_AUTHMETH_* above */
+ }       ServerOptions;
+ 
+ /* Information about the incoming connection as used by Match */
+diff -up openssh-6.6p1/session.c.expose-auth openssh-6.6p1/session.c
+--- openssh-6.6p1/session.c.expose-auth	2016-06-27 12:19:39.171443759 +0200
++++ openssh-6.6p1/session.c	2016-06-27 12:19:39.181443742 +0200
+@@ -1196,6 +1196,12 @@ copy_environment(char **source, char ***
+ 		}
+ 		*var_val++ = '\0';
+ 
++		if (options.expose_auth_methods < EXPOSE_AUTHMETH_PAMENV &&
++				strcmp(var_name, "SSH_USER_AUTH") == 0) {
++			free(var_name);
++			continue;
++		}
++
+ 		debug3("Copy environment: %s=%s", var_name, var_val);
+ 		child_set_env(env, envsize, var_name, var_val);
+ 
+@@ -1375,6 +1381,11 @@ do_setup_env(Session *s, const char *she
+ 	}
+ #endif /* USE_PAM */
+ 
++	if (options.expose_auth_methods >= EXPOSE_AUTHMETH_PAMENV &&
++			s->authctxt->auth_details)
++		child_set_env(&env, &envsize, "SSH_USER_AUTH",
++		     s->authctxt->auth_details);
++
+ 	if (auth_sock_name != NULL)
+ 		child_set_env(&env, &envsize, SSH_AUTHSOCKET_ENV_NAME,
+ 		    auth_sock_name);
+@@ -2805,6 +2816,9 @@ do_cleanup(Authctxt *authctxt)
+ 	if (authctxt == NULL)
+ 		return;
+ 
++	free(authctxt->auth_details);
++	authctxt->auth_details = NULL;
++
+ #ifdef USE_PAM
+ 	if (options.use_pam) {
+ 		sshpam_cleanup();
+diff -up openssh-6.6p1/ssh.1.expose-auth openssh-6.6p1/ssh.1
+--- openssh-6.6p1/ssh.1.expose-auth	2016-06-27 12:19:39.163443772 +0200
++++ openssh-6.6p1/ssh.1	2016-06-27 12:19:39.181443742 +0200
+@@ -1289,6 +1289,10 @@ server IP address, and server port numbe
+ This variable contains the original command line if a forced command
+ is executed.
+ It can be used to extract the original arguments.
++.It Ev SSH_USER_AUTH
++This variable contains, for SSH2 only, a comma-separated list of authentication
++methods that were successfuly used to authenticate. When possible, these
++methods are extended with detailed information on the credential used.
+ .It Ev SSH_TTY
+ This is set to the name of the tty (path to the device) associated
+ with the current shell or command.
+diff -up openssh-6.6p1/sshd_config.5.expose-auth openssh-6.6p1/sshd_config.5
+--- openssh-6.6p1/sshd_config.5.expose-auth	2016-06-27 12:19:39.177443748 +0200
++++ openssh-6.6p1/sshd_config.5	2016-06-27 12:19:39.182443740 +0200
+@@ -466,6 +466,21 @@ is allowed to log in.
+ See PATTERNS in
+ .Xr ssh_config 5
+ for more information on patterns.
++.It Cm ExposeAuthenticationMethods
++When using SSH2, this option controls the exposure of the list of
++successful authentication methods to PAM during the authentication
++and to the shell environment via the
++.Cm SSH_USER_AUTH
++variable. See the description of this variable for more details.
++Valid options are:
++.Dq never
++(Do not expose successful authentication methods),
++.Dq pam-only
++(Only expose them to PAM during authentication, not afterwards),
++.Dq pam-and-env
++(Expose them to PAM and keep them in the shell environment).
++The default is
++.Dq never .
+ .It Cm ForceCommand
+ Forces the execution of the command specified by
+ .Cm ForceCommand ,
+diff -up openssh-6.6p1/ssh-gss.h.expose-auth openssh-6.6p1/ssh-gss.h
+--- openssh-6.6p1/ssh-gss.h.expose-auth	2016-06-27 12:19:39.163443772 +0200
++++ openssh-6.6p1/ssh-gss.h	2016-06-27 12:19:39.182443740 +0200
+@@ -160,6 +160,7 @@ int ssh_gssapi_server_check_mech(Gssctxt
+     const char *);
+ OM_uint32 ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
+ int ssh_gssapi_userok(char *name, struct passwd *);
++char* ssh_gssapi_get_displayname(void);
+ OM_uint32 ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
+ void ssh_gssapi_do_child(char ***, u_int *);
+ void ssh_gssapi_cleanup_creds(void);

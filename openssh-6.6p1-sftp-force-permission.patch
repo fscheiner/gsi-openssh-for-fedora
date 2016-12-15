@@ -34,18 +34,35 @@ diff -up openssh-6.6p1/sftp-server.c.sftp-force-mode openssh-6.6p1/sftp-server.c
  /* SSH2_FXP_INIT received */
  static int init_done;
  
-@@ -675,6 +679,10 @@ process_open(u_int32_t id)
+@@ -668,6 +672,7 @@ process_open(u_int32_t id)
+ 	Attrib *a;
+ 	char *name;
+ 	int handle, fd, flags, mode, status = SSH2_FX_FAILURE;
++	mode_t old_umask;
+ 
+ 	name = get_string(NULL);
+ 	pflags = get_int();		/* portable flags */
+@@ -675,6 +680,10 @@ process_open(u_int32_t id)
  	a = get_attrib();
  	flags = flags_from_portable(pflags);
  	mode = (a->flags & SSH2_FILEXFER_ATTR_PERMISSIONS) ? a->perm : 0666;
 +	if (permforce == 1) {   /* Force perm if -m is set */
 +		mode = permforcemode;
-+		(void)umask(0); /* so umask does not interfere		 */
-+	}	
++		old_umask = umask(0); /* so umask does not interfere */
++	}
  	logit("open \"%s\" flags %s mode 0%o",
  	    name, string_from_portable(pflags), mode);
  	if (readonly &&
-@@ -1430,7 +1438,7 @@ sftp_server_usage(void)
+@@ -696,6 +705,8 @@ process_open(u_int32_t id)
+ 			}
+ 		}
+ 	}
++	if (permforce == 1)
++		(void) umask(old_umask); /* restore umask to something sane */
+ 	if (status != SSH2_FX_OK)
+ 		send_status(id, status);
+ 	free(name);
+@@ -1430,7 +1441,7 @@ sftp_server_usage(void)
  	fprintf(stderr,
  	    "usage: %s [-ehR] [-d start_directory] [-f log_facility] "
  	    "[-l log_level]\n\t[-P blacklisted_requests] "

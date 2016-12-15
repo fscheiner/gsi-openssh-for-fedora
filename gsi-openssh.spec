@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -52,9 +52,6 @@ Source99: README.sshd-and-gsisshd
 Patch100: openssh-6.6.1p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1872
 Patch101: openssh-6.6p1-fingerprint.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1894
-#https://bugzilla.redhat.com/show_bug.cgi?id=735889
-Patch102: openssh-5.8p1-getaddrinfo.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1889
 Patch103: openssh-5.8p1-packet.patch
 
@@ -63,6 +60,8 @@ Patch200: openssh-6.6p1-audit.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=1171248
 # record pfs= field in CRYPTO_SESSION audit event
 Patch201: openssh-6.6.1p1-audit-pfs.patch
+# Do not write to one socket from more processes (#1310684)
+Patch202: openssh-6.6p1-audit-race-condition.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
 Patch400: openssh-6.6p1-role-mls.patch
@@ -76,8 +75,6 @@ Patch502: openssh-6.6p1-keycat.patch
 
 #http6://bugzilla.mindrot.org/show_bug.cgi?id=1644
 Patch601: openssh-6.6p1-allow-ip-opts.patch
-#http://cvsweb.netbsd.org/cgi-bin/cvsweb.cgi/src/crypto/dist/ssh/Attic/sftp-glob.c.diff?r1=1.13&r2=1.13.12.1&f=h
-Patch603: openssh-5.8p1-glob.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1893
 Patch604: openssh-6.6p1-keyperm.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1925
@@ -99,8 +96,6 @@ Patch702: openssh-5.1p1-askpass-progress.patch
 Patch703: openssh-4.3p2-askpass-grab-info.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=205842
 # drop? Patch704: openssh-5.9p1-edns.patch
-#?
-Patch705: openssh-5.1p1-scp-manpage.patch
 #?
 Patch706: openssh-6.6.1p1-localdomain.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
@@ -124,6 +119,8 @@ Patch801: openssh-6.6p1-force_krb.patch
 # add new option GSSAPIEnablek5users and disable using ~/.k5users by default (#1169843)
 # CVE-2014-9278
 Patch802: openssh-6.6p1-GSSAPIEnablek5users.patch
+# Respect k5login_directory option in krk5.conf (#1328243)
+Patch803: openssh-6.6p1-k5login_directory.patch
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-6.6p1-kuserok.patch
@@ -196,9 +193,27 @@ Patch930: openssh-6.6p1-disable-roaming.patch
 Patch931: openssh-6.6p1-CVE-2016-3115.patch
 # CVE-2016-1908: possible fallback from untrusted X11 forwarding (#1298741)
 Patch932: openssh-6.6p1-fallback-X11-untrusted.patch
+# CVE-2015-8325: privilege escalation via user's PAM environment and UseLogin=yes (#1328012)
+Patch933: openssh-6.6p1-CVE-2015-8325.patch
+# close ControlPersist background process stderr when not in debug mode (#1335540)
+Patch934: openssh-6.6p1-ControlPersist-stderr.patch
+# make s390 use /dev/ crypto devices -- ignore closefrom (#1318760)
+Patch935: openssh-6.6p1-s390-closefrom.patch
+# Default value and proper dump of  AuthenticationMethods (#1237129)
+Patch936: openssh-6.6p1-AuthenticationMethods.patch
+# ssh-copy-id does not work with LogLevel=quiet (#1349556)
+Patch937: openssh-6.6p1-ssh-copy-id-quiet.patch
+# expose more information to PAM (#1312304)
+Patch938: openssh-6.6p1-expose-auth-information.patch
+# Move MAX_DISPLAYS to a configuration option (#1341302)
+Patch939: openssh-6.6p1-x11-max-displays.patch
+# Add a wildcard option to PermitOpen directive (#1344106)
+Patch940: openssh-6.6p1-permitopen-any-host.patch
+# Rework capabilities handling for SELinux confined users (#1357859)
+Patch941: openssh-6.6p1-chroot-capabilities.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.4p1.patch
+# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
 Patch98: openssh-6.6p1-gsissh.patch
 
 License: BSD
@@ -223,8 +238,8 @@ BuildRequires: krb5-devel
 
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
-BuildRequires: globus-gssapi-gsi >= 10
-BuildRequires: globus-common >= 14
+BuildRequires: globus-gssapi-gsi-devel >= 12.12
+BuildRequires: globus-common-devel >= 14
 BuildRequires: globus-usage-devel >= 3
 %endif
 
@@ -233,10 +248,12 @@ BuildRequires: libedit-devel ncurses-devel
 %endif
 
 %if %{WITH_SELINUX}
+Conflicts: selinux-policy < 3.13.1-92
 Requires: libselinux >= 1.27.7
 BuildRequires: libselinux-devel >= 1.27.7
 Requires: audit-libs >= 1.0.8
 BuildRequires: audit-libs >= 1.0.8
+BuildRequires: libcap-ng-devel
 %endif
 
 BuildRequires: xauth
@@ -297,7 +314,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %setup -q -n openssh-6.6p1
 
 %patch101 -p1 -b .fingerprint
-# investigate %patch102 -p1 -b .getaddrinfo
 %patch103 -p1 -b .packet
 
 %if %{WITH_SELINUX}
@@ -311,7 +327,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch502 -p1 -b .keycat
 
 %patch601 -p1 -b .ip-opts
-%patch603 -p1 -b .glob
 %patch604 -p1 -b .keyperm
 %patch606 -p1 -b .ipv6man
 %patch607 -p1 -b .sigpipe
@@ -323,7 +338,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch703 -p1 -b .grab-info
 # investigate - https://bugzilla.redhat.com/show_bug.cgi?id=205842
 # probably not needed anymore %patch704 -p1 -b .edns
-# drop it %patch705 -p1 -b .manpage
 %patch706 -p1 -b .localdomain
 %patch707 -p1 -b .redhat
 %patch708 -p1 -b .entropy
@@ -353,6 +367,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch918 -p1 -b .log-in-chroot
 %patch919 -p1 -b .mls-labels
 %patch802 -p1 -b .GSSAPIEnablek5users
+%patch803 -p1 -b .k5login
 %patch920 -p1 -b .sshd-t
 %patch921 -p1 -b .sftp-force-mode
 %patch922 -p1 -b .term
@@ -366,9 +381,19 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch930 -p1 -b .roaming
 %patch931 -p1 -b .xauth
 %patch932 -p1 -b .untrusted
+%patch933 -p1 -b .uselogin
+%patch934 -p1 -b .stderr
+%patch935 -p1 -b .s390
+%patch936 -p1 -b .auth_meth
+%patch937 -p1 -b .quiet
+%patch938 -p1 -b .expose-auth
+%patch939 -p1 -b .x11max
+%patch940 -p1 -b .permitopen
+%patch941 -p1 -b .chroot-cap
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-fps
+%patch202 -p1 -b .audit-race
 %patch700 -p1 -b .fips
 
 %patch100 -p1 -b .coverity
@@ -529,15 +554,7 @@ getent passwd sshd >/dev/null || \
 %systemd_preun gsisshd.service gsisshd.socket
 
 %postun server
-%systemd_postun_with_restart gsisshd.service gsisshd.socket
-
-%triggerun server -- gsi-openssh-server < 5.8p2-1
-/usr/bin/systemd-sysv-convert --save gsisshd >/dev/null 2>&1 || :
-/sbin/chkconfig --del gsisshd >/dev/null 2>&1 || :
-/bin/systemctl try-restart gsisshd.service >/dev/null 2>&1 || :
-
-%triggerun server -- gsi-openssh-server < 5.9p1-6
-/bin/systemctl --no-reload disable gsisshd-keygen.service >/dev/null 2>&1 || :
+%systemd_postun_with_restart gsisshd.service
 
 %files
 %defattr(-,root,root)
@@ -585,6 +602,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Wed Dec 14 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 6.6.1p1-5
+- Based on openssh 6.6.1p1-31.el7
+
 * Sun Jun 26 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 6.6.1p1-4
 - Based on openssh-6.6.1p1-25.el7_2
 

@@ -1,6 +1,6 @@
 [Unit]
 Description=gsissh Server Socket
-Documentation=man:sshd(8) man:sshd_config(5)
+Documentation=man:gsisshd(8) man:gsisshd_config(5)
 Conflicts=gsisshd.service
 
 [Socket]

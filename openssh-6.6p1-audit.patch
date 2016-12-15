@@ -855,9 +855,9 @@ index 95d678e..48aede4 100644
  	if (PRIVSEP(hostbased_key_allowed(authctxt->pw, cuser, chost, key)) &&
 -	    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
 +	    PRIVSEP(hostbased_key_verify(key, sig, slen, buffer_ptr(&b),
- 			buffer_len(&b))) == 1)
+ 			buffer_len(&b))) == 1) {
  		authenticated = 1;
- 
+ 		authctxt->last_details = pubkey;
 @@ -154,6 +154,18 @@ done:
  	return authenticated;
  }
@@ -887,9 +887,9 @@ index cb0f931..6d1c872 100644
  		if (PRIVSEP(user_key_allowed(authctxt->pw, key)) &&
 -		    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
 +		    PRIVSEP(user_key_verify(key, sig, slen, buffer_ptr(&b),
- 		    buffer_len(&b))) == 1)
+ 		    buffer_len(&b))) == 1) {
+ 			authctxt->last_details = pubkey;
  			authenticated = 1;
- 		buffer_free(&b);
 @@ -231,6 +231,18 @@ pubkey_auth_info(Authctxt *authctxt, const Key *key, const char *fmt, ...)
  	free(extra);
  }

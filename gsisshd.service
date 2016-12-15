@@ -1,12 +1,14 @@
 [Unit]
 Description=gsissh server daemon
-Documentation=man:sshd(8) man:sshd_config(5)
+Documentation=man:gsisshd(8) man:gsisshd_config(5)
 After=network.target gsisshd-keygen.service
 Wants=gsisshd-keygen.service
 
 [Service]
-EnvironmentFile=/etc/sysconfig/gsisshd
-ExecStart=/usr/sbin/gsisshd -D $OPTIONS
+Type=forking
+PIDFile=/var/run/gsisshd.pid
+EnvironmentFile=-/etc/sysconfig/gsisshd
+ExecStart=/usr/sbin/gsisshd $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure

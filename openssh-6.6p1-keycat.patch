@@ -28,6 +28,14 @@ index 411eadb..4ab6717 100644
  SSH_PKCS11_HELPER=$(libexecdir)/ssh-pkcs11-helper
  PRIVSEP_PATH=@PRIVSEP_PATH@
  SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
+@@ -52,6 +52,7 @@ K5LIBS=@K5LIBS@
+ GSSLIBS=@GSSLIBS@
+ SSHLIBS=@SSHLIBS@
+ SSHDLIBS=@SSHDLIBS@
++KEYCATLIBS=@KEYCATLIBS@
+ LIBEDIT=@LIBEDIT@
+ AR=@AR@
+ AWK=@AWK@
 @@ -64,7 +65,7 @@ EXEEXT=@EXEEXT@
  MANFMT=@MANFMT@
  INSTALL_SSH_LDAP_HELPER=@INSTALL_SSH_LDAP_HELPER@
@@ -42,7 +50,7 @@ index 411eadb..4ab6717 100644
  	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
  
 +ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o
-+	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(SSHDLIBS) $(SSHLIBS)
++	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(KEYCATLIBS) $(SSHLIBS)
 +
  ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o roaming_dummy.o
  	$(LD) -o $@ ssh-keyscan.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
@@ -443,3 +451,41 @@ index 0000000..f8ed7af
 +	}
 +	return ev;
 +}
+diff --git a/configure.ac b/configure.ac
+index 3bbccfd..6481f1f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -2952,6 +2952,7 @@ AC_ARG_WITH([pam],
+ 			PAM_MSG="yes"
+ 
+ 			SSHDLIBS="$SSHDLIBS -lpam"
++			KEYCATLIBS="$KEYCATLIBS -lpam"
+ 			AC_DEFINE([USE_PAM], [1],
+ 				[Define if you want to enable PAM support])
+ 
+@@ -2962,6 +2963,7 @@ AC_ARG_WITH([pam],
+ 					;;
+ 				*)
+ 					SSHDLIBS="$SSHDLIBS -ldl"
++					KEYCATLIBS="$KEYCATLIBS -ldl"
+ 					;;
+ 				esac
+ 			fi
+@@ -4042,6 +4044,7 @@ AC_ARG_WITH([selinux],
+ )
+ AC_SUBST([SSHLIBS])
+ AC_SUBST([SSHDLIBS])
++AC_SUBST([KEYCATLIBS])
+ 
+ # Check whether user wants Kerberos 5 support
+ KRB5_MSG="no"
+@@ -5031,6 +5034,9 @@ fi
+ if test ! -z "${SSHLIBS}"; then
+ echo "          +for ssh: ${SSHLIBS}"
+ fi
++if test ! -z "${KEYCATLIBS}"; then
++echo "   +for ssh-keycat: ${KEYCATLIBS}"
++fi
+ 
+ echo ""
+ 

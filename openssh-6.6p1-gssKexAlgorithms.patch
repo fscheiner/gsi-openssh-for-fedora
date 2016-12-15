@@ -396,3 +396,15 @@ index 5e8c6c6..4c670aa 100644
  .It Cm HostbasedAuthentication
  Specifies whether rhosts or /etc/hosts.equiv authentication together
  with successful public key client host authentication is allowed
+diff --git a/kex.h b/kex.h
+index db3dde4..17ae43b 100644
+--- a/kex.h
++++ b/kex.h
+@@ -158,6 +158,7 @@ struct Kex {
+ 
+ int	 kex_names_valid(const char *);
+ char	*kex_alg_list(char);
++int	 gss_kex_names_valid(const char *);
+ 
+ Kex	*kex_setup(char *[PROPOSAL_MAX]);
+ void	 kex_finish(Kex *);

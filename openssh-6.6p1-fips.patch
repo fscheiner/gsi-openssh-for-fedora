@@ -55,30 +55,9 @@ diff -up openssh-6.6p1/auth-rsa.c.fips openssh-6.6p1/auth-rsa.c
  		    file, linenum, key_type(key), fp);
  		free(fp);
 diff -up openssh-6.6p1/auth2-pubkey.c.fips openssh-6.6p1/auth2-pubkey.c
---- openssh-6.6p1/auth2-pubkey.c.fips	2015-08-13 15:09:43.345350133 +0200
-+++ openssh-6.6p1/auth2-pubkey.c	2015-08-13 15:09:43.353350119 +0200
-@@ -214,8 +214,7 @@ pubkey_auth_info(Authctxt *authctxt, con
- 	}
- 
- 	if (key_is_cert(key)) {
--		fp = key_fingerprint(key->cert->signature_key,
--		    SSH_FP_MD5, SSH_FP_HEX);
-+		fp = key_selected_fingerprint(key->cert->signature_key, SSH_FP_HEX);
- 		auth_info(authctxt, "%s ID %s (serial %llu) CA %s %s%s%s", 
- 		    key_type(key), key->cert->key_id,
- 		    (unsigned long long)key->cert->serial,
-@@ -223,7 +222,7 @@ pubkey_auth_info(Authctxt *authctxt, con
- 		    extra == NULL ? "" : ", ", extra == NULL ? "" : extra);
- 		free(fp);
- 	} else {
--		fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
-+		fp = key_selected_fingerprint(key, SSH_FP_HEX);
- 		auth_info(authctxt, "%s %s%s%s", key_type(key), fp,
- 		    extra == NULL ? "" : ", ", extra == NULL ? "" : extra);
- 		free(fp);
 diff -up openssh-6.6p1/authfile.c.fips openssh-6.6p1/authfile.c
---- openssh-6.6p1/authfile.c.fips	2015-08-13 15:09:43.213350355 +0200
-+++ openssh-6.6p1/authfile.c	2015-08-13 15:09:43.354350118 +0200
+--- openssh-6.6p1/authfile.c.fips	2016-06-27 09:51:39.334362038 +0200
++++ openssh-6.6p1/authfile.c	2016-06-27 09:51:39.443361948 +0200
 @@ -46,6 +46,7 @@
  #include <openssl/err.h>
  #include <openssl/evp.h>
@@ -375,7 +354,25 @@ diff -up openssh-6.6p1/key.c.fips openssh-6.6p1/key.c
  #include <openbsd-compat/openssl-compat.h>
  
  #include <stdarg.h>
-@@ -636,9 +637,13 @@ key_fingerprint_selection(void)
+@@ -635,7 +636,7 @@ sshkey_format_oneline(const struct sshke
+ 	char *fp, *result;
+ 
+ 	if (key_is_cert(key)) {
+-		fp = key_fingerprint(key->cert->signature_key, SSH_FP_MD5,
++		fp = key_selected_fingerprint(key->cert->signature_key,
+ 		    SSH_FP_HEX);
+ 		xasprintf(&result, "%s ID %s (serial %llu) CA %s %s",
+ 		    key_type(key), key->cert->key_id,
+@@ -644,7 +645,7 @@ sshkey_format_oneline(const struct sshke
+ 		    fp == NULL ? "(null)" : fp);
+ 		free(fp);
+ 	} else {
+-		fp = key_fingerprint(key, SSH_FP_MD5, SSH_FP_HEX);
++		fp = key_selected_fingerprint(key, SSH_FP_HEX);
+ 		xasprintf(&result, "%s %s", key_type(key),
+ 		    fp == NULL ? "(null)" : fp);
+ 		free(fp);
+@@ -661,9 +662,13 @@ key_fingerprint_selection(void)
  	char *env;
  
  	if (!rv_defined) {
