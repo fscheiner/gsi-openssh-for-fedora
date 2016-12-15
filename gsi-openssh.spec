@@ -35,7 +35,7 @@
 %global nologin 1
 
 %global openssh_ver 5.3p1
-%global openssh_rel 13
+%global openssh_rel 14
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -254,8 +254,8 @@ BuildRequires: krb5-devel
 
 %if %{gsi}
 BuildRequires: globus-gss-assist-devel >= 8
-BuildRequires: globus-gssapi-gsi >= 10
-BuildRequires: globus-common >= 14
+BuildRequires: globus-gssapi-gsi-devel >= 12.12
+BuildRequires: globus-common-devel >= 14
 BuildRequires: globus-usage-devel >= 3
 %endif
 
@@ -640,6 +640,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Thu Dec 15 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-14
+- Adding mechanism OID negotiation with the introduction of micv2 OID
+
 * Sun Jun 26 2016 Mattias Ellert <mattias.ellert@fysast.uu.se> - 5.3p1-13
 - Based on openssh-5.3p1-118.1.el6_8
 
