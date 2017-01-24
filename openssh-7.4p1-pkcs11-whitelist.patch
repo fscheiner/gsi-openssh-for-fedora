@@ -1,0 +1,24 @@
+diff -up openssh-7.4p1/ssh-agent.1.pkcs11-whitelist openssh-7.4p1/ssh-agent.1
+--- openssh-7.4p1/ssh-agent.1.pkcs11-whitelist	2017-01-03 10:41:01.916331710 +0100
++++ openssh-7.4p1/ssh-agent.1	2017-01-03 10:40:06.549366029 +0100
+@@ -129,7 +129,7 @@ that may be added using the
+ option to
+ .Xr ssh-add 1 .
+ The default is to allow loading PKCS#11 libraries from
+-.Dq /usr/lib/*,/usr/local/lib/* .
++.Dq /usr/lib*/*,/usr/local/lib*/* .
+ PKCS#11 libraries that do not match the whitelist will be refused.
+ See PATTERNS in
+ .Xr ssh_config 5
+diff -up openssh-7.4p1/ssh-agent.c.pkcs11-whitelist openssh-7.4p1/ssh-agent.c
+--- openssh-7.4p1/ssh-agent.c.pkcs11-whitelist	2017-01-03 10:41:09.324327118 +0100
++++ openssh-7.4p1/ssh-agent.c	2017-01-03 10:40:21.212356939 +0100
+@@ -89,7 +89,7 @@
+ #endif
+ 
+ #ifndef DEFAULT_PKCS11_WHITELIST
+-# define DEFAULT_PKCS11_WHITELIST "/usr/lib/*,/usr/local/lib/*"
++# define DEFAULT_PKCS11_WHITELIST "/usr/lib*/*,/usr/local/lib*/*"
+ #endif
+ 
+ typedef enum {

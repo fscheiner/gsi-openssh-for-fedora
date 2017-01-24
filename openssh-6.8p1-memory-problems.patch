@@ -1,8 +1,7 @@
-diff --git a/servconf.c b/servconf.c
-index ad5869b..0255ed3 100644
---- a/servconf.c
-+++ b/servconf.c
-@@ -1910,6 +1910,8 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
+diff -up openssh-7.4p1/servconf.c.memory openssh-7.4p1/servconf.c
+--- openssh-7.4p1/servconf.c.memory	2016-12-23 15:37:48.181422360 +0100
++++ openssh-7.4p1/servconf.c	2016-12-23 15:38:30.189429116 +0100
+@@ -2006,6 +2006,8 @@ copy_set_server_options(ServerOptions *d
  		dst->n = src->n; \
  } while (0)
  
@@ -10,8 +9,8 @@ index ad5869b..0255ed3 100644
 +
  	M_CP_INTOPT(password_authentication);
  	M_CP_INTOPT(gss_authentication);
- 	M_CP_INTOPT(rsa_authentication);
-@@ -1947,8 +1949,10 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
+ 	M_CP_INTOPT(pubkey_authentication);
+@@ -2058,8 +2060,10 @@ copy_set_server_options(ServerOptions *d
  } while(0)
  #define M_CP_STRARRAYOPT(n, num_n) do {\
  	if (src->num_n != 0) { \

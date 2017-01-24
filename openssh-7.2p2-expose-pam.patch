@@ -1,6 +1,6 @@
-diff -up openssh-7.2p2/auth2.c.expose-pam openssh-7.2p2/auth2.c
---- openssh-7.2p2/auth2.c.expose-pam	2016-07-18 12:30:12.064783302 +0200
-+++ openssh-7.2p2/auth2.c	2016-07-18 12:30:12.124783255 +0200
+diff -up openssh-7.4p1/auth2.c.expose-pam openssh-7.4p1/auth2.c
+--- openssh-7.4p1/auth2.c.expose-pam	2016-12-23 15:40:26.768447868 +0100
++++ openssh-7.4p1/auth2.c	2016-12-23 15:40:26.818447876 +0100
 @@ -310,6 +310,7 @@ userauth_finish(Authctxt *authctxt, int
      const char *submethod)
  {
@@ -28,9 +28,9 @@ diff -up openssh-7.2p2/auth2.c.expose-pam openssh-7.2p2/auth2.c
  #ifdef USE_PAM
  	if (options.use_pam && authenticated) {
  		if (!PRIVSEP(do_pam_account())) {
-diff -up openssh-7.2p2/auth2-gss.c.expose-pam openssh-7.2p2/auth2-gss.c
---- openssh-7.2p2/auth2-gss.c.expose-pam	2016-07-18 12:30:12.123783256 +0200
-+++ openssh-7.2p2/auth2-gss.c	2016-07-18 12:32:08.034692086 +0200
+diff -up openssh-7.4p1/auth2-gss.c.expose-pam openssh-7.4p1/auth2-gss.c
+--- openssh-7.4p1/auth2-gss.c.expose-pam	2016-12-23 15:40:26.769447868 +0100
++++ openssh-7.4p1/auth2-gss.c	2016-12-23 15:40:26.818447876 +0100
 @@ -276,6 +276,9 @@ input_gssapi_exchange_complete(int type,
  	authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
  	    authctxt->pw));
@@ -51,9 +51,9 @@ diff -up openssh-7.2p2/auth2-gss.c.expose-pam openssh-7.2p2/auth2-gss.c
  	buffer_free(&b);
  	if (micuser != authctxt->user)
  		free(micuser);
-diff -up openssh-7.2p2/auth2-hostbased.c.expose-pam openssh-7.2p2/auth2-hostbased.c
---- openssh-7.2p2/auth2-hostbased.c.expose-pam	2016-07-18 12:30:12.027783331 +0200
-+++ openssh-7.2p2/auth2-hostbased.c	2016-07-18 12:30:12.124783255 +0200
+diff -up openssh-7.4p1/auth2-hostbased.c.expose-pam openssh-7.4p1/auth2-hostbased.c
+--- openssh-7.4p1/auth2-hostbased.c.expose-pam	2016-12-23 15:40:26.731447862 +0100
++++ openssh-7.4p1/auth2-hostbased.c	2016-12-23 15:40:26.818447876 +0100
 @@ -60,7 +60,7 @@ userauth_hostbased(Authctxt *authctxt)
  {
  	Buffer b;
@@ -88,9 +88,9 @@ diff -up openssh-7.2p2/auth2-hostbased.c.expose-pam openssh-7.2p2/auth2-hostbase
  
  	buffer_free(&b);
  done:
-diff -up openssh-7.2p2/auth2-pubkey.c.expose-pam openssh-7.2p2/auth2-pubkey.c
---- openssh-7.2p2/auth2-pubkey.c.expose-pam	2016-07-18 12:30:12.039783322 +0200
-+++ openssh-7.2p2/auth2-pubkey.c	2016-07-18 12:30:12.124783255 +0200
+diff -up openssh-7.4p1/auth2-pubkey.c.expose-pam openssh-7.4p1/auth2-pubkey.c
+--- openssh-7.4p1/auth2-pubkey.c.expose-pam	2016-12-23 15:40:26.746447864 +0100
++++ openssh-7.4p1/auth2-pubkey.c	2016-12-23 15:40:26.819447876 +0100
 @@ -79,7 +79,7 @@ userauth_pubkey(Authctxt *authctxt)
  {
  	Buffer b;
@@ -100,7 +100,7 @@ diff -up openssh-7.2p2/auth2-pubkey.c.expose-pam openssh-7.2p2/auth2-pubkey.c
  	u_char *pkblob, *sig;
  	u_int alen, blen, slen;
  	int have_sig, pktype;
-@@ -173,7 +173,8 @@ userauth_pubkey(Authctxt *authctxt)
+@@ -177,7 +177,8 @@ userauth_pubkey(Authctxt *authctxt)
  #ifdef DEBUG_PK
  		buffer_dump(&b);
  #endif
@@ -110,7 +110,7 @@ diff -up openssh-7.2p2/auth2-pubkey.c.expose-pam openssh-7.2p2/auth2-pubkey.c
  
  		/* test for correct signature */
  		authenticated = 0;
-@@ -181,9 +182,12 @@ userauth_pubkey(Authctxt *authctxt)
+@@ -185,9 +186,12 @@ userauth_pubkey(Authctxt *authctxt)
  		    PRIVSEP(key_verify(key, sig, slen, buffer_ptr(&b),
  		    buffer_len(&b))) == 1) {
  			authenticated = 1;
@@ -123,7 +123,7 @@ diff -up openssh-7.2p2/auth2-pubkey.c.expose-pam openssh-7.2p2/auth2-pubkey.c
  		}
  		buffer_free(&b);
  		free(sig);
-@@ -224,7 +228,7 @@ done:
+@@ -228,7 +232,7 @@ done:
  void
  pubkey_auth_info(Authctxt *authctxt, const Key *key, const char *fmt, ...)
  {
@@ -132,7 +132,7 @@ diff -up openssh-7.2p2/auth2-pubkey.c.expose-pam openssh-7.2p2/auth2-pubkey.c
  	va_list ap;
  	int i;
  
-@@ -234,27 +238,13 @@ pubkey_auth_info(Authctxt *authctxt, con
+@@ -238,27 +242,13 @@ pubkey_auth_info(Authctxt *authctxt, con
  		i = vasprintf(&extra, fmt, ap);
  		va_end(ap);
  		if (i < 0 || extra == NULL)
@@ -165,9 +165,9 @@ diff -up openssh-7.2p2/auth2-pubkey.c.expose-pam openssh-7.2p2/auth2-pubkey.c
  	free(extra);
  }
  
-diff -up openssh-7.2p2/auth.h.expose-pam openssh-7.2p2/auth.h
---- openssh-7.2p2/auth.h.expose-pam	2016-07-18 12:30:12.077783292 +0200
-+++ openssh-7.2p2/auth.h	2016-07-18 12:30:12.123783256 +0200
+diff -up openssh-7.4p1/auth.h.expose-pam openssh-7.4p1/auth.h
+--- openssh-7.4p1/auth.h.expose-pam	2016-12-23 15:40:26.782447870 +0100
++++ openssh-7.4p1/auth.h	2016-12-23 15:40:26.819447876 +0100
 @@ -84,6 +84,9 @@ struct Authctxt {
  
  	struct sshkey	**prev_userkeys;
@@ -178,10 +178,10 @@ diff -up openssh-7.2p2/auth.h.expose-pam openssh-7.2p2/auth.h
  };
  /*
   * Every authentication method has to handle authentication requests for
-diff -up openssh-7.2p2/auth-pam.c.expose-pam openssh-7.2p2/auth-pam.c
---- openssh-7.2p2/auth-pam.c.expose-pam	2016-07-18 12:30:12.026783332 +0200
-+++ openssh-7.2p2/auth-pam.c	2016-07-18 12:30:12.123783256 +0200
-@@ -689,6 +689,11 @@ sshpam_init_ctx(Authctxt *authctxt)
+diff -up openssh-7.4p1/auth-pam.c.expose-pam openssh-7.4p1/auth-pam.c
+--- openssh-7.4p1/auth-pam.c.expose-pam	2016-12-23 15:40:26.731447862 +0100
++++ openssh-7.4p1/auth-pam.c	2016-12-23 15:40:26.819447876 +0100
+@@ -688,6 +688,11 @@ sshpam_init_ctx(Authctxt *authctxt)
  		return (NULL);
  	}
  
@@ -193,9 +193,9 @@ diff -up openssh-7.2p2/auth-pam.c.expose-pam openssh-7.2p2/auth-pam.c
  	ctxt = xcalloc(1, sizeof *ctxt);
  
  	/* Start the authentication thread */
-diff -up openssh-7.2p2/gss-serv.c.expose-pam openssh-7.2p2/gss-serv.c
---- openssh-7.2p2/gss-serv.c.expose-pam	2016-07-18 12:30:12.124783255 +0200
-+++ openssh-7.2p2/gss-serv.c	2016-07-18 12:33:08.835644264 +0200
+diff -up openssh-7.4p1/gss-serv.c.expose-pam openssh-7.4p1/gss-serv.c
+--- openssh-7.4p1/gss-serv.c.expose-pam	2016-12-23 15:40:26.808447874 +0100
++++ openssh-7.4p1/gss-serv.c	2016-12-23 15:40:26.819447876 +0100
 @@ -441,6 +441,16 @@ ssh_gssapi_do_child(char ***envp, u_int
  }
  
@@ -213,10 +213,10 @@ diff -up openssh-7.2p2/gss-serv.c.expose-pam openssh-7.2p2/gss-serv.c
  int
  ssh_gssapi_userok(char *user, struct passwd *pw)
  {
-diff -up openssh-7.2p2/monitor.c.expose-pam openssh-7.2p2/monitor.c
---- openssh-7.2p2/monitor.c.expose-pam	2016-07-18 12:30:12.093783279 +0200
-+++ openssh-7.2p2/monitor.c	2016-07-18 12:30:12.124783255 +0200
-@@ -349,6 +349,7 @@ monitor_child_preauth(Authctxt *_authctx
+diff -up openssh-7.4p1/monitor.c.expose-pam openssh-7.4p1/monitor.c
+--- openssh-7.4p1/monitor.c.expose-pam	2016-12-23 15:40:26.794447872 +0100
++++ openssh-7.4p1/monitor.c	2016-12-23 15:41:16.473455863 +0100
+@@ -300,6 +300,7 @@ monitor_child_preauth(Authctxt *_authctx
  {
  	struct mon_table *ent;
  	int authenticated = 0, partial = 0;
@@ -224,7 +224,7 @@ diff -up openssh-7.2p2/monitor.c.expose-pam openssh-7.2p2/monitor.c
  
  	debug3("preauth child monitor started");
  
-@@ -386,6 +387,18 @@ monitor_child_preauth(Authctxt *_authctx
+@@ -330,6 +331,18 @@ monitor_child_preauth(Authctxt *_authctx
  		auth_submethod = NULL;
  		authenticated = (monitor_read(pmonitor, mon_dispatch, &ent) == 1);
  
@@ -242,8 +242,8 @@ diff -up openssh-7.2p2/monitor.c.expose-pam openssh-7.2p2/monitor.c
 +
  		/* Special handling for multiple required authentications */
  		if (options.num_auth_methods != 0) {
- 			if (!compat20)
-@@ -1498,6 +1511,10 @@ mm_answer_keyverify(int sock, Buffer *m)
+ 			if (authenticated &&
+@@ -1417,6 +1430,10 @@ mm_answer_keyverify(int sock, Buffer *m)
  	debug3("%s: key %p signature %s",
  	    __func__, key, (verified == 1) ? "verified" : "unverified");
  
@@ -254,7 +254,7 @@ diff -up openssh-7.2p2/monitor.c.expose-pam openssh-7.2p2/monitor.c
  	/* If auth was successful then record key to ensure it isn't reused */
  	if (verified == 1 && key_blobtype == MM_USERKEY)
  		auth2_record_userkey(authctxt, key);
-@@ -2140,6 +2157,9 @@ mm_answer_gss_userok(int sock, Buffer *m
+@@ -1860,6 +1877,9 @@ mm_answer_gss_userok(int sock, Buffer *m
  
  	auth_method = "gssapi-with-mic";
  
@@ -264,43 +264,43 @@ diff -up openssh-7.2p2/monitor.c.expose-pam openssh-7.2p2/monitor.c
  	/* Monitor loop will terminate if authenticated */
  	return (authenticated);
  }
-diff -up openssh-7.2p2/servconf.c.expose-pam openssh-7.2p2/servconf.c
---- openssh-7.2p2/servconf.c.expose-pam	2016-07-18 12:30:12.112783264 +0200
-+++ openssh-7.2p2/servconf.c	2016-07-18 12:34:38.170574004 +0200
-@@ -176,6 +176,7 @@ initialize_server_options(ServerOptions
- 	options->fingerprint_hash = -1;
+diff -up openssh-7.4p1/servconf.c.expose-pam openssh-7.4p1/servconf.c
+--- openssh-7.4p1/servconf.c.expose-pam	2016-12-23 15:40:26.810447875 +0100
++++ openssh-7.4p1/servconf.c	2016-12-23 15:44:04.691482920 +0100
+@@ -171,6 +171,7 @@ initialize_server_options(ServerOptions
+ 	options->disable_forwarding = -1;
  	options->use_kuserok = -1;
  	options->enable_k5users = -1;
 +	options->expose_auth_methods = -1;
  }
  
  /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
-@@ -374,6 +375,8 @@ fill_default_server_options(ServerOption
- 		options->enable_k5users = 0;
- 	if (options->use_kuserok == -1)
+@@ -354,6 +355,8 @@ fill_default_server_options(ServerOption
  		options->use_kuserok = 1;
+ 	if (options->enable_k5users == -1)
+ 		options->enable_k5users = 0;
 +	if (options->expose_auth_methods == -1)
 +		options->expose_auth_methods = EXPOSE_AUTHMETH_NEVER;
  
  	assemble_algorithms(options);
  
-@@ -451,6 +454,7 @@ typedef enum {
+@@ -439,6 +442,7 @@ typedef enum {
  	sAuthenticationMethods, sHostKeyAgent, sPermitUserRC,
  	sStreamLocalBindMask, sStreamLocalBindUnlink,
- 	sAllowStreamLocalForwarding, sFingerprintHash,
+ 	sAllowStreamLocalForwarding, sFingerprintHash, sDisableForwarding,
 +	sExposeAuthenticationMethods,
- 	sDeprecated, sUnsupported
+ 	sDeprecated, sIgnore, sUnsupported
  } ServerOpCodes;
  
-@@ -606,6 +610,7 @@ static struct {
- 	{ "streamlocalbindunlink", sStreamLocalBindUnlink, SSHCFG_ALL },
+@@ -595,6 +599,7 @@ static struct {
  	{ "allowstreamlocalforwarding", sAllowStreamLocalForwarding, SSHCFG_ALL },
  	{ "fingerprinthash", sFingerprintHash, SSHCFG_GLOBAL },
+ 	{ "disableforwarding", sDisableForwarding, SSHCFG_ALL },
 +	{ "exposeauthenticationmethods", sExposeAuthenticationMethods, SSHCFG_ALL },
  	{ NULL, sBadOption, 0 }
  };
  
-@@ -994,6 +999,12 @@ static const struct multistate multistat
+@@ -984,6 +989,12 @@ static const struct multistate multistat
  	{ "local",			FORWARD_LOCAL },
  	{ NULL, -1 }
  };
@@ -313,7 +313,7 @@ diff -up openssh-7.2p2/servconf.c.expose-pam openssh-7.2p2/servconf.c
  
  int
  process_server_config_line(ServerOptions *options, char *line,
-@@ -1918,6 +1929,11 @@ process_server_config_line(ServerOptions
+@@ -1902,6 +1913,11 @@ process_server_config_line(ServerOptions
  			options->fingerprint_hash = value;
  		break;
  
@@ -323,9 +323,9 @@ diff -up openssh-7.2p2/servconf.c.expose-pam openssh-7.2p2/servconf.c
 +		goto parse_multistate;
 +
  	case sDeprecated:
- 		logit("%s line %d: Deprecated option %s",
- 		    filename, linenum, arg);
-@@ -2076,6 +2092,7 @@ copy_set_server_options(ServerOptions *d
+ 	case sIgnore:
+ 	case sUnsupported:
+@@ -2060,6 +2076,7 @@ copy_set_server_options(ServerOptions *d
  	M_CP_INTOPT(enable_k5users);
  	M_CP_INTOPT(rekey_limit);
  	M_CP_INTOPT(rekey_interval);
@@ -333,16 +333,16 @@ diff -up openssh-7.2p2/servconf.c.expose-pam openssh-7.2p2/servconf.c
  
  	/*
  	 * The bind_mask is a mode_t that may be unsigned, so we can't use
-@@ -2181,6 +2198,8 @@ fmt_intarg(ServerOpCodes code, int val)
+@@ -2176,6 +2193,8 @@ fmt_intarg(ServerOpCodes code, int val)
  		return fmt_multistate_int(val, multistate_tcpfwd);
  	case sFingerprintHash:
  		return ssh_digest_alg_name(val);
 +	case sExposeAuthenticationMethods:
 +		return fmt_multistate_int(val, multistate_exposeauthmeth);
- 	case sProtocol:
+ 	default:
  		switch (val) {
- 		case SSH_PROTO_1:
-@@ -2374,6 +2393,7 @@ dump_config(ServerOptions *o)
+ 		case 0:
+@@ -2356,6 +2375,7 @@ dump_config(ServerOptions *o)
  	dump_cfg_fmtint(sFingerprintHash, o->fingerprint_hash);
  	dump_cfg_fmtint(sKerberosUseKuserok, o->use_kuserok);
  	dump_cfg_fmtint(sGssEnablek5users, o->enable_k5users);
@@ -350,9 +350,9 @@ diff -up openssh-7.2p2/servconf.c.expose-pam openssh-7.2p2/servconf.c
  
  	/* string arguments */
  	dump_cfg_string(sPidFile, o->pid_file);
-diff -up openssh-7.2p2/servconf.h.expose-pam openssh-7.2p2/servconf.h
---- openssh-7.2p2/servconf.h.expose-pam	2016-07-18 12:30:12.112783264 +0200
-+++ openssh-7.2p2/servconf.h	2016-07-18 12:30:12.125783254 +0200
+diff -up openssh-7.4p1/servconf.h.expose-pam openssh-7.4p1/servconf.h
+--- openssh-7.4p1/servconf.h.expose-pam	2016-12-23 15:40:26.810447875 +0100
++++ openssh-7.4p1/servconf.h	2016-12-23 15:40:26.821447876 +0100
 @@ -48,6 +48,11 @@
  #define FORWARD_LOCAL		(1<<1)
  #define FORWARD_ALLOW		(FORWARD_REMOTE|FORWARD_LOCAL)
@@ -365,7 +365,7 @@ diff -up openssh-7.2p2/servconf.h.expose-pam openssh-7.2p2/servconf.h
  #define DEFAULT_AUTH_FAIL_MAX	6	/* Default for MaxAuthTries */
  #define DEFAULT_SESSIONS_MAX	10	/* Default for MaxSessions */
  
-@@ -201,6 +206,8 @@ typedef struct {
+@@ -195,6 +200,8 @@ typedef struct {
  	char   *auth_methods[MAX_AUTH_METHODS];
  
  	int	fingerprint_hash;
@@ -374,10 +374,10 @@ diff -up openssh-7.2p2/servconf.h.expose-pam openssh-7.2p2/servconf.h
  }       ServerOptions;
  
  /* Information about the incoming connection as used by Match */
-diff -up openssh-7.2p2/session.c.expose-pam openssh-7.2p2/session.c
---- openssh-7.2p2/session.c.expose-pam	2016-07-18 12:30:12.120783258 +0200
-+++ openssh-7.2p2/session.c	2016-07-18 12:30:12.125783254 +0200
-@@ -1180,6 +1180,12 @@ copy_environment(char **source, char ***
+diff -up openssh-7.4p1/session.c.expose-pam openssh-7.4p1/session.c
+--- openssh-7.4p1/session.c.expose-pam	2016-12-23 15:40:26.794447872 +0100
++++ openssh-7.4p1/session.c	2016-12-23 15:40:26.821447876 +0100
+@@ -997,6 +997,12 @@ copy_environment(char **source, char ***
  		}
  		*var_val++ = '\0';
  
@@ -390,7 +390,7 @@ diff -up openssh-7.2p2/session.c.expose-pam openssh-7.2p2/session.c
  		debug3("Copy environment: %s=%s", var_name, var_val);
  		child_set_env(env, envsize, var_name, var_val);
  
-@@ -1359,6 +1365,11 @@ do_setup_env(Session *s, const char *she
+@@ -1173,6 +1179,11 @@ do_setup_env(Session *s, const char *she
  	}
  #endif /* USE_PAM */
  
@@ -402,7 +402,7 @@ diff -up openssh-7.2p2/session.c.expose-pam openssh-7.2p2/session.c
  	if (auth_sock_name != NULL)
  		child_set_env(&env, &envsize, SSH_AUTHSOCKET_ENV_NAME,
  		    auth_sock_name);
-@@ -2798,6 +2809,9 @@ do_cleanup(Authctxt *authctxt)
+@@ -2561,6 +2572,9 @@ do_cleanup(Authctxt *authctxt)
  	if (authctxt == NULL)
  		return;
  
@@ -412,10 +412,10 @@ diff -up openssh-7.2p2/session.c.expose-pam openssh-7.2p2/session.c
  #ifdef USE_PAM
  	if (options.use_pam) {
  		sshpam_cleanup();
-diff -up openssh-7.2p2/ssh.1.expose-pam openssh-7.2p2/ssh.1
---- openssh-7.2p2/ssh.1.expose-pam	2016-07-18 12:30:12.112783264 +0200
-+++ openssh-7.2p2/ssh.1	2016-07-18 12:30:12.126783253 +0200
-@@ -1396,6 +1396,10 @@ server IP address, and server port numbe
+diff -up openssh-7.4p1/ssh.1.expose-pam openssh-7.4p1/ssh.1
+--- openssh-7.4p1/ssh.1.expose-pam	2016-12-23 15:40:26.810447875 +0100
++++ openssh-7.4p1/ssh.1	2016-12-23 15:40:26.822447877 +0100
+@@ -1421,6 +1421,10 @@ server IP address, and server port numbe
  This variable contains the original command line if a forced command
  is executed.
  It can be used to extract the original arguments.
@@ -426,13 +426,13 @@ diff -up openssh-7.2p2/ssh.1.expose-pam openssh-7.2p2/ssh.1
  .It Ev SSH_TTY
  This is set to the name of the tty (path to the device) associated
  with the current shell or command.
-diff -up openssh-7.2p2/sshd_config.5.expose-pam openssh-7.2p2/sshd_config.5
---- openssh-7.2p2/sshd_config.5.expose-pam	2016-07-18 12:30:12.113783263 +0200
-+++ openssh-7.2p2/sshd_config.5	2016-07-18 12:30:12.126783253 +0200
-@@ -570,6 +570,21 @@ and finally
- See PATTERNS in
- .Xr ssh_config 5
- for more information on patterns.
+diff -up openssh-7.4p1/sshd_config.5.expose-pam openssh-7.4p1/sshd_config.5
+--- openssh-7.4p1/sshd_config.5.expose-pam	2016-12-23 15:40:26.822447877 +0100
++++ openssh-7.4p1/sshd_config.5	2016-12-23 15:45:22.411495421 +0100
+@@ -570,6 +570,21 @@ Disables all forwarding features, includ
+ TCP and StreamLocal.
+ This option overrides all other forwarding-related options and may
+ simplify restricted configurations.
 +.It Cm ExposeAuthenticationMethods
 +When using SSH2, this option controls the exposure of the list of
 +successful authentication methods to PAM during the authentication
@@ -440,20 +440,20 @@ diff -up openssh-7.2p2/sshd_config.5.expose-pam openssh-7.2p2/sshd_config.5
 +.Cm SSH_USER_AUTH
 +variable. See the description of this variable for more details.
 +Valid options are:
-+.Dq never
++.Cm never
 +(Do not expose successful authentication methods),
-+.Dq pam-only
++.Cm pam-only
 +(Only expose them to PAM during authentication, not afterwards),
-+.Dq pam-and-env
++.Cm pam-and-env
 +(Expose them to PAM and keep them in the shell environment).
 +The default is
-+.Dq never .
++.Cm never .
  .It Cm FingerprintHash
  Specifies the hash algorithm used when logging key fingerprints.
  Valid options are:
-diff -up openssh-7.2p2/ssh-gss.h.expose-pam openssh-7.2p2/ssh-gss.h
---- openssh-7.2p2/ssh-gss.h.expose-pam	2016-07-18 12:30:12.125783254 +0200
-+++ openssh-7.2p2/ssh-gss.h	2016-07-18 12:35:01.906555328 +0200
+diff -up openssh-7.4p1/ssh-gss.h.expose-pam openssh-7.4p1/ssh-gss.h
+--- openssh-7.4p1/ssh-gss.h.expose-pam	2016-12-23 15:40:26.811447875 +0100
++++ openssh-7.4p1/ssh-gss.h	2016-12-23 15:40:26.823447877 +0100
 @@ -159,6 +159,7 @@ int ssh_gssapi_server_check_mech(Gssctxt
      const char *);
  OM_uint32 ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
@@ -462,10 +462,10 @@ diff -up openssh-7.2p2/ssh-gss.h.expose-pam openssh-7.2p2/ssh-gss.h
  OM_uint32 ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
  void ssh_gssapi_do_child(char ***, u_int *);
  void ssh_gssapi_cleanup_creds(void);
-diff -up openssh-7.2p2/sshkey.c.expose-pam openssh-7.2p2/sshkey.c
---- openssh-7.2p2/sshkey.c.expose-pam	2016-07-18 12:30:12.071783296 +0200
-+++ openssh-7.2p2/sshkey.c	2016-07-18 12:30:12.126783253 +0200
-@@ -58,6 +58,7 @@
+diff -up openssh-7.4p1/sshkey.c.expose-pam openssh-7.4p1/sshkey.c
+--- openssh-7.4p1/sshkey.c.expose-pam	2016-12-23 15:40:26.777447869 +0100
++++ openssh-7.4p1/sshkey.c	2016-12-23 15:40:26.823447877 +0100
+@@ -57,6 +57,7 @@
  #define SSHKEY_INTERNAL
  #include "sshkey.h"
  #include "match.h"
@@ -473,7 +473,7 @@ diff -up openssh-7.2p2/sshkey.c.expose-pam openssh-7.2p2/sshkey.c
  
  /* openssh private key file format */
  #define MARK_BEGIN		"-----BEGIN OPENSSH PRIVATE KEY-----\n"
-@@ -1190,6 +1191,30 @@ sshkey_fingerprint(const struct sshkey *
+@@ -1191,6 +1192,30 @@ sshkey_fingerprint(const struct sshkey *
  	return retval;
  }
  
@@ -504,9 +504,9 @@ diff -up openssh-7.2p2/sshkey.c.expose-pam openssh-7.2p2/sshkey.c
  #ifdef WITH_SSH1
  /*
   * Reads a multiple-precision integer in decimal from the buffer, and advances
-diff -up openssh-7.2p2/sshkey.h.expose-pam openssh-7.2p2/sshkey.h
---- openssh-7.2p2/sshkey.h.expose-pam	2016-07-18 12:30:12.071783296 +0200
-+++ openssh-7.2p2/sshkey.h	2016-07-18 12:30:12.127783252 +0200
+diff -up openssh-7.4p1/sshkey.h.expose-pam openssh-7.4p1/sshkey.h
+--- openssh-7.4p1/sshkey.h.expose-pam	2016-12-23 15:40:26.777447869 +0100
++++ openssh-7.4p1/sshkey.h	2016-12-23 15:40:26.823447877 +0100
 @@ -124,6 +124,7 @@ char		*sshkey_fingerprint(const struct s
      int, enum sshkey_fp_rep);
  int		 sshkey_fingerprint_raw(const struct sshkey *k,

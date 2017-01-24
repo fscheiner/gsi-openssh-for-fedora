@@ -1,8 +1,18 @@
-diff --git a/openbsd-compat/port-linux-sshd.c b/openbsd-compat/port-linux-sshd.c
-index c18524e..d04f4ed 100644
---- a/openbsd-compat/port-linux-sshd.c
-+++ b/openbsd-compat/port-linux-sshd.c
-@@ -409,6 +409,28 @@ sshd_selinux_setup_exec_context(char *pwname)
+diff -up openssh-7.4p1/openbsd-compat/port-linux.h.privsep-selinux openssh-7.4p1/openbsd-compat/port-linux.h
+--- openssh-7.4p1/openbsd-compat/port-linux.h.privsep-selinux	2016-12-23 18:58:52.972122201 +0100
++++ openssh-7.4p1/openbsd-compat/port-linux.h	2016-12-23 18:58:52.974122201 +0100
+@@ -23,6 +23,7 @@ void ssh_selinux_setup_pty(char *, const
+ void ssh_selinux_change_context(const char *);
+ void ssh_selinux_setfscreatecon(const char *);
+ 
++void sshd_selinux_copy_context(void);
+ void sshd_selinux_setup_exec_context(char *);
+ #endif
+ 
+diff -up openssh-7.4p1/openbsd-compat/port-linux-sshd.c.privsep-selinux openssh-7.4p1/openbsd-compat/port-linux-sshd.c
+--- openssh-7.4p1/openbsd-compat/port-linux-sshd.c.privsep-selinux	2016-12-23 18:58:52.973122201 +0100
++++ openssh-7.4p1/openbsd-compat/port-linux-sshd.c	2016-12-23 18:58:52.974122201 +0100
+@@ -419,6 +419,28 @@ sshd_selinux_setup_exec_context(char *pw
  	debug3("%s: done", __func__);
  }
  
@@ -31,23 +41,19 @@ index c18524e..d04f4ed 100644
  #endif
  #endif
  
-diff --git a/openbsd-compat/port-linux.h b/openbsd-compat/port-linux.h
-index 8ef6cc4..b18893c 100644
---- a/openbsd-compat/port-linux.h
-+++ b/openbsd-compat/port-linux.h
-@@ -25,6 +25,7 @@ void ssh_selinux_setup_pty(char *, const char *);
- void ssh_selinux_change_context(const char *);
- void ssh_selinux_setfscreatecon(const char *);
+diff -up openssh-7.4p1/session.c.privsep-selinux openssh-7.4p1/session.c
+--- openssh-7.4p1/session.c.privsep-selinux	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/session.c	2016-12-23 18:58:52.974122201 +0100
+@@ -1331,7 +1331,7 @@ do_setusercontext(struct passwd *pw)
  
-+void sshd_selinux_copy_context(void);
- void sshd_selinux_setup_exec_context(char *);
- #endif
+ 	platform_setusercontext(pw);
  
-diff --git a/session.c b/session.c
-index 2bcf818..b5dc144 100644
---- a/session.c
-+++ b/session.c
-@@ -1538,6 +1538,9 @@ do_setusercontext(struct passwd *pw)
+-	if (platform_privileged_uidswap()) {
++	if (platform_privileged_uidswap() && (!is_child || !use_privsep)) {
+ #ifdef HAVE_LOGIN_CAP
+ 		if (setusercontext(lc, pw, pw->pw_uid,
+ 		    (LOGIN_SETALL & ~(LOGIN_SETPATH|LOGIN_SETUSER))) < 0) {
+@@ -1361,6 +1361,9 @@ do_setusercontext(struct passwd *pw)
  			    pw->pw_uid);
  			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
  			    "u", pw->pw_name, (char *)NULL);
@@ -57,7 +63,7 @@ index 2bcf818..b5dc144 100644
  			safely_chroot(chroot_path, pw->pw_uid);
  			free(tmp);
  			free(chroot_path);
-@@ -1565,6 +1568,11 @@ do_setusercontext(struct passwd *pw)
+@@ -1396,6 +1399,11 @@ do_setusercontext(struct passwd *pw)
  		/* Permanently switch to the desired uid. */
  		permanently_set_uid(pw);
  #endif
@@ -69,7 +75,7 @@ index 2bcf818..b5dc144 100644
  	} else if (options.chroot_directory != NULL &&
  	    strcasecmp(options.chroot_directory, "none") != 0) {
  		fatal("server lacks privileges to chroot to ChrootDirectory");
-@@ -1588,9 +1588,6 @@ do_pwchange(Session *s)
+@@ -1413,9 +1421,6 @@ do_pwchange(Session *s)
  	if (s->ttyfd != -1) {
  		fprintf(stderr,
  		    "You must change your password now and login again!\n");
@@ -79,7 +85,7 @@ index 2bcf818..b5dc144 100644
  #ifdef PASSWD_NEEDS_USERNAME
  		execl(_PATH_PASSWD_PROG, "passwd", s->pw->pw_name,
  		    (char *)NULL);
-@@ -1826,9 +1835,6 @@ do_child(Session *s, const char *command)
+@@ -1625,9 +1630,6 @@ do_child(Session *s, const char *command
  		argv[i] = NULL;
  		optind = optreset = 1;
  		__progname = argv[0];
@@ -89,11 +95,10 @@ index 2bcf818..b5dc144 100644
  		exit(sftp_server_main(i, argv, s->pw));
  	}
  
-diff --git a/sshd.c b/sshd.c
-index 07f9926..a97f8b7 100644
---- a/sshd.c
-+++ b/sshd.c
-@@ -632,6 +632,10 @@ privsep_preauth_child(void)
+diff -up openssh-7.4p1/sshd.c.privsep-selinux openssh-7.4p1/sshd.c
+--- openssh-7.4p1/sshd.c.privsep-selinux	2016-12-23 18:58:52.973122201 +0100
++++ openssh-7.4p1/sshd.c	2016-12-23 18:59:13.808124269 +0100
+@@ -540,6 +540,10 @@ privsep_preauth_child(void)
  	/* Demote the private keys to public keys. */
  	demote_sensitive_data();
  
@@ -104,26 +109,13 @@ index 07f9926..a97f8b7 100644
  	/* Demote the child */
  	if (getuid() == 0 || geteuid() == 0) {
  		/* Change our root directory */
-@@ -755,6 +755,9 @@ privsep_postauth(Authctxt *authctxt)
- 
+@@ -633,6 +637,9 @@ privsep_postauth(Authctxt *authctxt)
+ {
  #ifdef DISABLE_FD_PASSING
  	if (1) {
 +#elif defined(WITH_SELINUX)
-+	if (options.use_login) {
++	if (0) {
 +		/* even root user can be confined by SELinux */
  #else
- 	if (authctxt->pw->pw_uid == 0 || options.use_login) {
+ 	if (authctxt->pw->pw_uid == 0) {
  #endif
-diff --git a/session.c b/session.c
-index 684f867..09048bc 100644
---- a/session.c
-+++ b/session.c
-@@ -1538,7 +1538,7 @@ do_setusercontext(struct passwd *pw)
- 
- 	platform_setusercontext(pw);
- 
--	if (platform_privileged_uidswap()) {
-+	if (platform_privileged_uidswap() && (!is_child || !use_privsep)) {
- #ifdef HAVE_LOGIN_CAP
- 		if (setusercontext(lc, pw, pw->pw_uid,
- 		    (LOGIN_SETALL & ~(LOGIN_SETPATH|LOGIN_SETUSER))) < 0) {

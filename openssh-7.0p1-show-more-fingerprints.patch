@@ -1,23 +1,7 @@
-From e1d58c44bd911e5ee4dddb6205e16eb9a03cc736 Mon Sep 17 00:00:00 2001
-From: Jakub Jelen <jjelen@redhat.com>
-Date: Fri, 7 Aug 2015 10:18:54 +0200
-Subject: [PATCH] Possibility tu specify more fingerprint algorithms on client
- side for smother transition
-
----
- clientloop.c  |  8 ++++----
- readconf.c    | 43 +++++++++++++++++++++++++++++--------------
- readconf.h    |  4 +++-
- ssh_config.5  |  4 ++--
- sshconnect.c  | 48 +++++++++++++++++++++++++++---------------------
- sshconnect2.c |  6 +++---
- 6 files changed, 68 insertions(+), 45 deletions(-)
-
-diff --git a/clientloop.c b/clientloop.c
-index 87ceb3d..4553114 100644
---- a/clientloop.c
-+++ b/clientloop.c
-@@ -2194,7 +2194,7 @@ update_known_hosts(struct hostkeys_update_ctx *ctx)
+diff -up openssh-7.4p1/clientloop.c.fingerprint openssh-7.4p1/clientloop.c
+--- openssh-7.4p1/clientloop.c.fingerprint	2016-12-23 15:38:50.520432387 +0100
++++ openssh-7.4p1/clientloop.c	2016-12-23 15:38:50.564432394 +0100
+@@ -2279,7 +2279,7 @@ update_known_hosts(struct hostkeys_updat
  		if (ctx->keys_seen[i] != 2)
  			continue;
  		if ((fp = sshkey_fingerprint(ctx->keys[i],
@@ -26,7 +10,7 @@ index 87ceb3d..4553114 100644
  			fatal("%s: sshkey_fingerprint failed", __func__);
  		do_log2(loglevel, "Learned new hostkey: %s %s",
  		    sshkey_type(ctx->keys[i]), fp);
-@@ -2202,7 +2202,7 @@ update_known_hosts(struct hostkeys_update_ctx *ctx)
+@@ -2287,7 +2287,7 @@ update_known_hosts(struct hostkeys_updat
  	}
  	for (i = 0; i < ctx->nold; i++) {
  		if ((fp = sshkey_fingerprint(ctx->old_keys[i],
@@ -35,7 +19,7 @@ index 87ceb3d..4553114 100644
  			fatal("%s: sshkey_fingerprint failed", __func__);
  		do_log2(loglevel, "Deprecating obsolete hostkey: %s %s",
  		    sshkey_type(ctx->old_keys[i]), fp);
-@@ -2245,7 +2245,7 @@ update_known_hosts(struct hostkeys_update_ctx *ctx)
+@@ -2330,7 +2330,7 @@ update_known_hosts(struct hostkeys_updat
  	    (r = hostfile_replace_entries(options.user_hostfiles[0],
  	    ctx->host_str, ctx->ip_str, ctx->keys, ctx->nkeys,
  	    options.hash_known_hosts, 0,
@@ -44,7 +28,7 @@ index 87ceb3d..4553114 100644
  		error("%s: hostfile_replace_entries failed: %s",
  		    __func__, ssh_err(r));
  }
-@@ -2358,7 +2358,7 @@ client_input_hostkeys(void)
+@@ -2443,7 +2443,7 @@ client_input_hostkeys(void)
  			error("%s: parse key: %s", __func__, ssh_err(r));
  			goto out;
  		}
@@ -53,11 +37,10 @@ index 87ceb3d..4553114 100644
  		    SSH_FP_DEFAULT);
  		debug3("%s: received %s key %s", __func__,
  		    sshkey_type(key), fp);
-diff --git a/readconf.c b/readconf.c
-index 1d03bdf..6af4c62 100644
---- a/readconf.c
-+++ b/readconf.c
-@@ -1471,16 +1471,18 @@ parse_keytypes:
+diff -up openssh-7.4p1/readconf.c.fingerprint openssh-7.4p1/readconf.c
+--- openssh-7.4p1/readconf.c.fingerprint	2016-12-23 15:38:50.559432393 +0100
++++ openssh-7.4p1/readconf.c	2016-12-23 15:38:50.565432394 +0100
+@@ -1668,16 +1668,18 @@ parse_keytypes:
  		goto parse_string;
  
  	case oFingerprintHash:
@@ -86,7 +69,7 @@ index 1d03bdf..6af4c62 100644
  		break;
  
  	case oUpdateHostkeys:
-@@ -1673,7 +1675,7 @@ initialize_options(Options * options)
+@@ -1905,7 +1907,7 @@ initialize_options(Options * options)
  	options->canonicalize_fallback_local = -1;
  	options->canonicalize_hostname = -1;
  	options->revoked_host_keys = NULL;
@@ -95,7 +78,7 @@ index 1d03bdf..6af4c62 100644
  	options->update_hostkeys = -1;
  	options->hostbased_key_types = NULL;
  	options->pubkey_key_types = NULL;
-@@ -1851,8 +1853,10 @@ fill_default_options(Options * options)
+@@ -2102,8 +2104,10 @@ fill_default_options(Options * options)
  		options->canonicalize_fallback_local = 1;
  	if (options->canonicalize_hostname == -1)
  		options->canonicalize_hostname = SSH_CANONICALISE_NO;
@@ -108,7 +91,7 @@ index 1d03bdf..6af4c62 100644
  	if (options->update_hostkeys == -1)
  		options->update_hostkeys = 0;
  	if (kex_assemble_names(KEX_CLIENT_ENCRYPT, &options->ciphers) != 0 ||
-@@ -2189,6 +2193,17 @@ dump_cfg_strarray(OpCodes code, u_int count, char **vals)
+@@ -2489,6 +2493,17 @@ dump_cfg_strarray(OpCodes code, u_int co
  }
  
  static void
@@ -126,7 +109,7 @@ index 1d03bdf..6af4c62 100644
  dump_cfg_strarray_oneline(OpCodes code, u_int count, char **vals)
  {
  	u_int i;
-@@ -2259,7 +2274,6 @@ dump_client_config(Options *o, const char *host)
+@@ -2564,7 +2579,6 @@ dump_client_config(Options *o, const cha
  	dump_cfg_fmtint(oEnableSSHKeysign, o->enable_ssh_keysign);
  	dump_cfg_fmtint(oClearAllForwardings, o->clear_forwardings);
  	dump_cfg_fmtint(oExitOnForwardFailure, o->exit_on_forward_failure);
@@ -134,7 +117,7 @@ index 1d03bdf..6af4c62 100644
  	dump_cfg_fmtint(oForwardAgent, o->forward_agent);
  	dump_cfg_fmtint(oForwardX11, o->forward_x11);
  	dump_cfg_fmtint(oForwardX11Trusted, o->forward_x11_trusted);
-@@ -2328,6 +2342,7 @@ dump_client_config(Options *o, const char *host)
+@@ -2634,6 +2648,7 @@ dump_client_config(Options *o, const cha
  	dump_cfg_strarray_oneline(oGlobalKnownHostsFile, o->num_system_hostfiles, o->system_hostfiles);
  	dump_cfg_strarray_oneline(oUserKnownHostsFile, o->num_user_hostfiles, o->user_hostfiles);
  	dump_cfg_strarray(oSendEnv, o->num_send_env, o->send_env);
@@ -142,10 +125,9 @@ index 1d03bdf..6af4c62 100644
  
  	/* Special cases */
  
-diff --git a/readconf.h b/readconf.h
-index bb2d552..d817f92 100644
---- a/readconf.h
-+++ b/readconf.h
+diff -up openssh-7.4p1/readconf.h.fingerprint openssh-7.4p1/readconf.h
+--- openssh-7.4p1/readconf.h.fingerprint	2016-12-23 15:38:50.559432393 +0100
++++ openssh-7.4p1/readconf.h	2016-12-23 15:38:50.565432394 +0100
 @@ -21,6 +21,7 @@
  #define MAX_SEND_ENV		256
  #define SSH_MAX_HOSTS_FILES	32
@@ -154,7 +136,7 @@ index bb2d552..d817f92 100644
  #define PATH_MAX_SUN		(sizeof((struct sockaddr_un *)0)->sun_path)
  
  struct allowed_cname {
-@@ -146,7 +147,8 @@ typedef struct {
+@@ -162,7 +163,8 @@ typedef struct {
  
  	char	*revoked_host_keys;
  
@@ -164,31 +146,60 @@ index bb2d552..d817f92 100644
  
  	int	 update_hostkeys; /* one of SSH_UPDATE_HOSTKEYS_* */
  
-diff --git a/ssh_config.5 b/ssh_config.5
-index 5b0975f..e8e6458 100644
---- a/ssh_config.5
-+++ b/ssh_config.5
-@@ -647,13 +647,13 @@ or
- The default is
- .Dq no .
+diff -up openssh-7.4p1/ssh_config.5.fingerprint openssh-7.4p1/ssh_config.5
+--- openssh-7.4p1/ssh_config.5.fingerprint	2016-12-23 15:38:50.565432394 +0100
++++ openssh-7.4p1/ssh_config.5	2016-12-23 15:40:03.754444166 +0100
+@@ -652,12 +652,13 @@ or
+ .Cm no
+ (the default).
  .It Cm FingerprintHash
 -Specifies the hash algorithm used when displaying key fingerprints.
 +Specifies the hash algorithms used when displaying key fingerprints.
  Valid options are:
- .Dq md5
+ .Cm md5
  and
- .Dq sha256 .
- The default is
--.Dq sha256 .
-+.Dq "sha256 md5".
+-.Cm sha256
+-(the default).
++.Cm sha256 .
++The default is
++.Cm "sha256 md5".
  .It Cm ForwardAgent
  Specifies whether the connection to the authentication agent (if any)
  will be forwarded to the remote machine.
-diff --git a/sshconnect.c b/sshconnect.c
-index f41960c..e12932f 100644
---- a/sshconnect.c
-+++ b/sshconnect.c
-@@ -920,9 +920,9 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
+diff -up openssh-7.4p1/sshconnect2.c.fingerprint openssh-7.4p1/sshconnect2.c
+--- openssh-7.4p1/sshconnect2.c.fingerprint	2016-12-23 15:38:50.561432394 +0100
++++ openssh-7.4p1/sshconnect2.c	2016-12-23 15:38:50.566432394 +0100
+@@ -677,7 +677,7 @@ input_userauth_pk_ok(int type, u_int32_t
+ 		    key->type, pktype);
+ 		goto done;
+ 	}
+-	if ((fp = sshkey_fingerprint(key, options.fingerprint_hash,
++	if ((fp = sshkey_fingerprint(key, options.fingerprint_hash[0],
+ 	    SSH_FP_DEFAULT)) == NULL)
+ 		goto done;
+ 	debug2("input_userauth_pk_ok: fp %s", fp);
+@@ -1172,7 +1172,7 @@ sign_and_send_pubkey(Authctxt *authctxt,
+ 	int matched, ret = -1, have_sig = 1;
+ 	char *fp;
+ 
+-	if ((fp = sshkey_fingerprint(id->key, options.fingerprint_hash,
++	if ((fp = sshkey_fingerprint(id->key, options.fingerprint_hash[0],
+ 	    SSH_FP_DEFAULT)) == NULL)
+ 		return 0;
+ 	debug3("%s: %s %s", __func__, key_type(id->key), fp);
+@@ -1864,7 +1864,7 @@ userauth_hostbased(Authctxt *authctxt)
+ 		goto out;
+ 	}
+ 
+-	if ((fp = sshkey_fingerprint(private, options.fingerprint_hash,
++	if ((fp = sshkey_fingerprint(private, options.fingerprint_hash[0],
+ 	    SSH_FP_DEFAULT)) == NULL) {
+ 		error("%s: sshkey_fingerprint failed", __func__);
+ 		goto out;
+diff -up openssh-7.4p1/sshconnect.c.fingerprint openssh-7.4p1/sshconnect.c
+--- openssh-7.4p1/sshconnect.c.fingerprint	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/sshconnect.c	2016-12-23 15:38:50.566432394 +0100
+@@ -922,9 +922,9 @@ check_host_key(char *hostname, struct so
  				    "of known hosts.", type, ip);
  		} else if (options.visual_host_key) {
  			fp = sshkey_fingerprint(host_key,
@@ -200,7 +211,7 @@ index f41960c..e12932f 100644
  			if (fp == NULL || ra == NULL)
  				fatal("%s: sshkey_fingerprint fail", __func__);
  			logit("Host key fingerprint is %s\n%s", fp, ra);
-@@ -964,12 +964,6 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
+@@ -966,12 +966,6 @@ check_host_key(char *hostname, struct so
  			else
  				snprintf(msg1, sizeof(msg1), ".");
  			/* The default */
@@ -213,14 +224,14 @@ index f41960c..e12932f 100644
  			msg2[0] = '\0';
  			if (options.verify_host_key_dns) {
  				if (matching_host_key_dns)
-@@ -983,16 +977,28 @@ check_host_key(char *hostname, struct sockaddr *hostaddr, u_short port,
+@@ -985,16 +979,28 @@ check_host_key(char *hostname, struct so
  			}
  			snprintf(msg, sizeof(msg),
  			    "The authenticity of host '%.200s (%s)' can't be "
 -			    "established%s\n"
 -			    "%s key fingerprint is %s.%s%s\n%s"
 +			    "established%s\n", host, ip, msg1);
-+			for (i = 0; i < options.num_fingerprint_hash; i++) {
++			for (i = 0; i < (u_int) options.num_fingerprint_hash; i++) {
 +				fp = sshkey_fingerprint(host_key,
 +				    options.fingerprint_hash[i], SSH_FP_DEFAULT);
 +				ra = sshkey_fingerprint(host_key,
@@ -251,7 +262,7 @@ index f41960c..e12932f 100644
  			if (!confirm(msg))
  				goto fail;
  			hostkey_trusted = 1; /* user explicitly confirmed */
-@@ -1241,7 +1247,7 @@ verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
+@@ -1244,7 +1250,7 @@ verify_host_key(char *host, struct socka
  	struct sshkey *plain = NULL;
  
  	if ((fp = sshkey_fingerprint(host_key,
@@ -260,7 +271,16 @@ index f41960c..e12932f 100644
  		error("%s: fingerprint host key: %s", __func__, ssh_err(r));
  		r = -1;
  		goto out;
-@@ -1405,9 +1411,9 @@ show_other_keys(struct hostkeys *hostkeys, Key *key)
+@@ -1252,7 +1258,7 @@ verify_host_key(char *host, struct socka
+ 
+ 	if (sshkey_is_cert(host_key)) {
+ 		if ((cafp = sshkey_fingerprint(host_key->cert->signature_key,
+-		    options.fingerprint_hash, SSH_FP_DEFAULT)) == NULL) {
++		    options.fingerprint_hash[0], SSH_FP_DEFAULT)) == NULL) {
+ 			error("%s: fingerprint CA key: %s",
+ 			    __func__, ssh_err(r));
+ 			r = -1;
+@@ -1432,9 +1438,9 @@ show_other_keys(struct hostkeys *hostkey
  		if (!lookup_key_in_hostkeys_by_type(hostkeys, type[i], &found))
  			continue;
  		fp = sshkey_fingerprint(found->key,
@@ -272,7 +292,7 @@ index f41960c..e12932f 100644
  		if (fp == NULL || ra == NULL)
  			fatal("%s: sshkey_fingerprint fail", __func__);
  		logit("WARNING: %s key found for host %s\n"
-@@ -1430,7 +1436,7 @@ warn_changed_key(Key *host_key)
+@@ -1457,7 +1463,7 @@ warn_changed_key(Key *host_key)
  {
  	char *fp;
  
@@ -281,42 +301,10 @@ index f41960c..e12932f 100644
  	    SSH_FP_DEFAULT);
  	if (fp == NULL)
  		fatal("%s: sshkey_fingerprint fail", __func__);
-diff --git a/sshconnect2.c b/sshconnect2.c
-index 7751031..82ed92e 100644
---- a/sshconnect2.c
-+++ b/sshconnect2.c
-@@ -589,7 +589,7 @@ input_userauth_pk_ok(int type, u_int32_t seq, void *ctxt)
- 		    key->type, pktype);
- 		goto done;
- 	}
--	if ((fp = sshkey_fingerprint(key, options.fingerprint_hash,
-+	if ((fp = sshkey_fingerprint(key, options.fingerprint_hash[0],
- 	    SSH_FP_DEFAULT)) == NULL)
- 		goto done;
- 	debug2("input_userauth_pk_ok: fp %s", fp);
-@@ -1009,7 +1009,7 @@ sign_and_send_pubkey(Authctxt *authctxt, Identity *id)
- 	int matched, ret = -1, have_sig = 1;
- 	char *fp;
- 
--	if ((fp = sshkey_fingerprint(id->key, options.fingerprint_hash,
-+	if ((fp = sshkey_fingerprint(id->key, options.fingerprint_hash[0],
- 	    SSH_FP_DEFAULT)) == NULL)
- 		return 0;
- 	debug3("%s: %s %s", __func__, key_type(id->key), fp);
-@@ -1635,7 +1635,7 @@ userauth_hostbased(Authctxt *authctxt)
- 		goto out;
- 	}
- 
--	if ((fp = sshkey_fingerprint(private, options.fingerprint_hash,
-+	if ((fp = sshkey_fingerprint(private, options.fingerprint_hash[0],
- 	    SSH_FP_DEFAULT)) == NULL) {
- 		error("%s: sshkey_fingerprint failed", __func__);
- 		goto out;
-diff --git a/ssh-keysign.c b/ssh-keysign.c
-index 1dca3e2..23bff7d 100644
---- a/ssh-keysign.c
-+++ b/ssh-keysign.c
-@@ -275,7 +275,7 @@ main(int argc, char **argv)
+diff -up openssh-7.4p1/ssh-keysign.c.fingerprint openssh-7.4p1/ssh-keysign.c
+--- openssh-7.4p1/ssh-keysign.c.fingerprint	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/ssh-keysign.c	2016-12-23 15:38:50.566432394 +0100
+@@ -285,7 +285,7 @@ main(int argc, char **argv)
  		}
  	}
  	if (!found) {
@@ -325,21 +313,3 @@ index 1dca3e2..23bff7d 100644
  		    SSH_FP_DEFAULT)) == NULL)
  			fatal("%s: sshkey_fingerprint failed", __progname);
  		fatal("no matching hostkey found for key %s %s",
-
--- 
-2.1.0
-
-
-diff --git a/sshconnect.c b/sshconnect.c
-index de7ace6..f16e606 100644
---- a/sshconnect.c
-+++ b/sshconnect.c
-@@ -1262,7 +1262,7 @@ verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
- 
- 	if (sshkey_is_cert(host_key)) {
- 		if ((cafp = sshkey_fingerprint(host_key->cert->signature_key,
--		    options.fingerprint_hash, SSH_FP_DEFAULT)) == NULL) {
-+		    options.fingerprint_hash[0], SSH_FP_DEFAULT)) == NULL) {
- 			error("%s: fingerprint CA key: %s",
- 			    __func__, ssh_err(r));
- 			r = -1;

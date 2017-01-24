@@ -1,7 +1,7 @@
-diff -up openssh/configure.ac.tcp_wrappers openssh/configure.ac
---- openssh/configure.ac.tcp_wrappers	2015-06-24 11:41:04.519293694 +0200
-+++ openssh/configure.ac	2015-06-24 11:41:04.556293600 +0200
-@@ -1448,6 +1448,62 @@ AC_ARG_WITH([skey],
+diff -up openssh-7.4p1/configure.ac.tcp_wrappers openssh-7.4p1/configure.ac
+--- openssh-7.4p1/configure.ac.tcp_wrappers	2016-12-23 15:36:38.745411192 +0100
++++ openssh-7.4p1/configure.ac	2016-12-23 15:36:38.777411197 +0100
+@@ -1491,6 +1491,62 @@ AC_ARG_WITH([skey],
  	]
  )
  
@@ -64,7 +64,7 @@ diff -up openssh/configure.ac.tcp_wrappers openssh/configure.ac
  # Check whether user wants to use ldns
  LDNS_MSG="no"
  AC_ARG_WITH(ldns,
-@@ -5034,6 +5090,7 @@ echo "                 KerberosV support
+@@ -5214,6 +5270,7 @@ echo "                 KerberosV support
  echo "                   SELinux support: $SELINUX_MSG"
  echo "                 Smartcard support: $SCARD_MSG"
  echo "                     S/KEY support: $SKEY_MSG"
@@ -72,10 +72,10 @@ diff -up openssh/configure.ac.tcp_wrappers openssh/configure.ac
  echo "              MD5 password support: $MD5_MSG"
  echo "                   libedit support: $LIBEDIT_MSG"
  echo "  Solaris process contract support: $SPC_MSG"
-diff -up openssh/sshd.8.tcp_wrappers openssh/sshd.8
---- openssh/sshd.8.tcp_wrappers	2015-06-24 11:41:04.527293674 +0200
-+++ openssh/sshd.8	2015-06-24 11:41:04.556293600 +0200
-@@ -860,6 +860,12 @@ the user's home directory becomes access
+diff -up openssh-7.4p1/sshd.8.tcp_wrappers openssh-7.4p1/sshd.8
+--- openssh-7.4p1/sshd.8.tcp_wrappers	2016-12-23 15:36:38.759411194 +0100
++++ openssh-7.4p1/sshd.8	2016-12-23 15:36:38.778411197 +0100
+@@ -836,6 +836,12 @@ the user's home directory becomes access
  This file should be writable only by the user, and need not be
  readable by anyone else.
  .Pp
@@ -88,7 +88,7 @@ diff -up openssh/sshd.8.tcp_wrappers openssh/sshd.8
  .It Pa /etc/hosts.equiv
  This file is for host-based authentication (see
  .Xr ssh 1 ) .
-@@ -983,6 +989,7 @@ IPv6 address can be used everywhere wher
+@@ -960,6 +966,7 @@ IPv6 address can be used everywhere wher
  .Xr ssh-keygen 1 ,
  .Xr ssh-keyscan 1 ,
  .Xr chroot 2 ,
@@ -96,10 +96,10 @@ diff -up openssh/sshd.8.tcp_wrappers openssh/sshd.8
  .Xr login.conf 5 ,
  .Xr moduli 5 ,
  .Xr sshd_config 5 ,
-diff -up openssh/sshd.c.tcp_wrappers openssh/sshd.c
---- openssh/sshd.c.tcp_wrappers	2015-06-24 11:41:04.549293618 +0200
-+++ openssh/sshd.c	2015-06-24 11:41:53.331169536 +0200
-@@ -125,6 +125,13 @@
+diff -up openssh-7.4p1/sshd.c.tcp_wrappers openssh-7.4p1/sshd.c
+--- openssh-7.4p1/sshd.c.tcp_wrappers	2016-12-23 15:36:38.772411196 +0100
++++ openssh-7.4p1/sshd.c	2016-12-23 15:37:15.032417028 +0100
+@@ -123,6 +123,13 @@
  #include "version.h"
  #include "ssherr.h"
  
@@ -110,10 +110,10 @@ diff -up openssh/sshd.c.tcp_wrappers openssh/sshd.c
 +int deny_severity;
 +#endif /* LIBWRAP */
 +
- #ifndef O_NOCTTY
- #define O_NOCTTY	0
- #endif
-@@ -2158,6 +2165,24 @@ main(int ac, char **av)
+ /* Re-exec fds */
+ #define REEXEC_DEVCRYPTO_RESERVED_FD	(STDERR_FILENO + 1)
+ #define REEXEC_STARTUP_PIPE_FD		(STDERR_FILENO + 2)
+@@ -2012,6 +2019,24 @@ main(int ac, char **av)
  #ifdef SSH_AUDIT_EVENTS
  	audit_connection_from(remote_ip, remote_port);
  #endif

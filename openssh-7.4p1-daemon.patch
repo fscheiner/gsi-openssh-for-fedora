@@ -1,0 +1,12 @@
+diff -up openssh-7.4p1/sshd.c.daemon openssh-7.4p1/sshd.c
+--- openssh-7.4p1/sshd.c.daemon	2017-01-02 15:32:56.618447579 +0100
++++ openssh-7.4p1/sshd.c	2017-01-02 15:33:07.606442751 +0100
+@@ -1943,7 +1943,7 @@ main(int ac, char **av)
+ 	 * terminal, and fork.  The original process exits.
+ 	 */
+ 	already_daemon = daemonized();
+-	if (!(debug_flag || inetd_flag || no_daemon_flag || already_daemon)) {
++	if (!(debug_flag || inetd_flag || no_daemon_flag /*|| already_daemon*/)) {
+ 
+ 		if (daemon(0, 0) < 0)
+ 			fatal("daemon() failed: %.200s", strerror(errno));

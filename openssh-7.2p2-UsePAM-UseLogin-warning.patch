@@ -1,14 +1,10 @@
 diff --git a/sshd.c b/sshd.c
 --- a/sshd.c
 +++ b/sshd.c
-@@ -1701,6 +1701,14 @@ main(int ac, char **av)
+@@ -1701,6 +1701,10 @@ main(int ac, char **av)
  	parse_server_config(&options, rexeced_flag ? "rexec" : config_file_name,
  	    &cfg, NULL);
  
-+	/* 'UseLogin yes' is not supported in Fedora */
-+	if (options.use_login == 1)
-+		logit("WARNING: 'UseLogin yes' is not supported in Fedora and may cause several problems.");
-+
 +	/* 'UsePAM no' is not supported in Fedora */
 +	if (! options.use_pam)
 +		logit("WARNING: 'UsePAM no' is not supported in Fedora and may cause several problems.");
@@ -28,12 +24,3 @@ diff --git a/sshd_config b/sshd_config
  UsePAM yes
  
  #AllowAgentForwarding yes
-@@ -113,6 +115,8 @@ X11Forwarding yes
- #PrintMotd yes
- #PrintLastLog yes
- #TCPKeepAlive yes
-+# WARNING: 'UseLogin yes' is not supported in Fedora and may cause several
-+# problems.
- #UseLogin no
- #UsePrivilegeSeparation sandbox
- #PermitUserEnvironment no

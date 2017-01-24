@@ -1,8 +1,7 @@
-diff --git a/ssh_config b/ssh_config
-index 49a4f6c..3f83c40 100644
---- a/ssh_config
-+++ b/ssh_config
-@@ -46,3 +46,7 @@
+diff -up openssh-7.4p1/ssh_config.redhat openssh-7.4p1/ssh_config
+--- openssh-7.4p1/ssh_config.redhat	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/ssh_config	2016-12-23 13:32:00.045220402 +0100
+@@ -48,3 +48,7 @@
  #   VisualHostKey no
  #   ProxyCommand ssh -q -W %h:%p gateway.example.com
  #   RekeyLimit 1G 1h
@@ -10,9 +9,9 @@ index 49a4f6c..3f83c40 100644
 +# To modify the system-wide ssh configuration, create a  *.conf  file under
 +#  /etc/ssh/ssh_config.d/  which will be automatically included below
 +Include /etc/ssh/ssh_config.d/*.conf
-diff --git a/ssh_config_redhat b/ssh_config_redhat
---- /dev/null
-+++ b/ssh_config_redhat
+diff -up openssh-7.4p1/ssh_config_redhat.redhat openssh-7.4p1/ssh_config_redhat
+--- openssh-7.4p1/ssh_config_redhat.redhat	2016-12-23 13:32:00.045220402 +0100
++++ openssh-7.4p1/ssh_config_redhat	2016-12-23 13:32:00.045220402 +0100
 @@ -0,0 +1,20 @@
 +# Follow system-wide Crypto Poliicy, if defined:
 +Include /etc/crypto-policies/back-ends/openssh.txt
@@ -34,11 +33,38 @@ diff --git a/ssh_config_redhat b/ssh_config_redhat
 +	SendEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT
 +	SendEnv LC_IDENTIFICATION LC_ALL LANGUAGE
 +	SendEnv XMODIFIERS
-diff --git a/sshd_config b/sshd_config
-index c735429..e68ddee 100644
---- a/sshd_config
-+++ b/sshd_config
-@@ -10,6 +10,10 @@
+diff -up openssh-7.4p1/sshd_config.0.redhat openssh-7.4p1/sshd_config.0
+--- openssh-7.4p1/sshd_config.0.redhat	2016-12-19 06:21:22.000000000 +0100
++++ openssh-7.4p1/sshd_config.0	2016-12-23 13:32:00.045220402 +0100
+@@ -837,9 +837,9 @@ DESCRIPTION
+ 
+      SyslogFacility
+              Gives the facility code that is used when logging messages from
+-             sshd(8).  The possible values are: DAEMON, USER, AUTH, LOCAL0,
+-             LOCAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.  The
+-             default is AUTH.
++             sshd(8).  The possible values are: DAEMON, USER, AUTH, AUTHPRIV,
++             LOCAL0, LOCAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.
++             The default is AUTH.
+ 
+      TCPKeepAlive
+              Specifies whether the system should send TCP keepalive messages
+diff -up openssh-7.4p1/sshd_config.5.redhat openssh-7.4p1/sshd_config.5
+--- openssh-7.4p1/sshd_config.5.redhat	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/sshd_config.5	2016-12-23 13:32:00.046220403 +0100
+@@ -1393,7 +1393,7 @@ By default no subsystems are defined.
+ .It Cm SyslogFacility
+ Gives the facility code that is used when logging messages from
+ .Xr sshd 8 .
+-The possible values are: DAEMON, USER, AUTH, LOCAL0, LOCAL1, LOCAL2,
++The possible values are: DAEMON, USER, AUTH, AUTHPRIV, LOCAL0, LOCAL1, LOCAL2,
+ LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.
+ The default is AUTH.
+ .It Cm TCPKeepAlive
+diff -up openssh-7.4p1/sshd_config.redhat openssh-7.4p1/sshd_config
+--- openssh-7.4p1/sshd_config.redhat	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/sshd_config	2016-12-23 13:33:05.386233133 +0100
+@@ -10,21 +10,26 @@
  # possible, but leave them commented.  Uncommented options override the
  # default value.
  
@@ -49,10 +75,8 @@ index c735429..e68ddee 100644
  #Port 22
  #AddressFamily any
  #ListenAddress 0.0.0.0
-@@ -21,10 +25,10 @@
- # HostKey for protocol version 1
- #HostKey /etc/ssh/ssh_host_key
- # HostKeys for protocol version 2
+ #ListenAddress ::
+ 
 -#HostKey /etc/ssh/ssh_host_rsa_key
 +HostKey /etc/ssh/ssh_host_rsa_key
  #HostKey /etc/ssh/ssh_host_dsa_key
@@ -61,9 +85,8 @@ index c735429..e68ddee 100644
 +HostKey /etc/ssh/ssh_host_ecdsa_key
 +HostKey /etc/ssh/ssh_host_ed25519_key
  
- # Lifetime and size of ephemeral version 1 server key
- #KeyRegenerationInterval 1h
-@@ -36,6 +40,7 @@
+ # Ciphers and keying
+ #RekeyLimit default none
  
  # Logging
  #SyslogFacility AUTH
@@ -71,7 +94,7 @@ index c735429..e68ddee 100644
  #LogLevel INFO
  
  # Authentication:
-@@ -71,9 +76,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -57,9 +62,11 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # To disable tunneled clear text passwords, change to no here!
  #PasswordAuthentication yes
  #PermitEmptyPasswords no
@@ -83,7 +106,7 @@ index c735429..e68ddee 100644
  
  # Kerberos options
  #KerberosAuthentication no
-@@ -82,8 +89,8 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -68,8 +75,8 @@ AuthorizedKeysFile	.ssh/authorized_keys
  #KerberosGetAFSToken no
  
  # GSSAPI options
@@ -94,7 +117,7 @@ index c735429..e68ddee 100644
  
  # Set this to 'yes' to enable PAM authentication, account processing,
  # and session processing. If this is enabled, PAM authentication will
-@@ -94,12 +101,12 @@ AuthorizedKeysFile	.ssh/authorized_keys
+@@ -80,12 +87,12 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # If you just want the PAM account and session checks to run without
  # PAM authentication, then enable this but set PasswordAuthentication
  # and ChallengeResponseAuthentication to 'no'.
@@ -109,7 +132,7 @@ index c735429..e68ddee 100644
  #X11DisplayOffset 10
  #X11UseLocalhost yes
  #PermitTTY yes
-@@ -122,6 +129,12 @@ UsePrivilegeSeparation sandbox		# Default for new installations.
+@@ -108,6 +115,12 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # no default banner path
  #Banner none
  
@@ -122,33 +145,3 @@ index c735429..e68ddee 100644
  # override default of no subsystems
  Subsystem	sftp	/usr/libexec/sftp-server
  
-diff --git a/sshd_config.0 b/sshd_config.0
-index 413c260..87e7ee7 100644
---- a/sshd_config.0
-+++ b/sshd_config.0
-@@ -675,9 +675,9 @@ DESCRIPTION
- 
-      SyslogFacility
-              Gives the facility code that is used when logging messages from
--             sshd(8).  The possible values are: DAEMON, USER, AUTH, LOCAL0,
--             LOCAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.  The
--             default is AUTH.
-+             sshd(8).  The possible values are: DAEMON, USER, AUTH, AUTHPRIV,
-+             LOCAL0, LOCAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.
-+             The default is AUTH.
- 
-      TCPKeepAlive
-              Specifies whether the system should send TCP keepalive messages
-diff --git a/sshd_config.5 b/sshd_config.5
-index ce71efe..12465c2 100644
---- a/sshd_config.5
-+++ b/sshd_config.5
-@@ -1131,7 +1131,7 @@ Note that this option applies to protocol version 2 only.
- .It Cm SyslogFacility
- Gives the facility code that is used when logging messages from
- .Xr sshd 8 .
--The possible values are: DAEMON, USER, AUTH, LOCAL0, LOCAL1, LOCAL2,
-+The possible values are: DAEMON, USER, AUTH, AUTHPRIV, LOCAL0, LOCAL1, LOCAL2,
- LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.
- The default is AUTH.
- .It Cm TCPKeepAlive

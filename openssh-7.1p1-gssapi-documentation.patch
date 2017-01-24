@@ -1,7 +1,7 @@
-diff -up openssh-7.1p1/ssh_config.5.gss-docs openssh-7.1p1/ssh_config.5
---- openssh-7.1p1/ssh_config.5.gss-docs	2015-12-10 15:28:47.451966457 +0100
-+++ openssh-7.1p1/ssh_config.5	2015-12-10 15:30:28.070738047 +0100
-@@ -773,15 +773,26 @@ Note that this option applies to protoco
+diff -up openssh-7.4p1/ssh_config.5.gss-docs openssh-7.4p1/ssh_config.5
+--- openssh-7.4p1/ssh_config.5.gss-docs	2016-12-23 14:28:34.051714486 +0100
++++ openssh-7.4p1/ssh_config.5	2016-12-23 14:34:24.568522417 +0100
+@@ -765,10 +765,19 @@ The default is
  If set to 
  .Dq yes
  then renewal of the client's GSSAPI credentials will force the rekeying of the
@@ -19,6 +19,11 @@ diff -up openssh-7.1p1/ssh_config.5.gss-docs openssh-7.1p1/ssh_config.5
 +For this to work
 +.Cm GSSAPIKeyExchange
 +needs to be enabled in the server and also used by the client.
+ .It Cm GSSAPIServerIdentity
+ If set, specifies the GSSAPI server identity that ssh should expect when 
+ connecting to the server. The default is unset, which means that the
+@@ -776,9 +785,11 @@ expected GSSAPI server identity will be
+ hostname.
  .It Cm GSSAPITrustDns
  Set to 
 -.Dq yes to indicate that the DNS is trusted to securely canonicalize
@@ -31,10 +36,10 @@ diff -up openssh-7.1p1/ssh_config.5.gss-docs openssh-7.1p1/ssh_config.5
  command line will be passed untouched to the GSSAPI library.
  The default is
  .Dq no .
-diff -up openssh-7.1p1/sshd_config.5.gss-docs openssh-7.1p1/sshd_config.5
---- openssh-7.1p1/sshd_config.5.gss-docs	2015-12-10 15:28:47.453966452 +0100
-+++ openssh-7.1p1/sshd_config.5	2015-12-10 15:28:47.461966434 +0100
-@@ -653,6 +653,10 @@ Controls whether the user's GSSAPI crede
+diff -up openssh-7.4p1/sshd_config.5.gss-docs openssh-7.4p1/sshd_config.5
+--- openssh-7.4p1/sshd_config.5.gss-docs	2016-12-23 14:28:34.043714490 +0100
++++ openssh-7.4p1/sshd_config.5	2016-12-23 14:28:34.051714486 +0100
+@@ -652,6 +652,10 @@ Controls whether the user's GSSAPI crede
  successful connection rekeying. This option can be used to accepted renewed 
  or updated credentials from a compatible client. The default is
  .Dq no .

@@ -142,7 +142,7 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +{
 +
 +        const struct sshcipher *c;
-+        struct sshcipher_ctx cc;
++        struct sshcipher_ctx *cc;
 +        char *algo = "aes128-ctr";
 +        char *hexkey = NULL;
 +        char *hexiv = "00000000000000000000000000000000";
@@ -232,11 +232,11 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +		return 2;
 +	}
 +
-+	cipher_crypt(&cc, 0, outdata, data, datalen, 0, 0);
++	cipher_crypt(cc, 0, outdata, data, datalen, 0, 0);
 +
 +        free(data);
 +
-+	cipher_cleanup(&cc);
++	cipher_free(cc);
 +
 +        for (p = outdata; datalen > 0; ++p, --datalen) {
 +		printf("%02X", (unsigned char)*p);

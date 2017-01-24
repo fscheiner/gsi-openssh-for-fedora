@@ -82,12 +82,13 @@ diff -up openssh-7.0p1/gss-genr.c.gsskexalg openssh-7.0p1/gss-genr.c
 diff -up openssh-7.0p1/gss-serv.c.gsskexalg openssh-7.0p1/gss-serv.c
 --- openssh-7.0p1/gss-serv.c.gsskexalg	2015-08-19 12:28:38.024518959 +0200
 +++ openssh-7.0p1/gss-serv.c	2015-08-19 12:28:38.078518839 +0200
-@@ -150,7 +150,7 @@ ssh_gssapi_server_mechanisms() {
- 
- 	ssh_gssapi_supported_oids(&supported);
- 	return (ssh_gssapi_kex_mechs(supported, &ssh_gssapi_server_check_mech,
--	    NULL, NULL));
-+	    NULL, NULL, options.gss_kex_algorithms));
+@@ -149,7 +149,8 @@ ssh_gssapi_server_mechanisms() {
+ 	if (supported_oids == NULL)
+ 		ssh_gssapi_prepare_supported_oids();
+ 	return (ssh_gssapi_kex_mechs(supported_oids,
+-	    &ssh_gssapi_server_check_mech, NULL, NULL));
++	    &ssh_gssapi_server_check_mech, NULL, NULL,
++	    options.gss_kex_algorithms));
  }
  
  /* Unprivileged */

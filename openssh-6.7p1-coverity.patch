@@ -1,22 +1,7 @@
-diff -up openssh-6.8p1/channels.c.coverity openssh-6.8p1/channels.c
---- openssh-6.8p1/channels.c.coverity	2015-03-18 17:21:51.815265002 +0100
-+++ openssh-6.8p1/channels.c	2015-03-18 17:21:51.896264833 +0100
-@@ -243,11 +243,11 @@ channel_register_fds(Channel *c, int rfd
- 	channel_max_fd = MAX(channel_max_fd, wfd);
- 	channel_max_fd = MAX(channel_max_fd, efd);
- 
--	if (rfd != -1)
-+	if (rfd >= 0)
- 		fcntl(rfd, F_SETFD, FD_CLOEXEC);
--	if (wfd != -1 && wfd != rfd)
-+	if (wfd >= 0 && wfd != rfd)
- 		fcntl(wfd, F_SETFD, FD_CLOEXEC);
--	if (efd != -1 && efd != rfd && efd != wfd)
-+	if (efd >= 0 && efd != rfd && efd != wfd)
- 		fcntl(efd, F_SETFD, FD_CLOEXEC);
- 
- 	c->rfd = rfd;
-@@ -265,11 +265,11 @@ channel_register_fds(Channel *c, int rfd
+diff -up openssh-7.4p1/channels.c.coverity openssh-7.4p1/channels.c
+--- openssh-7.4p1/channels.c.coverity	2016-12-23 16:40:26.881788686 +0100
++++ openssh-7.4p1/channels.c	2016-12-23 16:42:36.244818763 +0100
+@@ -288,11 +288,11 @@ channel_register_fds(Channel *c, int rfd
  
  	/* enable nonblocking mode */
  	if (nonblock) {
@@ -31,10 +16,10 @@ diff -up openssh-6.8p1/channels.c.coverity openssh-6.8p1/channels.c
  			set_nonblock(efd);
  	}
  }
-diff -up openssh-6.8p1/monitor.c.coverity openssh-6.8p1/monitor.c
---- openssh-6.8p1/monitor.c.coverity	2015-03-18 17:21:51.887264852 +0100
-+++ openssh-6.8p1/monitor.c	2015-03-18 17:21:51.897264831 +0100
-@@ -444,7 +444,7 @@ monitor_child_preauth(Authctxt *_authctx
+diff -up openssh-7.4p1/monitor.c.coverity openssh-7.4p1/monitor.c
+--- openssh-7.4p1/monitor.c.coverity	2016-12-23 16:40:26.888788688 +0100
++++ openssh-7.4p1/monitor.c	2016-12-23 16:40:26.900788691 +0100
+@@ -411,7 +411,7 @@ monitor_child_preauth(Authctxt *_authctx
  	mm_get_keystate(pmonitor);
  
  	/* Drain any buffered messages from the child */
@@ -43,10 +28,10 @@ diff -up openssh-6.8p1/monitor.c.coverity openssh-6.8p1/monitor.c
  		;
  
  	close(pmonitor->m_sendfd);
-diff -up openssh-6.8p1/monitor_wrap.c.coverity openssh-6.8p1/monitor_wrap.c
---- openssh-6.8p1/monitor_wrap.c.coverity	2015-03-18 17:21:51.888264849 +0100
-+++ openssh-6.8p1/monitor_wrap.c	2015-03-18 17:21:51.897264831 +0100
-@@ -533,10 +533,10 @@ mm_pty_allocate(int *ptyfd, int *ttyfd,
+diff -up openssh-7.4p1/monitor_wrap.c.coverity openssh-7.4p1/monitor_wrap.c
+--- openssh-7.4p1/monitor_wrap.c.coverity	2016-12-23 16:40:26.892788689 +0100
++++ openssh-7.4p1/monitor_wrap.c	2016-12-23 16:40:26.900788691 +0100
+@@ -525,10 +525,10 @@ mm_pty_allocate(int *ptyfd, int *ttyfd,
  	if ((tmp1 = dup(pmonitor->m_recvfd)) == -1 ||
  	    (tmp2 = dup(pmonitor->m_recvfd)) == -1) {
  		error("%s: cannot allocate fds for pty", __func__);
@@ -60,9 +45,9 @@ diff -up openssh-6.8p1/monitor_wrap.c.coverity openssh-6.8p1/monitor_wrap.c
  		return 0;
  	}
  	close(tmp1);
-diff -up openssh-6.8p1/openbsd-compat/bindresvport.c.coverity openssh-6.8p1/openbsd-compat/bindresvport.c
---- openssh-6.8p1/openbsd-compat/bindresvport.c.coverity	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/openbsd-compat/bindresvport.c	2015-03-18 17:21:51.897264831 +0100
+diff -up openssh-7.4p1/openbsd-compat/bindresvport.c.coverity openssh-7.4p1/openbsd-compat/bindresvport.c
+--- openssh-7.4p1/openbsd-compat/bindresvport.c.coverity	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/openbsd-compat/bindresvport.c	2016-12-23 16:40:26.901788691 +0100
 @@ -58,7 +58,7 @@ bindresvport_sa(int sd, struct sockaddr
  	struct sockaddr_in6 *in6;
  	u_int16_t *portp;
@@ -72,10 +57,10 @@ diff -up openssh-6.8p1/openbsd-compat/bindresvport.c.coverity openssh-6.8p1/open
  	int i;
  
  	if (sa == NULL) {
-diff -up openssh-6.8p1/scp.c.coverity openssh-6.8p1/scp.c
---- openssh-6.8p1/scp.c.coverity	2015-03-18 17:21:51.868264891 +0100
-+++ openssh-6.8p1/scp.c	2015-03-18 17:21:58.281251460 +0100
-@@ -156,7 +156,7 @@ killchild(int signo)
+diff -up openssh-7.4p1/scp.c.coverity openssh-7.4p1/scp.c
+--- openssh-7.4p1/scp.c.coverity	2016-12-23 16:40:26.856788681 +0100
++++ openssh-7.4p1/scp.c	2016-12-23 16:40:26.901788691 +0100
+@@ -157,7 +157,7 @@ killchild(int signo)
  {
  	if (do_cmd_pid > 1) {
  		kill(do_cmd_pid, signo ? signo : SIGTERM);
@@ -84,10 +69,10 @@ diff -up openssh-6.8p1/scp.c.coverity openssh-6.8p1/scp.c
  	}
  
  	if (signo)
-diff -up openssh-6.8p1/servconf.c.coverity openssh-6.8p1/servconf.c
---- openssh-6.8p1/servconf.c.coverity	2015-03-18 17:21:51.893264839 +0100
-+++ openssh-6.8p1/servconf.c	2015-03-18 17:21:58.281251460 +0100
-@@ -1475,7 +1475,7 @@ process_server_config_line(ServerOptions
+diff -up openssh-7.4p1/servconf.c.coverity openssh-7.4p1/servconf.c
+--- openssh-7.4p1/servconf.c.coverity	2016-12-23 16:40:26.896788690 +0100
++++ openssh-7.4p1/servconf.c	2016-12-23 16:40:26.901788691 +0100
+@@ -1547,7 +1547,7 @@ process_server_config_line(ServerOptions
  			fatal("%s line %d: Missing subsystem name.",
  			    filename, linenum);
  		if (!*activep) {
@@ -96,7 +81,7 @@ diff -up openssh-6.8p1/servconf.c.coverity openssh-6.8p1/servconf.c
  			break;
  		}
  		for (i = 0; i < options->num_subsystems; i++)
-@@ -1566,8 +1566,9 @@ process_server_config_line(ServerOptions
+@@ -1638,8 +1638,9 @@ process_server_config_line(ServerOptions
  		if (*activep && *charptr == NULL) {
  			*charptr = tilde_expand_filename(arg, getuid());
  			/* increase optional counter */
@@ -108,10 +93,10 @@ diff -up openssh-6.8p1/servconf.c.coverity openssh-6.8p1/servconf.c
  		}
  		break;
  
-diff -up openssh-6.8p1/serverloop.c.coverity openssh-6.8p1/serverloop.c
---- openssh-6.8p1/serverloop.c.coverity	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/serverloop.c	2015-03-18 17:28:45.616436080 +0100
-@@ -147,13 +147,13 @@ notify_setup(void)
+diff -up openssh-7.4p1/serverloop.c.coverity openssh-7.4p1/serverloop.c
+--- openssh-7.4p1/serverloop.c.coverity	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/serverloop.c	2016-12-23 16:40:26.902788691 +0100
+@@ -125,13 +125,13 @@ notify_setup(void)
  static void
  notify_parent(void)
  {
@@ -127,7 +112,7 @@ diff -up openssh-6.8p1/serverloop.c.coverity openssh-6.8p1/serverloop.c
  		FD_SET(notify_pipe[0], readset);
  }
  static void
-@@ -161,8 +161,8 @@ notify_done(fd_set *readset)
+@@ -139,8 +139,8 @@ notify_done(fd_set *readset)
  {
  	char c;
  
@@ -138,80 +123,7 @@ diff -up openssh-6.8p1/serverloop.c.coverity openssh-6.8p1/serverloop.c
  			debug2("notify_done: reading");
  }
  
-@@ -337,7 +337,7 @@ wait_until_can_do_something(fd_set **rea
- 		 * If we have buffered data, try to write some of that data
- 		 * to the program.
- 		 */
--		if (fdin != -1 && buffer_len(&stdin_buffer) > 0)
-+		if (fdin >= 0 && buffer_len(&stdin_buffer) > 0)
- 			FD_SET(fdin, *writesetp);
- 	}
- 	notify_prepare(*readsetp);
-@@ -477,7 +477,7 @@ process_output(fd_set *writeset)
- 	int len;
- 
- 	/* Write buffered data to program stdin. */
--	if (!compat20 && fdin != -1 && FD_ISSET(fdin, writeset)) {
-+	if (!compat20 && fdin >= 0 && FD_ISSET(fdin, writeset)) {
- 		data = buffer_ptr(&stdin_buffer);
- 		dlen = buffer_len(&stdin_buffer);
- 		len = write(fdin, data, dlen);
-@@ -590,7 +590,7 @@ server_loop(pid_t pid, int fdin_arg, int
- 	set_nonblock(fdin);
- 	set_nonblock(fdout);
- 	/* we don't have stderr for interactive terminal sessions, see below */
--	if (fderr != -1)
-+	if (fderr >= 0)
- 		set_nonblock(fderr);
- 
- 	if (!(datafellows & SSH_BUG_IGNOREMSG) && isatty(fdin))
-@@ -614,7 +614,7 @@ server_loop(pid_t pid, int fdin_arg, int
- 	max_fd = MAX(connection_in, connection_out);
- 	max_fd = MAX(max_fd, fdin);
- 	max_fd = MAX(max_fd, fdout);
--	if (fderr != -1)
-+	if (fderr >= 0)
- 		max_fd = MAX(max_fd, fderr);
- #endif
- 
-@@ -644,7 +644,7 @@ server_loop(pid_t pid, int fdin_arg, int
- 		 * If we have received eof, and there is no more pending
- 		 * input data, cause a real eof by closing fdin.
- 		 */
--		if (stdin_eof && fdin != -1 && buffer_len(&stdin_buffer) == 0) {
-+		if (stdin_eof && fdin >= 0 && buffer_len(&stdin_buffer) == 0) {
- 			if (fdin != fdout)
- 				close(fdin);
- 			else
-@@ -740,15 +740,15 @@ server_loop(pid_t pid, int fdin_arg, int
- 	buffer_free(&stderr_buffer);
- 
- 	/* Close the file descriptors. */
--	if (fdout != -1)
-+	if (fdout >= 0)
- 		close(fdout);
- 	fdout = -1;
- 	fdout_eof = 1;
--	if (fderr != -1)
-+	if (fderr >= 0)
- 		close(fderr);
- 	fderr = -1;
- 	fderr_eof = 1;
--	if (fdin != -1)
-+	if (fdin >= 0)
- 		close(fdin);
- 	fdin = -1;
- 
-@@ -950,7 +950,7 @@ server_input_window_size(int type, u_int
- 
- 	debug("Window change received.");
- 	packet_check_eom();
--	if (fdin != -1)
-+	if (fdin >= 0)
- 		pty_change_window_size(fdin, row, col, xpixel, ypixel);
- 	return 0;
- }
-@@ -1043,7 +1043,7 @@ server_request_tun(void)
+@@ -518,7 +518,7 @@ server_request_tun(void)
  	}
  
  	tun = packet_get_int();
@@ -220,10 +132,10 @@ diff -up openssh-6.8p1/serverloop.c.coverity openssh-6.8p1/serverloop.c
  		if (tun != SSH_TUNID_ANY && forced_tun_device != tun)
  			goto done;
  		tun = forced_tun_device;
-diff -up openssh-6.8p1/sftp.c.coverity openssh-6.8p1/sftp.c
---- openssh-6.8p1/sftp.c.coverity	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/sftp.c	2015-03-18 17:21:58.283251456 +0100
-@@ -223,7 +223,7 @@ killchild(int signo)
+diff -up openssh-7.4p1/sftp.c.coverity openssh-7.4p1/sftp.c
+--- openssh-7.4p1/sftp.c.coverity	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/sftp.c	2016-12-23 16:40:26.903788691 +0100
+@@ -224,7 +224,7 @@ killchild(int signo)
  {
  	if (sshpid > 1) {
  		kill(sshpid, SIGTERM);
@@ -232,10 +144,10 @@ diff -up openssh-6.8p1/sftp.c.coverity openssh-6.8p1/sftp.c
  	}
  
  	_exit(1);
-diff -up openssh-6.8p1/ssh-agent.c.coverity openssh-6.8p1/ssh-agent.c
---- openssh-6.8p1/ssh-agent.c.coverity	2015-03-17 06:49:20.000000000 +0100
-+++ openssh-6.8p1/ssh-agent.c	2015-03-18 17:21:58.284251454 +0100
-@@ -1166,8 +1166,8 @@ main(int ac, char **av)
+diff -up openssh-7.4p1/ssh-agent.c.coverity openssh-7.4p1/ssh-agent.c
+--- openssh-7.4p1/ssh-agent.c.coverity	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/ssh-agent.c	2016-12-23 16:40:26.903788691 +0100
+@@ -1220,8 +1220,8 @@ main(int ac, char **av)
  	sanitise_stdfd();
  
  	/* drop */
@@ -246,10 +158,10 @@ diff -up openssh-6.8p1/ssh-agent.c.coverity openssh-6.8p1/ssh-agent.c
  
  	platform_disable_tracing(0);	/* strict=no */
  
-diff -up openssh-6.8p1/sshd.c.coverity openssh-6.8p1/sshd.c
---- openssh-6.8p1/sshd.c.coverity	2015-03-18 17:21:51.893264839 +0100
-+++ openssh-6.8p1/sshd.c	2015-03-18 17:21:58.284251454 +0100
-@@ -778,8 +778,10 @@ privsep_preauth(Authctxt *authctxt)
+diff -up openssh-7.4p1/sshd.c.coverity openssh-7.4p1/sshd.c
+--- openssh-7.4p1/sshd.c.coverity	2016-12-23 16:40:26.897788690 +0100
++++ openssh-7.4p1/sshd.c	2016-12-23 16:40:26.904788692 +0100
+@@ -691,8 +691,10 @@ privsep_preauth(Authctxt *authctxt)
  
  		privsep_preauth_child();
  		setproctitle("%s", "[net]");
@@ -261,7 +173,7 @@ diff -up openssh-6.8p1/sshd.c.coverity openssh-6.8p1/sshd.c
  
  		return 0;
  	}
-@@ -1518,6 +1520,9 @@ server_accept_loop(int *sock_in, int *so
+@@ -1386,6 +1388,9 @@ server_accept_loop(int *sock_in, int *so
  		if (num_listen_socks < 0)
  			break;
  	}

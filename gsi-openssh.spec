@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.3p1
-%global openssh_rel 5
+%global openssh_ver 7.4p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -165,14 +165,16 @@ Patch939: openssh-7.2p2-s390-closefrom.patch
 Patch940: openssh-7.2p2-expose-pam.patch
 # Rework SELinux context handling with chroot (#1357860)
 Patch942: openssh-7.2p2-chroot-capabilities.patch
-# Null dereference in newkeys code (#1380297)
-Patch943: openssh-7.3p1-null-deref.patch
 # Move MAX_DISPLAYS to a configuration option (#1341302)
 Patch944: openssh-7.3p1-x11-max-displays.patch
+# Temporary workaround for upstream (#2641)
+Patch945: openssh-7.4p1-daemon.patch
+# Whitelist /usr/lib*/ as planed upstream to prevent breakage
+Patch946: openssh-7.4p1-pkcs11-whitelist.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
-Patch98: openssh-7.3p1-gsissh.patch
+Patch98: openssh-7.4p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -324,8 +326,9 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch939 -p1 -b .s390-dev
 %patch940 -p1 -b .expose-pam
 %patch942 -p1 -b .chroot-cap
-%patch943 -p1 -b .deref
 %patch944 -p1 -b .x11max
+%patch945 -p1 -b .daemon
+%patch946 -p1 -b .pkcs11-whitelist
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -542,6 +545,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Jan 24 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-1
+- Based on openssh-7.4p1-1
+
 * Tue Dec 13 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.3p1-5
 - Adding mechanism OID negotiation with the introduction of micv2 OID
 

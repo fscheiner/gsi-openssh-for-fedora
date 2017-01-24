@@ -1,7 +1,8 @@
---- openssh-4.3p2/contrib/gnome-ssh-askpass2.c.grab-info	2006-07-17 15:10:11.000000000 +0200
-+++ openssh-4.3p2/contrib/gnome-ssh-askpass2.c	2006-07-17 15:25:04.000000000 +0200
-@@ -65,9 +65,12 @@
- 	err = gtk_message_dialog_new(NULL, 0,
+diff -up openssh-7.4p1/contrib/gnome-ssh-askpass2.c.grab-info openssh-7.4p1/contrib/gnome-ssh-askpass2.c
+--- openssh-7.4p1/contrib/gnome-ssh-askpass2.c.grab-info	2016-12-23 13:31:22.645213115 +0100
++++ openssh-7.4p1/contrib/gnome-ssh-askpass2.c	2016-12-23 13:31:40.997216691 +0100
+@@ -65,9 +65,12 @@ report_failed_grab (GtkWidget *parent_wi
+ 	err = gtk_message_dialog_new(GTK_WINDOW(parent_window), 0,
  				     GTK_MESSAGE_ERROR,
  				     GTK_BUTTONS_CLOSE,
 -				     "Could not grab %s. "
@@ -14,5 +15,5 @@
 +				     "Either close the application which grabs the %s or "
 +				     "log out and log in again to prevent this from happening.", what, what);
  	gtk_window_set_position(GTK_WINDOW(err), GTK_WIN_POS_CENTER);
- 	gtk_label_set_line_wrap(GTK_LABEL((GTK_MESSAGE_DIALOG(err))->label),
- 				TRUE);
+ 
+ 	gtk_dialog_run(GTK_DIALOG(err));
