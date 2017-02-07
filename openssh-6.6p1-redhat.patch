@@ -14,7 +14,7 @@ diff -up openssh-7.4p1/ssh_config_redhat.redhat openssh-7.4p1/ssh_config_redhat
 +++ openssh-7.4p1/ssh_config_redhat	2016-12-23 13:32:00.045220402 +0100
 @@ -0,0 +1,20 @@
 +# Follow system-wide Crypto Poliicy, if defined:
-+Include /etc/crypto-policies/back-ends/openssh.txt
++Include /etc/crypto-policies/back-ends/openssh.config
 +
 +# Uncomment this if you want to use .local domain
 +# Host *.local

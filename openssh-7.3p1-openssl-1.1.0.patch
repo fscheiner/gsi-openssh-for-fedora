@@ -3088,7 +3088,7 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
  		break;
  # ifdef OPENSSL_HAS_ECC
  	case KEY_ECDSA:
-@@ -2819,24 +2995,81 @@ sshkey_private_deserialize(struct sshbuf
+@@ -2819,24 +2995,71 @@ sshkey_private_deserialize(struct sshbuf
  			r = SSH_ERR_ALLOC_FAIL;
  			goto out;
  		}
@@ -3151,38 +3151,28 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
 -		    (r = rsa_generate_additional_parameters(k->rsa)) != 0)
 -			goto out;
 +	case KEY_RSA_CERT: {
-+			BIGNUM *n, *e, *d, *iqmp, *p, *q;
++			BIGNUM *d, *iqmp, *p, *q;
 +
-+			/* N can't be zero because it breaks blinding (seed). Count it now */
-+			/* E is zero because it is not in the protocol, but needed for RSA structure */
-+			n = BN_new();
-+			e = BN_new();
++			/* N and E are already set so make sure we will not overwrite them */
 +			d = BN_new();
 +			iqmp = BN_new();
 +			p = BN_new();
 +			q = BN_new();
-+			BN_CTX *ctx = BN_CTX_new();
 +
-+			if (n == NULL || e == NULL || d == NULL ||
-+			    iqmp == NULL || p == NULL || q == NULL ||
-+			    ctx == NULL ||
++			if (d == NULL || iqmp == NULL || p == NULL ||
++			    q == NULL ||
 +			    (r = sshkey_froms(buf, &k)) != 0 ||
 +			    (r = sshkey_add_private(k)) != 0 ||
 +			    (r = sshbuf_get_bignum2(buf, d)) != 0 ||
 +			    (r = sshbuf_get_bignum2(buf, iqmp)) != 0 ||
 +			    (r = sshbuf_get_bignum2(buf, p)) != 0 ||
 +			    (r = sshbuf_get_bignum2(buf, q)) != 0 ||
-+			    (r = ((BN_mul(n, p, q, ctx) == 0)           /* N = P * Q */
-+			        ? SSH_ERR_LIBCRYPTO_ERROR : 0)) != 0 ||
-+			    (r = ((RSA_set0_key(k->rsa, n, e, d) == 0)
++			    (r = ((RSA_set0_key(k->rsa, NULL, NULL, d) == 0)
 +			        ? SSH_ERR_LIBCRYPTO_ERROR : 0)) != 0 ||
 +			    (r = ((RSA_set0_factors(k->rsa, p, q) == 0)
 +			        ? SSH_ERR_LIBCRYPTO_ERROR : 0)) != 0 ||
-+			    (r = rsa_generate_additional_parameters(k->rsa, iqmp)) != 0) {
-+				BN_CTX_free(ctx);
++			    (r = rsa_generate_additional_parameters(k->rsa, iqmp)) != 0)
 +				goto out;
-+			}
-+			BN_CTX_free(ctx);
 +		}
  		break;
  #endif /* WITH_OPENSSL */

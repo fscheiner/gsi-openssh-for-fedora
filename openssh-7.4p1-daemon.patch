@@ -1,12 +1,24 @@
+diff -up openssh-7.4p1/misc.c.daemon openssh-7.4p1/misc.c
+--- openssh-7.4p1/misc.c.daemon	2017-02-03 13:08:14.751282516 +0100
++++ openssh-7.4p1/misc.c	2017-02-03 13:08:14.778282474 +0100
+@@ -1273,6 +1273,9 @@ daemonized(void)
+ 		return 0;	/* parent is not init */
+ 	if (getsid(0) != getpid())
+ 		return 0;	/* not session leader */
++	if (getenv("_SSH_DAEMONIZED") == NULL)
++		return 0;	/* already reexeced */
++
+ 	debug3("already daemonized");
+ 	return 1;
+ }
 diff -up openssh-7.4p1/sshd.c.daemon openssh-7.4p1/sshd.c
---- openssh-7.4p1/sshd.c.daemon	2017-01-02 15:32:56.618447579 +0100
-+++ openssh-7.4p1/sshd.c	2017-01-02 15:33:07.606442751 +0100
-@@ -1943,7 +1943,7 @@ main(int ac, char **av)
- 	 * terminal, and fork.  The original process exits.
- 	 */
- 	already_daemon = daemonized();
--	if (!(debug_flag || inetd_flag || no_daemon_flag || already_daemon)) {
-+	if (!(debug_flag || inetd_flag || no_daemon_flag /*|| already_daemon*/)) {
- 
+--- openssh-7.4p1/sshd.c.daemon	2017-02-03 13:08:14.755282510 +0100
++++ openssh-7.4p1/sshd.c	2017-02-03 13:09:29.765164356 +0100
+@@ -1866,6 +1866,7 @@ main(int ac, char **av)
  		if (daemon(0, 0) < 0)
  			fatal("daemon() failed: %.200s", strerror(errno));
+ 
++		setenv("_SSH_DAEMONIZED", "1", 1);
+ 		disconnect_controlling_tty();
+ 	}
+ 	/* Reinitialize the log (because of the fork above). */
