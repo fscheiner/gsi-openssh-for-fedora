@@ -61,8 +61,8 @@ diff -up openssh/Makefile.in.keycat openssh/Makefile.in
  LIBOPENSSH_OBJS=\
  	ssh_api.o \
 @@ -190,6 +191,9 @@ ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT)
- ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o sshbuf-getput-basic.o ssherr.o
- 	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o sshbuf-getput-basic.o ssherr.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
+ ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o
+ 	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat -lfipscheck $(LIBS)
  
 +ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o
 +	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(KEYCATLIBS) $(SSHLIBS)

@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.4p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -136,7 +136,7 @@ Patch906: openssh-6.4p1-fromto-remote.patch
 Patch916: openssh-6.6.1p1-selinux-contexts.patch
 # use different values for DH for Cisco servers (#1026430)
 Patch917: openssh-6.6.1p1-cisco-dh-keys.patch
-# log via monitor in chroots without /dev/log
+# log via monitor in chroots without /dev/log (#2681)
 Patch918: openssh-6.6.1p1-log-in-chroot.patch
 # scp file into non-existing directory (#1142223)
 Patch919: openssh-6.6.1p1-scp-non-existing-directory.patch
@@ -167,10 +167,12 @@ Patch940: openssh-7.2p2-expose-pam.patch
 Patch942: openssh-7.2p2-chroot-capabilities.patch
 # Move MAX_DISPLAYS to a configuration option (#1341302)
 Patch944: openssh-7.3p1-x11-max-displays.patch
-# Temporary workaround for upstream (#2641)
-Patch945: openssh-7.4p1-daemon.patch
 # Whitelist /usr/lib*/ as planed upstream to prevent breakage
 Patch946: openssh-7.4p1-pkcs11-whitelist.patch
+# Correct reporting errors from included files (#1408558)
+Patch947: openssh-7.4p1-include-errors.patch
+# Help systemd to track the running service
+Patch948: openssh-7.4p1-systemd.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
@@ -193,6 +195,7 @@ BuildRequires: tcp_wrappers-devel
 BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
 BuildRequires: libcap-ng-devel
+BuildRequires: systemd-devel
 
 %if %{kerberos5}
 BuildRequires: krb5-devel
@@ -327,8 +330,9 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch940 -p1 -b .expose-pam
 %patch942 -p1 -b .chroot-cap
 %patch944 -p1 -b .x11max
-%patch945 -p1 -b .daemon
 %patch946 -p1 -b .pkcs11-whitelist
+%patch947 -p1 -b .include-errors
+%patch948 -p1 -b .systemd
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -390,17 +394,14 @@ fi
 	--with-ssl-engine \
 	--with-ipaddr-display \
 	--with-pie=no \
+	--with-systemd \
 %if %{ldap}
 	--with-ldap \
 %endif
 	--with-pam \
 %if %{WITH_SELINUX}
 	--with-selinux --with-audit=linux \
-%ifnarch ppc
 	--with-sandbox=seccomp_filter \
-%else
-	--with-sandbox=rlimit \
-%endif
 %endif
 %if %{kerberos5}
 	--with-kerberos5${krb5_prefix:+=${krb5_prefix}} \
@@ -545,6 +546,11 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Feb 23 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-3
+- Based on openssh-7.4p1-3.fc25
+- Remove MON_ONCE from the monitoring flags for MONITOR_REQ_GSSCHECKMIC
+  (rhbz #1423000)
+
 * Tue Feb 07 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-2
 - Based on openssh-7.4p1-2.fc25
 

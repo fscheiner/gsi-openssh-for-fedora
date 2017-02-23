@@ -162,8 +162,8 @@ diff -up openssh-6.8p1/Makefile.in.ldap openssh-6.8p1/Makefile.in
  ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-pkcs11-helper.o ssh-pkcs11.o
  	$(LD) -o $@ ssh-pkcs11-helper.o ssh-pkcs11.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat $(LIBS)
  
-+ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o sshbuf-getput-basic.o ssherr.o
-+	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o sshbuf-getput-basic.o ssherr.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
++ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o
++	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat -lfipscheck $(LIBS)
 +
  ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o
  	$(LD) -o $@ ssh-keyscan.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)

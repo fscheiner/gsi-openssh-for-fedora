@@ -621,9 +621,9 @@ diff -Nur openssh-7.4p1.orig/configure.ac openssh-7.4p1/configure.ac
 +	               AC_DEFINE([HAVE_GLOBUS_USAGE_SEND_ARRAY], 1, [Have Globus Usage send_array]))
 +fi
 +
- # Looking for programs, paths and files
- 
- PRIVSEP_PATH=/var/empty
+ # Check whether user wants systemd support
+ SYSTEMD_MSG="no"
+ AC_ARG_WITH(systemd,
 diff -Nur openssh-7.4p1.orig/gss-genr.c openssh-7.4p1/gss-genr.c
 --- openssh-7.4p1.orig/gss-genr.c	2017-01-24 13:03:15.312941458 +0100
 +++ openssh-7.4p1/gss-genr.c	2017-01-24 13:04:06.437370468 +0100
@@ -1495,9 +1495,12 @@ diff -Nur openssh-7.4p1.orig/monitor.c openssh-7.4p1/monitor.c
      {MONITOR_REQ_PAM_ACCOUNT, 0, mm_answer_pam_account},
      {MONITOR_REQ_PAM_INIT_CTX, MON_ONCE, mm_answer_pam_init_ctx},
      {MONITOR_REQ_PAM_QUERY, 0, mm_answer_pam_query},
-@@ -251,6 +254,9 @@
+@@ -249,8 +252,11 @@
+     {MONITOR_REQ_GSSSETUP, MON_ISAUTH, mm_answer_gss_setup_ctx},
+     {MONITOR_REQ_GSSSTEP, 0, mm_answer_gss_accept_ctx},
      {MONITOR_REQ_GSSUSEROK, MON_ONCE|MON_AUTHDECIDE, mm_answer_gss_userok},
-     {MONITOR_REQ_GSSCHECKMIC, MON_ONCE, mm_answer_gss_checkmic},
+-    {MONITOR_REQ_GSSCHECKMIC, MON_ONCE, mm_answer_gss_checkmic},
++    {MONITOR_REQ_GSSCHECKMIC, 0, mm_answer_gss_checkmic},
      {MONITOR_REQ_GSSSIGN, MON_ONCE, mm_answer_gss_sign},
 +    {MONITOR_REQ_GSSERR, MON_ISAUTH | MON_ONCE, mm_answer_gss_error},
 +    {MONITOR_REQ_GSSMECHS, MON_ISAUTH, mm_answer_gss_indicate_mechs},
