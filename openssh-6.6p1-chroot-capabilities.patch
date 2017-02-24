@@ -61,7 +61,7 @@ diff -up openssh-6.6p1/session.c.chroot-cap openssh-6.6p1/session.c
  
  	platform_setusercontext(pw);
  
-@@ -1602,10 +1607,24 @@ do_setusercontext(struct passwd *pw)
+@@ -1602,10 +1607,25 @@ do_setusercontext(struct passwd *pw)
  			    pw->pw_uid);
  			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
  			    "u", pw->pw_name, (char *)NULL);
@@ -69,7 +69,8 @@ diff -up openssh-6.6p1/session.c.chroot-cap openssh-6.6p1/session.c
 +			/* drop suid soon, retain SYS_CHROOT capability */
 +			capng_clear(CAPNG_SELECT_BOTH);
 +			capng_update(CAPNG_ADD, CAPNG_EFFECTIVE|CAPNG_PERMITTED, CAP_SYS_CHROOT);
-+			if ((dropped_suid = capng_change_id(pw->pw_uid, pw->pw_gid, CAPNG_DROP_SUPP_GRP | CAPNG_CLEAR_BOUNDING)) != 0)
++			if (pw->pw_uid != 0 &&
++			    (dropped_suid = capng_change_id(pw->pw_uid, pw->pw_gid, CAPNG_INIT_SUPP_GRP)) != 0)
 +				logit("capng_change_id() = %d (failure): Try to drop UID later", dropped_suid);
 +#endif
  #ifdef WITH_SELINUX

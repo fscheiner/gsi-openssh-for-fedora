@@ -1,42 +1,59 @@
-diff -up openssh-6.6p1/monitor_wrap.c.audit-race openssh-6.6p1/monitor_wrap.c
---- openssh-6.6p1/monitor_wrap.c.audit-race	2016-02-23 13:43:59.958203930 +0100
-+++ openssh-6.6p1/monitor_wrap.c	2016-02-23 13:43:59.959203930 +0100
-@@ -1456,4 +1456,31 @@ mm_audit_destroy_sensitive_data(const ch
+diff -up openssh-7.3p1/monitor_wrap.c.audit-race openssh-7.3p1/monitor_wrap.c
+--- openssh-7.3p1/monitor_wrap.c.audit-race	2016-12-15 14:27:22.376603747 +0100
++++ openssh-7.3p1/monitor_wrap.c	2016-12-15 14:27:22.381603742 +0100
+@@ -1256,4 +1256,48 @@ mm_audit_destroy_sensitive_data(const ch
  	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUDIT_SERVER_KEY_FREE, &m);
  	buffer_free(&m);
  }
 +
 +int mm_forward_audit_messages(int fdin)
 +{
-+	static char fb[256];
-+	size_t fblen;
++	u_char buf[4];
++	u_int blen, msg_len;
++	Buffer m;
++	int ret = 0;
++
++	debug3("%s: entering", __func__);
++	buffer_init(&m);
 +	do {
-+		fblen = atomicio(read, fdin, fb, sizeof(fb));
-+		if (fblen == 0) {
-+			// atomicio read returns EPIPE also with EOF
-+			if (errno != EPIPE) {
-+				error("%s: Failed to read the messages from child", __func__);
-+				return -1;
-+			}
-+			return 0;
++		blen = atomicio(read, fdin, buf, sizeof(buf));
++		if (blen == 0) /* closed pipe */
++			break;
++		if (blen != sizeof(buf)) {
++			error("%s: Failed to read the buffer from child", __func__);
++			ret = -1;
++			break;
 +		}
-+		fblen = atomicio(vwrite, pmonitor->m_recvfd, fb, fblen);
-+		if (fblen == 0 && errno != EPIPE) {
-+			error("%s: Failed to pass the messages to the monitor", __func__);
-+			return -1;
++
++		msg_len = get_u32(buf);
++		if (msg_len > 256 * 1024)
++			fatal("%s: read: bad msg_len %d", __func__, msg_len);
++		buffer_clear(&m);
++		buffer_append_space(&m, msg_len);
++		if (atomicio(read, fdin, buffer_ptr(&m), msg_len) != msg_len) {
++			error("%s: Failed to read the the buffer content from the child", __func__);
++			ret = -1;
++			break;
 +		}
-+	} while(fblen > 0);
-+	return 0;
++		if (atomicio(vwrite, pmonitor->m_recvfd, buf, blen) != blen || 
++		    atomicio(vwrite, pmonitor->m_recvfd, buffer_ptr(&m), msg_len) != msg_len) {
++			error("%s: Failed to write the message to the monitor", __func__);
++			ret = -1;
++			break;
++		}
++	} while (1);
++	buffer_free(&m);
++	return ret;
 +}
 +void mm_set_monitor_pipe(int fd)
 +{
 +	pmonitor->m_recvfd = fd;
 +}
  #endif /* SSH_AUDIT_EVENTS */
-diff -up openssh-6.6p1/monitor_wrap.h.audit-race openssh-6.6p1/monitor_wrap.h
---- openssh-6.6p1/monitor_wrap.h.audit-race	2016-02-23 13:43:59.958203930 +0100
-+++ openssh-6.6p1/monitor_wrap.h	2016-02-23 13:43:59.959203930 +0100
-@@ -86,6 +86,8 @@ void mm_audit_unsupported_body(int);
+diff -up openssh-7.3p1/monitor_wrap.h.audit-race openssh-7.3p1/monitor_wrap.h
+--- openssh-7.3p1/monitor_wrap.h.audit-race	2016-12-15 14:27:22.376603747 +0100
++++ openssh-7.3p1/monitor_wrap.h	2016-12-15 14:27:22.381603742 +0100
+@@ -88,6 +88,8 @@ void mm_audit_unsupported_body(int);
  void mm_audit_kex_body(int, char *, char *, char *, char *, pid_t, uid_t);
  void mm_audit_session_key_free_body(int, pid_t, uid_t);
  void mm_audit_destroy_sensitive_data(const char *, pid_t, uid_t);
@@ -45,10 +62,10 @@ diff -up openssh-6.6p1/monitor_wrap.h.audit-race openssh-6.6p1/monitor_wrap.h
  #endif
  
  struct Session;
-diff -up openssh-6.6p1/session.c.audit-race openssh-6.6p1/session.c
---- openssh-6.6p1/session.c.audit-race	2016-02-23 13:43:59.954203931 +0100
-+++ openssh-6.6p1/session.c	2016-02-23 13:45:14.758194058 +0100
-@@ -158,6 +159,10 @@ static Session *sessions = NULL;
+diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
+--- openssh-7.3p1/session.c.audit-race	2016-12-15 14:27:22.378603745 +0100
++++ openssh-7.3p1/session.c	2016-12-15 14:27:22.382603741 +0100
+@@ -164,6 +164,10 @@ static Session *sessions = NULL;
  login_cap_t *lc;
  #endif
  
@@ -59,7 +76,35 @@ diff -up openssh-6.6p1/session.c.audit-race openssh-6.6p1/session.c
  static int is_child = 0;
  
  static int have_dev_log = 1;
-@@ -891,6 +896,8 @@ do_exec(Session *s, const char *command)
+@@ -457,6 +457,8 @@ do_authenticated1(Authctxt *authctxt)
+ 	}
+ }
+ 
++void child_destory_sensitive_data();
++
+ #define USE_PIPES 1
+ /*
+  * This is called to fork and execute a command when we have no tty.  This
+@@ -588,6 +592,8 @@ do_exec_no_pty(Session *s, const char *c
+ 		cray_init_job(s->pw); /* set up cray jid and tmpdir */
+ #endif
+ 
++		child_destory_sensitive_data();
++
+ 		/* Do processing for the child (exec command etc). */
+ 		do_child(s, command);
+ 		/* NOTREACHED */
+@@ -722,6 +728,9 @@ do_exec_pty(Session *s, const char *comm
+ 		/* Close the extra descriptor for the pseudo tty. */
+ 		close(ttyfd);
+ 
++		/* Do this early, so we will not block large MOTDs */
++		child_destory_sensitive_data();
++
+ 		/* record login, etc. similar to login(1) */
+ #ifndef HAVE_OSF_SIA
+ 		if (!(options.use_login && command == NULL)) {
+@@ -903,6 +912,8 @@ do_exec(Session *s, const char *command)
  	}
  	if (s->command != NULL && s->ptyfd == -1)
  		s->command_handle = PRIVSEP(audit_run_command(s->command));
@@ -68,7 +113,7 @@ diff -up openssh-6.6p1/session.c.audit-race openssh-6.6p1/session.c
  #endif
  	if (s->ttyfd != -1)
  		ret = do_exec_pty(s, command);
-@@ -906,6 +913,20 @@ do_exec(Session *s, const char *command)
+@@ -918,6 +929,20 @@ do_exec(Session *s, const char *command)
  	 */
  	buffer_clear(&loginmsg);
  
@@ -89,34 +134,50 @@ diff -up openssh-6.6p1/session.c.audit-race openssh-6.6p1/session.c
  	return ret;
  }
  
-@@ -1718,12 +1739,27 @@ do_child(Session *s, const char *command
- 	struct passwd *pw = s->pw;
- 	int r = 0;
+@@ -1751,6 +1776,33 @@ child_close_fds(void)
+ 	endpwent();
+ }
  
++void
++child_destory_sensitive_data()
++{
 +#ifdef SSH_AUDIT_EVENTS
++	int pparent = paudit[1];
 +	close(paudit[0]);
 +	/* Hack the monitor pipe to avoid race condition with parent */
 +	if (use_privsep)
-+		mm_set_monitor_pipe(paudit[1]);
++		mm_set_monitor_pipe(pparent);
 +#endif
 +
- 	/* remove hostkey from the child's memory */
--	destroy_sensitive_data(1);
--	/* Don't audit this - both us and the parent would be talking to the
--	   monitor over a single socket, with no synchronization. */
++	/* remove hostkey from the child's memory */
 +	destroy_sensitive_data(use_privsep);
 +	/*
 +	 * We can audit this, because we hacked the pipe to direct the
 +	 * messages over postauth child. But this message requires answer
 +	 * which we can't do using one-way pipe.
 +	 */
- 	packet_destroy_all(0, 1);
- 
++	packet_destroy_all(0, 1);
++
 +#ifdef SSH_AUDIT_EVENTS
 +	/* Notify parent that we are done */
-+	close(paudit[1]);
++	close(pparent);
 +#endif
 +
++}
++
+ /*
+  * Performs common processing for the child, such as setting up the
+  * environment, closing extra file descriptors, setting the user and group
+@@ -1768,12 +1820,6 @@ do_child(Session *s, const char *command
+ 	struct passwd *pw = s->pw;
+ 	int r = 0;
+ 
+-	/* remove hostkey from the child's memory */
+-	destroy_sensitive_data(1);
+-	/* Don't audit this - both us and the parent would be talking to the
+-	   monitor over a single socket, with no synchronization. */
+-	packet_destroy_all(0, 1);
+-
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
  		do_setusercontext(pw);
