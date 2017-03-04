@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.4p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -546,6 +546,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Sat Mar 04 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-4
+- Based on openssh-7.4p1-4.fc25
+
 * Thu Feb 23 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-3
 - Based on openssh-7.4p1-3.fc25
 - Remove MON_ONCE from the monitoring flags for MONITOR_REQ_GSSCHECKMIC

@@ -40,7 +40,7 @@ diff -up openssh-6.8p1/Makefile.in.kdf-cavs openssh-6.8p1/Makefile.in
 diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 --- openssh-6.8p1/ssh-cavs.c.kdf-cavs	2015-03-18 11:23:46.348049354 +0100
 +++ openssh-6.8p1/ssh-cavs.c	2015-03-18 11:23:46.348049354 +0100
-@@ -0,0 +1,383 @@
+@@ -0,0 +1,380 @@
 +/*
 + * Copyright (C) 2015, Stephan Mueller <smueller@chronox.de>
 + *
@@ -316,9 +316,6 @@ diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 +	bin2hex(stockeys->mac.key, (size_t)stockeys->mac.key_len,
 +		hex, HEXOUTLEN, 0);
 +	printf("Integrity key (server to client) = %s\n", hex);
-+
-+	free(ctoskeys);
-+	free(stockeys);
 +
 +out:
 +	if (Kbn)

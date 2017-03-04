@@ -84,16 +84,15 @@ index 816611c..b8b9d13 100644
  #include "xmalloc.h"
  #include "ssh.h"
  #include "ssh2.h"
-@@ -1833,6 +1837,11 @@ main(int ac, char **av)
- 	/* ignore SIGPIPE */
- 	signal(SIGPIPE, SIG_IGN);
+@@ -1888,6 +1892,11 @@ main(int ac, char **av)
+ 			}
+ 		}
  
 +#ifdef HAVE_SYSTEMD
-+	/* Signal systemd that we are ready to accept connections */
-+	sd_notify(0, "READY=1");
++		/* Signal systemd that we are ready to accept connections */
++		sd_notify(0, "READY=1");
 +#endif
 +
- 	/* Get a connection, either from inetd or a listening TCP socket */
- 	if (inetd_flag) {
- 		server_accept_inetd(&sock_in, &sock_out);
-
+ 		/* Accept a connection and return in a forked child */
+ 		server_accept_loop(&sock_in, &sock_out,
+ 		    &newsock, config_s);
