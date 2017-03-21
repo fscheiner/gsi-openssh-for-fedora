@@ -1,5 +1,5 @@
-# gsissh is openssh with support for GSI authentication
-# This gsissh specfile is based on the openssh specfile
+# gsi-openssh is openssh with support for GSI authentication
+# This gsi-openssh specfile is based on the openssh specfile
 
 # Do we want SELinux & Audit
 %if 0%{?!noselinux:1}
@@ -35,7 +35,7 @@
 %global nologin 1
 
 %global openssh_ver 5.3p1
-%global openssh_rel 14
+%global openssh_rel 15
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -223,6 +223,20 @@ Patch159: openssh-5.3p1-fallback-x11-untrusted.patch
 Patch161: openssh-5.3p1-CVE-2016-3115.patch
 # ssh-copy-id: SunOS does not understand ~ (#1327547)
 Patch162: openssh-5.3p1-ssh-copy-id-tilde.patch
+# Relax bits needed for hmac-sha2-512 and gss-group1-sha1- (#1353359)
+Patch163: openssh-5.3p1-relax-bits-needed.patch
+# close ControlPersist background process stderr when not in debug mode (#1335539)
+Patch164: openssh-5.3p1-ControlPersist-stderr.patch
+# "The agent has no identities." in ~/.ssh/authorized_keys (#1353410)
+Patch165: openssh-5.3p1-ssh-copy-id-agent.patch
+# Remove RC4 cipher and questionable MACs from the default proposal (#1373836)
+Patch166: openssh-5.3p1-deprecate-insecure-algorithms.patch
+# Prevent infinite loop when Ctrl+Z pressed at password prompt (#1218424)
+Patch167: openssh-5.3p1-prevent-infinite-loop.patch
+# make s390 use /dev/ crypto devices -- ignore closefrom (#1397547)
+Patch168: openssh-5.3p1-s390-closefrom.patch
+# CVE-2015-8325: privilege escalation via user's PAM environment and UseLogin=yes
+Patch169: openssh-5.3p1-CVE-2015-8325.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
@@ -435,6 +449,13 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch159 -p1 -b .untrusted
 %patch161 -p1 -b .xauth
 %patch162 -p1 -b .tilde
+%patch163 -p1 -b .relax-dh
+%patch164 -p1 -b .ControlPersist-stderr
+%patch165 -p1 -b .ssh-copy-id-agent
+%patch166 -p1 -b .insecure
+%patch167 -p1 -b .infinite
+%patch168 -p1 -b .s390
+%patch169 -p1 -b .use-login
 
 %patch200 -p1 -b .gsi
 
@@ -640,6 +661,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Tue Mar 21 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-15
+- based on openssh-5.3p1-122.el6
+
 * Thu Dec 15 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-14
 - Adding mechanism OID negotiation with the introduction of micv2 OID
 

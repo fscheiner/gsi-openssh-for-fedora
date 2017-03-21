@@ -1,0 +1,51 @@
+diff -up openssh-5.3p1/log.h.ControlPersist-stderr openssh-5.3p1/log.h
+--- openssh-5.3p1/log.h.ControlPersist-stderr	2016-08-17 10:53:36.631593054 +0200
++++ openssh-5.3p1/log.h	2016-08-17 10:55:27.420489198 +0200
+@@ -50,6 +50,7 @@
+ extern int log_fd_keep;
+ 
+ void     log_init(char *, LogLevel, SyslogFacility, int);
++int      log_is_on_stderr(void);
+ 
+ SyslogFacility	log_facility_number(char *);
+ const char * 	log_facility_name(SyslogFacility);
+diff -up openssh-5.3p1/log.c.ControlPersist-stderr openssh-5.3p1/log.c
+--- openssh-5.3p1/log.c.ControlPersist-stderr	2016-08-17 10:53:36.631593054 +0200
++++ openssh-5.3p1/log.c	2016-08-17 10:55:27.420489198 +0200
+@@ -330,6 +330,12 @@ log_init(char *av0, LogLevel level, Sysl
+ 
+ #define MSGBUFSIZ 1024
+ 
++int
++log_is_on_stderr(void)
++{
++	return log_on_stderr;
++}
++ 
+ void
+ do_log(LogLevel level, const char *fmt, va_list args)
+ {
+diff -up openssh-5.3p1/ssh.c.ControlPersist-stderr openssh-5.3p1/ssh.c
+--- openssh-5.3p1/ssh.c.ControlPersist-stderr	2016-08-17 10:53:36.625593059 +0200
++++ openssh-5.3p1/ssh.c	2016-08-17 10:53:36.632593053 +0200
+@@ -947,7 +947,7 @@ static void
+ control_persist_detach(void)
+ {
+ 	pid_t pid;
+-	int devnull;
++	int devnull, keep_stderr;
+ 
+ 	debug("%s: backgrounding master process", __func__);
+ 
+@@ -979,8 +979,10 @@ control_persist_detach(void)
+ 		error("%s: open(\"/dev/null\"): %s", __func__,
+ 		    strerror(errno));
+ 	} else {
++		keep_stderr = log_is_on_stderr() && debug_flag;
+ 		if (dup2(devnull, STDIN_FILENO) == -1 ||
+-		    dup2(devnull, STDOUT_FILENO) == -1)
++		    dup2(devnull, STDOUT_FILENO) == -1 ||
++		    (!keep_stderr && dup2(devnull, STDERR_FILENO) == -1))
+ 			error("%s: dup2: %s", __func__, strerror(errno));
+ 		if (devnull > STDERR_FILENO)
+ 			close(devnull);

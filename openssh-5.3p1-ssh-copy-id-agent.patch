@@ -1,0 +1,26 @@
+From d23b6e4f01030f95fed994a6e9a275c021f2122a Mon Sep 17 00:00:00 2001
+From: Philip Hands <phil@hands.com>
+Date: Thu, 17 Jun 2010 15:46:39 +0100
+Subject: [PATCH] 5.5p1
+
+---
+ ssh-copy-id | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/contrib/ssh-copy-id b/contrib/ssh-copy-id
+index df74d25..65c0a8c 100644
+--- a/contrib/ssh-copy-id
++++ b/contrib/ssh-copy-id
+@@ -19,7 +19,7 @@ if [ "-i" = "$1" ]; then
+     shift         # and this should leave $1 as the target name
+   fi
+ else
+-  if [ x$SSH_AUTH_SOCK != x ] ; then
++  if [ x$SSH_AUTH_SOCK != x ] && ssh-add -L >/dev/null 2>&1; then
+     GET_ID="$GET_ID ssh-add -L"
+   fi
+ fi
+-- 
+2.1.4
+
+

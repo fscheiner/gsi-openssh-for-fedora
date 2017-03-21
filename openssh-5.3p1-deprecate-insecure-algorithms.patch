@@ -1,0 +1,145 @@
+diff -up openssh-5.3p1/myproposal.h.insecure openssh-5.3p1/myproposal.h
+--- openssh-5.3p1/myproposal.h.insecure	2016-10-17 13:51:40.295961253 +0200
++++ openssh-5.3p1/myproposal.h	2016-10-17 13:53:54.368903182 +0200
+@@ -53,19 +53,25 @@
+ 
+ #define	KEX_DEFAULT_ENCRYPT \
+ 	"aes128-ctr,aes192-ctr,aes256-ctr," \
++	"aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc," \
++	"aes192-cbc,aes256-cbc,rijndael-cbc@lysator.liu.se"
++#define	KEX_DEFAULT_ENCRYPT_SERVER \
++	"aes128-ctr,aes192-ctr,aes256-ctr," \
+ 	"arcfour256,arcfour128," \
+ 	"aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc," \
+ 	"aes192-cbc,aes256-cbc,arcfour,rijndael-cbc@lysator.liu.se"
+ #define	KEX_DEFAULT_MAC \
+-	"hmac-md5," \
+ 	"hmac-sha1," \
+ 	"umac-64@openssh.com," \
+ 	"hmac-sha2-256," \
+ 	"hmac-sha2-512," \
+ 	"hmac-ripemd160," \
+ 	"hmac-ripemd160@openssh.com," \
+-	"hmac-sha1-96," \
+-	"hmac-md5-96"
++ 	"hmac-sha1-96"
++#define	KEX_DEFAULT_MAC_SERVER \
++	"hmac-md5," \
++	KEX_DEFAULT_MAC "," \
++	"hmac-md5-96"
+ 
+ #define	KEX_DEFAULT_COMP	"none,zlib@openssh.com,zlib"
+ #define	KEX_DEFAULT_LANG	""
+@@ -77,15 +83,26 @@
+ 	"hmac-sha1," \
+ 	"hmac-sha2-256,hmac-sha2-512"
+ 
+-static char *myproposal[PROPOSAL_MAX] = {
+-	KEX_DEFAULT_KEX,
+-	KEX_DEFAULT_PK_ALG,
+-	KEX_DEFAULT_ENCRYPT,
+-	KEX_DEFAULT_ENCRYPT,
+-	KEX_DEFAULT_MAC,
+-	KEX_DEFAULT_MAC,
+-	KEX_DEFAULT_COMP,
+-	KEX_DEFAULT_COMP,
+-	KEX_DEFAULT_LANG,
++#define KEX_CLIENT \
++	KEX_DEFAULT_KEX, \
++	KEX_DEFAULT_PK_ALG, \
++	KEX_DEFAULT_ENCRYPT, \
++	KEX_DEFAULT_ENCRYPT, \
++	KEX_DEFAULT_MAC, \
++	KEX_DEFAULT_MAC, \
++	KEX_DEFAULT_COMP, \
++	KEX_DEFAULT_COMP, \
++	KEX_DEFAULT_LANG, \
++	KEX_DEFAULT_LANG
++
++#define KEX_SERVER \
++	KEX_DEFAULT_KEX, \
++	KEX_DEFAULT_PK_ALG, \
++	KEX_DEFAULT_ENCRYPT_SERVER, \
++	KEX_DEFAULT_ENCRYPT_SERVER, \
++	KEX_DEFAULT_MAC_SERVER, \
++	KEX_DEFAULT_MAC_SERVER, \
++	KEX_DEFAULT_COMP, \
++	KEX_DEFAULT_COMP, \
++	KEX_DEFAULT_LANG, \
+ 	KEX_DEFAULT_LANG
+-};
+diff -up openssh-5.3p1/servconf.c.insecure openssh-5.3p1/servconf.c
+--- openssh-5.3p1/servconf.c.insecure	2016-10-17 13:51:40.360961225 +0200
++++ openssh-5.3p1/servconf.c	2016-10-17 13:51:40.383961215 +0200
+@@ -1943,9 +1943,9 @@ dump_config(ServerOptions *o)
+ 	dump_cfg_string(sPidFile, o->pid_file);
+ 	dump_cfg_string(sXAuthLocation, o->xauth_location);
+ 	dump_cfg_string(sCiphers, o->ciphers ? o->ciphers : FIPS_mode()
+-		? KEX_FIPS_ENCRYPT : KEX_DEFAULT_ENCRYPT);
++		? KEX_FIPS_ENCRYPT : KEX_DEFAULT_ENCRYPT_SERVER);
+ 	dump_cfg_string(sMacs, o->macs ? o->macs : FIPS_mode()
+-		? KEX_FIPS_MAC : KEX_DEFAULT_MAC);
++		? KEX_FIPS_MAC : KEX_DEFAULT_MAC_SERVER);
+ 	dump_cfg_string(sKexAlgorithms, o->kex_algorithms ? o->kex_algorithms
+ 		: FIPS_mode() ? KEX_DEFAULT_KEX_FIPS : KEX_DEFAULT_KEX);
+ 	dump_cfg_string(sBanner, o->banner ? o->banner : "none");
+diff -up openssh-5.3p1/ssh_config.5.insecure openssh-5.3p1/ssh_config.5
+--- openssh-5.3p1/ssh_config.5.insecure	2016-10-17 13:51:40.369961221 +0200
++++ openssh-5.3p1/ssh_config.5	2016-10-17 13:51:40.383961215 +0200
+@@ -204,9 +204,9 @@ and
+ .Dq cast128-cbc .
+ The default is:
+ .Bd -literal -offset 3n
+-aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,
++aes128-ctr,aes192-ctr,aes256-ctr,
+ aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,aes192-cbc,
+-aes256-cbc,arcfour
++aes256-cbc
+ .Ed
+ .It Cm ClearAllForwardings
+ Specifies that all local, remote, and dynamic port forwardings
+@@ -746,8 +746,8 @@ for data integrity protection.
+ Multiple algorithms must be comma-separated.
+ The default is:
+ .Bd -literal -offset indent
+-hmac-md5,hmac-sha1,umac-64@openssh.com,
+-hmac-ripemd160,hmac-sha1-96,hmac-md5-96,
++hmac-sha1,umac-64@openssh.com,
++hmac-ripemd160,hmac-sha1-96,
+ hmac-sha2-256,hmac-sha2-512
+ .Ed
+ .It Cm NoHostAuthenticationForLocalhost
+diff -up openssh-5.3p1/sshconnect2.c.insecure openssh-5.3p1/sshconnect2.c
+--- openssh-5.3p1/sshconnect2.c.insecure	2016-10-17 13:51:40.355961227 +0200
++++ openssh-5.3p1/sshconnect2.c	2016-10-17 13:51:40.384961215 +0200
+@@ -108,6 +108,7 @@ verify_host_key_callback(Key *hostkey)
+ void
+ ssh_kex2(char *host, struct sockaddr *hostaddr)
+ {
++	char *myproposal[PROPOSAL_MAX] = { KEX_CLIENT };
+ 	Kex *kex;
+ 
+ #ifdef GSSAPI
+diff -up openssh-5.3p1/sshd.c.insecure openssh-5.3p1/sshd.c
+--- openssh-5.3p1/sshd.c.insecure	2016-10-17 13:51:40.361961225 +0200
++++ openssh-5.3p1/sshd.c	2016-10-17 13:51:40.384961215 +0200
+@@ -2429,6 +2429,8 @@ do_ssh1_kex(void)
+ static void
+ do_ssh2_kex(void)
+ {
++	char *myproposal[PROPOSAL_MAX] = { KEX_SERVER };
++
+ 	Kex *kex;
+ 
+ 	if (options.ciphers != NULL) {
+diff -up openssh-5.3p1/ssh-keyscan.c.insecure openssh-5.3p1/ssh-keyscan.c
+--- openssh-5.3p1/ssh-keyscan.c.insecure	2016-10-17 13:51:40.329961239 +0200
++++ openssh-5.3p1/ssh-keyscan.c	2016-10-17 13:51:40.383961215 +0200
+@@ -357,6 +357,7 @@ ssh2_capable(int remote_major, int remot
+ static Key *
+ keygrab_ssh2(con *c)
+ {
++	char *myproposal[PROPOSAL_MAX] = { KEX_CLIENT };
+ 	int j;
+ 
+ 	packet_set_connection(c->c_fd, c->c_fd);

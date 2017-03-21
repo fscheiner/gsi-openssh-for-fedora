@@ -1,0 +1,250 @@
+diff --git a/openbsd-compat/readpassphrase.c b/openbsd-compat/readpassphrase.c
+index 11bd8f6..c99b4e2 100644
+--- a/openbsd-compat/readpassphrase.c
++++ b/openbsd-compat/readpassphrase.c
+@@ -1,7 +1,8 @@
+-/*	$OpenBSD: readpassphrase.c,v 1.18 2005/08/08 08:05:34 espie Exp $	*/
++/*	$OpenBSD: readpassphrase.c,v 1.24 2013/11/24 23:51:29 deraadt Exp $	*/
+ 
+ /*
+- * Copyright (c) 2000-2002 Todd C. Miller <Todd.Miller@courtesan.com>
++ * Copyright (c) 2000-2002, 2007, 2010
++ *	Todd C. Miller <Todd.Miller@courtesan.com>
+  *
+  * Permission to use, copy, modify, and distribute this software for any
+  * purpose with or without fee is hereby granted, provided that the above
+@@ -35,10 +36,9 @@
+ #include <string.h>
+ #include <unistd.h>
+ 
+-#ifdef TCSASOFT
+-# define _T_FLUSH	(TCSAFLUSH|TCSASOFT)
+-#else
+-# define _T_FLUSH	(TCSAFLUSH)
++#ifndef TCSASOFT
++/* If we don't have TCSASOFT define it so that ORing it it below is a no-op. */
++# define TCSASOFT 0
+ #endif
+ 
+ /* SunOS 4.x which lacks _POSIX_VDISABLE, but has VDISABLE */
+@@ -46,7 +46,15 @@
+ #  define _POSIX_VDISABLE       VDISABLE
+ #endif
+ 
+-static volatile sig_atomic_t signo;
++#ifndef _NSIG
++# ifdef NSIG
++#  define _NSIG NSIG
++# else
++#  define _NSIG 128
++# endif
++#endif
++
++static volatile sig_atomic_t signo[_NSIG];
+ 
+ static void handler(int);
+ 
+@@ -54,7 +62,7 @@ char *
+ readpassphrase(const char *prompt, char *buf, size_t bufsiz, int flags)
+ {
+ 	ssize_t nr;
+-	int input, output, save_errno;
++	int input, output, save_errno, i, need_restart;
+ 	char ch, *p, *end;
+ 	struct termios term, oterm;
+ 	struct sigaction sa, savealrm, saveint, savehup, savequit, saveterm;
+@@ -67,7 +75,11 @@ readpassphrase(const char *prompt, char *buf, size_t bufsiz, int flags)
+ 	}
+ 
+ restart:
+-	signo = 0;
++	for (i = 0; i < _NSIG; i++)
++		signo[i] = 0;
++	nr = -1;
++	save_errno = 0;
++	need_restart = 0;
+ 	/*
+ 	 * Read and write to /dev/tty if available.  If not, read from
+ 	 * stdin and write to stderr unless a tty is required.
+@@ -83,6 +95,27 @@ restart:
+ 	}
+ 
+ 	/*
++	 * Turn off echo if possible.
++	 * If we are using a tty but are not the foreground pgrp this will
++	 * generate SIGTTOU, so do it *before* installing the signal handlers.
++	 */
++	if (input != STDIN_FILENO && tcgetattr(input, &oterm) == 0) {
++		memcpy(&term, &oterm, sizeof(term));
++		if (!(flags & RPP_ECHO_ON))
++			term.c_lflag &= ~(ECHO | ECHONL);
++#ifdef VSTATUS
++		if (term.c_cc[VSTATUS] != _POSIX_VDISABLE)
++			term.c_cc[VSTATUS] = _POSIX_VDISABLE;
++#endif
++		(void)tcsetattr(input, TCSAFLUSH|TCSASOFT, &term);
++	} else {
++		memset(&term, 0, sizeof(term));
++		term.c_lflag |= ECHO;
++		memset(&oterm, 0, sizeof(oterm));
++		oterm.c_lflag |= ECHO;
++	}
++
++	/*
+ 	 * Catch signals that would otherwise cause the user to end
+ 	 * up with echo turned off in the shell.  Don't worry about
+ 	 * things like SIGXCPU and SIGVTALRM for now.
+@@ -100,35 +133,19 @@ restart:
+ 	(void)sigaction(SIGTTIN, &sa, &savettin);
+ 	(void)sigaction(SIGTTOU, &sa, &savettou);
+ 
+-	/* Turn off echo if possible. */
+-	if (input != STDIN_FILENO && tcgetattr(input, &oterm) == 0) {
+-		memcpy(&term, &oterm, sizeof(term));
+-		if (!(flags & RPP_ECHO_ON))
+-			term.c_lflag &= ~(ECHO | ECHONL);
+-#ifdef VSTATUS
+-		if (term.c_cc[VSTATUS] != _POSIX_VDISABLE)
+-			term.c_cc[VSTATUS] = _POSIX_VDISABLE;
+-#endif
+-		(void)tcsetattr(input, _T_FLUSH, &term);
+-	} else {
+-		memset(&term, 0, sizeof(term));
+-		term.c_lflag |= ECHO;
+-		memset(&oterm, 0, sizeof(oterm));
+-		oterm.c_lflag |= ECHO;
+-	}
+-
+ 	if (!(flags & RPP_STDIN))
+ 		(void)write(output, prompt, strlen(prompt));
+ 	end = buf + bufsiz - 1;
+-	for (p = buf; (nr = read(input, &ch, 1)) == 1 && ch != '\n' && ch != '\r';) {
++	p = buf;
++	while ((nr = read(input, &ch, 1)) == 1 && ch != '\n' && ch != '\r') {
+ 		if (p < end) {
+ 			if ((flags & RPP_SEVENBIT))
+ 				ch &= 0x7f;
+-			if (isalpha(ch)) {
++			if (isalpha((unsigned char)ch)) {
+ 				if ((flags & RPP_FORCELOWER))
+-					ch = tolower(ch);
++					ch = (char)tolower((unsigned char)ch);
+ 				if ((flags & RPP_FORCEUPPER))
+-					ch = toupper(ch);
++					ch = (char)toupper((unsigned char)ch);
+ 			}
+ 			*p++ = ch;
+ 		}
+@@ -140,8 +157,8 @@ restart:
+ 
+ 	/* Restore old terminal settings and signals. */
+ 	if (memcmp(&term, &oterm, sizeof(term)) != 0) {
+-		while (tcsetattr(input, _T_FLUSH, &oterm) == -1 &&
+-		    errno == EINTR)
++		while (tcsetattr(input, TCSAFLUSH|TCSASOFT, &oterm) == -1 &&
++		    errno == EINTR && !signo[SIGTTOU])
+ 			continue;
+ 	}
+ 	(void)sigaction(SIGALRM, &savealrm, NULL);
+@@ -152,6 +169,7 @@ restart:
+ 	(void)sigaction(SIGTERM, &saveterm, NULL);
+ 	(void)sigaction(SIGTSTP, &savetstp, NULL);
+ 	(void)sigaction(SIGTTIN, &savettin, NULL);
++	(void)sigaction(SIGTTOU, &savettou, NULL);
+ 	if (input != STDIN_FILENO)
+ 		(void)close(input);
+ 
+@@ -159,20 +177,25 @@ restart:
+ 	 * If we were interrupted by a signal, resend it to ourselves
+ 	 * now that we have restored the signal handlers.
+ 	 */
+-	if (signo) {
+-		kill(getpid(), signo);
+-		switch (signo) {
+-		case SIGTSTP:
+-		case SIGTTIN:
+-		case SIGTTOU:
+-			goto restart;
++	for (i = 0; i < _NSIG; i++) {
++		if (signo[i]) {
++			kill(getpid(), i);
++			switch (i) {
++			case SIGTSTP:
++			case SIGTTIN:
++			case SIGTTOU:
++				need_restart = 1;
++			}
+ 		}
+ 	}
++	if (need_restart)
++		goto restart;
+ 
+-	errno = save_errno;
++	if (save_errno)
++		errno = save_errno;
+ 	return(nr == -1 ? NULL : buf);
+ }
+-  
++
+ #if 0
+ char *
+ getpass(const char *prompt)
+@@ -186,6 +209,6 @@ getpass(const char *prompt)
+ static void handler(int s)
+ {
+ 
+-	signo = s;
++	signo[s] = 1;
+ }
+ #endif /* HAVE_READPASSPHRASE */
+diff --git a/openbsd-compat/readpassphrase.c b/openbsd-compat/readpassphrase.c
+index 11bd8f6..c99b4e2 100644
+--- a/openbsd-compat/readpassphrase.c
++++ b/openbsd-compat/readpassphrase.c
+@@ -133,9 +133,13 @@ restart:
+ 
+ 	/* Restore old terminal settings and signals. */
+ 	if (memcmp(&term, &oterm, sizeof(term)) != 0) {
++		const int sigttou = signo[SIGTTOU];
++
++		/* Ignore SIGTTOU generated when we are not the fg pgrp. */
+ 		while (tcsetattr(input, TCSAFLUSH|TCSASOFT, &oterm) == -1 &&
+ 		    errno == EINTR && !signo[SIGTTOU])
+ 			continue;
++		signo[SIGTTOU] = sigttou;
+ 	}
+ 	(void)sigaction(SIGALRM, &savealrm, NULL);
+ 	(void)sigaction(SIGHUP, &savehup, NULL);
+diff --git a/sftp.c b/sftp.c
+index 1b5c924..af6e3a6 100644
+--- a/sftp.c
++++ b/sftp.c
+@@ -232,6 +232,18 @@ killchild(int signo)
+ 
+ /* ARGSUSED */
+ static void
++suspchild(int signo)
++{
++	if (sshpid > 1) {
++		kill(sshpid, signo);
++		while (waitpid(sshpid, NULL, WUNTRACED) == -1 && errno == EINTR)
++			continue;
++	}
++	kill(getpid(), SIGSTOP);
++}
++
++/* ARGSUSED */
++static void
+ cmd_interrupt(int signo)
+ {
+ 	const char msg[] = "\rInterrupt  \n";
+@@ -2213,6 +2225,9 @@ connect_to_server(char *path, char **args, int *in, int *out)
+ 	signal(SIGTERM, killchild);
+ 	signal(SIGINT, killchild);
+ 	signal(SIGHUP, killchild);
++	signal(SIGTSTP, suspchild);
++	signal(SIGTTIN, suspchild);
++	signal(SIGTTOU, suspchild);
+ 	close(c_in);
+ 	close(c_out);
+ }

@@ -32,17 +32,30 @@
  /* portable attributes, etc. */
  
  typedef struct Stat Stat;
-@@ -551,6 +555,10 @@ process_open(void)
+@@ -547,6 +547,7 @@ process_open(void)
+ 	Attrib *a;
+ 	char *name;
+ 	int handle, fd, flags, mode, status = SSH2_FX_FAILURE;
++	mode_t old_umask;
+ 
+ 	id = get_int();
+ 	name = get_string(NULL);
+@@ -551,9 +555,15 @@ process_open(void)
  	a = get_attrib();
  	flags = flags_from_portable(pflags);
  	mode = (a->flags & SSH2_FILEXFER_ATTR_PERMISSIONS) ? a->perm : 0666;
 +	if (permforce == 1) {   /* Force perm if -m is set */
 +		mode = permforcemode;
-+		(void)umask(0); /* so umask does not interfere		 */
++		old_umask = umask(0); /* so umask does not interfere		 */
 +	}	
  	logit("open \"%s\" flags %s mode 0%o",
  	    name, string_from_portable(pflags), mode);
  	fd = open(name, flags, mode);
++	if (permforce == 1)
++		(void) umask(old_umask); /* restore umask to something sane */
+ 	if (fd < 0) {
+ 		status = errno_to_portable(errno);
+ 	} else {
 @@ -1322,8 +1330,8 @@ sftp_server_usage(void)
  	extern char *__progname;
  

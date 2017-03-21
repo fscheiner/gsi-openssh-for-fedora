@@ -1,0 +1,12 @@
+diff -up openssh-5.3p1/dh.c.relax-dh openssh-5.3p1/dh.c
+--- openssh-5.3p1/dh.c.relax-dh	2016-07-12 14:46:36.167151126 +0200
++++ openssh-5.3p1/dh.c	2016-07-12 14:46:46.734142796 +0200
+@@ -239,7 +239,7 @@ dh_gen_key(DH *dh, int need)
+ 
+ 	if (dh->p == NULL)
+ 		fatal("dh_gen_key: dh->p == NULL");
+-	if (need > INT_MAX / 2 || 2 * need >= BN_num_bits(dh->p))
++	if (need > INT_MAX / 2 || 2 * need > BN_num_bits(dh->p))
+ 		fatal("dh_gen_key: group too small: %d (2*need %d)",
+ 		    BN_num_bits(dh->p), 2*need);
+ 	do {
