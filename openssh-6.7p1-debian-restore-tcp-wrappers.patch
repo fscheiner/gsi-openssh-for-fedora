@@ -71,7 +71,7 @@ diff -up openssh-7.4p1/configure.ac.tcp_wrappers openssh-7.4p1/configure.ac
 +echo "              TCP Wrappers support: $TCPW_MSG"
  echo "              MD5 password support: $MD5_MSG"
  echo "                   libedit support: $LIBEDIT_MSG"
- echo "  Solaris process contract support: $SPC_MSG"
+ echo "                   libldns support: $LDNS_MSG"
 diff -up openssh-7.4p1/sshd.8.tcp_wrappers openssh-7.4p1/sshd.8
 --- openssh-7.4p1/sshd.8.tcp_wrappers	2016-12-23 15:36:38.759411194 +0100
 +++ openssh-7.4p1/sshd.8	2016-12-23 15:36:38.778411197 +0100

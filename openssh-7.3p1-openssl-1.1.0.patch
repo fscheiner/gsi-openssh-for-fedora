@@ -2122,8 +2122,8 @@ diff -up openssh-7.4p1/sshconnect1.c.openssl openssh-7.4p1/sshconnect1.c
  	int bits, rbits;
  	int ssh_cipher_default = SSH_CIPHER_3DES;
 @@ -522,10 +530,14 @@ ssh_kex(char *host, struct sockaddr *hos
- 	/* Get the public key. */
- 	server_key = key_new(KEY_RSA1);
+ 	if ((server_key = key_new(KEY_RSA1)) == NULL)
+ 		fatal("%s: key_new(KEY_RSA1) failed", __func__);
  	bits = packet_get_int();
 -	packet_get_bignum(server_key->rsa->e);
 -	packet_get_bignum(server_key->rsa->n);
@@ -2140,8 +2140,8 @@ diff -up openssh-7.4p1/sshconnect1.c.openssl openssh-7.4p1/sshconnect1.c
  		logit("Warning: Server lies about size of server public key: "
  		    "actual size is %d bits vs. announced %d.", rbits, bits);
 @@ -534,10 +546,14 @@ ssh_kex(char *host, struct sockaddr *hos
- 	/* Get the host key. */
- 	host_key = key_new(KEY_RSA1);
+ 	if ((host_key = key_new(KEY_RSA1)) == NULL)
+ 		fatal("%s: key_new(KEY_RSA1) failed", __func__);
  	bits = packet_get_int();
 -	packet_get_bignum(host_key->rsa->e);
 -	packet_get_bignum(host_key->rsa->n);
@@ -2633,7 +2633,7 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
 +	BIGNUM *e = NULL, *n = NULL;
  #endif /* WITH_SSH1 */
  
- 	cp = *cpp;
+ 	if (ret == NULL)
 @@ -1303,12 +1319,21 @@ sshkey_read(struct sshkey *ret, char **c
  		    bits == 0 || bits > SSHBUF_MAX_BIGNUM * 8)
  			return SSH_ERR_INVALID_FORMAT;	/* Bad bit count... */
@@ -3307,7 +3307,7 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
  
  	/* enable blinding */
 @@ -3846,7 +4109,7 @@ sshkey_parse_private_pem_fileblob(struct
- 		r = SSH_ERR_KEY_WRONG_PASSPHRASE;
+ 		r = SSH_ERR_LIBCRYPTO_ERROR;
  		goto out;
  	}
 -	if (pk->type == EVP_PKEY_RSA &&
@@ -3629,3 +3629,17 @@ diff -up openssh-7.4p1/ssh-rsa.c.openssl openssh-7.4p1/ssh-rsa.c
  	    sig == NULL || siglen == 0)
  		return SSH_ERR_INVALID_ARGUMENT;
  
+diff --git a/sshkey.c b/sshkey.c
+index ffc17ce..130217a 100644
+--- a/sshkey.c
++++ b/sshkey.c
+@@ -3815,7 +3815,9 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
+ 			case EVP_R_BAD_DECRYPT:
+ 				r = SSH_ERR_KEY_WRONG_PASSPHRASE;
+ 				goto out;
++#ifdef EVP_R_BN_DECODE_ERROR
+ 			case EVP_R_BN_DECODE_ERROR:
++#endif
+ 			case EVP_R_DECODE_ERROR:
+ #ifdef EVP_R_PRIVATE_KEY_DECODE_ERROR
+ 			case EVP_R_PRIVATE_KEY_DECODE_ERROR:

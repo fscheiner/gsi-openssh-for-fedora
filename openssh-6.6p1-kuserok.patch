@@ -235,8 +235,8 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
  	M_CP_INTOPT(rekey_interval);
  
 @@ -2309,6 +2319,7 @@ dump_config(ServerOptions *o)
+ 	dump_cfg_fmtint(sAllowStreamLocalForwarding, o->allow_streamlocal_forwarding);
  	dump_cfg_fmtint(sStreamLocalBindUnlink, o->fwd_opts.streamlocal_bind_unlink);
- 	dump_cfg_fmtint(sUsePrivilegeSeparation, use_privsep);
  	dump_cfg_fmtint(sFingerprintHash, o->fingerprint_hash);
 +	dump_cfg_fmtint(sKerberosUseKuserok, o->use_kuserok);
  

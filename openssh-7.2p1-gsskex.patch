@@ -1959,7 +1959,7 @@ diff -up openssh-7.4p1/readconf.c.gsskex openssh-7.4p1/readconf.c
  	oSendEnv, oControlPath, oControlMaster, oControlPersist,
  	oHashKnownHosts,
 @@ -205,10 +207,19 @@ static struct {
- 	{ "afstokenpassing", oUnsupported },
+ 	/* Sometimes-unsupported options */
  #if defined(GSSAPI)
  	{ "gssapiauthentication", oGssAuthentication },
 +	{ "gssapikeyexchange", oGssKeyEx },
@@ -1968,7 +1968,7 @@ diff -up openssh-7.4p1/readconf.c.gsskex openssh-7.4p1/readconf.c
 +	{ "gssapiclientidentity", oGssClientIdentity },
 +	{ "gssapiserveridentity", oGssServerIdentity },
 +	{ "gssapirenewalforcesrekey", oGssRenewalRekey },
- #else
+ # else
  	{ "gssapiauthentication", oUnsupported },
 +	{ "gssapikeyexchange", oUnsupported },
  	{ "gssapidelegatecredentials", oUnsupported },
@@ -1976,8 +1976,8 @@ diff -up openssh-7.4p1/readconf.c.gsskex openssh-7.4p1/readconf.c
 +	{ "gssapiclientidentity", oUnsupported },
 +	{ "gssapirenewalforcesrekey", oUnsupported },
  #endif
- 	{ "fallbacktorsh", oDeprecated },
- 	{ "usersh", oDeprecated },
+ #ifdef ENABLE_PKCS11
+ 	{ "smartcarddevice", oPKCS11Provider },
 @@ -961,10 +972,30 @@ parse_time:
  		intptr = &options->gss_authentication;
  		goto parse_flag;
@@ -2136,7 +2136,7 @@ diff -up openssh-7.4p1/servconf.c.gsskex openssh-7.4p1/servconf.c
  	if (options->gss_cleanup_creds == -1)
  		options->gss_cleanup_creds = 1;
  	if (options->gss_strict_acceptor == -1)
- 		options->gss_strict_acceptor = 0;
+ 		options->gss_strict_acceptor = 1;
 +	if (options->gss_store_rekey == -1)
 +		options->gss_store_rekey = 0;
  	if (options->password_authentication == -1)
@@ -2325,8 +2325,8 @@ diff -up openssh-7.4p1/sshconnect2.c.gsskex openssh-7.4p1/sshconnect2.c
 +#endif
 +
  	if (options.rekey_limit || options.rekey_interval)
- 		packet_set_rekey_limits((u_int32_t)options.rekey_limit,
- 		    (time_t)options.rekey_interval);
+ 		packet_set_rekey_limits(options.rekey_limit,
+ 		    options.rekey_interval);
 @@ -212,11 +248,31 @@ ssh_kex2(char *host, struct sockaddr *ho
  	kex->kex[KEX_ECDH_SHA2] = kexecdh_client;
  # endif

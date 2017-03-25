@@ -50,4 +50,4 @@ diff -up openssh-7.2p2/channels.c.x11 openssh-7.2p2/channels.c
 +	return -1;
  }
  
- int
+ #ifdef __APPLE__

@@ -169,7 +169,7 @@ diff -up openssh-7.0p1/readconf.c.gsskexalg openssh-7.0p1/readconf.c
  	{ "gssapiserveridentity", oGssServerIdentity },
  	{ "gssapirenewalforcesrekey", oGssRenewalRekey },
 +	{ "gssapikexalgorithms", oGssKexAlgorithms },
- #else
+ # else
  	{ "gssapiauthentication", oUnsupported },
  	{ "gssapikeyexchange", oUnsupported },
 @@ -207,6 +209,7 @@ static struct {
@@ -178,8 +178,8 @@ diff -up openssh-7.0p1/readconf.c.gsskexalg openssh-7.0p1/readconf.c
  	{ "gssapirenewalforcesrekey", oUnsupported },
 +	{ "gssapikexalgorithms", oUnsupported },
  #endif
- 	{ "fallbacktorsh", oDeprecated },
- 	{ "usersh", oDeprecated },
+ #ifdef ENABLE_PKCS11
+ 	{ "smartcarddevice", oPKCS11Provider },
 @@ -929,6 +932,18 @@ parse_time:
  		intptr = &options->gss_renewal_rekey;
  		goto parse_flag;
@@ -249,7 +249,7 @@ diff -up openssh-7.0p1/servconf.c.gsskexalg openssh-7.0p1/servconf.c
  	options->kbd_interactive_authentication = -1;
  	options->challenge_response_authentication = -1;
 @@ -288,6 +290,10 @@ fill_default_server_options(ServerOption
- 		options->gss_strict_acceptor = 0;
+ 		options->gss_strict_acceptor = 1;
  	if (options->gss_store_rekey == -1)
  		options->gss_store_rekey = 0;
 +#ifdef GSSAPI

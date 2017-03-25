@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.4p1
-%global openssh_rel 4
+%global openssh_ver 7.5p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -163,20 +163,16 @@ Patch939: openssh-7.2p2-s390-closefrom.patch
 # expose more information to PAM
 # https://github.com/openssh/openssh-portable/pull/47
 Patch940: openssh-7.2p2-expose-pam.patch
-# Rework SELinux context handling with chroot (#1357860)
-Patch942: openssh-7.2p2-chroot-capabilities.patch
 # Move MAX_DISPLAYS to a configuration option (#1341302)
 Patch944: openssh-7.3p1-x11-max-displays.patch
-# Whitelist /usr/lib*/ as planed upstream to prevent breakage
-Patch946: openssh-7.4p1-pkcs11-whitelist.patch
-# Correct reporting errors from included files (#1408558)
-Patch947: openssh-7.4p1-include-errors.patch
 # Help systemd to track the running service
 Patch948: openssh-7.4p1-systemd.patch
+# Fix typo in sandbox code; missing header for s390
+Patch949: openssh-7.5p1-sandbox.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
-Patch98: openssh-7.4p1-gsissh.patch
+Patch98: openssh-7.5p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -194,7 +190,6 @@ BuildRequires: pam-devel
 BuildRequires: tcp_wrappers-devel
 BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
-BuildRequires: libcap-ng-devel
 BuildRequires: systemd-devel
 
 %if %{kerberos5}
@@ -328,11 +323,9 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch933 -p1 -b .fingerprint
 %patch939 -p1 -b .s390-dev
 %patch940 -p1 -b .expose-pam
-%patch942 -p1 -b .chroot-cap
 %patch944 -p1 -b .x11max
-%patch946 -p1 -b .pkcs11-whitelist
-%patch947 -p1 -b .include-errors
 %patch948 -p1 -b .systemd
+%patch949 -p1 -b .sandbox
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -546,6 +539,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Mar 24 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.5p1-1
+- Based on openssh-7.5p1-2.fc26
+
 * Sat Mar 04 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-4
 - Based on openssh-7.4p1-4.fc25
 

@@ -60,8 +60,8 @@ diff -up openssh-7.4p1/servconf.c.vendor openssh-7.4p1/servconf.c
  	{ "verifyreversemapping", sDeprecated, SSHCFG_GLOBAL },
  	{ "reversemappingcheck", sDeprecated, SSHCFG_GLOBAL },
 @@ -1369,6 +1373,10 @@ process_server_config_line(ServerOptions
- 		multistate_ptr = multistate_privsep;
- 		goto parse_multistate;
+ 		intptr = &options->disable_forwarding;
+ 		goto parse_flag;
  
 +	case sShowPatchLevel:
 +		intptr = &options->show_patchlevel;
@@ -138,12 +138,12 @@ diff -up openssh-7.4p1/sshd.c.vendor openssh-7.4p1/sshd.c
 @@ -367,7 +367,8 @@ sshd_exchange_identification(struct ssh
  	char remote_version[256];	/* Must be at least as big as buf. */
  
- 	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s%s",
+ 	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s\r\n",
 -	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION,
 +	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2,
 +	    (options.show_patchlevel == 1) ? SSH_VENDOR_PATCHLEVEL : SSH_VERSION,
  	    *options.version_addendum == '\0' ? "" : " ",
- 	    options.version_addendum, newline);
+ 	    options.version_addendum);
  
 @@ -1650,7 +1651,8 @@ main(int ac, char **av)
  		exit(1);

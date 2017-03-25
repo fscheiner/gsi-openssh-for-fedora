@@ -82,7 +82,7 @@ diff -up openssh-7.4p1/servconf.c.GSSAPIEnablek5users openssh-7.4p1/servconf.c
  	M_CP_INTOPT(rekey_interval);
  
 @@ -2320,6 +2330,7 @@ dump_config(ServerOptions *o)
- 	dump_cfg_fmtint(sUsePrivilegeSeparation, use_privsep);
+ 	dump_cfg_fmtint(sStreamLocalBindUnlink, o->fwd_opts.streamlocal_bind_unlink);
  	dump_cfg_fmtint(sFingerprintHash, o->fingerprint_hash);
  	dump_cfg_fmtint(sKerberosUseKuserok, o->use_kuserok);
 +	dump_cfg_fmtint(sGssEnablek5users, o->enable_k5users);

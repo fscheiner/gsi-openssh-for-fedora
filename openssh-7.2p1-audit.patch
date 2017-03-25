@@ -776,7 +776,7 @@ diff -up openssh-7.4p1/auth2.c.audit openssh-7.4p1/auth2.c
 +++ openssh-7.4p1/auth2.c	2016-12-23 18:54:54.434080419 +0100
 @@ -249,9 +249,6 @@ input_userauth_request(int type, u_int32
  		} else {
- 			logit("input_userauth_request: invalid user %s", user);
+ 			/* Invalid user, fake password information */
  			authctxt->pw = fakepw();
 -#ifdef SSH_AUDIT_EVENTS
 -			PRIVSEP(audit_event(SSH_INVALID_USER));
@@ -960,9 +960,9 @@ diff -up openssh-7.4p1/kex.c.audit openssh-7.4p1/kex.c
 +#endif
  		return SSH_ERR_NO_CIPHER_ALG_MATCH;
 +	}
- 	if ((enc->cipher = cipher_by_name(name)) == NULL)
+ 	if ((enc->cipher = cipher_by_name(name)) == NULL) {
+ 		free(name);
  		return SSH_ERR_INTERNAL_ERROR;
- 	enc->name = name;
 @@ -702,8 +707,12 @@ choose_mac(struct ssh *ssh, struct sshma
  {
  	char *name = match_list(client, server, NULL);
@@ -974,9 +974,9 @@ diff -up openssh-7.4p1/kex.c.audit openssh-7.4p1/kex.c
 +#endif
  		return SSH_ERR_NO_MAC_ALG_MATCH;
 +	}
- 	if (mac_setup(mac, name) < 0)
+ 	if (mac_setup(mac, name) < 0) {
+ 		free(name);
  		return SSH_ERR_INTERNAL_ERROR;
- 	/* truncate the key */
 @@ -720,8 +729,12 @@ choose_comp(struct sshcomp *comp, char *
  {
  	char *name = match_list(client, server, NULL);
@@ -1739,16 +1739,16 @@ diff -up openssh-7.4p1/sandbox-seccomp-filter.c.audit openssh-7.4p1/sandbox-secc
 +++ openssh-7.4p1/sandbox-seccomp-filter.c	2016-12-23 18:54:54.438080420 +0100
 @@ -159,6 +159,12 @@ static const struct sock_filter preauth_
  #ifdef __NR_gettimeofday
- 	SC_ALLOW(gettimeofday),
+ 	SC_ALLOW(__NR_gettimeofday),
  #endif
 +#ifdef SSH_AUDIT_EVENTS
-+	SC_ALLOW(getuid),
++	SC_ALLOW(__NR_getuid),
 +#ifdef __NR_getuid32 /* not defined on x86_64 */
-+	SC_ALLOW(getuid32),
++	SC_ALLOW(__NR_getuid32),
 +#endif
 +#endif
  #ifdef __NR_madvise
- 	SC_ALLOW(madvise),
+ 	SC_ALLOW(__NR_madvise),
  #endif
 diff -up openssh-7.4p1/session.c.audit openssh-7.4p1/session.c
 --- openssh-7.4p1/session.c.audit	2016-12-23 18:54:54.430080418 +0100

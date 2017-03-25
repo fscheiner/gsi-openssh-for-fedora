@@ -115,11 +115,14 @@ diff -up openssh-7.4p1/kex.c.fips openssh-7.4p1/kex.c
  #endif
  
  #include "ssh2.h"
-@@ -125,6 +126,23 @@ static const struct kexalg kexalgs[] = {
+@@ -125,6 +126,26 @@ static const struct kexalg kexalgs[] = {
  	{ NULL, -1, -1, -1},
  };
  
 +static const struct kexalg kexalgs_fips[] = {
++	{ KEX_DH14_SHA256, KEX_DH_GRP14_SHA256, 0, SSH_DIGEST_SHA256 },
++	{ KEX_DH16_SHA512, KEX_DH_GRP16_SHA512, 0, SSH_DIGEST_SHA512 },
++	{ KEX_DH18_SHA512, KEX_DH_GRP18_SHA512, 0, SSH_DIGEST_SHA512 },
 +#ifdef HAVE_EVP_SHA256
 +	{ KEX_DHGEX_SHA256, KEX_DH_GEX_SHA256, 0, SSH_DIGEST_SHA256 },
 +#endif
@@ -306,13 +309,14 @@ diff -up openssh-7.4p1/Makefile.in.fips openssh-7.4p1/Makefile.in
 diff -up openssh-7.4p1/myproposal.h.fips openssh-7.4p1/myproposal.h
 --- openssh-7.4p1/myproposal.h.fips	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/myproposal.h	2016-12-23 16:37:49.300741586 +0100
-@@ -138,6 +138,26 @@
+@@ -138,6 +138,27 @@
  
  #define KEX_CLIENT_MAC KEX_SERVER_MAC
  
 +#define KEX_DEFAULT_KEX_FIPS		\
 +	KEX_ECDH_METHODS \
-+	KEX_SHA2_METHODS
++	KEX_SHA2_METHODS \
++	KEX_SHA2_GROUP14
 +#define	KEX_FIPS_ENCRYPT \
 +	"aes128-ctr,aes192-ctr,aes256-ctr," \
 +	"aes128-cbc,3des-cbc," \
@@ -357,13 +361,13 @@ diff -up openssh-7.4p1/sandbox-seccomp-filter.c.fips openssh-7.4p1/sandbox-secco
 +++ openssh-7.4p1/sandbox-seccomp-filter.c	2016-12-23 16:37:49.300741586 +0100
 @@ -118,6 +118,9 @@ static const struct sock_filter preauth_
  #ifdef __NR_open
- 	SC_DENY(open, EACCES),
+ 	SC_DENY(__NR_open, EACCES),
  #endif
 +#ifdef __NR_socket
-+	SC_DENY(socket, EACCES),
++	SC_DENY(__NR_socket, EACCES),
 +#endif
  #ifdef __NR_openat
- 	SC_DENY(openat, EACCES),
+ 	SC_DENY(__NR_openat, EACCES),
  #endif
 diff -up openssh-7.4p1/servconf.c.fips openssh-7.4p1/servconf.c
 --- openssh-7.4p1/servconf.c.fips	2016-12-23 16:37:49.285741579 +0100

@@ -2,8 +2,8 @@ diff -up openssh-7.4p1/auth2.c.expose-pam openssh-7.4p1/auth2.c
 --- openssh-7.4p1/auth2.c.expose-pam	2016-12-23 15:40:26.768447868 +0100
 +++ openssh-7.4p1/auth2.c	2016-12-23 15:40:26.818447876 +0100
 @@ -310,6 +310,7 @@ userauth_finish(Authctxt *authctxt, int
-     const char *submethod)
  {
+ 	struct ssh *ssh = active_state;	/* XXX */
  	char *methods;
 +	char *prev_auth_details;
  	int partial = 0;
@@ -217,7 +217,7 @@ diff -up openssh-7.4p1/monitor.c.expose-pam openssh-7.4p1/monitor.c
 --- openssh-7.4p1/monitor.c.expose-pam	2016-12-23 15:40:26.794447872 +0100
 +++ openssh-7.4p1/monitor.c	2016-12-23 15:41:16.473455863 +0100
 @@ -300,6 +300,7 @@ monitor_child_preauth(Authctxt *_authctx
- {
+ 	struct ssh *ssh = active_state;	/* XXX */
  	struct mon_table *ent;
  	int authenticated = 0, partial = 0;
 +	char *prev_auth_details;
