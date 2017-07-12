@@ -183,7 +183,7 @@ Obsoletes: %{name}-clients-fips, %{name}-server-fips
 %if %{ldap}
 BuildRequires: openldap-devel
 %endif
-BuildRequires: autoconf, automake, perl, perl-generators, zlib-devel
+BuildRequires: autoconf, automake, perl-interpreter, perl-generators, zlib-devel
 BuildRequires: audit-libs-devel >= 2.0.5
 BuildRequires: util-linux, groff
 BuildRequires: pam-devel
