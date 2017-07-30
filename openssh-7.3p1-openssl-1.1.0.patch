@@ -18,8 +18,8 @@ diff -up openssh-7.4p1/authfd.c.openssl openssh-7.4p1/authfd.c
 +	    (r = sshbuf_get_u32(ids, &bits)) != 0 ||
 +	    (r = sshbuf_get_bignum1(ids, e)) != 0 ||
 +	    (r = sshbuf_get_bignum1(ids, n)) != 0 ||
-+	    (RSA_set0_key(key->rsa, n, e, NULL) == 0) ||
-+	    (r = sshbuf_get_cstring(ids, &comment, NULL)) != 0) {
++	    (r = sshbuf_get_cstring(ids, &comment, NULL)) != 0 ||
++	    (RSA_set0_key(key->rsa, n, e, NULL) == 0)) {
 +		BN_free(n);
 +		BN_free(e);
  		goto out;
@@ -2003,7 +2003,7 @@ diff -up openssh-7.4p1/ssh-agent.c.openssl openssh-7.4p1/ssh-agent.c
  
  		if (bits != sshkey_size(key))
  			logit("Warning: identity keysize mismatch: "
-@@ -565,23 +577,38 @@ agent_decode_rsa1(struct sshbuf *m, stru
+@@ -565,23 +577,46 @@ agent_decode_rsa1(struct sshbuf *m, stru
  {
  	struct sshkey *k = NULL;
  	int r = SSH_ERR_INTERNAL_ERROR;
@@ -2032,16 +2032,24 @@ diff -up openssh-7.4p1/ssh-agent.c.openssl openssh-7.4p1/ssh-agent.c
 -	    (r = sshbuf_get_bignum1(m, k->rsa->p)) != 0) 	/* q */
 +	    (r = sshbuf_get_bignum1(m, q)) != 0 ||	/* p */
 +	    (r = sshbuf_get_bignum1(m, p)) != 0 || 	/* q */
-+	    RSA_set0_key(k->rsa, n, e, d) == 0 ||
-+	    RSA_set0_factors(k->rsa, p, q) == 0 ||
-+	    RSA_set0_crt_params(k->rsa, NULL, NULL, iqmp) == 0) {
++	    RSA_set0_key(k->rsa, n, e, d) == 0) {
 +		BN_free(n);
 +		BN_free(e);
 +		BN_free(d);
 +		BN_free(p);
 +		BN_free(q);
 +		BN_free(iqmp);
++		goto out;
++	}
++	if (RSA_set0_factors(k->rsa, p, q) == 0) {
++		BN_free(p);
++		BN_free(q);
++		BN_free(iqmp);
  		goto out;
++	}
++	if (RSA_set0_crt_params(k->rsa, NULL, NULL, iqmp) == 0) {
++		BN_free(iqmp);
++		goto out;
 +	}
  
  	/* Generate additional parameters */
@@ -3088,7 +3096,7 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
  		break;
  # ifdef OPENSSL_HAS_ECC
  	case KEY_ECDSA:
-@@ -2819,24 +2995,71 @@ sshkey_private_deserialize(struct sshbuf
+@@ -2819,24 +2995,84 @@ sshkey_private_deserialize(struct sshbuf
  			r = SSH_ERR_ALLOC_FAIL;
  			goto out;
  		}
@@ -3168,11 +3176,24 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
 +			    (r = sshbuf_get_bignum2(buf, p)) != 0 ||
 +			    (r = sshbuf_get_bignum2(buf, q)) != 0 ||
 +			    (r = ((RSA_set0_key(k->rsa, NULL, NULL, d) == 0)
-+			        ? SSH_ERR_LIBCRYPTO_ERROR : 0)) != 0 ||
-+			    (r = ((RSA_set0_factors(k->rsa, p, q) == 0)
-+			        ? SSH_ERR_LIBCRYPTO_ERROR : 0)) != 0 ||
-+			    (r = rsa_generate_additional_parameters(k->rsa, iqmp)) != 0)
++			        ? SSH_ERR_LIBCRYPTO_ERROR : 0)) != 0) {
++				BN_free(d);
++				BN_free(iqmp);
++				BN_free(p);
++				BN_free(q);
 +				goto out;
++			}
++			if (RSA_set0_factors(k->rsa, p, q) == 0) {
++			        r = SSH_ERR_LIBCRYPTO_ERROR;
++				BN_free(p);
++				BN_free(q);
++				goto out;
++			}
++			if (rsa_generate_additional_parameters(k->rsa, iqmp) != 0) {
++			        r = SSH_ERR_LIBCRYPTO_ERROR;
++				free(iqmp);
++				goto out;
++			}
 +		}
  		break;
  #endif /* WITH_OPENSSL */
@@ -3275,7 +3296,7 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
  
  	/* Check that it is a supported cipher. */
  	cipher = cipher_by_number(cipher_type);
-@@ -3786,14 +4038,25 @@ sshkey_parse_private_rsa1(struct sshbuf
+@@ -3786,15 +4038,33 @@ sshkey_parse_private_rsa1(struct sshbuf
  	}
  
  	/* Read the rest of the private key. */
@@ -3291,9 +3312,14 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
 +	    (r = sshbuf_get_bignum1(decrypted, iqmp)) != 0 ||
 +	    (r = sshbuf_get_bignum1(decrypted, q)) != 0 ||
 +	    (r = sshbuf_get_bignum1(decrypted, p)) != 0 ||
-+	    (RSA_set0_key(prv->rsa, NULL, NULL, d) == 0) ||
-+	    (RSA_set0_factors(prv->rsa, p, q) == 0)) {
++	    (RSA_set0_key(prv->rsa, NULL, NULL, d) == 0)) {
 +		BN_free(d);
++		BN_free(p);
++		BN_free(q);
++		BN_free(iqmp);
++		goto out;
++	}
++	if (RSA_set0_factors(prv->rsa, p, q) == 0) {
 +		BN_free(p);
 +		BN_free(q);
 +		BN_free(iqmp);
@@ -3302,11 +3328,24 @@ diff -up openssh-7.4p1/sshkey.c.openssl openssh-7.4p1/sshkey.c
  
  	/* calculate p-1 and q-1 */
 -	if ((r = rsa_generate_additional_parameters(prv->rsa)) != 0)
-+	if ((r = rsa_generate_additional_parameters(prv->rsa, iqmp)) != 0)
++	if ((r = rsa_generate_additional_parameters(prv->rsa, iqmp)) != 0) {
++		BN_free(iqmp);
  		goto out;
++	}
  
  	/* enable blinding */
-@@ -3846,7 +4109,7 @@ sshkey_parse_private_pem_fileblob(struct
+ 	if (RSA_blinding_on(prv->rsa, NULL) != 1) {
+@@ -3874,7 +4146,9 @@ sshkey_parse_private_pem_fileblob(struct
+ 			case EVP_R_BAD_DECRYPT:
+ 				r = SSH_ERR_KEY_WRONG_PASSPHRASE;
+ 				goto out;
++#ifdef EVP_R_BN_DECODE_ERROR
+ 			case EVP_R_BN_DECODE_ERROR:
++#endif
+ 			case EVP_R_DECODE_ERROR:
+ #ifdef EVP_R_PRIVATE_KEY_DECODE_ERROR
+ 			case EVP_R_PRIVATE_KEY_DECODE_ERROR:
+@@ -3892,7 +4166,7 @@ sshkey_parse_private_pem_fileblob(struct
  		r = SSH_ERR_LIBCRYPTO_ERROR;
  		goto out;
  	}
@@ -3629,17 +3668,3 @@ diff -up openssh-7.4p1/ssh-rsa.c.openssl openssh-7.4p1/ssh-rsa.c
  	    sig == NULL || siglen == 0)
  		return SSH_ERR_INVALID_ARGUMENT;
  
-diff --git a/sshkey.c b/sshkey.c
-index ffc17ce..130217a 100644
---- a/sshkey.c
-+++ b/sshkey.c
-@@ -3815,7 +3815,9 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
- 			case EVP_R_BAD_DECRYPT:
- 				r = SSH_ERR_KEY_WRONG_PASSPHRASE;
- 				goto out;
-+#ifdef EVP_R_BN_DECODE_ERROR
- 			case EVP_R_BN_DECODE_ERROR:
-+#endif
- 			case EVP_R_DECODE_ERROR:
- #ifdef EVP_R_PRIVATE_KEY_DECODE_ERROR
- 			case EVP_R_PRIVATE_KEY_DECODE_ERROR:

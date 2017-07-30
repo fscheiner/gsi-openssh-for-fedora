@@ -31,12 +31,12 @@
 %global ldap 1
 
 %global openssh_ver 7.5p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -171,7 +171,7 @@ Patch948: openssh-7.4p1-systemd.patch
 Patch949: openssh-7.5p1-sandbox.patch
 
 # This is the patch that adds GSI support
-# Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
+# Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
 Patch98: openssh-7.5p1-gsissh.patch
 
 License: BSD
@@ -539,6 +539,10 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Jul 31 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.5p1-2
+- Based on openssh-7.5p1-3.fc26
+- Update GSI patch with more openssl 1.1.0 fixes from Globus
+
 * Wed Jul 26 2017 Fedora Release Engineering <releng@fedoraproject.org> - 7.5p1-1.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_27_Mass_Rebuild
 
