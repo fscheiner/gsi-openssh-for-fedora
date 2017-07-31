@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 6.6.1p1
-%global openssh_rel 7
+%global openssh_rel 8
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -211,6 +211,8 @@ Patch939: openssh-6.6p1-x11-max-displays.patch
 Patch940: openssh-6.6p1-permitopen-any-host.patch
 # Rework capabilities handling for SELinux confined users (#1357859)
 Patch941: openssh-6.6p1-chroot-capabilities.patch
+# Add systemd stuff so it can track running service (#1381997)
+Patch942: openssh-6.6p1-systemd.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
@@ -231,6 +233,7 @@ BuildRequires: pam-devel
 BuildRequires: tcp_wrappers-devel
 BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
+BuildRequires: systemd-devel
 
 %if %{kerberos5}
 BuildRequires: krb5-devel
@@ -390,6 +393,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch939 -p1 -b .x11max
 %patch940 -p1 -b .permitopen
 %patch941 -p1 -b .chroot-cap
+%patch942 -p1 -b .patch
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-fps
@@ -450,6 +454,7 @@ fi
 	--without-zlib-version-check \
 	--with-ssl-engine \
 	--with-ipaddr-display \
+	--with-systemd \
 %if %{ldap}
 	--with-ldap \
 %endif
@@ -602,6 +607,10 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Mon Jul 31 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 6.6.1p1-8
+- Based on openssh-6.6.1p1-35.el7_3
+- Update GSI patch with more openssl 1.1.0 fixes from Globus
+
 * Fri Feb 24 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 6.6.1p1-7
 - Based on openssh-6.6.1p1-33.el7_3
 

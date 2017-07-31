@@ -5,14 +5,14 @@ After=network.target gsisshd-keygen.service
 Wants=gsisshd-keygen.service
 
 [Service]
-Type=forking
-PIDFile=/var/run/gsisshd.pid
+Type=notify
 EnvironmentFile=-/etc/sysconfig/gsisshd
-ExecStart=/usr/sbin/gsisshd $OPTIONS
+ExecStart=/usr/sbin/gsisshd -D $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure
 RestartSec=42s
+RestartPreventExitStatus=255
 
 [Install]
 WantedBy=multi-user.target
