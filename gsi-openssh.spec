@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.5p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -338,6 +338,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
+sed 's!/etc/sysconfig/sshd!/etc/sysconfig/gsisshd!' -i sshd_config
 
 cp -p %{SOURCE99} .
 
@@ -539,6 +540,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Sat Nov 11 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.5p1-3
+- Based on openssh-7.5p1-5.fc27
+
 * Mon Jul 31 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.5p1-2
 - Based on openssh-7.5p1-3.fc26
 - Update GSI patch with more openssl 1.1.0 fixes from Globus

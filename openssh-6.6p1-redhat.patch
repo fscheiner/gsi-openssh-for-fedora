@@ -64,7 +64,7 @@ diff -up openssh-7.4p1/sshd_config.5.redhat openssh-7.4p1/sshd_config.5
 diff -up openssh-7.4p1/sshd_config.redhat openssh-7.4p1/sshd_config
 --- openssh-7.4p1/sshd_config.redhat	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/sshd_config	2016-12-23 13:33:05.386233133 +0100
-@@ -10,21 +10,26 @@
+@@ -10,21 +10,35 @@
  # possible, but leave them commented.  Uncommented options override the
  # default value.
  
@@ -88,6 +88,15 @@ diff -up openssh-7.4p1/sshd_config.redhat openssh-7.4p1/sshd_config
  # Ciphers and keying
  #RekeyLimit default none
  
++# System-wide Crypto policy:
++# If this system is following system-wide crypto policy, the changes to
++# Ciphers, MACs, KexAlgoritms and GSSAPIKexAlgorithsm will not have any
++# effect here. They will be overridden by command-line options passed on
++# the server start up.
++# To opt out, uncomment a line with redefinition of  CRYPTO_POLICY=
++# variable in  /etc/sysconfig/sshd  to overwrite the policy.
++# For more information, see manual page for update-crypto-policies(8).
++
  # Logging
  #SyslogFacility AUTH
 +SyslogFacility AUTHPRIV
