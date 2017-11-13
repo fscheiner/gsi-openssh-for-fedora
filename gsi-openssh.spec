@@ -35,7 +35,7 @@
 %global nologin 1
 
 %global openssh_ver 5.3p1
-%global openssh_rel 16
+%global openssh_rel 17
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -237,6 +237,8 @@ Patch167: openssh-5.3p1-prevent-infinite-loop.patch
 Patch168: openssh-5.3p1-s390-closefrom.patch
 # CVE-2015-8325: privilege escalation via user's PAM environment and UseLogin=yes
 Patch169: openssh-5.3p1-CVE-2015-8325.patch
+# CVE-2016-6210: User enumeration via covert timing channel
+Patch170: openssh-5.3p1-CVE-2016-6210.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-5.3p1.patch
@@ -456,6 +458,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch167 -p1 -b .infinite
 %patch168 -p1 -b .s390
 %patch169 -p1 -b .use-login
+%patch170 -p1 -b .user-enumeration
 
 %patch200 -p1 -b .gsi
 
@@ -661,11 +664,14 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Mon Nov 13 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-17
+- Based on openssh-5.3p1-123.el6_9
+
 * Mon Jul 31 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-16
 - Update GSI patch with more openssl 1.1.0 fixes from Globus
 
 * Tue Mar 21 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-15
-- based on openssh-5.3p1-122.el6
+- Based on openssh-5.3p1-122.el6
 
 * Thu Dec 15 2016 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-14
 - Adding mechanism OID negotiation with the introduction of micv2 OID

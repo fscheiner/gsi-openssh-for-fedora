@@ -492,8 +492,8 @@ diff -Nur openssh-5.3p1.orig/auth-pam.c openssh-5.3p1/auth-pam.c
 +		sshpam_check_userchanged();
 +	}
  	sshpam_password = NULL;
+	free(fake);
  	if (sshpam_err == PAM_SUCCESS && authctxt->valid) {
- 		debug("PAM: password authentication accepted for %.100s",
 diff -Nur openssh-5.3p1.orig/auth-pam.h openssh-5.3p1/auth-pam.h
 --- openssh-5.3p1.orig/auth-pam.h	2017-07-31 11:44:15.724968347 +0200
 +++ openssh-5.3p1/auth-pam.h	2017-07-31 11:45:42.693924889 +0200
