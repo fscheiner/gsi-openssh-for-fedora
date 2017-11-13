@@ -1,0 +1,149 @@
+From 5f1596e11d55539678c41f68aed358628d33d86f Mon Sep 17 00:00:00 2001
+From: Damien Miller <djm@mindrot.org>
+Date: Tue, 14 Mar 2017 13:15:18 +1100
+Subject: [PATCH] support ioctls for ICA crypto card on Linux/s390
+
+Based on patch from Eduardo Barretto; ok dtucker@
+---
+ sandbox-seccomp-filter.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index af5525a..6ceee33 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -223,6 +223,12 @@ static const struct sock_filter preauth_insns[] = {
+ 	SC_ALLOW_ARG(socketcall, 0, SYS_SHUTDOWN),
+ 	SC_DENY(socketcall, EACCES),
+ #endif
++#if defined(__NR_ioctl) && defined(__s390__)
++	/* Allow ioctls for ICA crypto card on s390 */
++	SC_ALLOW_ARG(ioctl, 1, Z90STAT_STATUS_MASK),
++	SC_ALLOW_ARG(ioctl, 1, ICARSAMODEXPO),
++	SC_ALLOW_ARG(ioctl, 1, ICARSACRT),
++#endif /* defined(__NR_ioctl) && defined(__s390__) */
+ 
+ 	/* Default deny */
+ 	BPF_STMT(BPF_RET+BPF_K, SECCOMP_FILTER_FAIL),
+
+From 9e96b41682aed793fadbea5ccd472f862179fb02 Mon Sep 17 00:00:00 2001
+From: Damien Miller <djm@mindrot.org>
+Date: Tue, 14 Mar 2017 12:24:47 +1100
+Subject: [PATCH] Fix weakness in seccomp-bpf sandbox arg inspection
+
+Syscall arguments are passed via an array of 64-bit values in struct
+seccomp_data, but we were only inspecting the bottom 32 bits and not
+even those correctly for BE systems.
+
+Fortunately, the only case argument inspection was used was in the
+socketcall filtering so using this for sandbox escape seems
+impossible.
+
+ok dtucker
+---
+ sandbox-seccomp-filter.c | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index 2e1ed2c..af5525a 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -73,6 +73,16 @@
+ # define SECCOMP_FILTER_FAIL SECCOMP_RET_TRAP
+ #endif /* SANDBOX_SECCOMP_FILTER_DEBUG */
+ 
++#if __BYTE_ORDER == __LITTLE_ENDIAN
++# define ARG_LO_OFFSET  0
++# define ARG_HI_OFFSET  sizeof(uint32_t)
++#elif __BYTE_ORDER == __BIG_ENDIAN
++# define ARG_LO_OFFSET  sizeof(uint32_t)
++# define ARG_HI_OFFSET  0
++#else
++#error "Unknown endianness"
++#endif
++
+ /* Simple helpers to avoid manual errors (but larger BPF programs). */
+ #define SC_DENY(_nr, _errno) \
+ 	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_ ## _nr, 0, 1), \
+@@ -81,11 +91,17 @@
+ 	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_ ## _nr, 0, 1), \
+ 	BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW)
+ #define SC_ALLOW_ARG(_nr, _arg_nr, _arg_val) \
+-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_ ## _nr, 0, 4), \
+-	/* load first syscall argument */ \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_ ## _nr, 0, 6), \
++	/* load and test first syscall argument, low word */ \
++	BPF_STMT(BPF_LD+BPF_W+BPF_ABS, \
++	    offsetof(struct seccomp_data, args[(_arg_nr)]) + ARG_LO_OFFSET), \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, \
++	    ((_arg_val) & 0xFFFFFFFF), 0, 3), \
++	/* load and test first syscall argument, high word */ \
+ 	BPF_STMT(BPF_LD+BPF_W+BPF_ABS, \
+-	    offsetof(struct seccomp_data, args[(_arg_nr)])), \
+-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (_arg_val), 0, 1), \
++	    offsetof(struct seccomp_data, args[(_arg_nr)]) + ARG_HI_OFFSET), \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, \
++	    (((uint32_t)((uint64_t)(_arg_val) >> 32)) & 0xFFFFFFFF), 0, 1), \
+ 	BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW), \
+ 	/* reload syscall number; all rules expect it in accumulator */ \
+ 	BPF_STMT(BPF_LD+BPF_W+BPF_ABS, \
+
+From 58b8cfa2a062b72139d7229ae8de567f55776f24 Mon Sep 17 00:00:00 2001
+From: Damien Miller <djm@mindrot.org>
+Date: Wed, 22 Mar 2017 12:43:02 +1100
+Subject: [PATCH] Missing header on Linux/s390
+
+Patch from Jakub Jelen
+---
+ sandbox-seccomp-filter.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index a8d472a..2831e9d 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -50,6 +50,9 @@
+ #include <elf.h>
+ 
+ #include <asm/unistd.h>
++#ifdef __s390__
++#include <asm/zcrypt.h>
++#endif
+ 
+ #include <errno.h>
+ #include <signal.h>
+
+getuid and geteuid are needed when using an openssl engine that calls a
+crypto card, e.g. ICA (libica).
+Those syscalls are also needed by the distros for audit code.
+
+Signed-off-by: Eduardo Barretto <ebarretto at linux.vnet.ibm.com>
+---
+ sandbox-seccomp-filter.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index 6e7de31..e86aa2c 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -175,6 +175,18 @@ static const struct sock_filter preauth_insns[] = {
+ #ifdef __NR_getpid
+ 	SC_ALLOW(getpid),
+ #endif
++#ifdef __NR_getuid
++	SC_ALLOW(getuid),
++#endif
++#ifdef __NR_getuid32
++	SC_ALLOW(getuid32),
++#endif
++#ifdef __NR_geteuid
++	SC_ALLOW(geteuid),
++#endif
++#ifdef __NR_geteuid32
++	SC_ALLOW(geteuid32),
++#endif
+ #ifdef __NR_getrandom
+ 	SC_ALLOW(getrandom),
+ #endif
+-- 
+1.9.1

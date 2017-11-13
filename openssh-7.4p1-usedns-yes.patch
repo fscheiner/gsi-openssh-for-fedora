@@ -1,0 +1,46 @@
+Revert 3cd5103c1e1aaa59bd66f7f52f6ebbcd5deb12f9
+
+diff --git a/servconf.c b/servconf.c
+index 475076bf2..318546290 100644
+--- a/servconf.c
++++ b/servconf.c
+@@ -308,7 +308,7 @@ fill_default_server_options(ServerOptions *options)
+ 	if (options->max_sessions == -1)
+ 		options->max_sessions = DEFAULT_SESSIONS_MAX;
+ 	if (options->use_dns == -1)
+-		options->use_dns = 0;
++		options->use_dns = 1;
+ 	if (options->client_alive_interval == -1)
+ 		options->client_alive_interval = 0;
+ 	if (options->client_alive_count_max == -1)
+diff --git a/sshd_config b/sshd_config
+index e9045bc4d..c9042ac3c 100644
+--- a/sshd_config
++++ b/sshd_config
+@@ -112,7 +112,7 @@ UsePrivilegeSeparation sandbox		# Default for new installations.
+ #ClientAliveInterval 0
+ #ClientAliveCountMax 3
+ #ShowPatchLevel no
+-#UseDNS no
++#UseDNS yes
+ #PidFile /var/run/sshd.pid
+ #MaxStartups 10:30:100
+ #PermitTunnel no
+diff --git a/sshd_config.5 b/sshd_config.5
+index 4fd93d68e..cf57c609f 100644
+--- a/sshd_config.5
++++ b/sshd_config.5
+@@ -1379,10 +1379,12 @@ should look up the remote host name and check that
+ should look up the remote host name, and to check that
+ the resolved host name for the remote IP address maps back to the
+ very same IP address.
++The default is
++.Dq yes .
+ .Pp
+ If this option is set to
+ .Cm no
+-(the default) then only addresses and not host names may be used in
++then only addresses and not host names may be used in
+ .Pa ~/.ssh/authorized_keys
+ .Cm from
+ and

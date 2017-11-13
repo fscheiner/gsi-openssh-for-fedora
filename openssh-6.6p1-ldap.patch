@@ -1,8 +1,6 @@
-diff --git a/HOWTO.ldap-keys b/HOWTO.ldap-keys
-new file mode 100644
-index 0000000..dd5f5cc
---- /dev/null
-+++ b/HOWTO.ldap-keys
+diff -up openssh-7.4p1/HOWTO.ldap-keys.ldap openssh-7.4p1/HOWTO.ldap-keys
+--- openssh-7.4p1/HOWTO.ldap-keys.ldap	2017-02-08 14:26:19.935750452 +0100
++++ openssh-7.4p1/HOWTO.ldap-keys	2017-02-08 14:26:19.935750452 +0100
 @@ -0,0 +1,125 @@
 +
 +HOW TO START
@@ -129,10 +127,9 @@ index 0000000..dd5f5cc
 +5) Author
 +    Jan F. Chadima <jchadima@redhat.com>
 +
-diff --git a/Makefile.in b/Makefile.in
-index 28a8ec4..411eadb 100644
---- a/Makefile.in
-+++ b/Makefile.in
+diff -up openssh-7.4p1/Makefile.in.ldap openssh-7.4p1/Makefile.in
+--- openssh-7.4p1/Makefile.in.ldap	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/Makefile.in	2017-02-08 14:31:36.851624797 +0100
 @@ -25,6 +25,8 @@ SSH_PROGRAM=@bindir@/ssh
  ASKPASS_PROGRAM=$(libexecdir)/ssh-askpass
  SFTP_SERVER=$(libexecdir)/sftp-server
@@ -142,7 +139,7 @@ index 28a8ec4..411eadb 100644
  SSH_PKCS11_HELPER=$(libexecdir)/ssh-pkcs11-helper
  PRIVSEP_PATH=@PRIVSEP_PATH@
  SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
-@@ -60,8 +62,9 @@ XAUTH_PATH=@XAUTH_PATH@
+@@ -61,8 +63,9 @@ XAUTH_PATH=@XAUTH_PATH@
  LDFLAGS=-L. -Lopenbsd-compat/ @LDFLAGS@
  EXEEXT=@EXEEXT@
  MANFMT=@MANFMT@
@@ -151,11 +148,11 @@ index 28a8ec4..411eadb 100644
 -TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT)
 +TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT)
  
- LIBSSH_OBJS=authfd.o authfile.o bufaux.o bufbn.o buffer.o \
- 	canohost.o channels.o cipher.o cipher-aes.o \
-@@ -98,8 +101,8 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
- 	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
- 	sandbox-seccomp-filter.o sandbox-capsicum.o
+ LIBOPENSSH_OBJS=\
+ 	ssh_api.o \
+@@ -112,8 +115,8 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passw
+ 	sandbox-seccomp-filter.o sandbox-capsicum.o sandbox-pledge.o \
+ 	sandbox-solaris.o
  
 -MANPAGES	= moduli.5.out scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-keysign.8.out ssh-pkcs11-helper.8.out sshd_config.5.out ssh_config.5.out
 -MANPAGES_IN	= moduli.5 scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-keysign.8 ssh-pkcs11-helper.8 sshd_config.5 ssh_config.5
@@ -164,17 +161,17 @@ index 28a8ec4..411eadb 100644
  MANTYPE		= @MANTYPE@
  
  CONFIGFILES=sshd_config.out ssh_config.out moduli.out
-@@ -170,6 +173,9 @@ ssh-keysign$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keysign.o roaming_dummy.o readco
+@@ -184,6 +187,9 @@ ssh-keysign$(EXEEXT): $(LIBCOMPAT) libss
  ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-pkcs11-helper.o ssh-pkcs11.o
  	$(LD) -o $@ ssh-pkcs11-helper.o ssh-pkcs11.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat $(LIBS)
  
 +ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o
-+	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
++	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat -lfipscheck $(LIBS)
 +
- ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o roaming_dummy.o
- 	$(LD) -o $@ ssh-keyscan.o roaming_dummy.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
+ ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o
+ 	$(LD) -o $@ ssh-keyscan.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
  
-@@ -273,6 +279,10 @@ install-files:
+@@ -322,6 +328,10 @@ install-files:
  	$(INSTALL) -m 0755 $(STRIP_OPT) sshd$(EXEEXT) $(DESTDIR)$(sbindir)/sshd$(EXEEXT)
  	$(INSTALL) -m 4711 $(STRIP_OPT) ssh-keysign$(EXEEXT) $(DESTDIR)$(SSH_KEYSIGN)$(EXEEXT)
  	$(INSTALL) -m 0755 $(STRIP_OPT) ssh-pkcs11-helper$(EXEEXT) $(DESTDIR)$(SSH_PKCS11_HELPER)$(EXEEXT)
@@ -185,7 +182,7 @@ index 28a8ec4..411eadb 100644
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp$(EXEEXT) $(DESTDIR)$(bindir)/sftp$(EXEEXT)
  	$(INSTALL) -m 0755 $(STRIP_OPT) sftp-server$(EXEEXT) $(DESTDIR)$(SFTP_SERVER)$(EXEEXT)
  	$(INSTALL) -m 644 ssh.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
-@@ -289,6 +299,10 @@ install-files:
+@@ -338,6 +348,10 @@ install-files:
  	$(INSTALL) -m 644 sftp-server.8.out $(DESTDIR)$(mandir)/$(mansubdir)8/sftp-server.8
  	$(INSTALL) -m 644 ssh-keysign.8.out $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-keysign.8
  	$(INSTALL) -m 644 ssh-pkcs11-helper.8.out $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-pkcs11-helper.8
@@ -193,10 +190,10 @@ index 28a8ec4..411eadb 100644
 +		$(INSTALL) -m 644 ssh-ldap-helper.8.out $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-ldap-helper.8 ; \
 +		$(INSTALL) -m 644 ssh-ldap.conf.5.out $(DESTDIR)$(mandir)/$(mansubdir)5/ssh-ldap.conf.5 ; \
 +	fi
- 	-rm -f $(DESTDIR)$(bindir)/slogin
- 	ln -s ./ssh$(EXEEXT) $(DESTDIR)$(bindir)/slogin
- 	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
-@@ -318,6 +332,13 @@ install-sysconf:
+ 
+ install-sysconf:
+ 	if [ ! -d $(DESTDIR)$(sysconfdir) ]; then \
+@@ -363,6 +377,13 @@ install-sysconf:
  	else \
  		echo "$(DESTDIR)$(sysconfdir)/moduli already exists, install will not overwrite"; \
  	fi
@@ -210,7 +207,7 @@ index 28a8ec4..411eadb 100644
  
  host-key: ssh-keygen$(EXEEXT)
  	@if [ -z "$(DESTDIR)" ] ; then \
-@@ -381,6 +402,8 @@ uninstall:
+@@ -403,6 +424,8 @@ uninstall:
  	-rm -r $(DESTDIR)$(SFTP_SERVER)$(EXEEXT)
  	-rm -f $(DESTDIR)$(SSH_KEYSIGN)$(EXEEXT)
  	-rm -f $(DESTDIR)$(SSH_PKCS11_HELPER)$(EXEEXT)
@@ -219,19 +216,18 @@ index 28a8ec4..411eadb 100644
  	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/ssh.1
  	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/scp.1
  	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-add.1
-@@ -392,6 +415,7 @@ uninstall:
+@@ -414,6 +437,7 @@ uninstall:
  	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)8/sftp-server.8
  	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-keysign.8
  	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-pkcs11-helper.8
 +	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-ldap-helper.8
- 	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
  
- regress/modpipe$(EXEEXT): $(srcdir)/regress/modpipe.c
-diff --git a/configure.ac b/configure.ac
-index 7c6ce08..722a19e 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -1625,6 +1625,106 @@ if test "x$use_pie" != "xno"; then
+ regress-prep:
+ 	[ -d `pwd`/regress ] || mkdir -p `pwd`/regress
+diff -up openssh-7.4p1/configure.ac.ldap openssh-7.4p1/configure.ac
+--- openssh-7.4p1/configure.ac.ldap	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/configure.ac	2017-02-08 14:26:19.936750452 +0100
+@@ -1656,6 +1656,106 @@ if test "x$use_pie" != "xno"; then
  	fi
  fi
  
@@ -338,11 +334,9 @@ index 7c6ce08..722a19e 100644
  dnl    Checks for library functions. Please keep in alphabetical order
  AC_CHECK_FUNCS([ \
  	Blowfish_initstate \
-diff --git a/ldap-helper.c b/ldap-helper.c
-new file mode 100644
-index 0000000..e95a94a
---- /dev/null
-+++ b/ldap-helper.c
+diff -up openssh-7.4p1/ldap-helper.c.ldap openssh-7.4p1/ldap-helper.c
+--- openssh-7.4p1/ldap-helper.c.ldap	2017-02-08 14:26:19.936750452 +0100
++++ openssh-7.4p1/ldap-helper.c	2017-02-08 14:26:19.936750452 +0100
 @@ -0,0 +1,155 @@
 +/* $OpenBSD: ssh-pka-ldap.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -499,11 +493,9 @@ index 0000000..e95a94a
 +void   *buffer_get_string(Buffer *b, u_int *l) { return NULL; }
 +void    buffer_put_string(Buffer *b, const void *f, u_int l) {}
 +
-diff --git a/ldap-helper.h b/ldap-helper.h
-new file mode 100644
-index 0000000..14cb29a
---- /dev/null
-+++ b/ldap-helper.h
+diff -up openssh-7.4p1/ldap-helper.h.ldap openssh-7.4p1/ldap-helper.h
+--- openssh-7.4p1/ldap-helper.h.ldap	2017-02-08 14:26:19.936750452 +0100
++++ openssh-7.4p1/ldap-helper.h	2017-02-08 14:26:19.936750452 +0100
 @@ -0,0 +1,32 @@
 +/* $OpenBSD: ldap-helper.h,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -537,12 +529,10 @@ index 0000000..14cb29a
 +extern int config_warning_config_file;
 +
 +#endif /* LDAP_HELPER_H */
-diff --git a/ldap.conf b/ldap.conf
-new file mode 100644
-index 0000000..42e38d3
---- /dev/null
-+++ b/ldap.conf
-@@ -0,0 +1,88 @@
+diff -up openssh-7.4p1/ldap.conf.ldap openssh-7.4p1/ldap.conf
+--- openssh-7.4p1/ldap.conf.ldap	2017-02-08 14:26:19.936750452 +0100
++++ openssh-7.4p1/ldap.conf	2017-02-08 14:26:19.936750452 +0100
+@@ -0,0 +1,94 @@
 +# $Id: openssh-5.5p1-ldap.patch,v 1.3 2010/07/07 13:48:36 jfch2222 Exp $
 +#
 +# This is the example configuration file for the OpenSSH
@@ -631,11 +621,15 @@ index 0000000..42e38d3
 +#tls_cert
 +#tls_key
 +
-diff --git a/ldapbody.c b/ldapbody.c
-new file mode 100644
-index 0000000..3029108
---- /dev/null
-+++ b/ldapbody.c
++# OpenLDAP search_format
++# format used to search for users in LDAP directory using substitution
++# for %u for user name and %f for SSH_Filter option (optional, empty by default)
++#search_format (&(objectclass=%c)(objectclass=ldapPublicKey)(uid=%u)%f)
++
++#AccountClass posixAccount
+diff -up openssh-7.4p1/ldapbody.c.ldap openssh-7.4p1/ldapbody.c
+--- openssh-7.4p1/ldapbody.c.ldap	2017-02-08 14:26:19.937750451 +0100
++++ openssh-7.4p1/ldapbody.c	2017-02-08 14:26:19.937750451 +0100
 @@ -0,0 +1,493 @@
 +/* $OpenBSD: ldapbody.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1130,11 +1124,9 @@ index 0000000..3029108
 +	return;
 +}
 +
-diff --git a/ldapbody.h b/ldapbody.h
-new file mode 100644
-index 0000000..665dca2
---- /dev/null
-+++ b/ldapbody.h
+diff -up openssh-7.4p1/ldapbody.h.ldap openssh-7.4p1/ldapbody.h
+--- openssh-7.4p1/ldapbody.h.ldap	2017-02-08 14:26:19.937750451 +0100
++++ openssh-7.4p1/ldapbody.h	2017-02-08 14:26:19.937750451 +0100
 @@ -0,0 +1,37 @@
 +/* $OpenBSD: ldapbody.h,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1173,12 +1165,10 @@ index 0000000..665dca2
 +
 +#endif /* LDAPBODY_H */
 +
-diff --git a/ldapconf.c b/ldapconf.c
-new file mode 100644
-index 0000000..525060a
---- /dev/null
-+++ b/ldapconf.c
-@@ -0,0 +1,729 @@
+diff -up openssh-7.4p1/ldapconf.c.ldap openssh-7.4p1/ldapconf.c
+--- openssh-7.4p1/ldapconf.c.ldap	2017-02-08 14:26:19.937750451 +0100
++++ openssh-7.4p1/ldapconf.c	2017-02-08 14:26:19.937750451 +0100
+@@ -0,0 +1,728 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
 + * Copyright (c) 2009 Jan F. Chadima.  All rights reserved.
@@ -1641,7 +1631,7 @@ index 0000000..525060a
 +{
 +	FILE *f;
 +	char line[1024];
-+	int active, linenum;
++	int linenum;
 +	int bad_options = 0;
 +	struct stat sb;
 +
@@ -1660,7 +1650,6 @@ index 0000000..525060a
 +	 * Mark that we are now processing the options.  This flag is turned
 +	 * on/off by Host specifications.
 +	 */
-+	active = 1;
 +	linenum = 0;
 +	while (fgets(line, sizeof(line), f)) {
 +		/* Update line number counter. */
@@ -1755,7 +1744,7 @@ index 0000000..525060a
 +		len = snprintf (options.uri, MAXURILEN, "ldap%s://%s:%d",
 +		    (options.ssl == 0) ? "" : "s", options.host, options.port);
 +		options.uri[MAXURILEN - 1] = 0;
-+		options.uri = xrealloc (options.uri, len + 1, 1);
++		options.uri = xreallocarray(options.uri, len + 1, 1);
 +	}
 +	if (options.binddn == NULL)
 +	    options.binddn = "";
@@ -1905,14 +1894,12 @@ index 0000000..525060a
 +	dump_cfg_int(lDebug, options.debug);
 +	dump_cfg_string(lSSH_Filter, options.ssh_filter);
 +	dump_cfg_string(lSearch_Format, options.search_format);
-+	dump_cfg_string(lAccountClass, options.logdir);
++	dump_cfg_string(lAccountClass, options.account_class);
 +}
 +
-diff --git a/ldapconf.h b/ldapconf.h
-new file mode 100644
-index 0000000..2cb550c
---- /dev/null
-+++ b/ldapconf.h
+diff -up openssh-7.4p1/ldapconf.h.ldap openssh-7.4p1/ldapconf.h
+--- openssh-7.4p1/ldapconf.h.ldap	2017-02-08 14:26:19.937750451 +0100
++++ openssh-7.4p1/ldapconf.h	2017-02-08 14:26:19.937750451 +0100
 @@ -0,0 +1,73 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -1987,11 +1974,9 @@ index 0000000..2cb550c
 +void dump_config(void);
 +
 +#endif /* LDAPCONF_H */
-diff --git a/ldapincludes.h b/ldapincludes.h
-new file mode 100644
-index 0000000..8539bdc
---- /dev/null
-+++ b/ldapincludes.h
+diff -up openssh-7.4p1/ldapincludes.h.ldap openssh-7.4p1/ldapincludes.h
+--- openssh-7.4p1/ldapincludes.h.ldap	2017-02-08 14:26:19.937750451 +0100
++++ openssh-7.4p1/ldapincludes.h	2017-02-08 14:26:19.937750451 +0100
 @@ -0,0 +1,41 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -2034,11 +2019,9 @@ index 0000000..8539bdc
 +#endif
 +
 +#endif /* LDAPINCLUDES_H */
-diff --git a/ldapmisc.c b/ldapmisc.c
-new file mode 100644
-index 0000000..de23c0c
---- /dev/null
-+++ b/ldapmisc.c
+diff -up openssh-7.4p1/ldapmisc.c.ldap openssh-7.4p1/ldapmisc.c
+--- openssh-7.4p1/ldapmisc.c.ldap	2017-02-08 14:26:19.937750451 +0100
++++ openssh-7.4p1/ldapmisc.c	2017-02-08 14:26:19.937750451 +0100
 @@ -0,0 +1,79 @@
 +
 +#include "ldapincludes.h"
@@ -2119,11 +2102,9 @@ index 0000000..de23c0c
 +}
 +#endif
 +
-diff --git a/ldapmisc.h b/ldapmisc.h
-new file mode 100644
-index 0000000..4c271df
---- /dev/null
-+++ b/ldapmisc.h
+diff -up openssh-7.4p1/ldapmisc.h.ldap openssh-7.4p1/ldapmisc.h
+--- openssh-7.4p1/ldapmisc.h.ldap	2017-02-08 14:26:19.937750451 +0100
++++ openssh-7.4p1/ldapmisc.h	2017-02-08 14:26:19.937750451 +0100
 @@ -0,0 +1,35 @@
 +/* $OpenBSD: ldapbody.h,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
@@ -2160,11 +2141,9 @@ index 0000000..4c271df
 +
 +#endif /* LDAPMISC_H */
 +
-diff --git a/openssh-lpk-openldap.schema b/openssh-lpk-openldap.schema
-new file mode 100644
-index 0000000..c84f90f
---- /dev/null
-+++ b/openssh-lpk-openldap.schema
+diff -up openssh-7.4p1/openssh-lpk-openldap.schema.ldap openssh-7.4p1/openssh-lpk-openldap.schema
+--- openssh-7.4p1/openssh-lpk-openldap.schema.ldap	2017-02-08 14:26:19.937750451 +0100
++++ openssh-7.4p1/openssh-lpk-openldap.schema	2017-02-08 14:26:19.937750451 +0100
 @@ -0,0 +1,21 @@
 +#
 +# LDAP Public Key Patch schema for use with openssh-ldappubkey
@@ -2187,11 +2166,9 @@ index 0000000..c84f90f
 +	DESC 'MANDATORY: OpenSSH LPK objectclass'
 +	MUST ( sshPublicKey $ uid ) 
 +	)
-diff --git a/openssh-lpk-sun.schema b/openssh-lpk-sun.schema
-new file mode 100644
-index 0000000..3136673
---- /dev/null
-+++ b/openssh-lpk-sun.schema
+diff -up openssh-7.4p1/openssh-lpk-sun.schema.ldap openssh-7.4p1/openssh-lpk-sun.schema
+--- openssh-7.4p1/openssh-lpk-sun.schema.ldap	2017-02-08 14:26:19.938750451 +0100
++++ openssh-7.4p1/openssh-lpk-sun.schema	2017-02-08 14:26:19.938750451 +0100
 @@ -0,0 +1,23 @@
 +#
 +# LDAP Public Key Patch schema for use with openssh-ldappubkey
@@ -2216,11 +2193,9 @@ index 0000000..3136673
 +	DESC 'MANDATORY: OpenSSH LPK objectclass'
 +	MUST ( sshPublicKey $ uid ) 
 +	)
-diff --git a/ssh-ldap-helper.8 b/ssh-ldap-helper.8
-new file mode 100644
-index 0000000..5d2d7be
---- /dev/null
-+++ b/ssh-ldap-helper.8
+diff -up openssh-7.4p1/ssh-ldap-helper.8.ldap openssh-7.4p1/ssh-ldap-helper.8
+--- openssh-7.4p1/ssh-ldap-helper.8.ldap	2017-02-08 14:26:19.938750451 +0100
++++ openssh-7.4p1/ssh-ldap-helper.8	2017-02-08 14:26:19.938750451 +0100
 @@ -0,0 +1,79 @@
 +.\" $OpenBSD: ssh-ldap-helper.8,v 1.1 2010/02/10 23:20:38 markus Exp $
 +.\"
@@ -2301,21 +2276,17 @@ index 0000000..5d2d7be
 +OpenSSH 5.5 + PKA-LDAP .
 +.Sh AUTHORS
 +.An Jan F. Chadima Aq jchadima@redhat.com
-diff --git a/ssh-ldap-wrapper b/ssh-ldap-wrapper
-new file mode 100644
-index 0000000..cb500aa
---- /dev/null
-+++ b/ssh-ldap-wrapper
+diff -up openssh-7.4p1/ssh-ldap-wrapper.ldap openssh-7.4p1/ssh-ldap-wrapper
+--- openssh-7.4p1/ssh-ldap-wrapper.ldap	2017-02-08 14:26:19.938750451 +0100
++++ openssh-7.4p1/ssh-ldap-wrapper	2017-02-08 14:26:19.938750451 +0100
 @@ -0,0 +1,4 @@
 +#!/bin/sh
 +
 +exec /usr/libexec/openssh/ssh-ldap-helper -s "$1"
 +
-diff --git a/ssh-ldap.conf.5 b/ssh-ldap.conf.5
-new file mode 100644
-index 0000000..f7081b8
---- /dev/null
-+++ b/ssh-ldap.conf.5
+diff -up openssh-7.4p1/ssh-ldap.conf.5.ldap openssh-7.4p1/ssh-ldap.conf.5
+--- openssh-7.4p1/ssh-ldap.conf.5.ldap	2017-02-08 14:26:19.938750451 +0100
++++ openssh-7.4p1/ssh-ldap.conf.5	2017-02-08 14:26:19.938750451 +0100
 @@ -0,0 +1,379 @@
 +.\" $OpenBSD: ssh-ldap.conf.5,v 1.1 2010/02/10 23:20:38 markus Exp $
 +.\"
@@ -2702,11 +2673,9 @@ index 0000000..f7081b8
 +OpenSSH 5.5 + PKA-LDAP .
 +.Sh AUTHORS
 +.An Jan F. Chadima Aq jchadima@redhat.com
-diff --git a/openssh-lpk-openldap.ldif b/openssh-lpk-openldap.ldif
-new file mode 100644
-index 0000000..9adf4b8
---- /dev/null
-+++ b/openssh-lpk-openldap.ldif
+diff -up openssh-7.4p1/openssh-lpk-openldap.ldif.ldap openssh-7.4p1/openssh-lpk-openldap.ldif
+--- openssh-7.4p1/openssh-lpk-openldap.ldif.ldap	2017-02-08 14:26:19.938750451 +0100
++++ openssh-7.4p1/openssh-lpk-openldap.ldif	2017-02-08 14:26:19.938750451 +0100
 @@ -0,0 +1,19 @@
 +#
 +# LDAP Public Key Patch schema for use with openssh-ldappubkey
@@ -2727,11 +2696,9 @@ index 0000000..9adf4b8
 +olcObjectClasses: {0}( 1.3.6.1.4.1.24552.500.1.1.2.0
 +  NAME 'ldapPublicKey' DESC 'MANDATORY: OpenSSH LPK objectclass'
 +  SUP top AUXILIARY MUST ( sshPublicKey $ uid ) )
-diff --git a/openssh-lpk-sun.ldif b/openssh-lpk-sun.ldif
-new file mode 100644
-index 0000000..9adf4b8
---- /dev/null
-+++ b/openssh-lpk-sun.ldif
+diff -up openssh-7.4p1/openssh-lpk-sun.ldif.ldap openssh-7.4p1/openssh-lpk-sun.ldif
+--- openssh-7.4p1/openssh-lpk-sun.ldif.ldap	2017-02-08 14:26:19.938750451 +0100
++++ openssh-7.4p1/openssh-lpk-sun.ldif	2017-02-08 14:26:19.938750451 +0100
 @@ -0,0 +1,17 @@
 +#
 +# LDAP Public Key Patch schema for use with openssh-ldappubkey

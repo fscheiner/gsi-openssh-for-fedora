@@ -12,7 +12,7 @@ diff -up openssh-6.1p1/sshconnect2.c.canohost openssh-6.1p1/sshconnect2.c
  		gss_host = options.gss_server_identity;
 -	else if (options.gss_trust_dns)
 +	else if (options.gss_trust_dns) {
- 		gss_host = get_canonical_hostname(1);
+ 		gss_host = get_canonical_hostname(active_state, 1);
 +		if ( strcmp( gss_host, "UNKNOWN" )  == 0 )
 +			gss_host = authctxt->host;
 +	}

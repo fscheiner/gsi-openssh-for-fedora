@@ -1,7 +1,7 @@
-diff -up openssh-6.2p1/configure.ac.vendor openssh-6.2p1/configure.ac
---- openssh-6.2p1/configure.ac.vendor	2013-03-25 19:34:01.277495179 +0100
-+++ openssh-6.2p1/configure.ac	2013-03-25 19:34:01.377495818 +0100
-@@ -4420,6 +4420,12 @@ AC_ARG_WITH([lastlog],
+diff -up openssh-7.4p1/configure.ac.vendor openssh-7.4p1/configure.ac
+--- openssh-7.4p1/configure.ac.vendor	2017-02-10 10:45:54.977836854 +0100
++++ openssh-7.4p1/configure.ac	2017-02-10 10:45:54.995836725 +0100
+@@ -4930,6 +4930,12 @@ AC_ARG_WITH([lastlog],
  		fi
  	]
  )
@@ -14,7 +14,7 @@ diff -up openssh-6.2p1/configure.ac.vendor openssh-6.2p1/configure.ac
  
  dnl lastlog, [uw]tmpx? detection
  dnl  NOTE: set the paths in the platform section to avoid the
-@@ -4681,6 +4687,7 @@ echo "           Translate v4 in v6 hack
+@@ -5194,6 +5200,7 @@ echo "           Translate v4 in v6 hack
  echo "                  BSD Auth support: $BSD_AUTH_MSG"
  echo "              Random number source: $RAND_MSG"
  echo "             Privsep sandbox style: $SANDBOX_STYLE"
@@ -22,10 +22,10 @@ diff -up openssh-6.2p1/configure.ac.vendor openssh-6.2p1/configure.ac
  
  echo ""
  
-diff -up openssh-6.2p1/servconf.c.vendor openssh-6.2p1/servconf.c
---- openssh-6.2p1/servconf.c.vendor	2013-03-25 19:34:01.197494668 +0100
-+++ openssh-6.2p1/servconf.c	2013-03-25 19:34:01.379495831 +0100
-@@ -128,6 +128,7 @@ initialize_server_options(ServerOptions
+diff -up openssh-7.4p1/servconf.c.vendor openssh-7.4p1/servconf.c
+--- openssh-7.4p1/servconf.c.vendor	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/servconf.c	2017-02-10 10:45:54.995836725 +0100
+@@ -143,6 +143,7 @@ initialize_server_options(ServerOptions
  	options->max_authtries = -1;
  	options->max_sessions = -1;
  	options->banner = NULL;
@@ -33,26 +33,25 @@ diff -up openssh-6.2p1/servconf.c.vendor openssh-6.2p1/servconf.c
  	options->use_dns = -1;
  	options->client_alive_interval = -1;
  	options->client_alive_count_max = -1;
-@@ -287,6 +288,9 @@ fill_default_server_options(ServerOption
+@@ -325,6 +326,8 @@ fill_default_server_options(ServerOption
  		options->ip_qos_bulk = IPTOS_THROUGHPUT;
  	if (options->version_addendum == NULL)
  		options->version_addendum = xstrdup("");
 +	if (options->show_patchlevel == -1)
 +		options->show_patchlevel = 0;
-+
- 	/* Turn privilege separation on by default */
- 	if (use_privsep == -1)
- 		use_privsep = PRIVSEP_NOSANDBOX;
-@@ -324,7 +328,7 @@ typedef enum {
- 	sIgnoreUserKnownHosts, sCiphers, sMacs, sProtocol, sPidFile,
- 	sGatewayPorts, sPubkeyAuthentication, sXAuthLocation, sSubsystem,
- 	sMaxStartups, sMaxAuthTries, sMaxSessions,
+ 	if (options->fwd_opts.streamlocal_bind_mask == (mode_t)-1)
+ 		options->fwd_opts.streamlocal_bind_mask = 0177;
+ 	if (options->fwd_opts.streamlocal_bind_unlink == -1)
+@@ -402,7 +405,7 @@ typedef enum {
+ 	sIgnoreUserKnownHosts, sCiphers, sMacs, sPidFile,
+ 	sGatewayPorts, sPubkeyAuthentication, sPubkeyAcceptedKeyTypes,
+ 	sXAuthLocation, sSubsystem, sMaxStartups, sMaxAuthTries, sMaxSessions,
 -	sBanner, sUseDNS, sHostbasedAuthentication,
 +	sBanner, sShowPatchLevel, sUseDNS, sHostbasedAuthentication,
- 	sHostbasedUsesNameFromPacketOnly, sClientAliveInterval,
- 	sClientAliveCountMax, sAuthorizedKeysFile,
- 	sGssAuthentication, sGssCleanupCreds, sAcceptEnv, sPermitTunnel,
-@@ -439,6 +443,7 @@ static struct {
+ 	sHostbasedUsesNameFromPacketOnly, sHostbasedAcceptedKeyTypes,
+ 	sHostKeyAlgorithms,
+ 	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,
+@@ -528,6 +531,7 @@ static struct {
  	{ "maxauthtries", sMaxAuthTries, SSHCFG_ALL },
  	{ "maxsessions", sMaxSessions, SSHCFG_ALL },
  	{ "banner", sBanner, SSHCFG_ALL },
@@ -60,7 +59,7 @@ diff -up openssh-6.2p1/servconf.c.vendor openssh-6.2p1/servconf.c
  	{ "usedns", sUseDNS, SSHCFG_GLOBAL },
  	{ "verifyreversemapping", sDeprecated, SSHCFG_GLOBAL },
  	{ "reversemappingcheck", sDeprecated, SSHCFG_GLOBAL },
-@@ -1163,6 +1168,10 @@ process_server_config_line(ServerOptions
+@@ -1369,6 +1373,10 @@ process_server_config_line(ServerOptions
  		multistate_ptr = multistate_privsep;
  		goto parse_multistate;
  
@@ -71,18 +70,18 @@ diff -up openssh-6.2p1/servconf.c.vendor openssh-6.2p1/servconf.c
  	case sAllowUsers:
  		while ((arg = strdelim(&cp)) && *arg != '\0') {
  			if (options->num_allow_users >= MAX_ALLOW_USERS)
-@@ -1950,6 +1959,7 @@ dump_config(ServerOptions *o)
- 	dump_cfg_fmtint(sUseLogin, o->use_login);
+@@ -2269,6 +2277,7 @@ dump_config(ServerOptions *o)
+ 	dump_cfg_fmtint(sPermitUserEnvironment, o->permit_user_env);
  	dump_cfg_fmtint(sCompression, o->compression);
- 	dump_cfg_fmtint(sGatewayPorts, o->gateway_ports);
+ 	dump_cfg_fmtint(sGatewayPorts, o->fwd_opts.gateway_ports);
 +	dump_cfg_fmtint(sShowPatchLevel, o->show_patchlevel);
  	dump_cfg_fmtint(sUseDNS, o->use_dns);
  	dump_cfg_fmtint(sAllowTcpForwarding, o->allow_tcp_forwarding);
- 	dump_cfg_fmtint(sUsePrivilegeSeparation, use_privsep);
-diff -up openssh-6.2p1/servconf.h.vendor openssh-6.2p1/servconf.h
---- openssh-6.2p1/servconf.h.vendor	2013-01-09 05:56:45.000000000 +0100
-+++ openssh-6.2p1/servconf.h	2013-03-25 19:34:01.379495831 +0100
-@@ -147,6 +147,7 @@ typedef struct {
+ 	dump_cfg_fmtint(sAllowAgentForwarding, o->allow_agent_forwarding);
+diff -up openssh-7.4p1/servconf.h.vendor openssh-7.4p1/servconf.h
+--- openssh-7.4p1/servconf.h.vendor	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/servconf.h	2017-02-10 10:45:54.995836725 +0100
+@@ -149,6 +149,7 @@ typedef struct {
  	int	max_authtries;
  	int	max_sessions;
  	char   *banner;			/* SSH-2 banner message */
@@ -90,39 +89,13 @@ diff -up openssh-6.2p1/servconf.h.vendor openssh-6.2p1/servconf.h
  	int	use_dns;
  	int	client_alive_interval;	/*
  					 * poke the client this often to
-diff -up openssh-6.2p1/sshd_config.vendor openssh-6.2p1/sshd_config
---- openssh-6.2p1/sshd_config.vendor	2013-03-25 19:34:01.380495837 +0100
-+++ openssh-6.2p1/sshd_config	2013-03-25 19:44:43.471296362 +0100
-@@ -118,6 +118,7 @@ UsePrivilegeSeparation sandbox		# Defaul
- #Compression delayed
- #ClientAliveInterval 0
- #ClientAliveCountMax 3
-+#ShowPatchLevel no
- #UseDNS yes
- #PidFile /var/run/sshd.pid
- #MaxStartups 10:30:100
-diff -up openssh-6.2p1/sshd_config.0.vendor openssh-6.2p1/sshd_config.0
---- openssh-6.2p1/sshd_config.0.vendor	2013-03-25 19:34:01.361495716 +0100
-+++ openssh-6.2p1/sshd_config.0	2013-03-25 19:34:01.381495844 +0100
-@@ -595,6 +595,11 @@ DESCRIPTION
-              Defines the number of bits in the ephemeral protocol version 1
-              server key.  The minimum value is 512, and the default is 1024.
- 
-+     ShowPatchLevel
-+	     Specifies whether sshd will display the specific patch level of
-+	     the binary in the server identification string.  The patch level
-+	     is set at compile-time.  The default is M-bM-^@M-^\noM-bM-^@M-^].
-+
-      StrictModes
-              Specifies whether sshd(8) should check file modes and ownership
-              of the user's files and home directory before accepting login.
-diff -up openssh-6.2p1/sshd_config.5.vendor openssh-6.2p1/sshd_config.5
---- openssh-6.2p1/sshd_config.5.vendor	2013-03-25 19:34:01.362495722 +0100
-+++ openssh-6.2p1/sshd_config.5	2013-03-25 19:34:01.382495850 +0100
-@@ -1019,6 +1019,14 @@ This option applies to protocol version
- .It Cm ServerKeyBits
- Defines the number of bits in the ephemeral protocol version 1 server key.
- The minimum value is 512, and the default is 1024.
+diff -up openssh-7.4p1/sshd_config.5.vendor openssh-7.4p1/sshd_config.5
+--- openssh-7.4p1/sshd_config.5.vendor	2017-02-10 10:45:54.990836761 +0100
++++ openssh-7.4p1/sshd_config.5	2017-02-10 10:45:54.996836718 +0100
+@@ -1334,6 +1334,14 @@ an OpenSSH Key Revocation List (KRL) as
+ .Xr ssh-keygen 1 .
+ For more information on KRLs, see the KEY REVOCATION LISTS section in
+ .Xr ssh-keygen 1 .
 +.It Cm ShowPatchLevel 
 +Specifies whether 
 +.Nm sshd 
@@ -131,28 +104,40 @@ diff -up openssh-6.2p1/sshd_config.5.vendor openssh-6.2p1/sshd_config.5
 +The default is 
 +.Dq no . 
 +This option applies to protocol version 1 only. 
- .It Cm StrictModes
- Specifies whether
- .Xr sshd 8
-diff -up openssh-6.2p1/sshd.c.vendor openssh-6.2p1/sshd.c
---- openssh-6.2p1/sshd.c.vendor	2013-03-25 19:34:01.332495531 +0100
-+++ openssh-6.2p1/sshd.c	2013-03-25 19:44:11.864112092 +0100
-@@ -442,7 +442,7 @@ sshd_exchange_identification(int sock_in
- 	}
+ .It Cm StreamLocalBindMask
+ Sets the octal file creation mode mask
+ .Pq umask
+diff -up openssh-7.4p1/sshd_config.vendor openssh-7.4p1/sshd_config
+--- openssh-7.4p1/sshd_config.vendor	2017-02-10 10:45:54.990836761 +0100
++++ openssh-7.4p1/sshd_config	2017-02-10 10:45:54.996836718 +0100
+@@ -105,6 +105,7 @@ X11Forwarding yes
+ #Compression delayed
+ #ClientAliveInterval 0
+ #ClientAliveCountMax 3
++#ShowPatchLevel no
+ #UseDNS no
+ #PidFile /var/run/sshd.pid
+ #MaxStartups 10:30:100
+diff -up openssh-7.4p1/sshd.c.vendor openssh-7.4p1/sshd.c
+--- openssh-7.4p1/sshd.c.vendor	2017-02-10 10:45:54.996836718 +0100
++++ openssh-7.4p1/sshd.c	2017-02-10 10:48:41.633648667 +0100
+@@ -367,7 +367,8 @@ sshd_exchange_identification(struct ssh
+ 	char remote_version[256];	/* Must be at least as big as buf. */
  
  	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s%s",
--	    major, minor, SSH_VERSION,
-+	    major, minor, (options.show_patchlevel == 1) ? SSH_VENDOR_PATCHLEVEL : SSH_VERSION,
+-	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION,
++	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2,
++	    (options.show_patchlevel == 1) ? SSH_VENDOR_PATCHLEVEL : SSH_VERSION,
  	    *options.version_addendum == '\0' ? "" : " ",
  	    options.version_addendum, newline);
  
-@@ -1675,7 +1675,8 @@ main(int ac, char **av)
+@@ -1654,7 +1655,8 @@ main(int ac, char **av)
  		exit(1);
  	}
  
 -	debug("sshd version %s, %s", SSH_VERSION,
 +	debug("sshd version %s, %s",
 +	    (options.show_patchlevel == 1) ? SSH_VENDOR_PATCHLEVEL : SSH_VERSION,
- 	    SSLeay_version(SSLEAY_VERSION));
- 
- 	/* Store privilege separation user for later use if required. */
+ #ifdef WITH_OPENSSL
+ 	    SSLeay_version(SSLEAY_VERSION)
+ #else

@@ -1,0 +1,16 @@
+diff -up openssh-7.4p1/mux.c.controlPath openssh-7.4p1/mux.c
+--- openssh-7.4p1/mux.c.controlPath	2017-05-04 14:49:44.629247946 +0200
++++ openssh-7.4p1/mux.c	2017-05-04 14:52:54.955109022 +0200
+@@ -1290,6 +1290,12 @@ muxserver_listen(void)
+ 	oerrno = errno;
+ 	umask(old_umask);
+ 	if (muxserver_sock < 0) {
++		if (oerrno == ENAMETOOLONG) {
++			/* the error is already logged from unix_listener() */
++			error("ControlPath %s too long, "
++			    "disabling multiplexing", options.control_path);
++			goto disable_mux_master;
++		}
+ 		if (oerrno == EINVAL || oerrno == EADDRINUSE) {
+ 			error("ControlSocket %s already exists, "
+ 			    "disabling multiplexing", options.control_path);

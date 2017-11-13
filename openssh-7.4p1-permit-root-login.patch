@@ -1,0 +1,36 @@
+diff -up openssh-7.4p1/servconf.c.permit-root openssh-7.4p1/servconf.c
+--- openssh-7.4p1/servconf.c.permit-root	2017-02-10 10:27:18.109487568 +0100
++++ openssh-7.4p1/servconf.c	2017-02-10 10:28:12.385776132 +0100
+@@ -231,7 +231,7 @@ fill_default_server_options(ServerOption
+ 	if (options->login_grace_time == -1)
+ 		options->login_grace_time = 120;
+ 	if (options->permit_root_login == PERMIT_NOT_SET)
+-		options->permit_root_login = PERMIT_NO_PASSWD;
++		options->permit_root_login = PERMIT_YES;
+ 	if (options->ignore_rhosts == -1)
+ 		options->ignore_rhosts = 1;
+ 	if (options->ignore_user_known_hosts == -1)
+diff -up openssh-7.4p1/sshd_config.5.permit-root openssh-7.4p1/sshd_config.5
+--- openssh-7.4p1/sshd_config.5.permit-root	2017-02-10 10:28:24.174605582 +0100
++++ openssh-7.4p1/sshd_config.5	2017-02-10 10:28:42.254344023 +0100
+@@ -1227,7 +1227,7 @@ The argument must be
+ or
+ .Cm no .
+ The default is
+-.Cm prohibit-password .
++.Cm yes .
+ .Pp
+ If this option is set to
+ .Cm prohibit-password
+diff -up openssh-7.4p1/sshd_config.permit-root openssh-7.4p1/sshd_config
+--- openssh-7.4p1/sshd_config.permit-root	2017-02-10 10:26:52.256797645 +0100
++++ openssh-7.4p1/sshd_config	2017-02-10 10:26:52.276797405 +0100
+@@ -35,7 +35,7 @@ SyslogFacility AUTHPRIV
+ # Authentication:
+ 
+ #LoginGraceTime 2m
+-#PermitRootLogin prohibit-password
++#PermitRootLogin yes
+ #StrictModes yes
+ #MaxAuthTries 6
+ #MaxSessions 10

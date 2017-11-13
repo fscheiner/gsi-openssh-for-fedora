@@ -1,0 +1,11 @@
+diff -up openssh-7.4p1/sandbox-seccomp-filter.c.sandbox openssh-7.4p1/sandbox-seccomp-filter.c
+--- openssh-7.4p1/sandbox-seccomp-filter.c.sandbox	2017-04-21 13:30:49.692650798 +0200
++++ openssh-7.4p1/sandbox-seccomp-filter.c	2017-04-21 13:30:52.259647579 +0200
+@@ -215,6 +215,7 @@ static const struct sock_filter preauth_
+ #endif
+ #ifdef __NR_socketcall
+ 	SC_ALLOW_ARG(socketcall, 0, SYS_SHUTDOWN),
++	SC_DENY(socketcall, EACCES),
+ #endif
+ 
+ 	/* Default deny */

@@ -5,8 +5,8 @@ diff -up openssh-5.8p1/packet.c.packet openssh-5.8p1/packet.c
  	struct sockaddr_storage from, to;
  	socklen_t fromlen, tolen;
  
-+	if (!active_state)
++	if (!state)
 +		return 0;
- 	/* filedescriptors in and out are the same, so it's a socket */
- 	if (active_state->connection_in == active_state->connection_out)
- 		return 1;
+ 	if (state->connection_in == -1 || state->connection_out == -1)
+ 		return 0;
+ 

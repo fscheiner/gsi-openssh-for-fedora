@@ -1,0 +1,30 @@
+commit 0fb1a617a07b8df5de188dd5a0c8bf293d4bfc0e
+Author: markus@openbsd.org <markus@openbsd.org>
+Date:   Sat Mar 11 13:07:35 2017 +0000
+
+    upstream commit
+    
+    Don't count the initial block twice when computing how
+    many bytes to discard for the work around for the attacks against CBC-mode.
+    ok djm@; report from Jean Paul, Kenny, Martin and Torben @ RHUL
+    
+    Upstream-ID: f445f509a4e0a7ba3b9c0dae7311cb42458dc1e2
+
+diff --git a/packet.c b/packet.c
+index 01e2d45..2f3a2ec 100644
+--- a/packet.c
++++ b/packet.c
+@@ -1850,11 +1850,11 @@ ssh_packet_read_poll2(struct ssh *ssh, u_char *typep, u_int32_t *seqnr_p)
+ 			if (r != SSH_ERR_MAC_INVALID)
+ 				goto out;
+ 			logit("Corrupted MAC on input.");
+-			if (need > PACKET_MAX_SIZE)
++			if (need + block_size > PACKET_MAX_SIZE)
+ 				return SSH_ERR_INTERNAL_ERROR;
+ 			return ssh_packet_start_discard(ssh, enc, mac,
+ 			    sshbuf_len(state->incoming_packet),
+-			    PACKET_MAX_SIZE - need);
++			    PACKET_MAX_SIZE - need - block_size);
+ 		}
+ 		/* Remove MAC from input buffer */
+ 		DBG(debug("MAC #%d ok", state->p_read.seqnr));

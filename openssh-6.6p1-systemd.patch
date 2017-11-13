@@ -40,9 +40,9 @@ index 2ffc369..162ce92 100644
  
  PRIVSEP_PATH=/var/empty
 @@ -5097,6 +5121,7 @@ echo "                   libedit support: $LIBEDIT_MSG"
- echo "                   libedit support: $LIBEDIT_MSG"
  echo "  Solaris process contract support: $SPC_MSG"
  echo "           Solaris project support: $SP_MSG"
+ echo "         Solaris privilege support: $SPP_MSG"
 +echo "                   systemd support: $SYSTEMD_MSG"
  echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
  echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
@@ -83,7 +83,7 @@ index 816611c..b8b9d13 100644
 +
  #include "xmalloc.h"
  #include "ssh.h"
- #include "ssh1.h"
+ #include "ssh2.h"
 @@ -1833,6 +1837,11 @@ main(int ac, char **av)
  			}
  		}

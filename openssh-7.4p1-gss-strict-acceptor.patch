@@ -1,0 +1,28 @@
+From 13bd2e2d622d01dc85d22b94520a5b243d006049 Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Fri, 6 Jan 2017 03:45:41 +0000
+Subject: [PATCH] upstream commit
+
+sshd_config is documented to set
+GSSAPIStrictAcceptorCheck=yes by default, so actually make it do this.
+bz#2637 ok dtucker
+
+Upstream-ID: 99ef8ac51f17f0f7aec166cb2e34228d4d72a665
+---
+ servconf.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/servconf.c b/servconf.c
+index 795ddbab7..c9105a592 100644
+--- a/servconf.c
++++ b/servconf.c
+@@ -270,7 +270,7 @@ fill_default_server_options(ServerOptions *options)
+ 	if (options->gss_cleanup_creds == -1)
+ 		options->gss_cleanup_creds = 1;
+ 	if (options->gss_strict_acceptor == -1)
+-		options->gss_strict_acceptor = 0;
++		options->gss_strict_acceptor = 1;
+ 	if (options->gss_store_rekey == -1)
+ 		options->gss_store_rekey = 0;
+ 	if (options->password_authentication == -1)
+

@@ -89,9 +89,9 @@ index 07f9926..a97f8b7 100644
 +	ssh_selinux_change_context("sshd_net_t");
 +#endif
 +
- 	/* Change our root directory */
- 	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
- 		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
+ 	/* Demote the child */
+ 	if (getuid() == 0 || geteuid() == 0) {
+ 		/* Change our root directory */
 @@ -768,6 +772,13 @@ privsep_postauth(Authctxt *authctxt)
  	do_setusercontext(authctxt->pw);
  

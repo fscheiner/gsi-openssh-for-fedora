@@ -12,12 +12,7 @@ index 42de994..60de320 100644
  
  #include "xmalloc.h"
  #include "key.h"
-@@ -40,10 +42,12 @@
- #include "auth.h"
- #include "log.h"
- #include "servconf.h"
-+#include "misc.h"
- 
+@@ -40,6 +42,7 @@
  #include "buffer.h"
  #include "ssh-gss.h"
  
@@ -168,7 +163,7 @@ index 42de994..60de320 100644
 +				k5users_allowed_cmds[ncommands-1] =
 +				    xstrdup(pw->pw_shell);
 +				k5users_allowed_cmds =
-+				    xrealloc(k5users_allowed_cmds, ++ncommands,
++				    xreallocarray(k5users_allowed_cmds, ++ncommands,
 +					sizeof(*k5users_allowed_cmds));
 +				break;
 +			}
@@ -181,7 +176,7 @@ index 42de994..60de320 100644
 +				k5users_allowed_cmds[ncommands-1] =
 +				    xstrdup(token);
 +				k5users_allowed_cmds =
-+				    xrealloc(k5users_allowed_cmds, ++ncommands,
++				    xreallocarray(k5users_allowed_cmds, ++ncommands,
 +					sizeof(*k5users_allowed_cmds));
 +				token = strtok(NULL, " \t\n");
 +			}

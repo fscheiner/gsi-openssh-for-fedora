@@ -1,7 +1,7 @@
-diff -up openssh-7.3p1/monitor_wrap.c.audit-race openssh-7.3p1/monitor_wrap.c
---- openssh-7.3p1/monitor_wrap.c.audit-race	2016-12-15 14:27:22.376603747 +0100
-+++ openssh-7.3p1/monitor_wrap.c	2016-12-15 14:27:22.381603742 +0100
-@@ -1256,4 +1256,48 @@ mm_audit_destroy_sensitive_data(const ch
+diff -up openssh-7.4p1/monitor_wrap.c.audit-race openssh-7.4p1/monitor_wrap.c
+--- openssh-7.4p1/monitor_wrap.c.audit-race	2017-02-09 14:07:56.870994116 +0100
++++ openssh-7.4p1/monitor_wrap.c	2017-02-09 14:07:56.874994112 +0100
+@@ -1107,4 +1107,48 @@ mm_audit_destroy_sensitive_data(const ch
  	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUDIT_SERVER_KEY_FREE, &m);
  	buffer_free(&m);
  }
@@ -50,10 +50,10 @@ diff -up openssh-7.3p1/monitor_wrap.c.audit-race openssh-7.3p1/monitor_wrap.c
 +	pmonitor->m_recvfd = fd;
 +}
  #endif /* SSH_AUDIT_EVENTS */
-diff -up openssh-7.3p1/monitor_wrap.h.audit-race openssh-7.3p1/monitor_wrap.h
---- openssh-7.3p1/monitor_wrap.h.audit-race	2016-12-15 14:27:22.376603747 +0100
-+++ openssh-7.3p1/monitor_wrap.h	2016-12-15 14:27:22.381603742 +0100
-@@ -88,6 +88,8 @@ void mm_audit_unsupported_body(int);
+diff -up openssh-7.4p1/monitor_wrap.h.audit-race openssh-7.4p1/monitor_wrap.h
+--- openssh-7.4p1/monitor_wrap.h.audit-race	2017-02-09 14:07:56.870994116 +0100
++++ openssh-7.4p1/monitor_wrap.h	2017-02-09 14:07:56.874994112 +0100
+@@ -80,6 +80,8 @@ void mm_audit_unsupported_body(int);
  void mm_audit_kex_body(int, char *, char *, char *, char *, pid_t, uid_t);
  void mm_audit_session_key_free_body(int, pid_t, uid_t);
  void mm_audit_destroy_sensitive_data(const char *, pid_t, uid_t);
@@ -62,10 +62,10 @@ diff -up openssh-7.3p1/monitor_wrap.h.audit-race openssh-7.3p1/monitor_wrap.h
  #endif
  
  struct Session;
-diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
---- openssh-7.3p1/session.c.audit-race	2016-12-15 14:27:22.378603745 +0100
-+++ openssh-7.3p1/session.c	2016-12-15 14:27:22.382603741 +0100
-@@ -164,6 +164,10 @@ static Session *sessions = NULL;
+diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
+--- openssh-7.4p1/session.c.audit-race	2017-02-09 14:07:56.871994115 +0100
++++ openssh-7.4p1/session.c	2017-02-09 14:09:44.710893783 +0100
+@@ -162,6 +162,10 @@ static Session *sessions = NULL;
  login_cap_t *lc;
  #endif
  
@@ -74,10 +74,10 @@ diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
 +#endif
 +
  static int is_child = 0;
- 
+ static int in_chroot = 0;
  static int have_dev_log = 1;
-@@ -457,6 +457,8 @@ do_authenticated1(Authctxt *authctxt)
- 	}
+@@ -289,6 +293,8 @@ xauth_valid_string(const char *s)
+ 	return 1;
  }
  
 +void child_destory_sensitive_data();
@@ -85,7 +85,7 @@ diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
  #define USE_PIPES 1
  /*
   * This is called to fork and execute a command when we have no tty.  This
-@@ -588,6 +592,8 @@ do_exec_no_pty(Session *s, const char *c
+@@ -424,6 +430,8 @@ do_exec_no_pty(Session *s, const char *c
  		cray_init_job(s->pw); /* set up cray jid and tmpdir */
  #endif
  
@@ -94,7 +94,7 @@ diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
  		/* Do processing for the child (exec command etc). */
  		do_child(s, command);
  		/* NOTREACHED */
-@@ -722,6 +728,9 @@ do_exec_pty(Session *s, const char *comm
+@@ -547,6 +555,9 @@ do_exec_pty(Session *s, const char *comm
  		/* Close the extra descriptor for the pseudo tty. */
  		close(ttyfd);
  
@@ -102,9 +102,9 @@ diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
 +		child_destory_sensitive_data();
 +
  		/* record login, etc. similar to login(1) */
- #ifndef HAVE_OSF_SIA
- 		if (!(options.use_login && command == NULL)) {
-@@ -903,6 +912,8 @@ do_exec(Session *s, const char *command)
+ #ifdef _UNICOS
+ 		cray_init_job(s->pw); /* set up cray jid and tmpdir */
+@@ -717,6 +728,8 @@ do_exec(Session *s, const char *command)
  	}
  	if (s->command != NULL && s->ptyfd == -1)
  		s->command_handle = PRIVSEP(audit_run_command(s->command));
@@ -113,7 +113,7 @@ diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
  #endif
  	if (s->ttyfd != -1)
  		ret = do_exec_pty(s, command);
-@@ -918,6 +929,20 @@ do_exec(Session *s, const char *command)
+@@ -732,6 +745,20 @@ do_exec(Session *s, const char *command)
  	 */
  	buffer_clear(&loginmsg);
  
@@ -134,7 +134,7 @@ diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
  	return ret;
  }
  
-@@ -1751,6 +1776,33 @@ child_close_fds(void)
+@@ -1542,6 +1569,33 @@ child_close_fds(void)
  	endpwent();
  }
  
@@ -168,7 +168,7 @@ diff -up openssh-7.3p1/session.c.audit-race openssh-7.3p1/session.c
  /*
   * Performs common processing for the child, such as setting up the
   * environment, closing extra file descriptors, setting the user and group
-@@ -1768,12 +1820,6 @@ do_child(Session *s, const char *command
+@@ -1558,12 +1612,6 @@ do_child(Session *s, const char *command
  	struct passwd *pw = s->pw;
  	int r = 0;
  

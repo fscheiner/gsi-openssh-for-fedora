@@ -1,6 +1,6 @@
-diff -up openssh-6.6p1/sftp-server.8.sftp-force-mode openssh-6.6p1/sftp-server.8
---- openssh-6.6p1/sftp-server.8.sftp-force-mode	2013-10-15 03:07:05.000000000 +0200
-+++ openssh-6.6p1/sftp-server.8	2015-04-20 14:04:47.427562510 +0200
+diff -up openssh-7.4p1/sftp-server.8.sftp-force-mode openssh-7.4p1/sftp-server.8
+--- openssh-7.4p1/sftp-server.8.sftp-force-mode	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/sftp-server.8	2017-02-09 10:35:41.926475399 +0100
 @@ -38,6 +38,7 @@
  .Op Fl P Ar blacklisted_requests
  .Op Fl p Ar whitelisted_requests
@@ -19,11 +19,11 @@ diff -up openssh-6.6p1/sftp-server.8.sftp-force-mode openssh-6.6p1/sftp-server.8
 +777, 755, 750, 666, 644, 640, etc.  Option -u is ineffective if -m is set.
  .El
  .Pp
- For logging to work,
-diff -up openssh-6.6p1/sftp-server.c.sftp-force-mode openssh-6.6p1/sftp-server.c
---- openssh-6.6p1/sftp-server.c.sftp-force-mode	2015-04-20 14:04:47.420562526 +0200
-+++ openssh-6.6p1/sftp-server.c	2015-04-20 14:07:13.799231025 +0200
-@@ -71,6 +71,10 @@ static Buffer oqueue;
+ On some systems,
+diff -up openssh-7.4p1/sftp-server.c.sftp-force-mode openssh-7.4p1/sftp-server.c
+--- openssh-7.4p1/sftp-server.c.sftp-force-mode	2017-02-09 10:22:36.498019921 +0100
++++ openssh-7.4p1/sftp-server.c	2017-02-09 10:35:07.190520959 +0100
+@@ -65,6 +65,10 @@ struct sshbuf *oqueue;
  /* Version of client */
  static u_int version;
  
@@ -34,18 +34,18 @@ diff -up openssh-6.6p1/sftp-server.c.sftp-force-mode openssh-6.6p1/sftp-server.c
  /* SSH2_FXP_INIT received */
  static int init_done;
  
-@@ -668,6 +672,7 @@ process_open(u_int32_t id)
- 	Attrib *a;
+@@ -679,6 +683,7 @@ process_open(u_int32_t id)
+ 	Attrib a;
  	char *name;
- 	int handle, fd, flags, mode, status = SSH2_FX_FAILURE;
-+	mode_t old_umask;
+ 	int r, handle, fd, flags, mode, status = SSH2_FX_FAILURE;
++	mode_t old_umask = 0;
  
- 	name = get_string(NULL);
- 	pflags = get_int();		/* portable flags */
-@@ -675,6 +680,10 @@ process_open(u_int32_t id)
- 	a = get_attrib();
+ 	if ((r = sshbuf_get_cstring(iqueue, &name, NULL)) != 0 ||
+ 	    (r = sshbuf_get_u32(iqueue, &pflags)) != 0 || /* portable flags */
+@@ -688,6 +693,10 @@ process_open(u_int32_t id)
+ 	debug3("request %u: open flags %d", id, pflags);
  	flags = flags_from_portable(pflags);
- 	mode = (a->flags & SSH2_FILEXFER_ATTR_PERMISSIONS) ? a->perm : 0666;
+ 	mode = (a.flags & SSH2_FILEXFER_ATTR_PERMISSIONS) ? a.perm : 0666;
 +	if (permforce == 1) {   /* Force perm if -m is set */
 +		mode = permforcemode;
 +		old_umask = umask(0); /* so umask does not interfere */
@@ -53,7 +53,7 @@ diff -up openssh-6.6p1/sftp-server.c.sftp-force-mode openssh-6.6p1/sftp-server.c
  	logit("open \"%s\" flags %s mode 0%o",
  	    name, string_from_portable(pflags), mode);
  	if (readonly &&
-@@ -696,6 +705,8 @@ process_open(u_int32_t id)
+@@ -709,6 +718,8 @@ process_open(u_int32_t id)
  			}
  		}
  	}
@@ -62,7 +62,7 @@ diff -up openssh-6.6p1/sftp-server.c.sftp-force-mode openssh-6.6p1/sftp-server.c
  	if (status != SSH2_FX_OK)
  		send_status(id, status);
  	free(name);
-@@ -1430,7 +1441,7 @@ sftp_server_usage(void)
+@@ -1490,7 +1501,7 @@ sftp_server_usage(void)
  	fprintf(stderr,
  	    "usage: %s [-ehR] [-d start_directory] [-f log_facility] "
  	    "[-l log_level]\n\t[-P blacklisted_requests] "
@@ -71,7 +71,7 @@ diff -up openssh-6.6p1/sftp-server.c.sftp-force-mode openssh-6.6p1/sftp-server.c
  	    "       %s -Q protocol_feature\n",
  	    __progname, __progname);
  	exit(1);
-@@ -1455,7 +1463,7 @@ sftp_server_main(int argc, char **argv,
+@@ -1516,7 +1527,7 @@ sftp_server_main(int argc, char **argv,
  	pw = pwcopy(user_pw);
  
  	while (!skipargs && (ch = getopt(argc, argv,
@@ -80,7 +80,7 @@ diff -up openssh-6.6p1/sftp-server.c.sftp-force-mode openssh-6.6p1/sftp-server.c
  		switch (ch) {
  		case 'Q':
  			if (strcasecmp(optarg, "requests") != 0) {
-@@ -1515,6 +1523,15 @@ sftp_server_main(int argc, char **argv,
+@@ -1576,6 +1587,15 @@ sftp_server_main(int argc, char **argv,
  				fatal("Invalid umask \"%s\"", optarg);
  			(void)umask((mode_t)mask);
  			break;

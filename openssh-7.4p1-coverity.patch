@@ -1,0 +1,574 @@
+diff -up openssh-7.4p1/auth-pam.c.coverity openssh-7.4p1/auth-pam.c
+diff -up openssh-7.4p1/channels.c.coverity openssh-7.4p1/channels.c
+--- openssh-7.4p1/channels.c.coverity	2017-02-09 14:58:32.786064600 +0100
++++ openssh-7.4p1/channels.c	2017-02-09 15:01:28.869890219 +0100
+@@ -266,11 +266,11 @@ channel_register_fds(Channel *c, int rfd
+ 	channel_max_fd = MAXIMUM(channel_max_fd, wfd);
+ 	channel_max_fd = MAXIMUM(channel_max_fd, efd);
+ 
+-	if (rfd != -1)
++	if (rfd >= 0)
+ 		fcntl(rfd, F_SETFD, FD_CLOEXEC);
+-	if (wfd != -1 && wfd != rfd)
++	if (wfd >= 0 && wfd != rfd)
+ 		fcntl(wfd, F_SETFD, FD_CLOEXEC);
+-	if (efd != -1 && efd != rfd && efd != wfd)
++	if (efd >= 0 && efd != rfd && efd != wfd)
+ 		fcntl(efd, F_SETFD, FD_CLOEXEC);
+ 
+ 	c->rfd = rfd;
+@@ -288,11 +288,11 @@ channel_register_fds(Channel *c, int rfd
+ 
+ 	/* enable nonblocking mode */
+ 	if (nonblock) {
+-		if (rfd != -1)
++		if (rfd >= 0)
+ 			set_nonblock(rfd);
+-		if (wfd != -1)
++		if (wfd >= 0)
+ 			set_nonblock(wfd);
+-		if (efd != -1)
++		if (efd >= 0)
+ 			set_nonblock(efd);
+ 	}
+ }
+diff -up openssh-7.4p1/clientloop.c.coverity openssh-7.4p1/clientloop.c
+diff -up openssh-7.4p1/key.c.coverity openssh-7.4p1/key.c
+diff -up openssh-7.4p1/monitor.c.coverity openssh-7.4p1/monitor.c
+--- openssh-7.4p1/monitor.c.coverity	2017-02-09 14:58:32.793064593 +0100
++++ openssh-7.4p1/monitor.c	2017-02-09 14:58:32.805064581 +0100
+@@ -411,7 +411,7 @@ monitor_child_preauth(Authctxt *_authctx
+ 	mm_get_keystate(pmonitor);
+ 
+ 	/* Drain any buffered messages from the child */
+-	while (pmonitor->m_log_recvfd != -1 && monitor_read_log(pmonitor) == 0)
++	while (pmonitor->m_log_recvfd >= 0 && monitor_read_log(pmonitor) == 0)
+ 		;
+ 
+ 	close(pmonitor->m_sendfd);
+diff -up openssh-7.4p1/monitor_wrap.c.coverity openssh-7.4p1/monitor_wrap.c
+--- openssh-7.4p1/monitor_wrap.c.coverity	2017-02-09 14:58:32.797064589 +0100
++++ openssh-7.4p1/monitor_wrap.c	2017-02-09 14:58:32.805064581 +0100
+@@ -525,10 +525,10 @@ mm_pty_allocate(int *ptyfd, int *ttyfd,
+ 	if ((tmp1 = dup(pmonitor->m_recvfd)) == -1 ||
+ 	    (tmp2 = dup(pmonitor->m_recvfd)) == -1) {
+ 		error("%s: cannot allocate fds for pty", __func__);
+-		if (tmp1 > 0)
++		if (tmp1 >= 0)
+ 			close(tmp1);
+-		if (tmp2 > 0)
+-			close(tmp2);
++		/*DEAD CODE if (tmp2 >= 0)
++			close(tmp2);*/
+ 		return 0;
+ 	}
+ 	close(tmp1);
+diff -up openssh-7.4p1/openbsd-compat/bindresvport.c.coverity openssh-7.4p1/openbsd-compat/bindresvport.c
+--- openssh-7.4p1/openbsd-compat/bindresvport.c.coverity	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/openbsd-compat/bindresvport.c	2017-02-09 14:58:32.805064581 +0100
+@@ -58,7 +58,7 @@ bindresvport_sa(int sd, struct sockaddr
+ 	struct sockaddr_in6 *in6;
+ 	u_int16_t *portp;
+ 	u_int16_t port;
+-	socklen_t salen;
++	socklen_t salen = sizeof(struct sockaddr_storage);
+ 	int i;
+ 
+ 	if (sa == NULL) {
+diff -up openssh-7.4p1/packet.c.coverity openssh-7.4p1/packet.c
+diff -up openssh-7.4p1/progressmeter.c.coverity openssh-7.4p1/progressmeter.c
+diff -up openssh-7.4p1/scp.c.coverity openssh-7.4p1/scp.c
+--- openssh-7.4p1/scp.c.coverity	2017-02-09 14:58:32.761064625 +0100
++++ openssh-7.4p1/scp.c	2017-02-09 14:58:38.590058852 +0100
+@@ -157,7 +157,7 @@ killchild(int signo)
+ {
+ 	if (do_cmd_pid > 1) {
+ 		kill(do_cmd_pid, signo ? signo : SIGTERM);
+-		waitpid(do_cmd_pid, NULL, 0);
++		(void) waitpid(do_cmd_pid, NULL, 0);
+ 	}
+ 
+ 	if (signo)
+diff -up openssh-7.4p1/servconf.c.coverity openssh-7.4p1/servconf.c
+--- openssh-7.4p1/servconf.c.coverity	2017-02-09 14:58:32.801064585 +0100
++++ openssh-7.4p1/servconf.c	2017-02-09 14:58:38.591058851 +0100
+@@ -1544,7 +1544,7 @@ process_server_config_line(ServerOptions
+ 			fatal("%s line %d: Missing subsystem name.",
+ 			    filename, linenum);
+ 		if (!*activep) {
+-			arg = strdelim(&cp);
++			/*arg =*/ (void) strdelim(&cp);
+ 			break;
+ 		}
+ 		for (i = 0; i < options->num_subsystems; i++)
+@@ -1635,8 +1635,9 @@ process_server_config_line(ServerOptions
+ 		if (*activep && *charptr == NULL) {
+ 			*charptr = tilde_expand_filename(arg, getuid());
+ 			/* increase optional counter */
+-			if (intptr != NULL)
+-				*intptr = *intptr + 1;
++			/* DEAD CODE intptr is still NULL ;)
++  			 if (intptr != NULL)
++				*intptr = *intptr + 1; */
+ 		}
+ 		break;
+ 
+diff -up openssh-7.4p1/serverloop.c.coverity openssh-7.4p1/serverloop.c
+--- openssh-7.4p1/serverloop.c.coverity	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/serverloop.c	2017-02-09 14:58:38.592058850 +0100
+@@ -125,13 +125,13 @@ notify_setup(void)
+ static void
+ notify_parent(void)
+ {
+-	if (notify_pipe[1] != -1)
++	if (notify_pipe[1] >= 0)
+ 		(void)write(notify_pipe[1], "", 1);
+ }
+ static void
+ notify_prepare(fd_set *readset)
+ {
+-	if (notify_pipe[0] != -1)
++	if (notify_pipe[0] >= 0)
+ 		FD_SET(notify_pipe[0], readset);
+ }
+ static void
+@@ -139,8 +139,8 @@ notify_done(fd_set *readset)
+ {
+ 	char c;
+ 
+-	if (notify_pipe[0] != -1 && FD_ISSET(notify_pipe[0], readset))
+-		while (read(notify_pipe[0], &c, 1) != -1)
++	if (notify_pipe[0] >= 0 && FD_ISSET(notify_pipe[0], readset))
++		while (read(notify_pipe[0], &c, 1) >= 0)
+ 			debug2("notify_done: reading");
+ }
+ 
+@@ -518,7 +518,7 @@ server_request_tun(void)
+ 	}
+ 
+ 	tun = packet_get_int();
+-	if (forced_tun_device != -1) {
++	if (forced_tun_device >= 0) {
+ 		if (tun != SSH_TUNID_ANY && forced_tun_device != tun)
+ 			goto done;
+ 		tun = forced_tun_device;
+diff -up openssh-7.4p1/sftp.c.coverity openssh-7.4p1/sftp.c
+--- openssh-7.4p1/sftp.c.coverity	2016-12-19 05:59:41.000000000 +0100
++++ openssh-7.4p1/sftp.c	2017-02-09 14:58:38.598058844 +0100
+@@ -224,7 +224,7 @@ killchild(int signo)
+ {
+ 	if (sshpid > 1) {
+ 		kill(sshpid, SIGTERM);
+-		waitpid(sshpid, NULL, 0);
++		(void) waitpid(sshpid, NULL, 0);
+ 	}
+ 
+ 	_exit(1);
+diff -up openssh-7.4p1/sftp-client.c.coverity openssh-7.4p1/sftp-client.c
+--- openssh-7.4p1/sftp-client.c.coverity	2017-02-09 14:58:38.596058846 +0100
++++ openssh-7.4p1/sftp-client.c	2017-02-09 15:20:18.893624636 +0100
+@@ -973,7 +973,7 @@ do_symlink(struct sftp_conn *conn, const
+ }
+ 
+ int
+-do_fsync(struct sftp_conn *conn, u_char *handle, u_int handle_len)
++do_fsync(struct sftp_conn *conn, const u_char *handle, u_int handle_len)
+ {
+ 	struct sshbuf *msg;
+ 	u_int status, id;
+--- openssh-7.4p1/sftp-client.h.coverity        2017-02-10 09:28:10.951155129 +0100
++++ openssh-7.4p1/sftp-client.h 2017-02-10 09:27:28.685069870 +0100
+@@ -107,7 +107,7 @@ int do_hardlink(struct sftp_conn *, cons
+ int do_symlink(struct sftp_conn *, const char *, const char *);
+ 
+ /* Call fsync() on open file 'handle' */
+-int do_fsync(struct sftp_conn *conn, u_char *, u_int);
++int do_fsync(struct sftp_conn *conn, const u_char *, u_int);
+ 
+ /*
+  * Download 'remote_path' to 'local_path'. Preserve permissions and times
+diff -up openssh-7.4p1/ssh-agent.c.coverity openssh-7.4p1/ssh-agent.c
+--- openssh-7.4p1/ssh-agent.c.coverity	2017-02-09 14:58:38.599058843 +0100
++++ openssh-7.4p1/ssh-agent.c	2017-02-09 15:29:21.938917065 +0100
+@@ -1220,8 +1220,8 @@ main(int ac, char **av)
+ 	sanitise_stdfd();
+ 
+ 	/* drop */
+-	setegid(getgid());
+-	setgid(getgid());
++	(void) setegid(getgid());
++	(void) setgid(getgid());
+ 
+ 	platform_disable_tracing(0);	/* strict=no */
+ 
+diff -up openssh-7.4p1/sshd.c.coverity openssh-7.4p1/sshd.c
+--- openssh-7.4p1/sshd.c.coverity	2017-02-09 14:58:38.600058842 +0100
++++ openssh-7.4p1/sshd.c	2017-02-09 15:30:33.403800831 +0100
+@@ -679,8 +679,10 @@ privsep_preauth(Authctxt *authctxt)
+ 
+ 		privsep_preauth_child();
+ 		setproctitle("%s", "[net]");
+-		if (box != NULL)
++		if (box != NULL) {
+ 			ssh_sandbox_child(box);
++			free(box);
++		}
+ 
+ 		return 0;
+ 	}
+@@ -1382,6 +1384,9 @@ server_accept_loop(int *sock_in, int *so
+ 		if (num_listen_socks < 0)
+ 			break;
+ 	}
++
++	if (fdset != NULL)
++		free(fdset);
+ }
+ 
+ /*
+diff --git a/auth-pam.c b/auth-pam.c
+index e554ec4..bd16d80 100644
+--- a/auth-pam.c
++++ b/auth-pam.c
+@@ -834,6 +834,8 @@ fake_password(const char *wire_password)
+ 		fatal("%s: password length too long: %zu", __func__, l);
+ 
+ 	ret = malloc(l + 1);
++	if (ret == NULL)
++		return NULL;
+ 	for (i = 0; i < l; i++)
+ 		ret[i] = junk[i % (sizeof(junk) - 1)];
+ 	ret[i] = '\0';
+diff --git a/clientloop.c b/clientloop.c
+index c6a4138..9b00e12 100644
+--- a/clientloop.c
++++ b/clientloop.c
+@@ -2290,7 +2290,7 @@ update_known_hosts(struct hostkeys_update_ctx *ctx)
+ 			free(response);
+ 			response = read_passphrase("Accept updated hostkeys? "
+ 			    "(yes/no): ", RP_ECHO);
+-			if (strcasecmp(response, "yes") == 0)
++			if (response != NULL && strcasecmp(response, "yes") == 0)
+ 				break;
+ 			else if (quit_pending || response == NULL ||
+ 			    strcasecmp(response, "no") == 0) {
+diff --git a/digest-openssl.c b/digest-openssl.c
+index 13b63c2..dfa9b8d 100644
+--- a/digest-openssl.c
++++ b/digest-openssl.c
+@@ -158,7 +158,7 @@ ssh_digest_final(struct ssh_digest_ctx *ctx, u_char *d, size_t dlen)
+ 	const struct ssh_digest *digest = ssh_digest_by_alg(ctx->alg);
+ 	u_int l = dlen;
+ 
+-	if (dlen > UINT_MAX)
++	if (digest == NULL || dlen > UINT_MAX)
+ 		return SSH_ERR_INVALID_ARGUMENT;
+ 	if (dlen < digest->digest_len) /* No truncation allowed */
+ 		return SSH_ERR_INVALID_ARGUMENT;
+diff --git a/kex.c b/kex.c
+index a30dabe..a8ac91f 100644
+--- a/kex.c
++++ b/kex.c
+@@ -178,7 +178,7 @@ kex_names_valid(const char *names)
+ char *
+ kex_names_cat(const char *a, const char *b)
+ {
+-	char *ret = NULL, *tmp = NULL, *cp, *p;
++	char *ret = NULL, *tmp = NULL, *cp, *p, *m;
+ 	size_t len;
+ 
+ 	if (a == NULL || *a == '\0')
+@@ -195,8 +195,10 @@ kex_names_cat(const char *a, const char *b)
+ 	}
+ 	strlcpy(ret, a, len);
+ 	for ((p = strsep(&cp, ",")); p && *p != '\0'; (p = strsep(&cp, ","))) {
+-		if (match_list(ret, p, NULL) != NULL)
++		if ((m = match_list(ret, p, NULL)) != NULL) {
++			free(m);
+ 			continue; /* Algorithm already present */
++		}
+ 		if (strlcat(ret, ",", len) >= len ||
+ 		    strlcat(ret, p, len) >= len) {
+ 			free(tmp);
+@@ -651,8 +653,10 @@ choose_enc(struct sshenc *enc, char *client, char *server)
+ #endif
+ 		return SSH_ERR_NO_CIPHER_ALG_MATCH;
+ 	}
+-	if ((enc->cipher = cipher_by_name(name)) == NULL)
++	if ((enc->cipher = cipher_by_name(name)) == NULL) {
++		free(name);
+ 		return SSH_ERR_INTERNAL_ERROR;
++	}
+ 	enc->name = name;
+ 	enc->enabled = 0;
+ 	enc->iv = NULL;
+@@ -670,8 +674,10 @@ choose_mac(struct ssh *ssh, struct sshmac *mac, char *client, char *server)
+ #endif
+ 		return SSH_ERR_NO_MAC_ALG_MATCH;
+ 	}
+-	if (mac_setup(mac, name) < 0)
++	if (mac_setup(mac, name) < 0) {
++		free(name);
+ 		return SSH_ERR_INTERNAL_ERROR;
++	}
+ 	/* truncate the key */
+ 	if (ssh->compat & SSH_BUG_HMAC)
+ 		mac->key_len = 16;
+@@ -695,6 +701,7 @@ choose_comp(struct sshcomp *comp, char *client, char *server)
+ 	} else if (strcmp(name, "none") == 0) {
+ 		comp->type = COMP_NONE;
+ 	} else {
++		free(name);
+ 		return SSH_ERR_INTERNAL_ERROR;
+ 	}
+ 	comp->name = name;
+diff --git a/readconf.c b/readconf.c
+index 3e7a5d8..acc1391 100644
+--- a/readconf.c
++++ b/readconf.c
+@@ -1500,6 +1500,7 @@ parse_keytypes:
+ 			if (r == GLOB_NOMATCH) {
+ 				debug("%.200s line %d: include %s matched no "
+ 				    "files",filename, linenum, arg2);
++				free(arg2);
+ 				continue;
+ 			} else if (r != 0 || gl.gl_pathc < 0)
+ 				fatal("%.200s line %d: glob failed for %s.",
+diff --git a/servconf.c b/servconf.c
+index 6ab1cb4..5f2464a 100644
+--- a/servconf.c
++++ b/servconf.c
+@@ -2284,8 +2284,6 @@ dump_cfg_fmtint(ServerOpCodes code, int val)
+ static void
+ dump_cfg_string(ServerOpCodes code, const char *val)
+ {
+-	if (val == NULL)
+-		return;
+ 	printf("%s %s\n", lookup_opcode_name(code),
+ 	    val == NULL ? "none" : val);
+ }
+diff --git a/sshconnect.c b/sshconnect.c
+index 07f80cd..5d4b41b 100644
+--- a/sshconnect.c
++++ b/sshconnect.c
+@@ -1533,6 +1533,7 @@ maybe_add_key_to_agent(char *authfile, Key *private, char *comment,
+ 	if (options.add_keys_to_agent == 2 &&
+ 	    !ask_permission("Add key %s (%s) to agent?", authfile, comment)) {
+ 		debug3("user denied adding this key");
++		close(auth_sock);
+ 		return;
+ 	}
+ 
+@@ -1541,4 +1542,5 @@ maybe_add_key_to_agent(char *authfile, Key *private, char *comment,
+ 		debug("identity added to agent: %s", authfile);
+ 	else
+ 		debug("could not add identity to agent: %s (%d)", authfile, r);
++	close(auth_sock);
+ }
+diff --git a/sshconnect2.c b/sshconnect2.c
+index f31c24c..aecf765 100644
+--- a/sshconnect2.c
++++ b/sshconnect2.c
+@@ -1061,6 +1061,7 @@ sign_and_send_pubkey(Authctxt *authctxt, Identity *id)
+ 
+ 	if (key_to_blob(id->key, &blob, &bloblen) == 0) {
+ 		/* we cannot handle this key */
++		free(blob);
+ 		debug3("sign_and_send_pubkey: cannot handle key");
+ 		return 0;
+ 	}
+@@ -1170,6 +1171,7 @@ send_pubkey_test(Authctxt *authctxt, Identity *id)
+ 
+ 	if (key_to_blob(id->key, &blob, &bloblen) == 0) {
+ 		/* we cannot handle this key */
++		free(blob);
+ 		debug3("send_pubkey_test: cannot handle key");
+ 		return 0;
+ 	}
+diff --git a/sshkey.c b/sshkey.c
+index 85fd1bd..58c1051 100644
+--- a/sshkey.c
++++ b/sshkey.c
+@@ -1375,8 +1375,6 @@ sshkey_read(struct sshkey *ret, char **cpp)
+ 		retval = 0;
+ /*XXXX*/
+ 		sshkey_free(k);
+-		if (retval != 0)
+-			break;
+ 		break;
+ 	default:
+ 		return SSH_ERR_INVALID_ARGUMENT;
+diff --git a/krl.c b/krl.c
+index e271a19..69bec99 100644
+--- a/krl.c
++++ b/krl.c
+@@ -1089,7 +1089,7 @@ ssh_krl_from_blob(struct sshbuf *buf, struct ssh_krl **krlp,
+ 			break;
+ 		case KRL_SECTION_SIGNATURE:
+ 			/* Handled above, but still need to stay in synch */
+-			sshbuf_reset(sect);
++			sshbuf_free(sect);
+ 			sect = NULL;
+ 			if ((r = sshbuf_skip_string(copy)) != 0)
+ 				goto out;
+@@ -1288,7 +1288,8 @@ ssh_krl_file_contains_key(const char *path, const struct sshkey *key)
+ 	debug2("%s: checking KRL %s", __func__, path);
+ 	r = ssh_krl_check_key(krl, key);
+  out:
+-	close(fd);
++	if (fd != -1)
++		close(fd);
+ 	sshbuf_free(krlbuf);
+ 	ssh_krl_free(krl);
+ 	if (r != 0)
+diff --git a/readconf.c b/readconf.c
+index acc1391..c4dff15 100644
+--- a/readconf.c
++++ b/readconf.c
+@@ -1185,7 +1185,7 @@ parse_int:
+ 		value = cipher_number(arg);
+ 		if (value == -1)
+ 			fatal("%.200s line %d: Bad cipher '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (*activep && *intptr == -1)
+ 			*intptr = value;
+ 		break;
+@@ -1196,7 +1196,7 @@ parse_int:
+ 			fatal("%.200s line %d: Missing argument.", filename, linenum);
+ 		if (!ciphers_valid(*arg == '+' ? arg + 1 : arg))
+ 			fatal("%.200s line %d: Bad SSH2 cipher spec '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (*activep && options->ciphers == NULL)
+ 			options->ciphers = xstrdup(arg);
+ 		break;
+@@ -1207,7 +1207,7 @@ parse_int:
+ 			fatal("%.200s line %d: Missing argument.", filename, linenum);
+ 		if (!mac_valid(*arg == '+' ? arg + 1 : arg))
+ 			fatal("%.200s line %d: Bad SSH2 Mac spec '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (*activep && options->macs == NULL)
+ 			options->macs = xstrdup(arg);
+ 		break;
+@@ -1220,7 +1220,7 @@ parse_int:
+ 			    filename, linenum);
+ 		if (!kex_names_valid(*arg == '+' ? arg + 1 : arg))
+ 			fatal("%.200s line %d: Bad SSH2 KexAlgorithms '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (*activep && options->kex_algorithms == NULL)
+ 			options->kex_algorithms = xstrdup(arg);
+ 		break;
+@@ -1235,7 +1235,7 @@ parse_keytypes:
+ 			    filename, linenum);
+ 		if (!sshkey_names_valid2(*arg == '+' ? arg + 1 : arg, 1))
+ 			fatal("%s line %d: Bad key types '%s'.",
+-				filename, linenum, arg ? arg : "<NONE>");
++				filename, linenum, arg);
+ 		if (*activep && *charptr == NULL)
+ 			*charptr = xstrdup(arg);
+ 		break;
+@@ -1248,7 +1248,7 @@ parse_keytypes:
+ 		value = proto_spec(arg);
+ 		if (value == SSH_PROTO_UNKNOWN)
+ 			fatal("%.200s line %d: Bad protocol spec '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (*activep && *intptr == SSH_PROTO_UNKNOWN)
+ 			*intptr = value;
+ 		break;
+diff --git a/servconf.c b/servconf.c
+index 5f2464a..4564494 100644
+--- a/servconf.c
++++ b/servconf.c
+@@ -1217,7 +1217,7 @@ process_server_config_line_depth(ServerOptions *options, char *line,
+ 			    filename, linenum);
+ 		if (!sshkey_names_valid2(*arg == '+' ? arg + 1 : arg, 1))
+ 			fatal("%s line %d: Bad key types '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (*activep && *charptr == NULL)
+ 			*charptr = xstrdup(arg);
+ 		break;
+@@ -1476,7 +1476,7 @@ process_server_config_line_depth(ServerOptions *options, char *line,
+ 			fatal("%s line %d: Missing argument.", filename, linenum);
+ 		if (!ciphers_valid(*arg == '+' ? arg + 1 : arg))
+ 			fatal("%s line %d: Bad SSH2 cipher spec '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (options->ciphers == NULL)
+ 			options->ciphers = xstrdup(arg);
+ 		break;
+@@ -1487,7 +1487,7 @@ process_server_config_line_depth(ServerOptions *options, char *line,
+ 			fatal("%s line %d: Missing argument.", filename, linenum);
+ 		if (!mac_valid(*arg == '+' ? arg + 1 : arg))
+ 			fatal("%s line %d: Bad SSH2 mac spec '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (options->macs == NULL)
+ 			options->macs = xstrdup(arg);
+ 		break;
+@@ -1500,7 +1500,7 @@ process_server_config_line_depth(ServerOptions *options, char *line,
+ 			    filename, linenum);
+ 		if (!kex_names_valid(*arg == '+' ? arg + 1 : arg))
+ 			fatal("%s line %d: Bad SSH2 KexAlgorithms '%s'.",
+-			    filename, linenum, arg ? arg : "<NONE>");
++			    filename, linenum, arg);
+ 		if (options->kex_algorithms == NULL)
+ 			options->kex_algorithms = xstrdup(arg);
+ 		break;
+diff --git a/ssh-pkcs11.c b/ssh-pkcs11.c
+index aaf712d..62a76b3 100644
+--- a/ssh-pkcs11.c
++++ b/ssh-pkcs11.c
+@@ -536,8 +536,8 @@ pkcs11_fetch_keys_filter(struct pkcs11_provider *p, CK_ULONG slotidx,
+ 				X509_free(x509);
+ 		}
+ 		if (rsa && rsa->n && rsa->e &&
+-		    pkcs11_rsa_wrap(p, slotidx, &attribs[0], rsa) == 0) {
+-			key = sshkey_new(KEY_UNSPEC);
++		    pkcs11_rsa_wrap(p, slotidx, &attribs[0], rsa) == 0 &&
++		    (key = sshkey_new(KEY_UNSPEC)) != NULL) {
+ 			key->rsa = rsa;
+ 			key->type = KEY_RSA;
+ 			key->flags |= SSHKEY_FLAG_EXT;
+diff --git a/sshconnect1.c b/sshconnect1.c
+index a045361..0e1a506 100644
+--- a/sshconnect1.c
++++ b/sshconnect1.c
+@@ -520,7 +520,8 @@ ssh_kex(char *host, struct sockaddr *hostaddr)
+ 		cookie[i] = packet_get_char();
+ 
+ 	/* Get the public key. */
+-	server_key = key_new(KEY_RSA1);
++	if ((server_key = key_new(KEY_RSA1)) == NULL)
++		fatal("%s: key_new(KEY_RSA1) failed", __func__);
+ 	bits = packet_get_int();
+ 	packet_get_bignum(server_key->rsa->e);
+ 	packet_get_bignum(server_key->rsa->n);
+@@ -532,7 +533,8 @@ ssh_kex(char *host, struct sockaddr *hostaddr)
+ 		logit("Warning: This may be due to an old implementation of ssh.");
+ 	}
+ 	/* Get the host key. */
+-	host_key = key_new(KEY_RSA1);
++	if ((host_key = key_new(KEY_RSA1)) == NULL)
++		fatal("%s: key_new(KEY_RSA1) failed", __func__);
+ 	bits = packet_get_int();
+ 	packet_get_bignum(host_key->rsa->e);
+ 	packet_get_bignum(host_key->rsa->n);
+diff --git a/sshkey.c b/sshkey.c
+index 58c1051..6afacb5 100644
+--- a/sshkey.c
++++ b/sshkey.c
+@@ -1239,6 +1239,9 @@ sshkey_read(struct sshkey *ret, char **cpp)
+ 	u_long bits;
+ #endif /* WITH_SSH1 */
+ 
++	if (ret == NULL)
++		return SSH_ERR_INVALID_ARGUMENT;
++
+ 	cp = *cpp;
+ 
+ 	switch (ret->type) {
