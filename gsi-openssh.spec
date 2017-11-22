@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.5p1
-%global openssh_rel 3
+%global openssh_ver 7.6p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -65,7 +65,7 @@ Patch104: openssh-7.3p1-openssl-1.1.0.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 # https://bugzilla.redhat.com/show_bug.cgi?id=1171248
 # record pfs= field in CRYPTO_SESSION audit event
-Patch200: openssh-7.2p1-audit.patch
+Patch200: openssh-7.6p1-audit.patch
 # Audit race condition in forked child (#1310684)
 Patch201: openssh-7.1p2-audit-race-condition.patch
 
@@ -126,6 +126,10 @@ Patch803: openssh-7.1p1-gssapi-documentation.patch
 Patch804: openssh-6.3p1-krb5-use-default_ccache_name.patch
 # Respect k5login_directory option in krk5.conf (#1328243)
 Patch805: openssh-7.2p2-k5login_directory.patch
+# Do not export KRBCCNAME if the default path is used (#1199363)
+Patch806: openssh-7.5p1-gss-environment.patch
+# Support SHA2 in GSS key exchanges from draft-ssorce-gss-keyex-sha2-02
+Patch807: openssh-7.5p1-gssapi-kex-with-ec.patch
 
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
@@ -160,19 +164,20 @@ Patch932: openssh-7.0p1-gssKexAlgorithms.patch
 Patch933: openssh-7.0p1-show-more-fingerprints.patch
 # make s390 use /dev/ crypto devices -- ignore closefrom
 Patch939: openssh-7.2p2-s390-closefrom.patch
-# expose more information to PAM
-# https://github.com/openssh/openssh-portable/pull/47
-Patch940: openssh-7.2p2-expose-pam.patch
 # Move MAX_DISPLAYS to a configuration option (#1341302)
 Patch944: openssh-7.3p1-x11-max-displays.patch
 # Help systemd to track the running service
 Patch948: openssh-7.4p1-systemd.patch
-# Fix typo in sandbox code; missing header for s390
-Patch949: openssh-7.5p1-sandbox.patch
+# Pass inetd flags for SELinux down to openbsd compat level
+Patch949: openssh-7.6p1-cleanup-selinux.patch
+# Sandbox adjustments for s390 and audit
+Patch950: openssh-7.5p1-sandbox.patch
+# PermitOpen bug in OpenSSH 7.6:
+Patch951: openssh-7.6p1-permitopen-bug.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-7.5p1-gsissh.patch
+Patch98: openssh-7.6p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -304,6 +309,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch803 -p1 -b .gss-docs
 %patch804 -p1 -b .ccache_name
 %patch805 -p1 -b .k5login
+%patch806 -p1 -b .gss-env
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
@@ -322,10 +328,12 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch932 -p1 -b .gsskexalg
 %patch933 -p1 -b .fingerprint
 %patch939 -p1 -b .s390-dev
-%patch940 -p1 -b .expose-pam
 %patch944 -p1 -b .x11max
 %patch948 -p1 -b .systemd
-%patch949 -p1 -b .sandbox
+%patch807 -p1 -b .gsskex-ec
+%patch949 -p1 -b .refactor
+%patch950 -p1 -b .sandbox
+%patch951 -p1 -b .permitOpen
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -540,6 +548,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Nov 22 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-1
+- Based on openssh-7.6p1-2.fc27
+
 * Sat Nov 11 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.5p1-3
 - Based on openssh-7.5p1-5.fc27
 

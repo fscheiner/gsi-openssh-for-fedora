@@ -175,23 +175,23 @@ diff -up openssh-7.4p1/gss-serv-krb5.c.kuserok openssh-7.4p1/gss-serv-krb5.c
 diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
 --- openssh-7.4p1/servconf.c.kuserok	2016-12-23 14:36:07.630465944 +0100
 +++ openssh-7.4p1/servconf.c	2016-12-23 15:11:52.278133344 +0100
-@@ -167,6 +167,7 @@ initialize_server_options(ServerOptions
- 	options->version_addendum = NULL;
- 	options->fingerprint_hash = -1;
- 	options->disable_forwarding = -1;
+@@ -116,6 +116,7 @@ initialize_server_options(ServerOptions
+ 	options->gss_cleanup_creds = -1;
+ 	options->gss_strict_acceptor = -1;
+ 	options->gss_store_rekey = -1;
 +	options->use_kuserok = -1;
- }
- 
- /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
-@@ -342,6 +343,8 @@ fill_default_server_options(ServerOption
- 		options->fingerprint_hash = SSH_FP_HASH_DEFAULT;
- 	if (options->disable_forwarding == -1)
- 		options->disable_forwarding = 0;
+ 	options->password_authentication = -1;
+ 	options->kbd_interactive_authentication = -1;
+ 	options->challenge_response_authentication = -1;
+@@ -278,6 +279,8 @@ fill_default_server_options(ServerOption
+ 		options->gss_strict_acceptor = 1;
+ 	if (options->gss_store_rekey == -1)
+ 		options->gss_store_rekey = 0;
 +	if (options->use_kuserok == -1)
 +		options->use_kuserok = 1;
- 
- 	assemble_algorithms(options);
- 
+ 	if (options->password_authentication == -1)
+ 		options->password_authentication = 1;
+ 	if (options->kbd_interactive_authentication == -1)
 @@ -399,7 +402,7 @@ typedef enum {
  	sPermitRootLogin, sLogFacility, sLogLevel,
  	sRhostsRSAAuthentication, sRSAAuthentication,
@@ -233,26 +233,26 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
 +	M_CP_INTOPT(use_kuserok);
  	M_CP_INTOPT(rekey_limit);
  	M_CP_INTOPT(rekey_interval);
- 
+ 	M_CP_INTOPT(log_level);
 @@ -2309,6 +2319,7 @@ dump_config(ServerOptions *o)
- 	dump_cfg_fmtint(sAllowStreamLocalForwarding, o->allow_streamlocal_forwarding);
- 	dump_cfg_fmtint(sStreamLocalBindUnlink, o->fwd_opts.streamlocal_bind_unlink);
- 	dump_cfg_fmtint(sFingerprintHash, o->fingerprint_hash);
+ # ifdef USE_AFS
+ 	dump_cfg_fmtint(sKerberosGetAFSToken, o->kerberos_get_afs_token);
+ # endif
 +	dump_cfg_fmtint(sKerberosUseKuserok, o->use_kuserok);
- 
- 	/* string arguments */
- 	dump_cfg_string(sPidFile, o->pid_file);
+ #endif
+ #ifdef GSSAPI
+	dump_cfg_fmtint(sGssAuthentication, o->gss_authentication);
 diff -up openssh-7.4p1/servconf.h.kuserok openssh-7.4p1/servconf.h
 --- openssh-7.4p1/servconf.h.kuserok	2016-12-23 14:36:07.630465944 +0100
 +++ openssh-7.4p1/servconf.h	2016-12-23 14:36:07.645465936 +0100
-@@ -174,6 +174,7 @@ typedef struct {
- 
- 	int	num_permitted_opens;
- 
+@@ -118,6 +118,7 @@ typedef struct {
+ 						 * file on logout. */
+ 	int     kerberos_get_afs_token;		/* If true, try to get AFS token if
+ 						 * authenticated with Kerberos. */
 +	int	use_kuserok;
- 	char   *chroot_directory;
- 	char   *revoked_keys_file;
- 	char   *trusted_user_ca_keys;
+ 	int     gss_authentication;	/* If true, permit GSSAPI authentication */
+ 	int     gss_keyex;		/* If true, permit GSSAPI key exchange */
+ 	int     gss_cleanup_creds;	/* If true, destroy cred cache on logout */
 diff -up openssh-7.4p1/sshd_config.5.kuserok openssh-7.4p1/sshd_config.5
 --- openssh-7.4p1/sshd_config.5.kuserok	2016-12-23 14:36:07.637465940 +0100
 +++ openssh-7.4p1/sshd_config.5	2016-12-23 15:14:03.117162222 +0100
@@ -272,9 +272,9 @@ diff -up openssh-7.4p1/sshd_config.5.kuserok openssh-7.4p1/sshd_config.5
  .Cm KbdInteractiveAuthentication ,
  .Cm KerberosAuthentication ,
 +.Cm KerberosUseKuserok ,
+ .Cm LogLevel ,
  .Cm MaxAuthTries ,
  .Cm MaxSessions ,
- .Cm PasswordAuthentication ,
 diff -up openssh-7.4p1/sshd_config.kuserok openssh-7.4p1/sshd_config
 --- openssh-7.4p1/sshd_config.kuserok	2016-12-23 14:36:07.631465943 +0100
 +++ openssh-7.4p1/sshd_config	2016-12-23 14:36:07.646465935 +0100

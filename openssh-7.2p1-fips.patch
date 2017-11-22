@@ -10,22 +10,29 @@ diff -up openssh-7.5p1/cipher.c.fips openssh-7.5p1/cipher.c
  #include <string.h>
  #include <stdarg.h>
  #include <stdio.h>
-@@ -116,6 +118,20 @@ static const struct sshcipher ciphers[]
- 	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
+@@ -116,6 +118,27 @@ static const struct sshcipher ciphers[]
+ 	{ NULL,			0, 0, 0, 0, 0, NULL }
  };
  
 +static const struct sshcipher fips_ciphers[] = {
-+	{ "none",	SSH_CIPHER_NONE, 8, 0, 0, 0, 0, 0, EVP_enc_null },
-+	{ "3des-cbc",	SSH_CIPHER_SSH2, 8, 24, 0, 0, 0, 1, EVP_des_ede3_cbc },
-+	{ "aes128-cbc",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 1, EVP_aes_128_cbc },
-+	{ "aes192-cbc",	SSH_CIPHER_SSH2, 16, 24, 0, 0, 0, 1, EVP_aes_192_cbc },
-+	{ "aes256-cbc",	SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 1, EVP_aes_256_cbc },
++#ifdef WITH_OPENSSL
++	{ "3des-cbc",		8, 24, 0, 0, CFLAG_CBC, EVP_des_ede3_cbc },
++	{ "aes128-cbc",		16, 16, 0, 0, CFLAG_CBC, EVP_aes_128_cbc },
++	{ "aes192-cbc",		16, 24, 0, 0, CFLAG_CBC, EVP_aes_192_cbc },
++	{ "aes256-cbc",		16, 32, 0, 0, CFLAG_CBC, EVP_aes_256_cbc },
 +	{ "rijndael-cbc@lysator.liu.se",
-+			SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 1, EVP_aes_256_cbc },
-+	{ "aes128-ctr",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 0, EVP_aes_128_ctr },
-+	{ "aes192-ctr",	SSH_CIPHER_SSH2, 16, 24, 0, 0, 0, 0, EVP_aes_192_ctr },
-+	{ "aes256-ctr",	SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 0, EVP_aes_256_ctr },
-+	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
++				16, 32, 0, 0, CFLAG_CBC, EVP_aes_256_cbc },
++	{ "aes128-ctr",		16, 16, 0, 0, 0, EVP_aes_128_ctr },
++	{ "aes192-ctr",		16, 24, 0, 0, 0, EVP_aes_192_ctr },
++	{ "aes256-ctr",		16, 32, 0, 0, 0, EVP_aes_256_ctr },
++#else
++	{ "aes128-ctr",		16, 16, 0, 0, CFLAG_AESCTR, NULL },
++	{ "aes192-ctr",		16, 24, 0, 0, CFLAG_AESCTR, NULL },
++	{ "aes256-ctr",		16, 32, 0, 0, CFLAG_AESCTR, NULL },
++#endif
++	{ "none",		8, 0, 0, 0, CFLAG_NONE, NULL },
++
++	{ NULL,			0, 0, 0, 0, 0, NULL }
 +};
 +
  /*--*/
@@ -37,7 +44,7 @@ diff -up openssh-7.5p1/cipher.c.fips openssh-7.5p1/cipher.c
  
 -	for (c = ciphers; c->name != NULL; c++) {
 +	for (c = FIPS_mode() ? fips_ciphers : ciphers; c->name != NULL; c++) {
- 		if (c->number != SSH_CIPHER_SSH2)
+ 		if ((c->flags & CFLAG_INTERNAL) != 0)
  			continue;
  		if (auth_only && c->auth_len == 0)
 @@ -222,7 +238,7 @@ const struct sshcipher *
@@ -49,24 +56,6 @@ diff -up openssh-7.5p1/cipher.c.fips openssh-7.5p1/cipher.c
  		if (strcmp(c->name, name) == 0)
  			return c;
  	return NULL;
-@@ -232,7 +248,7 @@ const struct sshcipher *
- cipher_by_number(int id)
- {
- 	const struct sshcipher *c;
--	for (c = ciphers; c->name != NULL; c++)
-+	for (c = FIPS_mode() ? fips_ciphers : ciphers; c->name != NULL; c++)
- 		if (c->number == id)
- 			return c;
- 	return NULL;
-@@ -273,7 +289,7 @@ cipher_number(const char *name)
- 	const struct sshcipher *c;
- 	if (name == NULL)
- 		return -1;
--	for (c = ciphers; c->name != NULL; c++)
-+	for (c = FIPS_mode() ? fips_ciphers : ciphers; c->name != NULL; c++)
- 		if (strcasecmp(c->name, name) == 0)
- 			return c->number;
- 	return -1;
 diff -up openssh-7.5p1/cipher-ctr.c.fips openssh-7.5p1/cipher-ctr.c
 --- openssh-7.5p1/cipher-ctr.c.fips	2017-06-30 12:06:36.386713974 +0200
 +++ openssh-7.5p1/cipher-ctr.c	2017-06-30 12:06:36.465713761 +0200
@@ -471,16 +460,6 @@ diff -up openssh-7.5p1/ssh.c.fips openssh-7.5p1/ssh.c
  
  #ifndef HAVE_SETPROCTITLE
  	/* Prepare for later setproctitle emulation */
-@@ -609,6 +619,9 @@ main(int ac, char **av)
- 	    "ACD:E:F:GI:J:KL:MNO:PQ:R:S:TVw:W:XYy")) != -1) {
- 		switch (opt) {
- 		case '1':
-+			if (FIPS_mode()) {
-+				fatal("Protocol 1 not allowed in the FIPS mode.");
-+			}
- 			options.protocol = SSH_PROTO_1;
- 			break;
- 		case '2':
 @@ -964,7 +977,6 @@ main(int ac, char **av)
  	host_arg = xstrdup(host);
  
@@ -500,19 +479,6 @@ diff -up openssh-7.5p1/ssh.c.fips openssh-7.5p1/ssh.c
  	if (options.user == NULL)
  		options.user = xstrdup(pw->pw_name);
  
-@@ -1263,6 +1279,12 @@ main(int ac, char **av)
- 
- 	timeout_ms = options.connection_timeout * 1000;
- 
-+	if (FIPS_mode()) {
-+		options.protocol &= SSH_PROTO_2;
-+		if (options.protocol == 0)
-+			fatal("Protocol 2 disabled by configuration but required in the FIPS mode.");
-+	}
-+
- 	/* Open a connection to the remote host. */
- 	if (ssh_connect(host, addrs, &hostaddr, options.port,
- 	    options.address_family, options.connection_attempts,
 diff -up openssh-7.5p1/sshconnect2.c.fips openssh-7.5p1/sshconnect2.c
 --- openssh-7.5p1/sshconnect2.c.fips	2017-06-30 12:06:36.439713831 +0200
 +++ openssh-7.5p1/sshconnect2.c	2017-06-30 12:06:36.469713750 +0200
@@ -686,9 +652,9 @@ diff -up openssh-7.5p1/sshkey.c.fips openssh-7.5p1/sshkey.c
  
  #include "crypto_api.h"
 @@ -58,6 +59,7 @@
+ #define SSHKEY_INTERNAL
  #include "sshkey.h"
  #include "match.h"
- #include "xmalloc.h"
 +#include "log.h"
  
  /* openssh private key file format */
@@ -715,6 +681,6 @@ diff -up openssh-7.5p1/ssh-keygen.c.fips openssh-7.5p1/ssh-keygen.c
 +		if (type == KEY_ED25519)
 +			fatal("ED25519 keys are not allowed in FIPS mode");
 +	}
- 	if (type == KEY_DSA && *bitsp != 1024)
- 		fatal("DSA keys must be 1024 bits");
- 	else if (type != KEY_ECDSA && type != KEY_ED25519 && *bitsp < 1024)
+ 	switch (type) {
+ 	case KEY_DSA:
+ 		if (*bitsp != 1024)

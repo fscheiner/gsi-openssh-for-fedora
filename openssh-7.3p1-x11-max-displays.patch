@@ -2,26 +2,25 @@ diff -up openssh-7.4p1/channels.c.x11max openssh-7.4p1/channels.c
 --- openssh-7.4p1/channels.c.x11max	2016-12-23 15:46:32.071506625 +0100
 +++ openssh-7.4p1/channels.c	2016-12-23 15:46:32.139506636 +0100
 @@ -152,8 +152,8 @@ static int all_opens_permitted = 0;
+ #define FWD_PERMIT_ANY_HOST	"*"
  
  /* -- X11 forwarding */
- 
 -/* Maximum number of fake X11 displays to try. */
 -#define MAX_DISPLAYS  1000
 +/* Minimum port number for X11 forwarding */
 +#define X11_PORT_MIN 6000
  
- /* Saved X11 local (client) display. */
- static char *x11_saved_display = NULL;
-@@ -4228,7 +4228,8 @@ channel_send_window_changes(void)
+ /*
+  * Data structure for storing which hosts are permitted for forward requests.
+@@ -4228,7 +4228,7 @@ channel_send_window_changes(void)
   */
  int
- x11_create_display_inet(int x11_display_offset, int x11_use_localhost,
--    int single_connection, u_int *display_numberp, int **chanids)
-+    int x11_max_displays, int single_connection, u_int *display_numberp,
-+    int **chanids)
+ x11_create_display_inet(struct ssh *ssh, int x11_display_offset,
+-    int x11_use_localhost, int single_connection,
++    int x11_use_localhost, int x11_max_displays, int single_connection,
+     u_int *display_numberp, int **chanids)
  {
  	Channel *nc = NULL;
- 	int display_number, sock;
 @@ -4240,10 +4241,15 @@ x11_create_display_inet(int x11_display_
  	if (chanids == NULL)
  		return -1;
@@ -38,7 +37,7 @@ diff -up openssh-7.4p1/channels.c.x11max openssh-7.4p1/channels.c
 +		if (port < X11_PORT_MIN) /* overflow */
 +			break;
  		memset(&hints, 0, sizeof(hints));
- 		hints.ai_family = IPv4or6;
+ 		hints.ai_family = ssh->chanctxt->IPv4or6;
  		hints.ai_flags = x11_use_localhost ? 0: AI_PASSIVE;
 @@ -4295,7 +4301,7 @@ x11_create_display_inet(int x11_display_
  		if (num_socks > 0)
@@ -51,7 +50,7 @@ diff -up openssh-7.4p1/channels.c.x11max openssh-7.4p1/channels.c
  	}
 @@ -4441,7 +4447,7 @@ x11_connect_display(void)
  	memset(&hints, 0, sizeof(hints));
- 	hints.ai_family = IPv4or6;
+ 	hints.ai_family = ssh->chanctxt->IPv4or6;
  	hints.ai_socktype = SOCK_STREAM;
 -	snprintf(strport, sizeof strport, "%u", 6000 + display_number);
 +	snprintf(strport, sizeof strport, "%u", X11_PORT_MIN + display_number);
@@ -71,8 +70,8 @@ diff -up openssh-7.4p1/channels.c.x11max openssh-7.4p1/channels.c
  	}
  	freeaddrinfo(aitop);
  	if (!ai) {
--		error("connect %.100s port %u: %.100s", buf, 6000 + display_number,
--		    strerror(errno));
+-		error("connect %.100s port %u: %.100s", buf,
+-		    6000 + display_number, strerror(errno));
 +		error("connect %.100s port %u: %.100s", buf,
 +		    X11_PORT_MIN + display_number, strerror(errno));
  		return -1;
@@ -83,13 +82,13 @@ diff -up openssh-7.4p1/channels.h.x11max openssh-7.4p1/channels.h
 +++ openssh-7.4p1/channels.h	2016-12-23 15:46:32.139506636 +0100
 @@ -293,7 +293,7 @@ int	 permitopen_port(const char *);
  
- void	 channel_set_x11_refuse_time(u_int);
- int	 x11_connect_display(void);
--int	 x11_create_display_inet(int, int, int, u_int *, int **);
-+int	 x11_create_display_inet(int, int, int, int, u_int *, int **);
- int      x11_input_open(int, u_int32_t, void *);
- void	 x11_request_forwarding_with_spoofing(int, const char *, const char *,
- 	     const char *, int);
+ void	 channel_set_x11_refuse_time(struct ssh *, u_int);
+ int	 x11_connect_display(struct ssh *);
+-int	 x11_create_display_inet(struct ssh *, int, int, int, u_int *, int **);
++int	 x11_create_display_inet(struct ssh *, int, int, int, int, u_int *, int **);
+ void	 x11_request_forwarding_with_spoofing(struct ssh *, int,
+ 	    const char *, const char *, const char *, int);
+ 
 diff -up openssh-7.4p1/servconf.c.x11max openssh-7.4p1/servconf.c
 --- openssh-7.4p1/servconf.c.x11max	2016-12-23 15:46:32.133506635 +0100
 +++ openssh-7.4p1/servconf.c	2016-12-23 15:47:27.320519121 +0100
@@ -179,7 +178,7 @@ diff -up openssh-7.4p1/session.c.x11max openssh-7.4p1/session.c
 @@ -2518,8 +2518,9 @@ session_setup_x11fwd(Session *s)
  		return 0;
  	}
- 	if (x11_create_display_inet(options.x11_display_offset,
+	if (x11_create_display_inet(ssh, options.x11_display_offset,
 -	    options.x11_use_localhost, s->single_connection,
 -	    &s->display_number, &s->x11_chanids) == -1) {
 +	    options.x11_use_localhost, options.x11_max_displays,

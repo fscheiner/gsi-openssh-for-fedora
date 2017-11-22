@@ -107,7 +107,7 @@ diff -up openssh-7.4p1/sshd.c.privsep-selinux openssh-7.4p1/sshd.c
 +#endif
 +
  	/* Demote the child */
- 	if (getuid() == 0 || geteuid() == 0) {
+ 	if (privsep_chroot) {
  		/* Change our root directory */
 @@ -633,6 +637,9 @@ privsep_postauth(Authctxt *authctxt)
  {

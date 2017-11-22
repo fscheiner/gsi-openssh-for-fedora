@@ -34,7 +34,7 @@ diff -up openssh-7.4p1/log.h.log-in-chroot openssh-7.4p1/log.h
  
  void     log_init(char *, LogLevel, SyslogFacility, int);
 +void     log_init_handler(char *, LogLevel, SyslogFacility, int, int);
- void     log_change_level(LogLevel);
+ int      log_change_level(LogLevel);
  int      log_is_on_stderr(void);
  void     log_redirect_stderr_to(const char *);
 diff -up openssh-7.4p1/monitor.c.log-in-chroot openssh-7.4p1/monitor.c
@@ -123,30 +123,8 @@ diff -up openssh-7.4p1/session.c.log-in-chroot openssh-7.4p1/session.c
  static int in_chroot = 0;
 +static int have_dev_log = 1;
  
- /* Name and directory of socket for authentication agent forwarding. */
- static char *auth_sock_name = NULL;
-@@ -365,8 +366,8 @@ do_exec_no_pty(Session *s, const char *c
- 		is_child = 1;
- 
- 		/* Child.  Reinitialize the log since the pid has changed. */
--		log_init(__progname, options.log_level,
--		    options.log_facility, log_stderr);
-+		log_init_handler(__progname, options.log_level,
-+		    options.log_facility, log_stderr, have_dev_log);
- 
- 		/*
- 		 * Create a new session and process group since the 4.4BSD
-@@ -523,8 +524,8 @@ do_exec_pty(Session *s, const char *comm
- 		close(ptymaster);
- 
- 		/* Child.  Reinitialize the log because the pid has changed. */
--		log_init(__progname, options.log_level,
--		    options.log_facility, log_stderr);
-+		log_init_handler(__progname, options.log_level,
-+		    options.log_facility, log_stderr, have_dev_log);
- 		/* Close the master side of the pseudo tty. */
- 		close(ptyfd);
- 
+ /* File containing userauth info, if ExposeAuthInfo set */
+ static char *auth_info_file = NULL;
 @@ -619,6 +620,7 @@ do_exec(Session *s, const char *command)
  	int ret;
  	const char *forced = NULL, *tty = NULL;

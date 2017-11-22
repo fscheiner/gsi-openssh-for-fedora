@@ -21,4 +21,4 @@ diff -up openssh-7.4p1/servconf.c.memory openssh-7.4p1/servconf.c
 +			dst->n[dst->num_n] = src->n[dst->num_n]; \
  	} \
  } while(0)
- 
+ #define M_CP_STRARRAYOPT_ALLOC(n, num_n) do { \

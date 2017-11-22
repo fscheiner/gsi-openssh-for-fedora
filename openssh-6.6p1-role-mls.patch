@@ -2,7 +2,7 @@ diff -up openssh-7.4p1/auth2.c.role-mls openssh-7.4p1/auth2.c
 --- openssh-7.4p1/auth2.c.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/auth2.c	2016-12-23 12:19:58.587459379 +0100
 @@ -215,6 +215,9 @@ input_userauth_request(int type, u_int32
- 	Authctxt *authctxt = ctxt;
+ 	Authctxt *authctxt = ssh->authctxt;
  	Authmethod *m = NULL;
  	char *user, *service, *method, *style = NULL;
 +#ifdef WITH_SELINUX
@@ -44,7 +44,7 @@ diff -up openssh-7.4p1/auth2-gss.c.role-mls openssh-7.4p1/auth2-gss.c
 --- openssh-7.4p1/auth2-gss.c.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/auth2-gss.c	2016-12-23 12:19:58.586459382 +0100
 @@ -255,6 +255,7 @@ input_gssapi_mic(int type, u_int32_t ple
- 	Authctxt *authctxt = ctxt;
+ 	Authctxt *authctxt = ssh->authctxt;
  	Gssctxt *gssctxt;
  	int authenticated = 0;
 +	char *micuser;
@@ -74,34 +74,35 @@ diff -up openssh-7.4p1/auth2-gss.c.role-mls openssh-7.4p1/auth2-gss.c
 +		free(micuser);
  	free(mic.value);
  
- 	authctxt->postponed = 0;
+ 	if ((!use_privsep || mm_is_monitor()) &&
 diff -up openssh-7.4p1/auth2-hostbased.c.role-mls openssh-7.4p1/auth2-hostbased.c
 --- openssh-7.4p1/auth2-hostbased.c.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/auth2-hostbased.c	2016-12-23 12:19:58.586459382 +0100
-@@ -121,7 +121,15 @@ userauth_hostbased(Authctxt *authctxt)
- 	buffer_put_string(&b, session_id2, session_id2_len);
+@@ -121,7 +121,16 @@ userauth_hostbased(Authctxt *authctxt)
  	/* reconstruct packet */
- 	buffer_put_char(&b, SSH2_MSG_USERAUTH_REQUEST);
--	buffer_put_cstring(&b, authctxt->user);
+ 	if ((r = sshbuf_put_string(b, session_id2, session_id2_len)) != 0 ||
+ 	    (r = sshbuf_put_u8(b, SSH2_MSG_USERAUTH_REQUEST)) != 0 ||
+-	    (r = sshbuf_put_cstring(b, authctxt->user)) != 0 ||
 +#ifdef WITH_SELINUX
-+	if (authctxt->role) {
-+		buffer_put_int(&b, strlen(authctxt->user)+strlen(authctxt->role)+1);
-+		buffer_append(&b, authctxt->user, strlen(authctxt->user));
-+		buffer_put_char(&b, '/');
-+		buffer_append(&b, authctxt->role, strlen(authctxt->role));
-+	} else 
++	    (authctxt->role
++	    ? ( (r = sshbuf_put_u32(b, strlen(authctxt->user)+strlen(authctxt->role)+1)) != 0 ||
++	        (r = sshbuf_put(b, authctxt->user, strlen(authctxt->user))) != 0 ||
++	        (r = sshbuf_put_u8(b, '/') != 0) ||
++	        (r = sshbuf_put(b, authctxt->role, strlen(authctxt->role))) != 0)
++	    : (r = sshbuf_put_cstring(b, authctxt->user)) != 0) ||
++#else
++	    (r = sshbuf_put_cstring(b, authctxt->user)) != 0 ||
 +#endif
-+		buffer_put_cstring(&b, authctxt->user);
- 	buffer_put_cstring(&b, service);
- 	buffer_put_cstring(&b, "hostbased");
- 	buffer_put_string(&b, pkalg, alen);
+ 	    (r = sshbuf_put_cstring(b, service)) != 0 ||
+ 	    (r = sshbuf_put_cstring(b, "hostbased")) != 0 ||
+ 	    (r = sshbuf_put_string(b, pkalg, alen)) != 0 ||
 diff -up openssh-7.4p1/auth2-pubkey.c.role-mls openssh-7.4p1/auth2-pubkey.c
 --- openssh-7.4p1/auth2-pubkey.c.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/auth2-pubkey.c	2016-12-23 12:19:58.587459379 +0100
 @@ -151,9 +151,15 @@ userauth_pubkey(Authctxt *authctxt)
+ 				    __func__, ssh_err(r));
  		}
  		/* reconstruct packet */
- 		buffer_put_char(&b, SSH2_MSG_USERAUTH_REQUEST);
 -		xasprintf(&userstyle, "%s%s%s", authctxt->user,
 +		xasprintf(&userstyle, "%s%s%s%s%s", authctxt->user,
  		    authctxt->style ? ":" : "",
@@ -113,9 +114,9 @@ diff -up openssh-7.4p1/auth2-pubkey.c.role-mls openssh-7.4p1/auth2-pubkey.c
 +#else
 +		    "", "");
 +#endif
- 		buffer_put_cstring(&b, userstyle);
- 		free(userstyle);
- 		buffer_put_cstring(&b,
+ 		if ((r = sshbuf_put_u8(b, SSH2_MSG_USERAUTH_REQUEST)) != 0 ||
+ 		    (r = sshbuf_put_cstring(b, userstyle)) != 0 ||
+ 		    (r = sshbuf_put_cstring(b, ssh->compat & SSH_BUG_PKSERVICE ?
 diff -up openssh-7.4p1/auth.h.role-mls openssh-7.4p1/auth.h
 --- openssh-7.4p1/auth.h.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/auth.h	2016-12-23 12:19:43.478510375 +0100
@@ -126,9 +127,9 @@ diff -up openssh-7.4p1/auth.h.role-mls openssh-7.4p1/auth.h
 +#ifdef WITH_SELINUX
 +	char		*role;
 +#endif
- 	void		*kbdintctxt;
- 	char		*info;		/* Extra info for next auth_log */
- #ifdef BSD_AUTH
+ 
+ 	/* Method lists for multiple authentication */
+ 	char		**auth_methods;	/* modified from server config */
 diff -up openssh-7.4p1/auth-pam.c.role-mls openssh-7.4p1/auth-pam.c
 --- openssh-7.4p1/auth-pam.c.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/auth-pam.c	2016-12-23 12:19:43.477510378 +0100
@@ -320,8 +321,8 @@ diff -up openssh-7.4p1/monitor_wrap.h.role-mls openssh-7.4p1/monitor_wrap.h
 --- openssh-7.4p1/monitor_wrap.h.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/monitor_wrap.h	2016-12-23 12:19:58.588459376 +0100
 @@ -42,6 +42,9 @@ int mm_is_monitor(void);
- DH *mm_choose_dh(int, int, int);
- int mm_key_sign(Key *, u_char **, u_int *, const u_char *, u_int, const char *);
+ int mm_key_sign(struct sshkey *, u_char **, u_int *, const u_char *, u_int,
+     const char *);
  void mm_inform_authserv(char *, char *);
 +#ifdef WITH_SELINUX
 +void mm_inform_authrole(char *);
@@ -334,7 +335,7 @@ diff -up openssh-7.4p1/openbsd-compat/Makefile.in.role-mls openssh-7.4p1/openbsd
 +++ openssh-7.4p1/openbsd-compat/Makefile.in	2016-12-23 12:24:06.042643938 +0100
 @@ -20,7 +20,7 @@ OPENBSD=base64.o basename.o bcrypt_pbkdf
  
- COMPAT=arc4random.o bsd-asprintf.o bsd-closefrom.o bsd-cray.o bsd-cygwin_util.o bsd-getpeereid.o getrrsetbyname-ldns.o bsd-err.o bsd-misc.o bsd-nextstep.o bsd-openpty.o bsd-poll.o bsd-setres_id.o bsd-snprintf.o bsd-statvfs.o bsd-waitpid.o fake-rfc2553.o openssl-compat.o xcrypt.o kludge-fd_set.o
+ COMPAT=arc4random.o bsd-asprintf.o bsd-closefrom.o bsd-cray.o bsd-cygwin_util.o bsd-getpeereid.o getrrsetbyname-ldns.o bsd-err.o bsd-getpagesize.o bsd-misc.o bsd-nextstep.o bsd-openpty.o bsd-poll.o bsd-malloc.o bsd-setres_id.o bsd-snprintf.o bsd-statvfs.o bsd-waitpid.o fake-rfc2553.o openssl-compat.o xcrypt.o kludge-fd_set.o
  
 -PORTS=port-aix.o port-irix.o port-linux.o port-solaris.o port-tun.o port-uw.o
 +PORTS=port-aix.o port-irix.o port-linux.o port-linux-sshd.o port-solaris.o port-tun.o port-uw.o
@@ -863,3 +864,16 @@ diff -up openssh-7.4p1/sshd.c.role-mls openssh-7.4p1/sshd.c
  #ifdef USE_PAM
  	if (options.use_pam) {
  		do_pam_setcred(1);
+--- openssh/configure.ac.role-mls	2017-09-27 12:54:52.926425979 +0200
++++ openssh/configure.ac	2017-09-27 12:57:06.854224956 +0200
+@@ -4158,10 +4158,7 @@
+ 			  LIBS="$LIBS -lselinux"
+ 			],
+ 			AC_MSG_ERROR([SELinux support requires libselinux library]))
+-		SSHLIBS="$SSHLIBS $LIBSELINUX"
+-		SSHDLIBS="$SSHDLIBS $LIBSELINUX"
+ 		AC_CHECK_FUNCS([getseuserbyname get_default_context_with_level])
+-		LIBS="$save_LIBS"
+ 	fi ]
+ )
+ AC_SUBST([SSHLIBS])

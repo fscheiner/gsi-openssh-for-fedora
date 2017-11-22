@@ -245,9 +245,9 @@ diff -up openssh-7.0p1/servconf.c.gsskexalg openssh-7.0p1/servconf.c
  	options->gss_strict_acceptor = -1;
  	options->gss_store_rekey = -1;
 +	options->gss_kex_algorithms = NULL;
+ 	options->use_kuserok = -1;
+ 	options->enable_k5users = -1;
  	options->password_authentication = -1;
- 	options->kbd_interactive_authentication = -1;
- 	options->challenge_response_authentication = -1;
 @@ -288,6 +290,10 @@ fill_default_server_options(ServerOption
  		options->gss_strict_acceptor = 1;
  	if (options->gss_store_rekey == -1)
@@ -256,9 +256,9 @@ diff -up openssh-7.0p1/servconf.c.gsskexalg openssh-7.0p1/servconf.c
 +	if (options->gss_kex_algorithms == NULL)
 +		options->gss_kex_algorithms = strdup(GSS_KEX_DEFAULT_KEX);
 +#endif
- 	if (options->password_authentication == -1)
- 		options->password_authentication = 1;
- 	if (options->kbd_interactive_authentication == -1)
+ 	if (options->use_kuserok == -1)
+ 		options->use_kuserok = 1;
+ 	if (options->enable_k5users == -1)
 @@ -427,7 +431,7 @@ typedef enum {
  	sHostKeyAlgorithms,
  	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,

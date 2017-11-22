@@ -20,7 +20,7 @@ diff -up openssh-6.8p1/Makefile.in.ctr-cavs openssh-6.8p1/Makefile.in
  	ssh_api.o \
 @@ -194,6 +195,9 @@ ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) l
  ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o
- 	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(KEYCATLIBS) $(SSHLIBS)
+ 	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(KEYCATLIBS) $(LIBS)
  
 +ctr-cavstest$(EXEEXT): $(LIBCOMPAT) libssh.a ctr-cavstest.o
 +	$(LD) -o $@ ctr-cavstest.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(LIBS)

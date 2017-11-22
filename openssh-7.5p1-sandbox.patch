@@ -1,23 +1,95 @@
+In order to use the OpenSSL-ibmpkcs11 engine it is needed to allow flock
+and ipc calls, because this engine calls OpenCryptoki (a PKCS#11
+implementation) which calls the libraries that will communicate with the
+crypto cards. OpenCryptoki makes use of flock and ipc and, as of now,
+this is only need on s390 architecture.
+
+Signed-off-by: Eduardo Barretto <ebarretto@xxxxxxxxxxxxxxxxxx>
+---
+ sandbox-seccomp-filter.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
 diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
-index 3a1aedce72c2..a8d472a63ccb 100644
+index ca75cc7..6e7de31 100644
 --- a/sandbox-seccomp-filter.c
 +++ b/sandbox-seccomp-filter.c
-@@ -50,6 +50,9 @@
- #include <elf.h>
- 
- #include <asm/unistd.h>
-+#ifdef __s390__
-+#include <asm/zcrypt.h>
-+#endif
- 
- #include <errno.h>
- #include <signal.h>
-@@ -235,7 +235,7 @@ static const struct sock_filter preauth_insns[] = {
- 	 * x86-64 syscall under some circumstances, e.g.
- 	 * https://bugs.debian.org/849923
- 	 */
--	SC_ALLOW(__NR_clock_gettime & ~__X32_SYSCALL_BIT);
-+	SC_ALLOW(__NR_clock_gettime & ~__X32_SYSCALL_BIT),
+@@ -166,6 +166,9 @@ static const struct sock_filter preauth_insns[] = {
+ #ifdef __NR_exit_group
+ 	SC_ALLOW(__NR_exit_group),
  #endif
- 
- 	/* Default deny */
++#if defined(__NR_flock) && defined(__s390__)
++	SC_ALLOW(__NR_flock),
++#endif
+ #ifdef __NR_getpgid
+ 	SC_ALLOW(__NR_getpgid),
+ #endif
+@@ -178,6 +181,9 @@ static const struct sock_filter preauth_insns[] = {
+ #ifdef __NR_gettimeofday
+ 	SC_ALLOW(__NR_gettimeofday),
+ #endif
++#if defined(__NR_ipc) && defined(__s390__)
++	SC_ALLOW(__NR_ipc),
++#endif
+ #ifdef __NR_madvise
+ 	SC_ALLOW(__NR_madvise),
+ #endif
+-- 
+1.9.1
+
+getuid and geteuid are needed when using an openssl engine that calls a
+crypto card, e.g. ICA (libica).
+Those syscalls are also needed by the distros for audit code.
+
+Signed-off-by: Eduardo Barretto <ebarretto@xxxxxxxxxxxxxxxxxx>
+---
+ sandbox-seccomp-filter.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index 6e7de31..e86aa2c 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -175,6 +175,18 @@ static const struct sock_filter preauth_insns[] = {
+ #ifdef __NR_getpid
+ 	SC_ALLOW(__NR_getpid),
+ #endif
++#ifdef __NR_getuid
++	SC_ALLOW(__NR_getuid),
++#endif
++#ifdef __NR_getuid32
++	SC_ALLOW(__NR_getuid32),
++#endif
++#ifdef __NR_geteuid
++	SC_ALLOW(__NR_geteuid),
++#endif
++#ifdef __NR_geteuid32
++	SC_ALLOW(__NR_geteuid32),
++#endif
+ #ifdef __NR_getrandom
+ 	SC_ALLOW(__NR_getrandom),
+ #endif
+-- 1.9.1
+
+The EP11 crypto card needs to make an ioctl call, which receives an
+specific argument. This crypto card is for s390 only.
+
+Signed-off-by: Eduardo Barretto <ebarretto@xxxxxxxxxxxxxxxxxx>
+---
+ sandbox-seccomp-filter.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index e86aa2c..98062f1 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -250,6 +250,8 @@ static const struct sock_filter preauth_insns[] = {
+ 	SC_ALLOW_ARG(__NR_ioctl, 1, Z90STAT_STATUS_MASK),
+ 	SC_ALLOW_ARG(__NR_ioctl, 1, ICARSAMODEXPO),
+ 	SC_ALLOW_ARG(__NR_ioctl, 1, ICARSACRT),
++	/* Allow ioctls for EP11 crypto card on s390 */
++	SC_ALLOW_ARG(__NR_ioctl, 1, ZSENDEP11CPRB),
+ #endif
+ #if defined(__x86_64__) && defined(__ILP32__) && defined(__X32_SYSCALL_BIT)
+ 	/*
+-- 
+1.9.1

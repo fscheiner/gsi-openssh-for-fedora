@@ -92,7 +92,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
 +		child_destory_sensitive_data();
 +
  		/* Do processing for the child (exec command etc). */
- 		do_child(s, command);
+ 		do_child(ssh, s, command);
  		/* NOTREACHED */
 @@ -547,6 +555,9 @@ do_exec_pty(Session *s, const char *comm
  		/* Close the extra descriptor for the pseudo tty. */
@@ -112,7 +112,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
 +		fatal("pipe: %s", strerror(errno));
  #endif
  	if (s->ttyfd != -1)
- 		ret = do_exec_pty(s, command);
+ 		ret = do_exec_pty(ssh, s, command);
 @@ -732,6 +745,20 @@ do_exec(Session *s, const char *command)
  	 */
  	buffer_clear(&loginmsg);
@@ -134,7 +134,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
  	return ret;
  }
  
-@@ -1538,6 +1565,33 @@ child_close_fds(void)
+@@ -1538,6 +1565,34 @@ child_close_fds(void)
  	endpwent();
  }
  
@@ -157,23 +157,25 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
 +	 * which we can't do using one-way pipe.
 +	 */
 +	packet_destroy_all(0, 1);
++	/* XXX this will clean the rest but should not audit anymore */
++	/* packet_clear_keys(); */
 +
 +#ifdef SSH_AUDIT_EVENTS
 +	/* Notify parent that we are done */
 +	close(pparent);
 +#endif
-+
 +}
 +
  /*
   * Performs common processing for the child, such as setting up the
   * environment, closing extra file descriptors, setting the user and group
-@@ -1554,12 +1608,6 @@ do_child(Session *s, const char *command
+@@ -1554,13 +1608,6 @@ do_child(Session *s, const char *command
  	struct passwd *pw = s->pw;
  	int r = 0;
  
 -	/* remove hostkey from the child's memory */
 -	destroy_sensitive_data(1);
+-	packet_clear_keys();
 -	/* Don't audit this - both us and the parent would be talking to the
 -	   monitor over a single socket, with no synchronization. */
 -	packet_destroy_all(0, 1);

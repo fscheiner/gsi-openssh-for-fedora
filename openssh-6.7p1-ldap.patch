@@ -136,6 +136,14 @@ diff -up openssh-6.8p1/Makefile.in.ldap openssh-6.8p1/Makefile.in
  SSH_PKCS11_HELPER=$(libexecdir)/ssh-pkcs11-helper
  PRIVSEP_PATH=@PRIVSEP_PATH@
  SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
+@@ -50,6 +50,7 @@
+ CFLAGS=@CFLAGS@
+ CPPFLAGS=-I. -I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
+ LIBS=@LIBS@
++LDAPLIBS=@LDAPLIBS@
+ K5LIBS=@K5LIBS@
+ GSSLIBS=@GSSLIBS@
+ SSHLIBS=@SSHLIBS@
 @@ -61,8 +63,9 @@ XAUTH_PATH=@XAUTH_PATH@
  LDFLAGS=-L. -Lopenbsd-compat/ @LDFLAGS@
  EXEEXT=@EXEEXT@
@@ -163,7 +171,7 @@ diff -up openssh-6.8p1/Makefile.in.ldap openssh-6.8p1/Makefile.in
  	$(LD) -o $@ ssh-pkcs11-helper.o ssh-pkcs11.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat $(LIBS)
  
 +ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o
-+	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat -lfipscheck $(LIBS)
++	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat -lfipscheck $(LIBS) $(LDAPLIBS)
 +
  ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o
  	$(LD) -o $@ ssh-keyscan.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
@@ -224,7 +232,7 @@ diff -up openssh-6.8p1/Makefile.in.ldap openssh-6.8p1/Makefile.in
 diff -up openssh-6.8p1/configure.ac.ldap openssh-6.8p1/configure.ac
 --- openssh-6.8p1/configure.ac.ldap	2015-03-17 06:49:20.000000000 +0100
 +++ openssh-6.8p1/configure.ac	2015-03-18 11:11:29.030801464 +0100
-@@ -1605,6 +1605,106 @@ if test "x$use_pie" != "xno"; then
+@@ -1605,6 +1605,110 @@ if test "x$use_pie" != "xno"; then
  	fi
  fi
  
@@ -259,35 +267,37 @@ diff -up openssh-6.8p1/configure.ac.ldap openssh-6.8p1/configure.ac
 +			fi
 +
 +			if test -z "$found_ldap_lib" -a \( $with_ldap_lib = auto -o $with_ldap_lib = umich -o $with_ldap_lib = openldap \); then
-+				AC_CHECK_LIB(lber, main, LIBS="-llber $LIBS" found_ldap_lib=yes)
-+				AC_CHECK_LIB(ldap, main, LIBS="-lldap $LIBS" found_ldap_lib=yes)
++				AC_CHECK_LIB(lber, main, LDAPLIBS="-llber $LDAPLIBS" found_ldap_lib=yes)
++				AC_CHECK_LIB(ldap, main, LDAPLIBS="-lldap $LDAPLIBS" found_ldap_lib=yes)
 +			fi
 +
 +			if test -z "$found_ldap_lib" -a \( $with_ldap_lib = auto -o $with_ldap_lib = netscape5 \); then
-+				AC_CHECK_LIB(ldap50, main, LIBS="-lldap50 -lssldap50 -lssl3 -lnss3 -lnspr4 -lprldap50 -lplc4 -lplds4 $LIBS" found_ldap_lib=yes)
++				AC_CHECK_LIB(ldap50, main, LDAPLIBS="-lldap50 -lssldap50 -lssl3 -lnss3 -lnspr4 -lprldap50 -lplc4 -lplds4 $LDAPLIBS" found_ldap_lib=yes)
 +			fi
 +
 +			if test -z "$found_ldap_lib" -a \( $with_ldap_lib = auto -o $with_ldap_lib = netscape4 \); then
-+				AC_CHECK_LIB(ldapssl41, main, LIBS="-lldapssl41 -lplc3 -lplds3 -lnspr3 $LIBS" found_ldap_lib=yes)
++				AC_CHECK_LIB(ldapssl41, main, LDAPLIBS="-lldapssl41 -lplc3 -lplds3 -lnspr3 $LDAPLIBS" found_ldap_lib=yes)
 +				if test -z "$found_ldap_lib"; then
-+					AC_CHECK_LIB(ldapssl40, main, LIBS="-lldapssl40 $LIBS" found_ldap_lib=yes)
++					AC_CHECK_LIB(ldapssl40, main, LDAPLIBS="-lldapssl40 $LDAPLIBS" found_ldap_lib=yes)
 +				fi
 +				if test -z "$found_ldap_lib"; then
-+					AC_CHECK_LIB(ldap41, main, LIBS="-lldap41 $LIBS" found_ldap_lib=yes)
++					AC_CHECK_LIB(ldap41, main, LDAPLIBS="-lldap41 $LDAPLIBS" found_ldap_lib=yes)
 +				fi
 +				if test -z "$found_ldap_lib"; then
-+					AC_CHECK_LIB(ldap40, main, LIBS="-lldap40 $LIBS" found_ldap_lib=yes)
++					AC_CHECK_LIB(ldap40, main, LDAPLIBS="-lldap40 $LDAPLIBS" found_ldap_lib=yes)
 +				fi
 +			fi
 +
 +			if test -z "$found_ldap_lib" -a \( $with_ldap_lib = auto -o $with_ldap_lib = netscape3 \); then
-+				AC_CHECK_LIB(ldapssl30, main, LIBS="-lldapssl30 $LIBS" found_ldap_lib=yes)
++				AC_CHECK_LIB(ldapssl30, main, LDAPLIBS="-lldapssl30 $LDAPLIBS" found_ldap_lib=yes)
 +			fi
 +
 +			if test -z "$found_ldap_lib"; then
 +				AC_MSG_ERROR(could not locate a valid LDAP library)
 +			fi
 +
++			saved_LIBS="$LIBS"
++			LIBS="$LIBS $LDAPLIBS"
 +			AC_MSG_CHECKING([for working LDAP support])
 +			AC_TRY_COMPILE(
 +				[#include <sys/types.h>
@@ -323,14 +333,26 @@ diff -up openssh-6.8p1/configure.ac.ldap openssh-6.8p1/configure.ac
 +				AC_MSG_RESULT($ac_cv_ldap_set_rebind_proc)
 +				AC_DEFINE(LDAP_SET_REBIND_PROC_ARGS, $ac_cv_ldap_set_rebind_proc, [number arguments of ldap_set_rebind_proc])
 +			)
++			LIBS="$saved_LIBS"
 +		fi
 +	]
 +)
 +AC_SUBST(INSTALL_SSH_LDAP_HELPER)
++AC_SUBST(LDAPLIBS)
 +
  dnl    Checks for library functions. Please keep in alphabetical order
  AC_CHECK_FUNCS([ \
  	Blowfish_initstate \
+@@ -5227,6 +5352,9 @@
+ echo "Preprocessor flags: ${CPPFLAGS}"
+ echo "      Linker flags: ${LDFLAGS}"
+ echo "         Libraries: ${LIBS}"
++if test ! -z "${LDAPLIBS}"; then
++echo "         +for ldap: ${LDAPLIBS}"
++fi
+ if test ! -z "${SSHDLIBS}"; then
+ echo "         +for sshd: ${SSHDLIBS}"
+ fi
 diff -up openssh-6.8p1/ldap-helper.c.ldap openssh-6.8p1/ldap-helper.c
 --- openssh-6.8p1/ldap-helper.c.ldap	2015-03-18 11:11:29.030801464 +0100
 +++ openssh-6.8p1/ldap-helper.c	2015-03-18 11:11:29.030801464 +0100

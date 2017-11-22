@@ -16,7 +16,7 @@ diff -up openssh-7.4p1/openbsd-compat/Makefile.in.entropy openssh-7.4p1/openbsd-
 +++ openssh-7.4p1/openbsd-compat/Makefile.in	2016-12-23 18:35:15.890769493 +0100
 @@ -20,7 +20,7 @@ OPENBSD=base64.o basename.o bcrypt_pbkdf
  
- COMPAT=arc4random.o bsd-asprintf.o bsd-closefrom.o bsd-cray.o bsd-cygwin_util.o bsd-getpeereid.o getrrsetbyname-ldns.o bsd-err.o bsd-misc.o bsd-nextstep.o bsd-openpty.o bsd-poll.o bsd-setres_id.o bsd-snprintf.o bsd-statvfs.o bsd-waitpid.o fake-rfc2553.o openssl-compat.o xcrypt.o kludge-fd_set.o
+ COMPAT=arc4random.o bsd-asprintf.o bsd-closefrom.o bsd-cray.o bsd-cygwin_util.o bsd-getpeereid.o getrrsetbyname-ldns.o bsd-err.o bsd-getpagesize.o bsd-misc.o bsd-nextstep.o bsd-openpty.o bsd-poll.o bsd-malloc.o bsd-setres_id.o bsd-snprintf.o bsd-statvfs.o bsd-waitpid.o fake-rfc2553.o openssl-compat.o xcrypt.o kludge-fd_set.o
  
 -PORTS=port-aix.o port-irix.o port-linux.o port-linux-sshd.o port-solaris.o port-tun.o port-uw.o
 +PORTS=port-aix.o port-irix.o port-linux.o port-linux-sshd.o port-linux-prng.o port-solaris.o port-tun.o port-uw.o
@@ -123,26 +123,6 @@ diff -up openssh-7.4p1/ssh.1.entropy openssh-7.4p1/ssh.1
  .Sh FILES
  .Bl -tag -width Ds -compact
  .It Pa ~/.rhosts
-diff -up openssh-7.4p1/ssh-add.0.entropy openssh-7.4p1/ssh-add.0
---- openssh-7.4p1/ssh-add.0.entropy	2016-12-19 06:21:21.000000000 +0100
-+++ openssh-7.4p1/ssh-add.0	2016-12-23 18:34:27.770753571 +0100
-@@ -88,6 +88,16 @@ ENVIRONMENT
-              Identifies the path of a UNIX-domain socket used to communicate
-              with the agent.
- 
-+     SSH_USE_STRONG_RNG
-+             The reseeding of the OpenSSL random generator is usually done
-+             from /dev/urandom.  If the SSH_USE_STRONG_RNG environment vari-
-+             able is set to value other than 0 the OpenSSL random generator is
-+             reseeded from /dev/random.  The number of bytes read is defined
-+             by the SSH_USE_STRONG_RNG value.  Minimum is 14 bytes.  This set-
-+             ting is not recommended on the computers without the hardware
-+             random generator because insufficient entropy causes the connec-
-+             tion to be blocked until enough entropy is available.
-+
- FILES
-      ~/.ssh/identity
-              Contains the protocol version 1 RSA authentication identity of
 diff -up openssh-7.4p1/ssh-add.1.entropy openssh-7.4p1/ssh-add.1
 --- openssh-7.4p1/ssh-add.1.entropy	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/ssh-add.1	2016-12-23 18:34:27.770753571 +0100
