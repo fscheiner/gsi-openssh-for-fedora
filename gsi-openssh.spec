@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.5p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -169,6 +169,8 @@ Patch944: openssh-7.3p1-x11-max-displays.patch
 Patch948: openssh-7.4p1-systemd.patch
 # Fix typo in sandbox code; missing header for s390
 Patch949: openssh-7.5p1-sandbox.patch
+# Avoid creation of zero-length files in readonly mode (#1506631)
+Patch950: openssh-7.5p1-sftp-empty-files.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -326,6 +328,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch944 -p1 -b .x11max
 %patch948 -p1 -b .systemd
 %patch949 -p1 -b .sandbox
+%patch950 -p1 -b .sftp-empty
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -539,6 +542,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Nov 22 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.5p1-3
+- Based on openssh-7.5p1-4.fc26
+
 * Mon Jul 31 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.5p1-2
 - Based on openssh-7.5p1-3.fc26
 - Update GSI patch with more openssl 1.1.0 fixes from Globus
