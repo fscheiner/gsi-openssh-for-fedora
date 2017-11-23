@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.4p1
-%global openssh_rel 5
+%global openssh_rel 6
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -173,6 +173,8 @@ Patch946: openssh-7.4p1-pkcs11-whitelist.patch
 Patch947: openssh-7.4p1-include-errors.patch
 # Help systemd to track the running service
 Patch948: openssh-7.4p1-systemd.patch
+# Avoid creation of zero-length files in readonly mode (#1506631)
+Patch949: openssh-7.5p1-sftp-empty-files.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-7.0p1.patch
@@ -333,6 +335,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch946 -p1 -b .pkcs11-whitelist
 %patch947 -p1 -b .include-errors
 %patch948 -p1 -b .systemd
+%patch949 -p1 -b .sftp-empty
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -546,6 +549,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Nov 23 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-6
+- Based on openssh-7.4p1-5.fc25
+
 * Mon Jul 31 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-5
 - Update GSI patch with more openssl 1.1.0 fixes from Globus
 
