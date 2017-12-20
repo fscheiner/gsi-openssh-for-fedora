@@ -93,3 +93,16 @@ index e86aa2c..98062f1 100644
  	/*
 -- 
 1.9.1
+diff -up openssh-7.6p1/sandbox-seccomp-filter.c.sandbox openssh-7.6p1/sandbox-seccomp-filter.c
+--- openssh-7.6p1/sandbox-seccomp-filter.c.sandbox	2017-12-12 13:59:30.563874059 +0100
++++ openssh-7.6p1/sandbox-seccomp-filter.c	2017-12-12 13:59:14.842784083 +0100
+@@ -190,6 +190,9 @@ static const struct sock_filter preauth_
+ #ifdef __NR_geteuid32
+ 	SC_ALLOW(__NR_geteuid32),
+ #endif
++#ifdef __NR_gettid
++	SC_ALLOW(__NR_gettid),
++#endif
+ #ifdef __NR_getrandom
+ 	SC_ALLOW(__NR_getrandom),
+ #endif

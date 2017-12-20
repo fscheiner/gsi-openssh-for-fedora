@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.6p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -548,6 +548,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Dec 20 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-3
+- Based on openssh-7.6p1-4.fc28
+
 * Wed Dec 20 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-2
 - Based on openssh-7.6p1-3.fc27
 
