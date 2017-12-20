@@ -38,7 +38,7 @@ diff -up openssh-7.2p2/sftp-server.c.sftp-force-mode openssh-7.2p2/sftp-server.c
  	Attrib a;
  	char *name;
  	int r, handle, fd, flags, mode, status = SSH2_FX_FAILURE;
-+	mode_t old_umask;
++	mode_t old_umask = 0;
  
  	if ((r = sshbuf_get_cstring(iqueue, &name, NULL)) != 0 ||
  	    (r = sshbuf_get_u32(iqueue, &pflags)) != 0 || /* portable flags */

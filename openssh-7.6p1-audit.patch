@@ -906,6 +906,15 @@ diff -up openssh-7.6p1/cipher.c.audit openssh-7.6p1/cipher.c
  static const struct sshcipher ciphers[] = {
  #ifdef WITH_OPENSSL
  	{ "3des-cbc",		8, 24, 0, 0, CFLAG_CBC, EVP_des_ede3_cbc },
+@@ -409,7 +409,7 @@ cipher_get_length(struct sshcipher_ctx *
+ void
+ cipher_free(struct sshcipher_ctx *cc)
+ {
+-	if (cc == NULL)
++	if (cc == NULL || cc->cipher == NULL)
+ 		return;
+ 	if ((cc->cipher->flags & CFLAG_CHACHAPOLY) != 0)
+ 		explicit_bzero(&cc->cp_ctx, sizeof(cc->cp_ctx));
 diff -up openssh-7.6p1/cipher.h.audit openssh-7.6p1/cipher.h
 --- openssh-7.6p1/cipher.h.audit	2017-10-02 21:34:26.000000000 +0200
 +++ openssh-7.6p1/cipher.h	2017-10-04 17:18:32.836505059 +0200
