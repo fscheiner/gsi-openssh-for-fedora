@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.6p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -146,9 +146,6 @@ Patch918: openssh-6.6.1p1-log-in-chroot.patch
 Patch919: openssh-6.6.1p1-scp-non-existing-directory.patch
 # Config parser shouldn't accept ip/port syntax (#1130733)
 Patch920: openssh-6.6.1p1-ip-port-config-parser.patch
-# restore tcp wrappers support, based on Debian patch
-# https://lists.mindrot.org/pipermail/openssh-unix-dev/2014-April/032497.html
-Patch921: openssh-6.7p1-debian-restore-tcp-wrappers.patch
 # apply upstream patch and make sshd -T more consistent (#1187521)
 Patch922: openssh-6.8p1-sshdT-output.patch
 # Add sftp option to force mode of created files (#1191055)
@@ -192,7 +189,6 @@ BuildRequires: autoconf, automake, perl-interpreter, perl-generators, zlib-devel
 BuildRequires: audit-libs-devel >= 2.0.5
 BuildRequires: util-linux, groff
 BuildRequires: pam-devel
-BuildRequires: tcp_wrappers-devel
 BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
 BuildRequires: systemd-devel
@@ -320,7 +316,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch919 -p1 -b .scp
 %patch920 -p1 -b .config
 %patch802 -p1 -b .GSSAPIEnablek5users
-%patch921 -p1 -b .tcp_wrappers
 %patch922 -p1 -b .sshdt
 %patch926 -p1 -b .sftp-force-mode
 %patch928 -p1 -b .memory
@@ -386,7 +381,6 @@ fi
 	--sysconfdir=%{_sysconfdir}/gsissh \
 	--libexecdir=%{_libexecdir}/gsissh \
 	--datadir=%{_datadir}/gsissh \
-	--with-tcp-wrappers \
 	--with-default-path=/usr/local/bin:/usr/bin \
 	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
 	--with-privsep-path=%{_var}/empty/gsisshd \
@@ -548,6 +542,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Jan 18 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-4
+- Based on openssh-7.6p1-5.1.fc28
+
 * Wed Dec 20 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-3
 - Based on openssh-7.6p1-4.fc28
 

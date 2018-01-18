@@ -39,7 +39,7 @@ diff -up openssh-7.6p1/audit-bsm.c.audit openssh-7.6p1/audit-bsm.c
  void
  audit_event(ssh_audit_event_t event)
  {
-@@ -452,4 +471,40 @@ audit_event(ssh_audit_event_t event)
+@@ -452,4 +471,34 @@ audit_event(ssh_audit_event_t event)
  		debug("%s: unhandled event %d", __func__, event);
  	}
  }
@@ -70,12 +70,6 @@ diff -up openssh-7.6p1/audit-bsm.c.audit openssh-7.6p1/audit-bsm.c
 +
 +void
 +audit_destroy_sensitive_data(const char *fp, pid_t pid, uid_t uid)
-+{
-+	/* not implemented */
-+}
-+
-+void
-+audit_generate_ephemeral_server_key(const char *fp)
 +{
 +	/* not implemented */
 +}
@@ -183,7 +177,7 @@ diff -up openssh-7.6p1/audit.c.audit openssh-7.6p1/audit.c
   * Called when a user session is started.  Argument is the tty allocated to
   * the session, or NULL if no tty was allocated.
   *
-@@ -172,13 +218,91 @@ audit_session_close(struct logininfo *li
+@@ -172,13 +218,82 @@ audit_session_close(struct logininfo *li
  /*
   * This will be called when a user runs a non-interactive command.  Note that
   * it may be called multiple times for a single connection since SSH2 allows
@@ -265,15 +259,6 @@ diff -up openssh-7.6p1/audit.c.audit openssh-7.6p1/audit.c
 +{
 +	debug("audit destroy sensitive data euid %d fingerprint %s from pid %ld uid %u",
 +		geteuid(), fp, (long)pid, (unsigned)uid);
-+}
-+
-+/*
-+ * This will be called on generation of the ephemeral server key
-+ */
-+void
-+audit_generate_ephemeral_server_key(const char *)
-+{
-+	debug("audit create ephemeral server key euid %d fingerprint %s", geteuid(), fp);
  }
  # endif  /* !defined CUSTOM_SSH_AUDIT_EVENTS */
  #endif /* SSH_AUDIT_EVENTS */
@@ -288,7 +273,7 @@ diff -up openssh-7.6p1/audit.h.audit openssh-7.6p1/audit.h
  
  enum ssh_audit_event_type {
  	SSH_LOGIN_EXCEED_MAXTRIES,
-@@ -43,13 +44,33 @@ enum ssh_audit_event_type {
+@@ -43,13 +44,32 @@ enum ssh_audit_event_type {
  	SSH_CONNECTION_ABANDON,	/* closed without completing auth */
  	SSH_AUDIT_UNKNOWN
  };
@@ -320,13 +305,12 @@ diff -up openssh-7.6p1/audit.h.audit openssh-7.6p1/audit.h
 +void	audit_session_key_free(int ctos);
 +void	audit_session_key_free_body(int ctos, pid_t, uid_t);
 +void	audit_destroy_sensitive_data(const char *, pid_t, uid_t);
-+void	audit_generate_ephemeral_server_key(const char *);
  
  #endif /* _SSH_AUDIT_H */
 diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 --- openssh-7.6p1/audit-linux.c.audit	2017-10-02 21:34:26.000000000 +0200
 +++ openssh-7.6p1/audit-linux.c	2017-10-04 17:18:32.835505053 +0200
-@@ -33,25 +33,38 @@
+@@ -33,27 +33,40 @@
  
  #include "log.h"
  #include "audit.h"
@@ -353,7 +337,7 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 -linux_audit_record_event(int uid, const char *username, const char *hostname,
 -    const char *ip, const char *ttyn, int success)
 +static void
-+linux_audit_user_logxxx(int uid, const char *username, const char *hostname,
++linux_audit_user_logxxx(int uid, const char *username,
 +    const char *ip, const char *ttyn, int success, int event)
  {
  	int audit_fd, rc, saved_errno;
@@ -370,8 +354,11 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 -	rc = audit_log_acct_message(audit_fd, AUDIT_USER_LOGIN,
 +	rc = audit_log_acct_message(audit_fd, event,
  	    NULL, "login", username ? username : "(unknown)",
- 	    username == NULL ? uid : -1, hostname, ip, ttyn, success);
+-	    username == NULL ? uid : -1, hostname, ip, ttyn, success);
++	    username == NULL ? uid : -1, NULL, ip, ttyn, success);
  	saved_errno = errno;
+ 	close(audit_fd);
+ 
 @@ -65,9 +78,97 @@ linux_audit_record_event(int uid, const
  		rc = 0;
  	errno = saved_errno;
@@ -385,7 +372,7 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 +
 +static void
 +linux_audit_user_auth(int uid, const char *username,
-+    const char *hostname, const char *ip, const char *ttyn, int success, int event)
++    const char *ip, const char *ttyn, int success, int event)
 +{
 +	int audit_fd, rc, saved_errno;
 +	static const char *event_name[] = {
@@ -419,7 +406,7 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 +
 +	rc = audit_log_acct_message(audit_fd, AUDIT_USER_AUTH,
 +	    NULL, event_name[event], username ? username : "(unknown)",
-+	    username == NULL ? uid : -1, hostname, ip, ttyn, success);
++	    username == NULL ? uid : -1, NULL, ip, ttyn, success);
 +	saved_errno = errno;
 +	close(audit_fd);
 +	/*
@@ -471,7 +458,7 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
  /* Below is the sshd audit API code */
  
  void
-@@ -76,24 +177,51 @@ audit_connection_from(const char *host,
+@@ -76,24 +177,55 @@ audit_connection_from(const char *host,
  	/* not implemented */
  }
  
@@ -481,21 +468,25 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
  {
 -	/* not implemented */
 +	if (!user_login_count++)
-+		linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL, session_get_remote_name_or_ip(active_state, utmp_len, options.use_dns),
-+		    NULL, "ssh", 1, AUDIT_USER_LOGIN);
-+	linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL, session_get_remote_name_or_ip(active_state, utmp_len, options.use_dns),
-+	    NULL, "ssh", 1, AUDIT_USER_START);
++		linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL,
++		    ssh_remote_ipaddr(active_state),
++		    "ssh", 1, AUDIT_USER_LOGIN);
++	linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL,
++	    ssh_remote_ipaddr(active_state),
++	    "ssh", 1, AUDIT_USER_START);
 +	return 0;
 +}
 +
 +void
 +audit_end_command(int handle, const char *command)
 +{
-+	linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL, session_get_remote_name_or_ip(active_state, utmp_len, options.use_dns),
-+	    NULL, "ssh", 1, AUDIT_USER_END);
++	linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL,
++	    ssh_remote_ipaddr(active_state),
++	    "ssh", 1, AUDIT_USER_END);
 +	if (user_login_count && !--user_login_count)
-+		linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL, session_get_remote_name_or_ip(active_state, utmp_len, options.use_dns),
-+		    NULL, "ssh", 1, AUDIT_USER_LOGOUT);
++		linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL,
++		    ssh_remote_ipaddr(active_state),
++		    "ssh", 1, AUDIT_USER_LOGOUT);
 +}
 +
 +void
@@ -512,9 +503,9 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 -		fatal("linux_audit_write_entry failed: %s", strerror(errno));
 +	if (!user_login_count++)
 +		linux_audit_user_logxxx(li->uid, NULL, li->hostname,
-+		    NULL, li->line, 1, AUDIT_USER_LOGIN);
++		    li->line, 1, AUDIT_USER_LOGIN);
 +	linux_audit_user_logxxx(li->uid, NULL, li->hostname,
-+	    NULL, li->line, 1, AUDIT_USER_START);
++	    li->line, 1, AUDIT_USER_START);
  }
  
  void
@@ -522,28 +513,28 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
  {
 -	/* not implemented */
 +	linux_audit_user_logxxx(li->uid, NULL, li->hostname,
-+	    NULL, li->line, 1, AUDIT_USER_END);
++	    li->line, 1, AUDIT_USER_END);
 +	if (user_login_count && !--user_login_count)
 +		linux_audit_user_logxxx(li->uid, NULL, li->hostname,
-+		    NULL, li->line, 1, AUDIT_USER_LOGOUT);
++		    li->line, 1, AUDIT_USER_LOGOUT);
  }
  
  void
-@@ -103,24 +231,180 @@ audit_event(ssh_audit_event_t event)
+@@ -103,24 +231,158 @@ audit_event(ssh_audit_event_t event)
  
  	switch(event) {
  	case SSH_AUTH_SUCCESS:
 -	case SSH_CONNECTION_CLOSE:
-+		linux_audit_user_auth(-1, audit_username(), NULL,
++		linux_audit_user_auth(-1, audit_username(),
 +			ssh_remote_ipaddr(ssh), "ssh", 1, event);
 +		break;
 +
  	case SSH_NOLOGIN:
 -	case SSH_LOGIN_EXCEED_MAXTRIES:
  	case SSH_LOGIN_ROOT_DENIED:
-+		linux_audit_user_auth(-1, audit_username(), NULL,
++		linux_audit_user_auth(-1, audit_username(),
 +			ssh_remote_ipaddr(ssh), "ssh", 0, event);
-+		linux_audit_user_logxxx(-1, audit_username(), NULL,
++		linux_audit_user_logxxx(-1, audit_username(),
 +			ssh_remote_ipaddr(ssh), "ssh", 0, AUDIT_USER_LOGIN);
  		break;
 +	case SSH_LOGIN_EXCEED_MAXTRIES:
@@ -553,7 +544,7 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
  	case SSH_AUTH_FAIL_PUBKEY:
  	case SSH_AUTH_FAIL_HOSTBASED:
  	case SSH_AUTH_FAIL_GSSAPI:
-+		linux_audit_user_auth(-1, audit_username(), NULL,
++		linux_audit_user_auth(-1, audit_username(),
 +			ssh_remote_ipaddr(ssh), "ssh", 0, event);
 +		break;
 +
@@ -561,11 +552,11 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 +		if (user_login_count) {
 +			while (user_login_count--)
 +				linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL,
-+				    session_get_remote_name_or_ip(ssh, utmp_len, options.use_dns),
-+				    NULL, "ssh", 1, AUDIT_USER_END);
++				    ssh_remote_ipaddr(ssh),
++				    "ssh", 1, AUDIT_USER_END);
 +			linux_audit_user_logxxx(the_authctxt->pw->pw_uid, NULL,
-+			    session_get_remote_name_or_ip(ssh, utmp_len, options.use_dns),
-+			    NULL, "ssh", 1, AUDIT_USER_LOGOUT);
++			    ssh_remote_ipaddr(ssh),
++			    "ssh", 1, AUDIT_USER_LOGOUT);
 +		}
 +		break;
 +
@@ -573,7 +564,7 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
  	case SSH_INVALID_USER:
 -		linux_audit_record_event(-1, audit_username(), NULL,
 -		    ssh_remote_ipaddr(ssh), "sshd", 0);
-+		linux_audit_user_logxxx(-1, audit_username(), NULL,
++		linux_audit_user_logxxx(-1, audit_username(),
 +			ssh_remote_ipaddr(ssh), "ssh", 0, AUDIT_USER_LOGIN);
  		break;
  	default:
@@ -686,28 +677,6 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 +			buf, NULL,
 +			listening_for_clients() ? NULL : ssh_remote_ipaddr(active_state),
 +			NULL, 1);
-+	audit_close(audit_fd);
-+	/* do not abort if the error is EPERM and sshd is run as non root user */
-+	if ((audit_ok < 0) && ((audit_ok != -1) || (getuid() == 0)))
-+		error("cannot write into audit");
-+}
-+
-+void
-+audit_generate_ephemeral_server_key(const char *fp)
-+{
-+	char buf[AUDIT_LOG_SIZE];
-+	int audit_fd, audit_ok;
-+
-+	snprintf(buf, sizeof(buf), "op=create kind=server fp=%s direction=? ", fp);
-+	audit_fd = audit_open();
-+	if (audit_fd < 0) {
-+		if (errno != EINVAL && errno != EPROTONOSUPPORT &&
-+					 errno != EAFNOSUPPORT)
-+			error("cannot open audit");
-+		return;
-+	}
-+	audit_ok = audit_log_user_message(audit_fd, AUDIT_CRYPTO_KEY_USER,
-+			buf, NULL, 0, NULL, 1);
 +	audit_close(audit_fd);
 +	/* do not abort if the error is EPERM and sshd is run as non root user */
 +	if ((audit_ok < 0) && ((audit_ok != -1) || (getuid() == 0)))
