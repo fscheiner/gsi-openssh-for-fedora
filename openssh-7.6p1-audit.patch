@@ -31,7 +31,7 @@ diff -up openssh-7.6p1/audit-bsm.c.audit openssh-7.6p1/audit-bsm.c
  }
  
 +int
-+audit_keyusage(int host_user, const char *type, unsigned bits, char *fp, int rv)
++audit_keyusage(int host_user, char *fp, int rv)
 +{
 +	/* not implemented */
 +}
@@ -85,7 +85,7 @@ diff -up openssh-7.6p1/audit.c.audit openssh-7.6p1/audit.c
  
  #ifdef SSH_AUDIT_EVENTS
  
-@@ -34,6 +35,11 @@
+@@ -34,6 +35,12 @@
  #include "key.h"
  #include "hostfile.h"
  #include "auth.h"
@@ -94,6 +94,7 @@ diff -up openssh-7.6p1/audit.c.audit openssh-7.6p1/audit.c
 +#include "xmalloc.h"
 +#include "misc.h"
 +#include "servconf.h"
++#include "ssherr.h"
  
  /*
   * Care must be taken when using this since it WILL NOT be initialized when
@@ -121,7 +122,7 @@ diff -up openssh-7.6p1/audit.c.audit openssh-7.6p1/audit.c
  	return (the_authctxt->user);
  }
  
-@@ -109,6 +113,37 @@ audit_event_lookup(ssh_audit_event_t ev)
+@@ -109,6 +113,35 @@ audit_event_lookup(ssh_audit_event_t ev)
  	return(event_lookup[i].name);
  }
  
@@ -129,12 +130,10 @@ diff -up openssh-7.6p1/audit.c.audit openssh-7.6p1/audit.c
 +audit_key(int host_user, int *rv, const Key *key)
 +{
 +	char *fp;
-+	const char *crypto_name;
 +
 +	fp = sshkey_fingerprint(key, options.fingerprint_hash, SSH_FP_HEX);
-+	crypto_name = key_ssh_name(key);
-+	if (audit_keyusage(host_user, crypto_name, sshkey_size(key), fp, *rv) == 0)
-+		*rv = 0;
++	if (audit_keyusage(host_user, fp, (*rv == 0)) == 0)
++		*rv = -SSH_ERR_INTERNAL_ERROR;
 +	free(fp);
 +}
 +
@@ -213,10 +212,10 @@ diff -up openssh-7.6p1/audit.c.audit openssh-7.6p1/audit.c
 + * Type is the key type, len is the key length(byte) and fp is the fingerprint of the key.
 + */
 +int
-+audit_keyusage(int host_user, const char *type, unsigned bits, char *fp, int rv)
++audit_keyusage(int host_user, char *fp, int rv)
 +{
-+	debug("audit %s key usage euid %d user %s key type %s key length %d fingerprint %s, result %d",
-+		host_user ? "pubkey" : "hostbased", geteuid(), audit_username(), type, bits,
++	debug("audit %s key usage euid %d user %s fingerprint %s, result %d",
++		host_user ? "pubkey" : "hostbased", geteuid(), audit_username(),
 +		fp, rv);
 +}
 +
@@ -296,7 +295,7 @@ diff -up openssh-7.6p1/audit.h.audit openssh-7.6p1/audit.h
 +int	audit_run_command(const char *);
 +void 	audit_end_command(int, const char *);
  ssh_audit_event_t audit_classify_auth(const char *);
-+int	audit_keyusage(int, const char *, unsigned, char *, int);
++int	audit_keyusage(int, char *, int);
 +void	audit_key(int, int *, const Key *);
 +void	audit_unsupported(int);
 +void	audit_kex(int, char *, char *, char *, char *);
@@ -359,7 +358,7 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
  	saved_errno = errno;
  	close(audit_fd);
  
-@@ -65,9 +78,97 @@ linux_audit_record_event(int uid, const
+@@ -65,9 +78,96 @@ linux_audit_record_event(int uid, const
  		rc = 0;
  	errno = saved_errno;
  
@@ -423,7 +422,7 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 +}
 +
 +int
-+audit_keyusage(int host_user, const char *type, unsigned bits, char *fp, int rv)
++audit_keyusage(int host_user, char *fp, int rv)
 +{
 +	char buf[AUDIT_LOG_SIZE];
 +	int audit_fd, rc, saved_errno;
@@ -436,15 +435,14 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 +		else
 +			return 0; /* Must prevent login */
 +	}
-+	snprintf(buf, sizeof(buf), "%s_auth rport=%d", host_user ? "pubkey" : "hostbased", ssh_remote_port(active_state));
++	snprintf(buf, sizeof(buf), "%s_auth grantors=auth-key", host_user ? "pubkey" : "hostbased");
 +	rc = audit_log_acct_message(audit_fd, AUDIT_USER_AUTH, NULL,
 +		buf, audit_username(), -1, NULL, ssh_remote_ipaddr(active_state), NULL, rv);
 +	if ((rc < 0) && ((rc != -1) || (getuid() == 0)))
 +		goto out;
-+	snprintf(buf, sizeof(buf), "key algo=%s size=%d fp=%s rport=%d",
-+			type, bits, fp, ssh_remote_port(active_state));
-+	rc = audit_log_acct_message(audit_fd, AUDIT_USER_AUTH, NULL,
-+		buf, audit_username(), -1, NULL, ssh_remote_ipaddr(active_state), NULL, rv);
++	snprintf(buf, sizeof(buf), "op=negotiate kind=auth-key fp=%s", fp);
++	rc = audit_log_user_message(audit_fd, AUDIT_CRYPTO_KEY_USER, buf, NULL,
++		ssh_remote_ipaddr(active_state), NULL, rv);
 +out:
 +	saved_errno = errno;
 +	audit_close(audit_fd);
@@ -520,15 +518,12 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
  }
  
  void
-@@ -103,24 +231,158 @@ audit_event(ssh_audit_event_t event)
+@@ -102,25 +231,155 @@ audit_event(ssh_audit_event_t event)
+ 	struct ssh *ssh = active_state; /* XXX */
  
  	switch(event) {
- 	case SSH_AUTH_SUCCESS:
+-	case SSH_AUTH_SUCCESS:
 -	case SSH_CONNECTION_CLOSE:
-+		linux_audit_user_auth(-1, audit_username(),
-+			ssh_remote_ipaddr(ssh), "ssh", 1, event);
-+		break;
-+
  	case SSH_NOLOGIN:
 -	case SSH_LOGIN_EXCEED_MAXTRIES:
  	case SSH_LOGIN_ROOT_DENIED:
@@ -537,9 +532,11 @@ diff -up openssh-7.6p1/audit-linux.c.audit openssh-7.6p1/audit-linux.c
 +		linux_audit_user_logxxx(-1, audit_username(),
 +			ssh_remote_ipaddr(ssh), "ssh", 0, AUDIT_USER_LOGIN);
  		break;
-+	case SSH_LOGIN_EXCEED_MAXTRIES:
- 	case SSH_AUTH_FAIL_NONE:
+-	case SSH_AUTH_FAIL_NONE:
  	case SSH_AUTH_FAIL_PASSWD:
++		if (options.use_pam)
++			break;
++	case SSH_LOGIN_EXCEED_MAXTRIES:
  	case SSH_AUTH_FAIL_KBDINT:
  	case SSH_AUTH_FAIL_PUBKEY:
  	case SSH_AUTH_FAIL_HOSTBASED:
@@ -817,6 +814,15 @@ diff -up openssh-7.6p1/auth2-pubkey.c.audit openssh-7.6p1/auth2-pubkey.c
 diff -up openssh-7.6p1/auth.c.audit openssh-7.6p1/auth.c
 --- openssh-7.6p1/auth.c.audit	2017-10-04 17:18:32.746504598 +0200
 +++ openssh-7.6p1/auth.c	2017-10-04 17:18:32.835505053 +0200
+@@ -360,7 +360,7 @@ auth_log(Authctxt *authctxt, int authent
+ # endif
+ #endif
+ #ifdef SSH_AUDIT_EVENTS
+-	if (authenticated == 0 && !authctxt->postponed)
++	if (authenticated == 0 && !authctxt->postponed && !partial)
+ 		audit_event(audit_classify_auth(method));
+ #endif
+ }
 @@ -599,9 +599,6 @@ getpwnamallow(const char *user)
  		record_failed_login(user,
  		    auth_get_canonical_hostname(ssh, options.use_dns), "ssh");

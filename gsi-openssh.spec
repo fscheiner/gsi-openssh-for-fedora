@@ -31,12 +31,12 @@
 %global ldap 1
 
 %global openssh_ver 7.6p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -542,6 +542,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Jan 26 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-5
+- Based on openssh-7.6p1-6.fc28
+
 * Sat Jan 20 2018 Björn Esser <besser82@fedoraproject.org> - 7.6p1-4.1
 - Rebuilt for switch to libxcrypt
 
