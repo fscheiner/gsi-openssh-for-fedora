@@ -178,7 +178,6 @@ Patch98: openssh-7.6p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires: /sbin/nologin
 Obsoletes: %{name}-clients-fips, %{name}-server-fips
 
