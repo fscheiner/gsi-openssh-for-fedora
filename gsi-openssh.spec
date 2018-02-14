@@ -475,9 +475,6 @@ done
 
 perl -pi -e "s|$RPM_BUILD_ROOT||g" $RPM_BUILD_ROOT%{_mandir}/man*/*
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
 %pre
 getent group ssh_keys >/dev/null || groupadd -r ssh_keys || :
 
