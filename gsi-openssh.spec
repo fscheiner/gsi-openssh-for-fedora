@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.6p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -239,9 +239,7 @@ Requires: %{name} = %{version}-%{release}
 Requires(pre): /usr/sbin/useradd
 Requires: pam >= 1.0.1-3
 Requires: fipscheck-lib%{_isa} >= 1.3.0
-Requires(post): systemd-units
-Requires(preun): systemd-units
-Requires(postun): systemd-units
+%{?systemd_requires}
 
 %description
 SSH (Secure SHell) is a program for logging into and executing
@@ -548,6 +546,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Feb 15 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-3
+- Based on openssh-7.6p1-5.fc27
+
 * Wed Dec 20 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-2
 - Based on openssh-7.6p1-3.fc27
 

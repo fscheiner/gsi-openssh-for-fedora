@@ -306,7 +306,7 @@ diff -Nur openssh-7.6p1.orig/auth.c openssh-7.6p1/auth.c
  	    ssh_remote_port(ssh),
  	    extra != NULL ? ": " : "",
 @@ -363,6 +367,23 @@
- 	if (authenticated == 0 && !authctxt->postponed)
+ 	if (authenticated == 0 && !authctxt->postponed && !partial)
  		audit_event(audit_classify_auth(method));
  #endif
 +	if (authenticated) {
