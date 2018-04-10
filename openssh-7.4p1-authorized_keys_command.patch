@@ -1,0 +1,38 @@
+From ddd3d34e5c7979ca6f4a3a98a7d219a4ed3d98c2 Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Fri, 30 Dec 2016 22:08:02 +0000
+Subject: [PATCH] upstream commit
+
+fix deadlock when keys/principals command produces a lot of
+output and a key is matched early; bz#2655, patch from jboning AT gmail.com
+
+Upstream-ID: e19456429bf99087ea994432c16d00a642060afe
+---
+ auth2-pubkey.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/auth2-pubkey.c b/auth2-pubkey.c
+index 20f3309e1..70c021589 100644
+--- a/auth2-pubkey.c
++++ b/auth2-pubkey.c
+@@ -727,6 +727,9 @@ match_principals_command(struct passwd *user_pw, const struct sshkey *key)
+ 
+ 	ok = process_principals(f, NULL, pw, cert);
+ 
++	fclose(f);
++	f = NULL;
++
+ 	if (exited_cleanly(pid, "AuthorizedPrincipalsCommand", command) != 0)
+ 		goto out;
+ 
+@@ -1050,6 +1053,9 @@ user_key_command_allowed2(struct passwd *user_pw, Key *key)
+ 
+ 	ok = check_authkeys_file(f, options.authorized_keys_command, key, pw);
+ 
++	fclose(f);
++	f = NULL;
++
+ 	if (exited_cleanly(pid, "AuthorizedKeysCommand", command) != 0)
+ 		goto out;
+ 
+

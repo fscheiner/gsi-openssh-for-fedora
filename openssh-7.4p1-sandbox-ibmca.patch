@@ -147,3 +147,65 @@ index 6e7de31..e86aa2c 100644
  #endif
 -- 
 1.9.1
+
+The EP11 crypto card needs to make an ioctl call, which receives an
+specific argument. This crypto card is for s390 only.
+
+Signed-off-by: Eduardo Barretto <ebarretto@xxxxxxxxxxxxxxxxxx>
+---
+ sandbox-seccomp-filter.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index e86aa2c..98062f1 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -250,6 +250,8 @@ static const struct sock_filter preauth_insns[] = {
+ 	SC_ALLOW_ARG(ioctl, 1, Z90STAT_STATUS_MASK),
+ 	SC_ALLOW_ARG(ioctl, 1, ICARSAMODEXPO),
+ 	SC_ALLOW_ARG(ioctl, 1, ICARSACRT),
++	/* Allow ioctls for EP11 crypto card on s390 */
++	SC_ALLOW_ARG(ioctl, 1, ZSENDEP11CPRB),
+ #endif /* defined(__NR_ioctl) && defined(__s390__) */
+ 
+ 	/* Default deny */
+--
+1.9.1
+
+In order to use the OpenSSL-ibmpkcs11 engine it is needed to allow flock
+and ipc calls, because this engine calls OpenCryptoki (a PKCS#11
+implementation) which calls the libraries that will communicate with the
+crypto cards. OpenCryptoki makes use of flock and ipc and, as of now,
+this is only need on s390 architecture.
+
+Signed-off-by: Eduardo Barretto <ebarretto@xxxxxxxxxxxxxxxxxx>
+---
+ sandbox-seccomp-filter.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/sandbox-seccomp-filter.c b/sandbox-seccomp-filter.c
+index ca75cc7..6e7de31 100644
+--- a/sandbox-seccomp-filter.c
++++ b/sandbox-seccomp-filter.c
+@@ -166,6 +166,9 @@ static const struct sock_filter preauth_insns[] = {
+ #ifdef __NR_exit_group
+ 	SC_ALLOW(exit_group),
+ #endif
++#if defined(__NR_flock) && defined(__s390__)
++	SC_ALLOW(flock),
++#endif
+ #ifdef __NR_getpgid
+ 	SC_ALLOW(getpgid),
+ #endif
+@@ -178,6 +181,9 @@ static const struct sock_filter preauth_insns[] = {
+ #ifdef __NR_gettimeofday
+ 	SC_ALLOW(gettimeofday),
+ #endif
++#if defined(__NR_ipc) && defined(__s390__)
++	SC_ALLOW(ipc),
++#endif
+ #ifdef __NR_madvise
+ 	SC_ALLOW(madvise),
+ #endif
+--
+1.9.1

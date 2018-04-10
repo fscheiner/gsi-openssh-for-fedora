@@ -1,2 +1,4 @@
 /*.tar.bz2
 /*.tar.gz
+/*.tar.gz.asc
+/DJM-GPG-KEY.gpg

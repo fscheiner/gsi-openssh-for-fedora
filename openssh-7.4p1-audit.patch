@@ -1606,6 +1606,20 @@ diff -up openssh-7.4p1/packet.c.audit openssh-7.4p1/packet.c
  /*
   * Returns the IP-address of the remote host as a string.  The returned
   * string must not be freed.
+@@ -510,11 +510,12 @@
+ const char *
+ ssh_remote_ipaddr(struct ssh *ssh)
+ {
+-	const int sock = ssh->state->connection_in;
++	int sock;
+ 
+ 	/* Check whether we have cached the ipaddr. */
+ 	if (ssh->remote_ipaddr == NULL) {
+ 		if (ssh_packet_connection_is_on_socket(ssh)) {
++			sock = ssh->state->connection_in;
+ 			ssh->remote_ipaddr = get_peer_ipaddr(sock);
+ 			ssh->remote_port = get_peer_port(sock);
+ 			ssh->local_ipaddr = get_local_ipaddr(sock);
 @@ -562,13 +570,6 @@ ssh_packet_close(struct ssh *ssh)
  	if (!state->initialized)
  		return;

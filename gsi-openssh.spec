@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 7.4p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -181,6 +181,14 @@ Patch954: openssh-7.4p1-ControlPath_too_long.patch
 Patch955: openssh-7.4p1-sandbox-ibmca.patch
 # Back to UseDNS=yes by default (#1478175)
 Patch956: openssh-7.4p1-usedns-yes.patch
+# Clatch between ClientAlive timeouts and rekeying (#1480510)
+Patch957: openssh-7.4p1-rekeying-timeouts.patch
+# WinSCP 5.10+ compatibility (#1496808)
+Patch958: openssh-7.4p1-winscp-compat.patch
+# SSH AuthorizedKeysCommand hangs when output is too large (#1496467)
+Patch959: openssh-7.4p1-authorized_keys_command.patch
+# Fix for CVE-2017-15906 (#1517226)
+Patch960: openssh-7.5p1-sftp-empty-files.patch
 
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
@@ -352,6 +360,10 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch954 -p1 -b .ControlPath
 %patch955 -p1 -b .ibmca
 %patch956 -p1 -b .usedns
+%patch957 -p1 -b .rekey-timeout
+%patch958 -p1 -b .winscp
+%patch959 -p1 -b .large-command
+%patch960 -p1 -b .sftp-empty
 
 %patch200 -p1 -b .audit
 %patch202 -p1 -b .audit-race
@@ -568,6 +580,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Tue Apr 10 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-2
+- Based on openssh-7.4p1-16.el7
+
 * Sun Nov 12 2017 Mattias Ellert <nattias.ellert@physics.uu.se> - 7.4p1-1
 - Based on openssh-7.4p1-13.el7_4
 
