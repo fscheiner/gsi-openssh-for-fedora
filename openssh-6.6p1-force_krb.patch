@@ -207,7 +207,7 @@ index 28659ec..9c94d8e 100644
 --- a/session.c
 +++ b/session.c
 @@ -789,6 +789,29 @@ do_exec(Session *s, const char *command)
- 		command = forced_command;
+ 		command = auth_opts->force_command;
  		forced = "(key-option)";
  	}
 +#ifdef GSSAPI

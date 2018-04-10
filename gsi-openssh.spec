@@ -30,18 +30,20 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.6p1
-%global openssh_rel 5
+%global openssh_ver 7.7p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
-Source0: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{version}.tar.gz
+Source0: https://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{version}.tar.gz
+Source1: https://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{version}.tar.gz.asc
 Source2: gsisshd.pam
+Source3: DJM-GPG-KEY.gpg
 Source7: gsisshd.sysconfig
 Source9: gsisshd@.service
 Source10: gsisshd.socket
@@ -150,9 +152,6 @@ Patch920: openssh-6.6.1p1-ip-port-config-parser.patch
 Patch922: openssh-6.8p1-sshdT-output.patch
 # Add sftp option to force mode of created files (#1191055)
 Patch926: openssh-6.7p1-sftp-force-permission.patch
-# Memory problems
-# https://bugzilla.mindrot.org/show_bug.cgi?id=2401
-Patch928: openssh-6.8p1-memory-problems.patch
 # Restore compatible default (#89216)
 Patch929: openssh-6.9p1-permit-root-login.patch
 # Add GSSAPIKexAlgorithms option for server and client application
@@ -169,12 +168,14 @@ Patch948: openssh-7.4p1-systemd.patch
 Patch949: openssh-7.6p1-cleanup-selinux.patch
 # Sandbox adjustments for s390 and audit
 Patch950: openssh-7.5p1-sandbox.patch
-# PermitOpen bug in OpenSSH 7.6:
-Patch951: openssh-7.6p1-permitopen-bug.patch
+# PKCS#11 URIs (upstream #2817, 2nd iteration)
+Patch951: openssh-7.6p1-pkcs11-uri.patch
+# PKCS#11 ECDSA keys (upstream #2474, 8th iteration)
+Patch952: openssh-7.6p1-pkcs11-ecdsa.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-7.6p1-gsissh.patch
+Patch98: openssh-7.7p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -191,6 +192,9 @@ BuildRequires: pam-devel
 BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
 BuildRequires: systemd-devel
+BuildRequires: gcc
+BuildRequires: p11-kit-devel
+Recommends: p11-kit
 
 %if %{kerberos5}
 BuildRequires: krb5-devel
@@ -215,6 +219,8 @@ BuildRequires: audit-libs >= 1.0.8
 %endif
 
 BuildRequires: xauth
+# for tarball signature verification
+BuildRequires: gnupg2
 
 %package clients
 Summary: SSH client applications with GSI authentication
@@ -223,7 +229,7 @@ Obsoletes: gsissh-clients < 5.8p2-2
 Group: Applications/Internet
 Requires: %{name} = %{version}-%{release}
 Requires: fipscheck-lib%{_isa} >= 1.3.0
-Recommends: crypto-policies
+Requires: crypto-policies >= 20180306-1
 
 %package server
 Summary: SSH server daemon with GSI authentication
@@ -234,9 +240,8 @@ Requires: %{name} = %{version}-%{release}
 Requires(pre): /usr/sbin/useradd
 Requires: pam >= 1.0.1-3
 Requires: fipscheck-lib%{_isa} >= 1.3.0
-Requires(post): systemd-units
-Requires(preun): systemd-units
-Requires(postun): systemd-units
+Requires: crypto-policies >= 20180306-1
+%{?systemd_requires}
 
 %description
 SSH (Secure SHell) is a program for logging into and executing
@@ -270,6 +275,7 @@ securely connect to your SSH server.
 This version of OpenSSH has been modified to support GSI authentication.
 
 %prep
+gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %setup -q -n openssh-%{version}
 
 # investigate %patch102 -p1 -b .getaddrinfo
@@ -317,7 +323,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch802 -p1 -b .GSSAPIEnablek5users
 %patch922 -p1 -b .sshdt
 %patch926 -p1 -b .sftp-force-mode
-%patch928 -p1 -b .memory
 %patch929 -p1 -b .root-login
 %patch932 -p1 -b .gsskexalg
 %patch933 -p1 -b .fingerprint
@@ -327,7 +332,8 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch807 -p1 -b .gsskex-ec
 %patch949 -p1 -b .refactor
 %patch950 -p1 -b .sandbox
-%patch951 -p1 -b .permitOpen
+%patch951 -p1 -b .pkcs11-uri
+%patch952 -p1 -b .pkcs11-ecdsa
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -390,6 +396,7 @@ fi
 	--with-ipaddr-display \
 	--with-pie=no \
 	--with-systemd \
+	--with-default-pkcs11-provider=yes \
 %if %{ldap}
 	--with-ldap \
 %endif
@@ -538,6 +545,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Apr 10 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.7p1-1
+- Based on openssh-7.7p1-1.fc28
+
 * Wed Feb 07 2018 Fedora Release Engineering <releng@fedoraproject.org> - 7.6p1-5.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_28_Mass_Rebuild
 

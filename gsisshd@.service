@@ -5,7 +5,7 @@ Wants=gsisshd-keygen.target
 After=gsisshd-keygen.target
 
 [Service]
-EnvironmentFile=-/etc/crypto-policies/back-ends/openssh-server.config
+EnvironmentFile=-/etc/crypto-policies/back-ends/opensshserver.config
 EnvironmentFile=-/etc/sysconfig/gsisshd
 ExecStart=-/usr/sbin/gsisshd -i $OPTIONS $CRYPTO_POLICY
 StandardInput=socket

@@ -1729,7 +1729,7 @@ diff -up openssh/monitor.c.gsskex openssh/monitor.c
 +	monitor_permit(mon_dispatch, MONITOR_REQ_GSSSETUP, 1);
 +#endif		
  
- 	if (!no_pty_flag) {
+ 	if (auth_opts->permit_pty_flag) {
  		monitor_permit(mon_dispatch, MONITOR_REQ_PTY, 1);
 @@ -1656,6 +1673,13 @@ monitor_apply_keystate(struct monitor *p
  # endif
@@ -2086,6 +2086,7 @@ diff -up openssh/regress/cert-userkey.sh.gsskex openssh/regress/cert-userkey.sh
  
 -PLAIN_TYPES=`$SSH -Q key-plain | sed 's/^ssh-dss/ssh-dsa/;s/^ssh-//'`
 +PLAIN_TYPES=`$SSH -Q key-plain | grep -v null | sed 's/^ssh-dss/ssh-dsa/;s/^ssh-//'`
+ EXTRA_TYPES=""
  
  if echo "$PLAIN_TYPES" | grep '^rsa$' >/dev/null 2>&1 ; then
  	PLAIN_TYPES="$PLAIN_TYPES rsa-sha2-256 rsa-sha2-512"
@@ -2624,7 +2625,7 @@ diff -up openssh/sshd.c.gsskex openssh/sshd.c
  
 @@ -871,8 +871,9 @@ notify_hostkeys(struct ssh *ssh)
  	}
- 	debug3("%s: sent %d hostkeys", __func__, nkeys);
+ 	debug3("%s: sent %u hostkeys", __func__, nkeys);
  	if (nkeys == 0)
 -		fatal("%s: no hostkeys", __func__);
 -	packet_send();
@@ -2864,9 +2865,9 @@ diff -up openssh/sshkey.h.gsskex openssh/sshkey.h
 --- openssh/sshkey.h.gsskex	2017-09-25 01:48:10.000000000 +0200
 +++ openssh/sshkey.h	2017-09-27 13:54:53.602534414 +0200
 @@ -61,6 +61,7 @@ enum sshkey_types {
- 	KEY_DSA_CERT,
- 	KEY_ECDSA_CERT,
  	KEY_ED25519_CERT,
+ 	KEY_XMSS,
+ 	KEY_XMSS_CERT,
 +	KEY_NULL,
  	KEY_UNSPEC
  };

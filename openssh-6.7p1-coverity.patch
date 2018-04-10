@@ -27,7 +27,7 @@ diff -up openssh-7.4p1/monitor.c.coverity openssh-7.4p1/monitor.c
 +	while (pmonitor->m_log_recvfd >= 0 && monitor_read_log(pmonitor) == 0)
  		;
  
- 	close(pmonitor->m_sendfd);
+ 	if (pmonitor->m_recvfd >= 0)
 diff -up openssh-7.4p1/monitor_wrap.c.coverity openssh-7.4p1/monitor_wrap.c
 --- openssh-7.4p1/monitor_wrap.c.coverity	2016-12-23 16:40:26.892788689 +0100
 +++ openssh-7.4p1/monitor_wrap.c	2016-12-23 16:40:26.900788691 +0100
@@ -127,11 +127,11 @@ diff -up openssh-7.4p1/serverloop.c.coverity openssh-7.4p1/serverloop.c
  	}
  
  	tun = packet_get_int();
--	if (forced_tun_device != -1) {
-+	if (forced_tun_device >= 0) {
- 		if (tun != SSH_TUNID_ANY && forced_tun_device != tun)
+-	if (auth_opts->force_tun_device != -1) {
++	if (auth_opts->force_tun_device >= 0) {
+ 		if (tun != SSH_TUNID_ANY && auth_opts->force_tun_device != tun)
  			goto done;
- 		tun = forced_tun_device;
+ 		tun = auth_opts->force_tun_device;
 diff -up openssh-7.4p1/sftp.c.coverity openssh-7.4p1/sftp.c
 --- openssh-7.4p1/sftp.c.coverity	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/sftp.c	2016-12-23 16:40:26.903788691 +0100

@@ -756,7 +756,7 @@ diff -up openssh-7.6p1/auth2-hostbased.c.audit openssh-7.6p1/auth2-hostbased.c
  	if (PRIVSEP(hostbased_key_allowed(authctxt->pw, cuser, chost, key)) &&
 -	    PRIVSEP(sshkey_verify(key, sig, slen,
 +	    PRIVSEP(hostbased_key_verify(key, sig, slen,
- 	    sshbuf_ptr(b), sshbuf_len(b), ssh->compat)) == 0)
+ 	    sshbuf_ptr(b), sshbuf_len(b), pkalg, ssh->compat)) == 0)
  		authenticated = 1;
  
 @@ -169,6 +169,19 @@ done:
@@ -765,11 +765,11 @@ diff -up openssh-7.6p1/auth2-hostbased.c.audit openssh-7.6p1/auth2-hostbased.c
  
 +int
 +hostbased_key_verify(const struct sshkey *key, const u_char *sig, size_t slen,
-+    const u_char *data, size_t datalen, u_int compat)
++    const u_char *data, size_t datalen, const char *pkalg, u_int compat)
 +{
 +	int rv;
 +
-+	rv = sshkey_verify(key, sig, slen, data, datalen, compat);
++	rv = sshkey_verify(key, sig, slen, data, datalen, pkalg, compat);
 +#ifdef SSH_AUDIT_EVENTS
 +	audit_key(0, &rv, key);
 +#endif
@@ -785,10 +785,10 @@ diff -up openssh-7.6p1/auth2-pubkey.c.audit openssh-7.6p1/auth2-pubkey.c
 @@ -206,7 +206,7 @@ userauth_pubkey(struct ssh *ssh)
  		/* test for correct signature */
  		authenticated = 0;
- 		if (PRIVSEP(user_key_allowed(authctxt->pw, key, 1)) &&
+ 		if (PRIVSEP(user_key_allowed(ssh, pw, key, 1, &authopts)) &&
 -		    PRIVSEP(sshkey_verify(key, sig, slen, sshbuf_ptr(b),
 +		    PRIVSEP(user_key_verify(key, sig, slen, sshbuf_ptr(b),
- 		    sshbuf_len(b), ssh->compat)) == 0) {
+ 		    sshbuf_len(b), NULL, ssh->compat)) == 0) {
  			authenticated = 1;
  		}
 @@ -250,6 +250,19 @@ done:
@@ -797,11 +797,11 @@ diff -up openssh-7.6p1/auth2-pubkey.c.audit openssh-7.6p1/auth2-pubkey.c
  
 +int
 +user_key_verify(const struct sshkey *key, const u_char *sig, size_t slen,
-+    const u_char *data, size_t datalen, u_int compat)
++    const u_char *data, size_t datalen, const char *pkalg, u_int compat)
 +{
 +	int rv;
 +
-+	rv = sshkey_verify(key, sig, slen, data, datalen, compat);
++	rv = sshkey_verify(key, sig, slen, data, datalen, pkalg, compat);
 +#ifdef SSH_AUDIT_EVENTS
 +	audit_key(1, &rv, key);
 +#endif
@@ -836,22 +836,24 @@ diff -up openssh-7.6p1/auth.c.audit openssh-7.6p1/auth.c
 diff -up openssh-7.6p1/auth.h.audit openssh-7.6p1/auth.h
 --- openssh-7.6p1/auth.h.audit	2017-10-04 17:18:32.768504711 +0200
 +++ openssh-7.6p1/auth.h	2017-10-04 17:18:32.836505059 +0200
-@@ -198,6 +198,7 @@ struct passwd * getpwnamallow(const char
+@@ -198,6 +198,8 @@ struct passwd * getpwnamallow(const char
  
  char	*expand_authorized_keys(const char *, struct passwd *pw);
  char	*authorized_principals_file(struct passwd *);
-+int	 user_key_verify(const struct sshkey *, const u_char *, size_t, const u_char *, size_t, u_int);
++int	 user_key_verify(const struct sshkey *, const u_char *, size_t,
++    const u_char *, size_t, const char *, u_int);
  
  FILE	*auth_openkeyfile(const char *, struct passwd *, int);
  FILE	*auth_openprincipals(const char *, struct passwd *, int);
-@@ -217,6 +218,7 @@ struct sshkey	*get_hostkey_private_by_ty
+@@ -217,6 +218,8 @@ struct sshkey	*get_hostkey_private_by_ty
  int	 get_hostkey_index(struct sshkey *, int, struct ssh *);
  int	 sshd_hostkey_sign(struct sshkey *, struct sshkey *, u_char **,
  	     size_t *, const u_char *, size_t, const char *, u_int);
-+int	 hostbased_key_verify(const struct sshkey *, const u_char *, size_t, const u_char *, size_t, u_int);
++int	 hostbased_key_verify(const struct sshkey *, const u_char *, size_t,
++    const u_char *, size_t, const char *, u_int);
  
- /* debug messages during authentication */
- void	 auth_debug_add(const char *fmt,...) __attribute__((format(printf, 1, 2)));
+ /* Key / cert options linkage to auth layer */
+ const struct sshauthopt *auth_options(struct ssh *);
 diff -up openssh-7.6p1/cipher.c.audit openssh-7.6p1/cipher.c
 --- openssh-7.6p1/cipher.c.audit	2017-10-02 21:34:26.000000000 +0200
 +++ openssh-7.6p1/cipher.c	2017-10-04 17:18:32.836505059 +0200
@@ -1100,8 +1102,8 @@ diff -up openssh-7.6p1/monitor.c.audit openssh-7.6p1/monitor.c
  #include "ssherr.h"
  
 @@ -117,6 +118,8 @@ extern Buffer auth_debug;
- extern int auth_debug_init;
  extern Buffer loginmsg;
+ extern struct sshauthopt *auth_opts; /* XXX move to permanent ssh->authctxt? */
  
 +extern void destroy_sensitive_data(int);
 +
@@ -1144,7 +1146,7 @@ diff -up openssh-7.6p1/monitor.c.audit openssh-7.6p1/monitor.c
      {0, 0, NULL}
  };
 @@ -1396,7 +1413,9 @@ mm_answer_keyverify(int sock, struct ssh
- 	u_char *signature, *data, *blob;
+ 	char *sigalg;
  	size_t signaturelen, datalen, bloblen;
  	int r, ret, valid_data = 0, encoded_ret;
 +	int type = 0;
@@ -1152,7 +1154,7 @@ diff -up openssh-7.6p1/monitor.c.audit openssh-7.6p1/monitor.c
 +	type = buffer_get_int(m);
  	if ((r = sshbuf_get_string(m, &blob, &bloblen)) != 0 ||
  	    (r = sshbuf_get_string(m, &signature, &signaturelen)) != 0 ||
- 	    (r = sshbuf_get_string(m, &data, &datalen)) != 0)
+ 	    (r = sshbuf_get_string(m, &data, &datalen)) != 0 ||
 @@ -1405,6 +1424,8 @@ mm_answer_keyverify(int sock, struct ssh
  	if (hostbased_cuser == NULL || hostbased_chost == NULL ||
  	  !monitor_allowed_key(blob, bloblen))
@@ -1160,20 +1162,20 @@ diff -up openssh-7.6p1/monitor.c.audit openssh-7.6p1/monitor.c
 +	if (type != key_blobtype)
 +		fatal("%s: bad key type", __func__);
  
- 	/* XXX use sshkey_froms here; need to change key_blob, etc. */
- 	if ((r = sshkey_from_blob(blob, bloblen, &key)) != 0)
+ 	/* Empty signature algorithm means NULL. */
+ 	if (*sigalg == '\0') {
 @@ -1414,21 +1435,24 @@ mm_answer_keyverify(int sock, struct ssh
  	case MM_USERKEY:
  		valid_data = monitor_valid_userblob(data, datalen);
  		auth_method = "publickey";
 +		ret = user_key_verify(key, signature, signaturelen, data,
-+		    datalen, active_state->compat);
++		    datalen, sigalg, active_state->compat);
  		break;
  	case MM_HOSTKEY:
  		valid_data = monitor_valid_hostbasedblob(data, datalen,
  		    hostbased_cuser, hostbased_chost);
 +		ret = hostbased_key_verify(key, signature, signaturelen, data,
-+		    datalen, active_state->compat);
++		    datalen, sigalg, active_state->compat);
  		auth_method = "hostbased";
  		break;
  	default:
@@ -1185,7 +1187,7 @@ diff -up openssh-7.6p1/monitor.c.audit openssh-7.6p1/monitor.c
  		fatal("%s: bad signature data blob", __func__);
  
 -	ret = sshkey_verify(key, signature, signaturelen, data, datalen,
--	    active_state->compat);
+-	    sigalg, active_state->compat);
  	debug3("%s: %s %p signature %s", __func__, auth_method, key,
  	    (ret == 0) ? "verified" : "unverified");
  	auth2_record_key(authctxt, ret == 0, key);
@@ -1400,7 +1402,7 @@ diff -up openssh-7.6p1/monitor_wrap.c.audit openssh-7.6p1/monitor_wrap.c
  int
 -mm_sshkey_verify(const struct sshkey *key, const u_char *sig, size_t siglen,
 +mm_sshkey_verify(enum mm_keytype type, const struct sshkey *key, const u_char *sig, size_t siglen,
-     const u_char *data, size_t datalen, u_int compat)
+     const u_char *data, size_t datalen, const char *sigalg, u_int compat)
  {
  	Buffer m;
 @@ -478,6 +478,7 @@ mm_sshkey_verify(const struct sshkey *ke
@@ -1417,16 +1419,16 @@ diff -up openssh-7.6p1/monitor_wrap.c.audit openssh-7.6p1/monitor_wrap.c
  
 +int
 +mm_hostbased_key_verify(const struct sshkey *key, const u_char *sig, size_t siglen,
-+    const u_char *data, size_t datalen, u_int compat)
++    const u_char *data, size_t datalen, const char *pkalg, u_int compat)
 +{
-+	return mm_sshkey_verify(MM_HOSTKEY, key, sig, siglen, data, datalen, compat);
++	return mm_sshkey_verify(MM_HOSTKEY, key, sig, siglen, data, datalen, pkalg, compat);
 +}
 +
 +int
 +mm_user_key_verify(const struct sshkey *key, const u_char *sig, size_t siglen,
-+    const u_char *data, size_t datalen, u_int compat)
++    const u_char *data, size_t datalen, const char *pkalg, u_int compat)
 +{
-+	return mm_sshkey_verify(MM_USERKEY, key, sig, siglen, data, datalen, compat);
++	return mm_sshkey_verify(MM_USERKEY, key, sig, siglen, data, datalen, pkalg, compat);
 +}
 +
  void
@@ -1547,14 +1549,14 @@ diff -up openssh-7.6p1/monitor_wrap.h.audit openssh-7.6p1/monitor_wrap.h
 --- openssh-7.6p1/monitor_wrap.h.audit	2017-10-04 17:18:32.750504619 +0200
 +++ openssh-7.6p1/monitor_wrap.h	2017-10-04 17:18:32.838505069 +0200
 @@ -53,7 +53,9 @@ int mm_key_allowed(enum mm_keytype, cons
- int mm_user_key_allowed(struct passwd *, struct sshkey *, int);
+     struct sshauthopt **);
  int mm_hostbased_key_allowed(struct passwd *, const char *,
      const char *, struct sshkey *);
 -int mm_sshkey_verify(const struct sshkey *, const u_char *, size_t,
 +int mm_hostbased_key_verify(const struct sshkey *, const u_char *, size_t,
-+    const u_char *, size_t, u_int);
++    const u_char *, size_t, const char *, u_int);
 +int mm_user_key_verify(const struct sshkey *, const u_char *, size_t,
-     const u_char *, size_t, u_int);
+     const u_char *, size_t, const char *, u_int);
  
  #ifdef GSSAPI
 @@ -78,7 +80,12 @@ void mm_sshpam_free_ctx(void *);
@@ -1743,8 +1745,8 @@ diff -up openssh-7.6p1/session.c.audit openssh-7.6p1/session.c
 -extern void destroy_sensitive_data(void);
 +extern void destroy_sensitive_data(int);
  extern Buffer loginmsg;
- 
- /* original command from peer. */
+ extern struct sshauthopt *auth_opts;
+ char *tun_fwd_ifnames; /* serverloop.c */
 @@ -605,6 +605,14 @@ do_exec_pty(struct ssh *ssh, Session *s,
  	/* Parent.  Close the slave side of the pseudo tty. */
  	close(ttyfd);
@@ -1930,8 +1932,8 @@ diff -up openssh-7.6p1/sshd.c.audit openssh-7.6p1/sshd.c
  #include "monitor_wrap.h"
 +#include "audit.h"
  #include "ssh-sandbox.h"
+ #include "auth-options.h"
  #include "version.h"
- #include "ssherr.h"
 @@ -248,7 +249,7 @@ Buffer loginmsg;
  struct passwd *privsep_pw = NULL;
  
@@ -1970,7 +1972,7 @@ diff -up openssh-7.6p1/sshd.c.audit openssh-7.6p1/sshd.c
 -destroy_sensitive_data(void)
 +destroy_sensitive_data(int privsep)
  {
- 	int i;
+ 	u_int i;
 +#ifdef SSH_AUDIT_EVENTS
 +	pid_t pid;
 +	uid_t uid;
@@ -2009,7 +2011,7 @@ diff -up openssh-7.6p1/sshd.c.audit openssh-7.6p1/sshd.c
 @@ -499,12 +536,30 @@ demote_sensitive_data(void)
  {
  	struct sshkey *tmp;
- 	int i;
+ 	u_int i;
 +#ifdef SSH_AUDIT_EVENTS
 +	pid_t pid;
 +	uid_t uid;

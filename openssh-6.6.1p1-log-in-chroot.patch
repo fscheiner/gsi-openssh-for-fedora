@@ -41,14 +41,14 @@ diff -up openssh-7.4p1/monitor.c.log-in-chroot openssh-7.4p1/monitor.c
 --- openssh-7.4p1/monitor.c.log-in-chroot	2016-12-23 15:14:33.311168085 +0100
 +++ openssh-7.4p1/monitor.c	2016-12-23 15:16:42.154193100 +0100
 @@ -307,6 +307,8 @@ monitor_child_preauth(Authctxt *_authctx
- 	close(pmonitor->m_log_sendfd);
+ 		close(pmonitor->m_log_sendfd);
  	pmonitor->m_log_sendfd = pmonitor->m_recvfd = -1;
  
 +	pmonitor->m_state = "preauth";
 +
  	authctxt = _authctxt;
  	memset(authctxt, 0, sizeof(*authctxt));
- 
+ 	ssh->authctxt = authctxt;
 @@ -405,6 +407,8 @@ monitor_child_postauth(struct monitor *p
  	close(pmonitor->m_recvfd);
  	pmonitor->m_recvfd = -1;
@@ -165,7 +165,7 @@ diff -up openssh-7.4p1/session.c.log-in-chroot openssh-7.4p1/session.c
  
 -	closefrom(STDERR_FILENO + 1);
 -
- 	do_rc_files(s, shell);
+ 	do_rc_files(ssh, s, shell);
  
  	/* restore SIGPIPE for child */
 @@ -1653,9 +1649,17 @@ do_child(Session *s, const char *command

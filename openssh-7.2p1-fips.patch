@@ -652,13 +652,13 @@ diff -up openssh-7.5p1/sshkey.c.fips openssh-7.5p1/sshkey.c
  
  #include "crypto_api.h"
 @@ -58,6 +59,7 @@
- #define SSHKEY_INTERNAL
  #include "sshkey.h"
+ #include "sshkey-xmss.h"
  #include "match.h"
 +#include "log.h"
  
- /* openssh private key file format */
- #define MARK_BEGIN		"-----BEGIN OPENSSH PRIVATE KEY-----\n"
+ #include "xmss_fast.h"
+ 
 @@ -1587,6 +1589,8 @@ rsa_generate_private_key(u_int bits, RSA
  	}
  	if (!BN_set_word(f4, RSA_F4) ||

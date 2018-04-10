@@ -1,24 +1,75 @@
 diff --git a/misc.c b/misc.c
-index 2f11de4..36402d1 100644
+index 874dcc8a..7b7f7a58 100644
 --- a/misc.c
 +++ b/misc.c
-@@ -396,7 +396,7 @@ hpdelim(char **cp)
- 			return NULL;
- 		else
- 			s++;
--	} else if ((s = strpbrk(s, ":/")) == NULL)
-+	} else if ((s = strpbrk(s, ":")) == NULL)
- 		s = *cp + strlen(*cp); /* skip to end (see first case below) */
+@@ -466,7 +466,7 @@ put_host_port(const char *host, u_short port)
+  * The delimiter char, if present, is stored in delim.
+  * If this is the last field, *cp is set to NULL.
+  */
+-static char *
++char *
+ hpdelim2(char **cp, char *delim)
+ {
+ 	char *s, *old;
+diff --git a/misc.h b/misc.h
+index cdafea73..cf9c8f28 100644
+--- a/misc.h
++++ b/misc.h
+@@ -54,6 +54,7 @@ int	 set_rdomain(int, const char *);
+ int	 a2port(const char *);
+ int	 a2tun(const char *, int *);
+ char	*put_host_port(const char *, u_short);
++char	*hpdelim2(char **, char *);
+ char	*hpdelim(char **);
+ char	*cleanhostname(char *);
+ char	*colon(char *);
+diff --git a/servconf.c b/servconf.c
+index 0f0d0906..1679181e 100644
+--- a/servconf.c
++++ b/servconf.c
+@@ -821,7 +821,7 @@ process_permitopen(struct ssh *ssh, ServerOptions *options)
+ {
+ 	u_int i;
+ 	int port;
+-	char *host, *arg, *oarg;
++	char *host, *arg, *oarg, ch;
  
- 	switch (*s) {
-@@ -405,7 +405,6 @@ hpdelim(char **cp)
- 		break;
- 
- 	case ':':
--	case '/':
- 		*s = '\0';	/* terminate */
- 		*cp = s + 1;
- 		break;
--- 
-2.1.0
-
+ 	channel_clear_adm_permitted_opens(ssh);
+ 	if (options->num_permitted_opens == 0)
+@@ -839,8 +839,8 @@ process_permitopen(struct ssh *ssh, ServerOptions *options)
+ 	/* Otherwise treat it as a list of permitted host:port */
+ 	for (i = 0; i < options->num_permitted_opens; i++) {
+ 		oarg = arg = xstrdup(options->permitted_opens[i]);
+-		host = hpdelim(&arg);
+-		if (host == NULL)
++		host = hpdelim2(&arg, &ch);
++		if (host == NULL || ch == '/')
+ 			fatal("%s: missing host in PermitOpen", __func__);
+ 		host = cleanhostname(host);
+ 		if (arg == NULL || ((port = permitopen_port(arg)) < 0))
+@@ -1244,8 +1244,10 @@ process_server_config_line(ServerOptions *options, char *line,
+ 			port = 0;
+ 			p = arg;
+ 		} else {
+-			p = hpdelim(&arg);
+-			if (p == NULL)
++			char ch;
++			arg2 = NULL;
++			p = hpdelim2(&arg, &ch);
++			if (p == NULL || ch == '/')
+ 				fatal("%s line %d: bad address:port usage",
+ 				    filename, linenum);
+ 			p = cleanhostname(p);
+@@ -1815,9 +1817,10 @@ process_server_config_line(ServerOptions *options, char *line,
+ 			break;
+ 		}
+ 		for (; arg != NULL && *arg != '\0'; arg = strdelim(&cp)) {
++			char ch;
+ 			arg2 = xstrdup(arg);
+-			p = hpdelim(&arg);
+-			if (p == NULL)
++			p = hpdelim2(&arg, &ch);
++			if (p == NULL || ch == '/')
+ 				fatal("%s line %d: missing host in PermitOpen",
+ 				    filename, linenum);
+ 			p = cleanhostname(p);

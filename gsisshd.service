@@ -6,7 +6,7 @@ Wants=gsisshd-keygen.target
 
 [Service]
 Type=notify
-EnvironmentFile=-/etc/crypto-policies/back-ends/openssh-server.config
+EnvironmentFile=-/etc/crypto-policies/back-ends/opensshserver.config
 EnvironmentFile=-/etc/sysconfig/gsisshd
 ExecStart=/usr/sbin/gsisshd -D $OPTIONS $CRYPTO_POLICY
 ExecReload=/bin/kill -HUP $MAINPID

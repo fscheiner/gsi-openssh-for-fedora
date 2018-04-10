@@ -93,7 +93,7 @@ diff -up openssh-7.4p1/auth2-hostbased.c.role-mls openssh-7.4p1/auth2-hostbased.
 +#else
 +	    (r = sshbuf_put_cstring(b, authctxt->user)) != 0 ||
 +#endif
- 	    (r = sshbuf_put_cstring(b, service)) != 0 ||
+ 	    (r = sshbuf_put_cstring(b, authctxt->service)) != 0 ||
  	    (r = sshbuf_put_cstring(b, "hostbased")) != 0 ||
  	    (r = sshbuf_put_string(b, pkalg, alen)) != 0 ||
 diff -up openssh-7.4p1/auth2-pubkey.c.role-mls openssh-7.4p1/auth2-pubkey.c
@@ -116,7 +116,7 @@ diff -up openssh-7.4p1/auth2-pubkey.c.role-mls openssh-7.4p1/auth2-pubkey.c
 +#endif
  		if ((r = sshbuf_put_u8(b, SSH2_MSG_USERAUTH_REQUEST)) != 0 ||
  		    (r = sshbuf_put_cstring(b, userstyle)) != 0 ||
- 		    (r = sshbuf_put_cstring(b, ssh->compat & SSH_BUG_PKSERVICE ?
+ 		    (r = sshbuf_put_cstring(b, authctxt->service)) != 0 ||
 diff -up openssh-7.4p1/auth.h.role-mls openssh-7.4p1/auth.h
 --- openssh-7.4p1/auth.h.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/auth.h	2016-12-23 12:19:43.478510375 +0100
@@ -146,7 +146,7 @@ diff -up openssh-7.4p1/auth-pam.h.role-mls openssh-7.4p1/auth-pam.h
 --- openssh-7.4p1/auth-pam.h.role-mls	2016-12-23 12:19:43.478510375 +0100
 +++ openssh-7.4p1/auth-pam.h	2016-12-23 12:21:44.698101234 +0100
 @@ -31,7 +31,7 @@ u_int do_pam_account(void);
- void do_pam_session(void);
+ void do_pam_session(struct ssh *);
  void do_pam_setcred(int );
  void do_pam_chauthtok(void);
 -int do_pam_putenv(char *, char *);
@@ -316,7 +316,7 @@ diff -up openssh-7.4p1/monitor_wrap.c.role-mls openssh-7.4p1/monitor_wrap.c
 +
  /* Do the password authentication */
  int
- mm_auth_password(Authctxt *authctxt, char *password)
+ mm_auth_password(struct ssh *ssh, char *password)
 diff -up openssh-7.4p1/monitor_wrap.h.role-mls openssh-7.4p1/monitor_wrap.h
 --- openssh-7.4p1/monitor_wrap.h.role-mls	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/monitor_wrap.h	2016-12-23 12:19:58.588459376 +0100
@@ -329,16 +329,17 @@ diff -up openssh-7.4p1/monitor_wrap.h.role-mls openssh-7.4p1/monitor_wrap.h
 +#endif
  struct passwd *mm_getpwnamallow(const char *);
  char *mm_auth2_read_banner(void);
- int mm_auth_password(struct Authctxt *, char *);
+ int mm_auth_password(struct ssh *, char *);
 diff -up openssh-7.4p1/openbsd-compat/Makefile.in.role-mls openssh-7.4p1/openbsd-compat/Makefile.in
 --- openssh-7.4p1/openbsd-compat/Makefile.in.role-mls	2016-12-23 12:19:58.588459376 +0100
 +++ openssh-7.4p1/openbsd-compat/Makefile.in	2016-12-23 12:24:06.042643938 +0100
-@@ -20,7 +20,7 @@ OPENBSD=base64.o basename.o bcrypt_pbkdf
- 
- COMPAT=arc4random.o bsd-asprintf.o bsd-closefrom.o bsd-cray.o bsd-cygwin_util.o bsd-getpeereid.o getrrsetbyname-ldns.o bsd-err.o bsd-getpagesize.o bsd-misc.o bsd-nextstep.o bsd-openpty.o bsd-poll.o bsd-malloc.o bsd-setres_id.o bsd-snprintf.o bsd-statvfs.o bsd-waitpid.o fake-rfc2553.o openssl-compat.o xcrypt.o kludge-fd_set.o
- 
--PORTS=port-aix.o port-irix.o port-linux.o port-solaris.o port-tun.o port-uw.o
-+PORTS=port-aix.o port-irix.o port-linux.o port-linux-sshd.o port-solaris.o port-tun.o port-uw.o
+@@ -20,7 +20,8 @@ OPENBSD=base64.o basename.o bcrypt_pbkdf
+ 	port-linux.o \
+ 	port-solaris.o \
+ 	port-net.o \
+-	port-uw.o
++	port-uw.o \
++	port-linux-sshd.o
  
  .c.o:
  	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<

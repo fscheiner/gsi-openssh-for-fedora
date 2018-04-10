@@ -471,7 +471,7 @@ diff -up openssh/kexgexc.c.openssl openssh/kexgexc.c
  
  	debug("got SSH2_MSG_KEX_DH_GEX_GROUP");
  
-@@ -119,26 +120,30 @@ input_kex_dh_gex_group(int type, u_int32
+@@ -119,24 +120,30 @@ input_kex_dh_gex_group(int type, u_int32
  	p = g = NULL; /* belong to kex->dh now */
  
  	/* generate and send 'e', client DH public key */
@@ -497,12 +497,8 @@ diff -up openssh/kexgexc.c.openssl openssh/kexgexc.c
  	ssh_dispatch_set(ssh, SSH2_MSG_KEX_DH_GEX_REPLY, &input_kex_dh_gex_reply);
  	r = 0;
  out:
--	if (p)
--		BN_clear_free(p);
--	if (g)
--		BN_clear_free(g);
-+	BN_clear_free(p);
-+	BN_clear_free(g);
+ 	BN_clear_free(p);
+ 	BN_clear_free(g);
 +	if (r != 0) {
 +		DH_free(kex->dh);
 +		kex->dh = NULL;
@@ -1408,17 +1404,6 @@ diff -up openssh/sshconnect2.c.openssl openssh/sshconnect2.c
  }
  
  /*
-diff -up openssh/sshconnect.c.openssl openssh/sshconnect.c
---- openssh/sshconnect.c.openssl	2017-09-26 13:19:31.759249464 +0200
-+++ openssh/sshconnect.c	2017-09-26 13:19:31.800249715 +0200
-@@ -1316,6 +1316,7 @@ ssh_login(Sensitive *sensitive, const ch
- 	char *server_user, *local_user;
- 
- 	local_user = xstrdup(pw->pw_name);
-+	free(pw);
- 	server_user = options.user ? options.user : local_user;
- 
- 	/* Convert the user-supplied hostname into all lowercase. */
 diff -up openssh/ssh.c.openssl openssh/ssh.c
 --- openssh/ssh.c.openssl	2017-09-26 13:19:31.786249629 +0200
 +++ openssh/ssh.c	2017-09-26 13:19:31.800249715 +0200
@@ -1432,14 +1417,6 @@ diff -up openssh/ssh.c.openssl openssh/ssh.c
  	if (access("/etc/system-fips", F_OK) == 0)
  		if (! FIPSCHECK_verify(NULL, NULL)){
  			if (FIPS_mode())
-@@ -1263,6 +1265,7 @@ main(int ac, char **av)
- 		free(cp);
- 	}
- 	free(conn_hash_hex);
-+	free(host_arg);
- 
- 	if (config_test) {
- 		dump_client_config(&options, host);
 diff -up openssh/sshd.c.openssl openssh/sshd.c
 --- openssh/sshd.c.openssl	2017-09-26 13:19:31.792249666 +0200
 +++ openssh/sshd.c	2017-09-26 13:19:31.801249721 +0200
@@ -1482,8 +1459,8 @@ diff -up openssh/ssh-dss.c.openssl openssh/ssh-dss.c
 +	BN_bn2bin(r, sigblob + SIGBLOB_LEN - INTBLOB_LEN - rlen);
 +	BN_bn2bin(s, sigblob + SIGBLOB_LEN - slen);
  
- 	if (compat & SSH_BUG_SIGBLOB) {
- 		if (sigp != NULL) {
+ 	if ((b = sshbuf_new()) == NULL) {
+ 		ret = SSH_ERR_ALLOC_FAIL;
 @@ -137,6 +139,7 @@ ssh_dss_verify(const struct sshkey *key,
  	int ret = SSH_ERR_INTERNAL_ERROR;
  	struct sshbuf *b = NULL;
@@ -1516,15 +1493,13 @@ diff -up openssh/ssh-dss.c.openssl openssh/ssh-dss.c
  
  	/* sha1 the data */
  	if ((ret = ssh_digest_memory(SSH_DIGEST_SHA1, data, datalen,
-@@ -207,8 +213,9 @@ ssh_dss_verify(const struct sshkey *key,
+@@ -207,7 +213,9 @@ ssh_dss_verify(const struct sshkey *key,
  
   out:
  	explicit_bzero(digest, sizeof(digest));
--	if (sig != NULL)
--		DSA_SIG_free(sig);
 +	BN_free(r);
 +	BN_free(s);
-+	DSA_SIG_free(sig);
+ 	DSA_SIG_free(sig);
  	sshbuf_free(b);
  	free(ktype);
  	if (sigblob != NULL) {
@@ -1586,15 +1561,13 @@ diff -up openssh/ssh-ecdsa.c.openssl openssh/ssh-ecdsa.c
  	if (sshbuf_len(sigbuf) != 0) {
  		ret = SSH_ERR_UNEXPECTED_TRAILING_DATA;
  		goto out;
-@@ -180,8 +191,9 @@ ssh_ecdsa_verify(const struct sshkey *ke
+@@ -180,7 +191,9 @@ ssh_ecdsa_verify(const struct sshkey *ke
  	explicit_bzero(digest, sizeof(digest));
  	sshbuf_free(sigbuf);
  	sshbuf_free(b);
--	if (sig != NULL)
--		ECDSA_SIG_free(sig);
 +	BN_free(r);
 +	BN_free(s);
-+	ECDSA_SIG_free(sig);
+	ECDSA_SIG_free(sig);
  	free(ktype);
  	return ret;
  }
@@ -1636,20 +1609,19 @@ diff -up openssh/sshkey.c.openssl openssh/sshkey.c
  #ifdef OPENSSL_HAS_ECC
        case KEY_ECDSA_CERT:
        case KEY_ECDSA:
-@@ -496,11 +501,7 @@ sshkey_new(int type)
+@@ -496,10 +501,7 @@ sshkey_new(int type)
  #ifdef WITH_OPENSSL
  	case KEY_RSA:
  	case KEY_RSA_CERT:
 -		if ((rsa = RSA_new()) == NULL ||
 -		    (rsa->n = BN_new()) == NULL ||
 -		    (rsa->e = BN_new()) == NULL) {
--			if (rsa != NULL)
--				RSA_free(rsa);
+-			RSA_free(rsa);
 +		if ((rsa = RSA_new()) == NULL) {
  			free(k);
  			return NULL;
  		}
-@@ -508,13 +509,7 @@ sshkey_new(int type)
+@@ -508,12 +509,7 @@ sshkey_new(int type)
  		break;
  	case KEY_DSA:
  	case KEY_DSA_CERT:
@@ -1658,8 +1630,7 @@ diff -up openssh/sshkey.c.openssl openssh/sshkey.c
 -		    (dsa->q = BN_new()) == NULL ||
 -		    (dsa->g = BN_new()) == NULL ||
 -		    (dsa->pub_key = BN_new()) == NULL) {
--			if (dsa != NULL)
--				DSA_free(dsa);
+-			DSA_free(dsa);
 +		if ((dsa = DSA_new()) == NULL) {
  			free(k);
  			return NULL;
@@ -2480,14 +2451,14 @@ diff -up openssh/sshkey.h.openssl openssh/sshkey.h
 -int ssh_rsa_generate_additional_parameters(struct sshkey *);
 +int ssh_rsa_generate_additional_parameters(struct sshkey *, BIGNUM *iqmp);
  
- #ifdef SSHKEY_INTERNAL
- int ssh_rsa_sign(const struct sshkey *key,
+ /* stateful keys (e.g. XMSS) */
+ #ifdef NO_ATTRIBUTE_ON_PROTOTYPE_ARGS
 diff -up openssh/ssh-pkcs11-client.c.openssl openssh/ssh-pkcs11-client.c
 --- openssh/ssh-pkcs11-client.c.openssl	2017-09-19 06:26:43.000000000 +0200
 +++ openssh/ssh-pkcs11-client.c	2017-09-26 13:19:31.803249734 +0200
 @@ -143,12 +143,16 @@ pkcs11_rsa_private_encrypt(int flen, con
  static int
- wrap_key(RSA *rsa)
+ wrap_rsa_key(RSA *rsa)
  {
 -	static RSA_METHOD helper_rsa;
 +	static RSA_METHOD *helper_rsa;
@@ -2511,25 +2482,25 @@ diff -up openssh/ssh-pkcs11.c.openssl openssh/ssh-pkcs11.c
 --- openssh/ssh-pkcs11.c.openssl	2017-09-19 06:26:43.000000000 +0200
 +++ openssh/ssh-pkcs11.c	2017-09-26 13:19:31.803249734 +0200
 @@ -67,7 +67,7 @@ struct pkcs11_key {
- 	struct pkcs11_provider	*provider;
  	CK_ULONG		slotidx;
+ 	CK_ULONG		key_type;
  	int			(*orig_finish)(RSA *rsa);
 -	RSA_METHOD		rsa_method;
 +	RSA_METHOD		*rsa_method;
  	char			*keyid;
  	int			keyid_len;
- };
+	char			*label;
 @@ -183,6 +183,7 @@ pkcs11_rsa_finish(RSA *rsa)
- 		if (k11->provider)
  			pkcs11_provider_unref(k11->provider);
  		free(k11->keyid);
+ 		free(k11->label);
 +		RSA_meth_free(k11->rsa_method);
  		free(k11);
  	}
  	return (rv);
 @@ -326,13 +326,21 @@ pkcs11_rsa_wrap(struct pkcs11_provider *
- 		k11->keyid = xmalloc(k11->keyid_len);
- 		memcpy(k11->keyid, keyid_attrib->pValue, k11->keyid_len);
+ 		memcpy(k11->label, label_attrib->pValue, label_attrib->ulValueLen);
+ 		k11->label[label_attrib->ulValueLen] = 0;
  	}
 -	k11->orig_finish = def->finish;
 -	memcpy(&k11->rsa_method, def, sizeof(k11->rsa_method));
@@ -2562,69 +2533,81 @@ diff -up openssh/ssh-pkcs11.c.openssl openssh/ssh-pkcs11.c
  	CK_FUNCTION_LIST	*f;
 +	const BIGNUM		*n, *e;
  
- 	f = p->function_list;
- 	session = p->slotinfo[slotidx].session;
+ 	f = p->module->function_list;
+ 	session = p->module->slotinfo[slotidx].session;
 @@ -512,10 +521,16 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
  			if ((rsa = RSA_new()) == NULL) {
  				error("RSA_new failed");
  			} else {
--				rsa->n = BN_bin2bn(attribs[1].pValue,
+-				rsa->n = BN_bin2bn(attribs[2].pValue,
 +				BIGNUM *rsa_n, *rsa_e;
 +
-+				rsa_n = BN_bin2bn(attribs[1].pValue,
- 				    attribs[1].ulValueLen, NULL);
--				rsa->e = BN_bin2bn(attribs[2].pValue,
-+				rsa_e = BN_bin2bn(attribs[2].pValue,
++				rsa_n = BN_bin2bn(attribs[2].pValue,
  				    attribs[2].ulValueLen, NULL);
+-				rsa->e = BN_bin2bn(attribs[3].pValue,
++				rsa_e = BN_bin2bn(attribs[3].pValue,
+ 				    attribs[3].ulValueLen, NULL);
 +				if (rsa_n == NULL || rsa_e == NULL)
 +					error("BN_bin2bn failed");
 +				if (RSA_set0_key(rsa, rsa_n, rsa_e, NULL) == 0)
 +					error("RSA_set0_key failed");
  			}
- 		} else {
- 			cp = attribs[2].pValue;
-@@ -525,17 +538,19 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
- 			    == NULL) {
- 				error("d2i_X509 failed");
- 			} else if ((evp = X509_get_pubkey(x509)) == NULL ||
--			    evp->type != EVP_PKEY_RSA ||
--			    evp->pkey.rsa == NULL) {
-+			    EVP_PKEY_id(evp) != EVP_PKEY_RSA ||
-+			    EVP_PKEY_get0_RSA(evp) == NULL) {
- 				debug("X509_get_pubkey failed or no rsa");
--			} else if ((rsa = RSAPublicKey_dup(evp->pkey.rsa))
-+			} else if ((rsa = RSAPublicKey_dup(EVP_PKEY_get0_RSA(evp)))
- 			    == NULL) {
- 				error("RSAPublicKey_dup");
- 			}
- 			if (x509)
- 				X509_free(x509);
+ #ifdef ENABLE_PKCS11_ECDSA
+ 		} else if (attribs[2].type == CKA_EC_PARAMS ) {
+@@ -920,19 +936,19 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+ 			} else if ((evp = X509_get_pubkey(x509)) == NULL) {
+ 				debug("X509_get_pubkey failed");
+ 			} else {
+-				switch (evp->type) {
++				switch (EVP_PKEY_id(evp)) {
+ 				case EVP_PKEY_RSA:
+-					if (evp->pkey.rsa == NULL)
++					if (EVP_PKEY_get0_RSA(evp) == NULL)
+ 						debug("Missing RSA key");
+-					else if ((rsa = RSAPublicKey_dup(
+-					    evp->pkey.rsa)) == NULL)
++					else if ((rsa = RSAPublicKey_dup(
++					    EVP_PKEY_get0_RSA(evp))) == NULL)
+ 						error("RSAPublicKey_dup failed");
+ 					break;
+ 				case EVP_PKEY_EC:
+-					if (evp->pkey.ecdsa == NULL)
++					if (EVP_PKEY_get0_EC_KEY(evp) == NULL)
+ 						debug("Missing ECDSA key");
+-					else if ((ecdsa = EC_KEY_dup(
+-					    evp->pkey.ecdsa)) == NULL)
++					else if ((ecdsa = EC_KEY_dup(
++					    EVP_PKEY_get0_EC_KEY(evp))) == NULL)
+ 						error("EC_KEY_dup failed");
+ 					break;
+ 				default:
+@@ -538,7 +551,9 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
  		}
--		if (rsa && rsa->n && rsa->e &&
-+		if (rsa)
-+			RSA_get0_key(rsa, &n, &e, NULL);
-+		if (rsa && n && e &&
- 		    pkcs11_rsa_wrap(p, slotidx, &attribs[0], rsa) == 0) {
- 			if ((key = sshkey_new(KEY_UNSPEC)) == NULL)
- 				fatal("sshkey_new failed");
+ 		key = NULL;
+ 		if (rsa || ecdsa) {
+-			if (rsa && rsa->n && rsa->e &&
++			if (rsa)
++				RSA_get0_key(rsa, &n, &e, NULL);
++			if (rsa && n && e &&
+ 			    pkcs11_rsa_wrap(p, slotidx, &attribs[0], &attribs[1], rsa) == 0) {
+ 				if ((key = sshkey_new(KEY_UNSPEC)) == NULL)
+ 					fatal("sshkey_new failed");
 diff -up openssh/ssh-rsa.c.openssl openssh/ssh-rsa.c
 --- openssh/ssh-rsa.c.openssl	2017-09-19 06:26:43.000000000 +0200
 +++ openssh/ssh-rsa.c	2017-09-26 13:19:31.803249734 +0200
-@@ -78,37 +78,46 @@ rsa_hash_alg_nid(int type)
- 	}
+@@ -78,38 +78,50 @@ rsa_hash_alg_nid(int type)
  }
  
--/* calculate p-1 and q-1 */
-+/* calculate d mod p-1 and d mod q-1 */
  int
 -ssh_rsa_generate_additional_parameters(struct sshkey *key)
 +ssh_rsa_generate_additional_parameters(struct sshkey *key, BIGNUM *iqmp)
  {
--	RSA *rsa;
  	BIGNUM *aux = NULL;
  	BN_CTX *ctx = NULL;
+-	BIGNUM d;
++	BIGNUM *d = NULL;
  	int r;
-+	const BIGNUM *p, *q, *d;
++	const BIGNUM *p, *q, *rsa_d;
 +	BIGNUM *dmp1 = NULL, *dmq1 = NULL;
  
  	if (key == NULL || key->rsa == NULL ||
@@ -2635,21 +2618,26 @@ diff -up openssh/ssh-rsa.c.openssl openssh/ssh-rsa.c
 -		return SSH_ERR_ALLOC_FAIL;
 -	if ((aux = BN_new()) == NULL) {
 +	RSA_get0_factors(key->rsa, &p, &q);
-+	RSA_get0_key(key->rsa, NULL, NULL, &d);
++	RSA_get0_key(key->rsa, NULL, NULL, &rsa_d);
 +
 +	if ((ctx = BN_CTX_new()) == NULL ||
 +	    (aux = BN_new()) == NULL ||
++	    (d = BN_new()) == NULL ||
 +	    (dmp1 = BN_new()) == NULL ||
 +	    (dmq1 = BN_new()) == NULL) {
  		r = SSH_ERR_ALLOC_FAIL;
  		goto out;
  	}
--	rsa = key->rsa;
+ 	BN_set_flags(aux, BN_FLG_CONSTTIME);
  
--	if ((BN_sub(aux, rsa->q, BN_value_one()) == 0) ||
--	    (BN_mod(rsa->dmq1, rsa->d, aux, ctx) == 0) ||
--	    (BN_sub(aux, rsa->p, BN_value_one()) == 0) ||
--	    (BN_mod(rsa->dmp1, rsa->d, aux, ctx) == 0)) {
+-	BN_init(&d);
+-	BN_with_flags(&d, key->rsa->d, BN_FLG_CONSTTIME);
++	BN_with_flags(d, rsa_d, BN_FLG_CONSTTIME);
+ 
+-	if ((BN_sub(aux, key->rsa->q, BN_value_one()) == 0) ||
+-	    (BN_mod(key->rsa->dmq1, &d, aux, ctx) == 0) ||
+-	    (BN_sub(aux, key->rsa->p, BN_value_one()) == 0) ||
+-	    (BN_mod(key->rsa->dmp1, &d, aux, ctx) == 0)) {
 +	if ((BN_sub(aux, q, BN_value_one()) == 0) ||
 +	    (BN_mod(dmq1, d, aux, ctx) == 0) ||
 +	    (BN_sub(aux, p, BN_value_one()) == 0) ||
@@ -2662,6 +2650,7 @@ diff -up openssh/ssh-rsa.c.openssl openssh/ssh-rsa.c
 +	dmq1 = NULL;
  	r = 0;
   out:
++	BN_free(d);
  	BN_clear_free(aux);
 +	BN_clear_free(dmp1);
 +	BN_clear_free(dmq1);

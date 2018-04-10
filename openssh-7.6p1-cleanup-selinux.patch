@@ -9,11 +9,11 @@ diff -up openssh/auth2-pubkey.c.refactor openssh/auth2-pubkey.c
 +extern int rexeced_flag;
 +extern Authctxt *the_authctxt;
  
- static int
- userauth_pubkey(struct ssh *ssh)
+ static char *
+ format_key(const struct sshkey *key)
 @@ -432,7 +435,8 @@ match_principals_command(struct passwd *
  
- 	if ((pid = subprocess("AuthorizedPrincipalsCommand", pw, command,
+ 	if ((pid = subprocess("AuthorizedPrincipalsCommand", runas_pw, command,
  	    ac, av, &f,
 -	    SSH_SUBPROCESS_STDOUT_CAPTURE|SSH_SUBPROCESS_STDERR_DISCARD)) == 0)
 +	    SSH_SUBPROCESS_STDOUT_CAPTURE|SSH_SUBPROCESS_STDERR_DISCARD,
@@ -23,7 +23,7 @@ diff -up openssh/auth2-pubkey.c.refactor openssh/auth2-pubkey.c
  	uid_swapped = 1;
 @@ -762,7 +766,8 @@ user_key_command_allowed2(struct passwd
  
- 	if ((pid = subprocess("AuthorizedKeysCommand", pw, command,
+ 	if ((pid = subprocess("AuthorizedKeysCommand", runas_pw, command,
  	    ac, av, &f,
 -	    SSH_SUBPROCESS_STDOUT_CAPTURE|SSH_SUBPROCESS_STDERR_DISCARD)) == 0)
 +	    SSH_SUBPROCESS_STDOUT_CAPTURE|SSH_SUBPROCESS_STDERR_DISCARD,
@@ -31,9 +31,9 @@ diff -up openssh/auth2-pubkey.c.refactor openssh/auth2-pubkey.c
  		goto out;
  
  	uid_swapped = 1;
-diff -up openssh/misc.c.refactor openssh/misc.c
---- openssh/misc.c.refactor	2017-09-27 13:10:19.640831071 +0200
-+++ openssh/misc.c	2017-09-27 13:10:19.678831279 +0200
+diff -up openssh/auth.c.refactor openssh/auth.c
+--- openssh/auth.c.refactor	2017-09-27 13:10:19.640831071 +0200
++++ openssh/auth.c	2017-09-27 13:10:19.678831279 +0200
 @@ -1435,7 +1435,8 @@ argv_assemble(int argc, char **argv)
   */
  pid_t
@@ -53,18 +53,18 @@ diff -up openssh/misc.c.refactor openssh/misc.c
  			error ("failed to copy environment:  %s",
  			    strerror(errno));
  			_exit(127);
-diff -up openssh/misc.h.refactor openssh/misc.h
---- openssh/misc.h.refactor	2017-09-25 01:48:10.000000000 +0200
-+++ openssh/misc.h	2017-09-27 13:10:19.678831279 +0200
+diff -up openssh/auth.h.refactor openssh/auth.h
+--- openssh/auth.h.refactor	2017-09-25 01:48:10.000000000 +0200
++++ openssh/auth.h	2017-09-27 13:10:19.678831279 +0200
 @@ -144,7 +144,7 @@ int	 exited_cleanly(pid_t, const char *,
- #define SSH_SUBPROCESS_STDOUT_CAPTURE	(1<<1)	/* Redirect stdout */
- #define SSH_SUBPROCESS_STDERR_DISCARD	(1<<2)	/* Discard stderr */
- pid_t	 subprocess(const char *, struct passwd *,
+ #define	SSH_SUBPROCESS_STDOUT_CAPTURE  (1<<1)  /* Redirect stdout */
+ #define	SSH_SUBPROCESS_STDERR_DISCARD  (1<<2)  /* Discard stderr */
+ pid_t	subprocess(const char *, struct passwd *,
 -    const char *, int, char **, FILE **, u_int flags);
 +    const char *, int, char **, FILE **, u_int flags, int, void *);
  
- struct stat;
- int	 safe_path(const char *, struct stat *, const char *, uid_t,
+ int	 sys_auth_passwd(struct ssh *, const char *);
+ 
 diff -up openssh/openbsd-compat/port-linux.h.refactor openssh/openbsd-compat/port-linux.h
 --- openssh/openbsd-compat/port-linux.h.refactor	2017-09-27 13:10:19.634831038 +0200
 +++ openssh/openbsd-compat/port-linux.h	2017-09-27 13:10:54.954025248 +0200

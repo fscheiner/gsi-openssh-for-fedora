@@ -238,8 +238,8 @@ diff -up openssh-7.0p1/servconf.c.gsskexalg openssh-7.0p1/servconf.c
  #include "digest.h"
 +#include "ssh-gss.h"
  
- static void add_listen_addr(ServerOptions *, char *, int);
- static void add_one_listen_addr(ServerOptions *, char *, int);
+ static void add_listen_addr(ServerOptions *, const char *,
+     const char *, int);
 @@ -121,6 +122,7 @@ initialize_server_options(ServerOptions
  	options->gss_cleanup_creds = -1;
  	options->gss_strict_acceptor = -1;

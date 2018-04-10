@@ -192,15 +192,16 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
  	if (options->password_authentication == -1)
  		options->password_authentication = 1;
  	if (options->kbd_interactive_authentication == -1)
-@@ -399,7 +402,7 @@ typedef enum {
+@@ -399,7 +402,8 @@ typedef enum {
  	sPermitRootLogin, sLogFacility, sLogLevel,
  	sRhostsRSAAuthentication, sRSAAuthentication,
  	sKerberosAuthentication, sKerberosOrLocalPasswd, sKerberosTicketCleanup,
--	sKerberosGetAFSToken,
+-	sKerberosGetAFSToken, sChallengeResponseAuthentication,
 +	sKerberosGetAFSToken, sKerberosUseKuserok,
- 	sKerberosTgtPassing, sChallengeResponseAuthentication,
++ 	sChallengeResponseAuthentication,
  	sPasswordAuthentication, sKbdInteractiveAuthentication,
  	sListenAddress, sAddressFamily,
+ 	sPrintMotd, sPrintLastLog, sIgnoreRhosts,
 @@ -478,11 +481,13 @@ static struct {
  #else
  	{ "kerberosgetafstoken", sUnsupported, SSHCFG_GLOBAL },

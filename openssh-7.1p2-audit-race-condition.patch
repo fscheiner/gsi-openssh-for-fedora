@@ -86,7 +86,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
  /*
   * This is called to fork and execute a command when we have no tty.  This
 @@ -424,6 +430,8 @@ do_exec_no_pty(Session *s, const char *c
- 		cray_init_job(s->pw); /* set up cray jid and tmpdir */
+ 		close(err[0]);
  #endif
  
 +		child_destory_sensitive_data();
@@ -102,8 +102,8 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
 +		child_destory_sensitive_data();
 +
  		/* record login, etc. similar to login(1) */
- #ifdef _UNICOS
- 		cray_init_job(s->pw); /* set up cray jid and tmpdir */
+ #ifndef HAVE_OSF_SIA
+ 		do_login(ssh, s, command);
 @@ -717,6 +728,8 @@ do_exec(Session *s, const char *command)
  	}
  	if (s->command != NULL && s->ptyfd == -1)

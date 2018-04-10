@@ -10,14 +10,14 @@ diff -up openssh-6.8p1/Makefile.in.ctr-cavs openssh-6.8p1/Makefile.in
  PRIVSEP_PATH=@PRIVSEP_PATH@
  SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
 @@ -66,7 +67,7 @@ EXEEXT=@EXEEXT@
- MANFMT=@MANFMT@
+ MKDIR_P=@MKDIR_P@
  INSTALL_SSH_LDAP_HELPER=@INSTALL_SSH_LDAP_HELPER@
  
 -TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT)
 +TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT) ctr-cavstest$(EXEEXT)
  
- LIBOPENSSH_OBJS=\
- 	ssh_api.o \
+ XMSS_OBJS=\
+ 	ssh-xmss.o \
 @@ -194,6 +195,9 @@ ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) l
  ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o
  	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(KEYCATLIBS) $(LIBS)

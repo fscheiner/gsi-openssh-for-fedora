@@ -145,16 +145,16 @@ diff -up openssh-6.8p1/Makefile.in.ldap openssh-6.8p1/Makefile.in
  GSSLIBS=@GSSLIBS@
  SSHLIBS=@SSHLIBS@
 @@ -61,8 +63,9 @@ XAUTH_PATH=@XAUTH_PATH@
- LDFLAGS=-L. -Lopenbsd-compat/ @LDFLAGS@
  EXEEXT=@EXEEXT@
  MANFMT=@MANFMT@
+ MKDIR_P=@MKDIR_P@
 +INSTALL_SSH_LDAP_HELPER=@INSTALL_SSH_LDAP_HELPER@
  
 -TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT)
 +TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT)
  
- LIBOPENSSH_OBJS=\
- 	ssh_api.o \
+ XMSS_OBJS=\
+ 	ssh-xmss.o \
 @@ -112,8 +115,8 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passw
  	sandbox-seccomp-filter.o sandbox-capsicum.o sandbox-pledge.o \
  	sandbox-solaris.o
@@ -197,7 +197,7 @@ diff -up openssh-6.8p1/Makefile.in.ldap openssh-6.8p1/Makefile.in
 +	fi
  
  install-sysconf:
- 	if [ ! -d $(DESTDIR)$(sysconfdir) ]; then \
+ 	$(MKDIR_P) $(DESTDIR)$(sysconfdir)
 @@ -356,6 +370,13 @@ install-sysconf:
  	else \
  		echo "$(DESTDIR)$(sysconfdir)/moduli already exists, install will not overwrite"; \
@@ -228,7 +228,7 @@ diff -up openssh-6.8p1/Makefile.in.ldap openssh-6.8p1/Makefile.in
 +	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-ldap-helper.8
  
  regress-prep:
- 	[ -d `pwd`/regress ] || mkdir -p `pwd`/regress
+ 	$(MKDIR_P) `pwd`/regress/unittests/test_helper
 diff -up openssh-6.8p1/configure.ac.ldap openssh-6.8p1/configure.ac
 --- openssh-6.8p1/configure.ac.ldap	2015-03-17 06:49:20.000000000 +0100
 +++ openssh-6.8p1/configure.ac	2015-03-18 11:11:29.030801464 +0100

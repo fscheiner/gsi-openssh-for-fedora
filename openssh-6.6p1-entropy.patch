@@ -14,12 +14,13 @@ diff -up openssh-7.4p1/entropy.c.entropy openssh-7.4p1/entropy.c
 diff -up openssh-7.4p1/openbsd-compat/Makefile.in.entropy openssh-7.4p1/openbsd-compat/Makefile.in
 --- openssh-7.4p1/openbsd-compat/Makefile.in.entropy	2016-12-23 18:34:53.715762155 +0100
 +++ openssh-7.4p1/openbsd-compat/Makefile.in	2016-12-23 18:35:15.890769493 +0100
-@@ -20,7 +20,7 @@ OPENBSD=base64.o basename.o bcrypt_pbkdf
- 
- COMPAT=arc4random.o bsd-asprintf.o bsd-closefrom.o bsd-cray.o bsd-cygwin_util.o bsd-getpeereid.o getrrsetbyname-ldns.o bsd-err.o bsd-getpagesize.o bsd-misc.o bsd-nextstep.o bsd-openpty.o bsd-poll.o bsd-malloc.o bsd-setres_id.o bsd-snprintf.o bsd-statvfs.o bsd-waitpid.o fake-rfc2553.o openssl-compat.o xcrypt.o kludge-fd_set.o
- 
--PORTS=port-aix.o port-irix.o port-linux.o port-linux-sshd.o port-solaris.o port-tun.o port-uw.o
-+PORTS=port-aix.o port-irix.o port-linux.o port-linux-sshd.o port-linux-prng.o port-solaris.o port-tun.o port-uw.o
+@@ -20,7 +20,8 @@ OPENBSD=base64.o basename.o bcrypt_pbkdf
+ 	port-solaris.o \
+ 	port-net.o \
+ 	port-uw.o \
+-	port-linux-sshd.o
++	port-linux-sshd.o \
++	port-linux-prng.o
  
  .c.o:
  	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<

@@ -1,7 +1,7 @@
-diff -up openssh/misc.c.keycat openssh/misc.c
---- openssh/misc.c.keycat	2015-06-24 10:57:50.158849606 +0200
-+++ openssh/misc.c	2015-06-24 11:04:23.989868638 +0200
-@@ -490,6 +490,14 @@ subprocess(const char *tag, struct passw
+diff -up openssh/auth.c.keycat openssh/misc.c
+--- openssh/auth.c.keycat	2015-06-24 10:57:50.158849606 +0200
++++ openssh/auth.c	2015-06-24 11:04:23.989868638 +0200
+@@ -966,6 +966,14 @@ subprocess(const char *tag, struct passw
  			_exit(1);
  		}
  
@@ -52,14 +52,14 @@ diff -up openssh/Makefile.in.keycat openssh/Makefile.in
  AR=@AR@
  AWK=@AWK@
 @@ -65,7 +66,7 @@ EXEEXT=@EXEEXT@
- MANFMT=@MANFMT@
+ MKDIR_P=@MKDIR_P@
  INSTALL_SSH_LDAP_HELPER=@INSTALL_SSH_LDAP_HELPER@
  
 -TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT)
 +TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT)
  
- LIBOPENSSH_OBJS=\
- 	ssh_api.o \
+ XMSS_OBJS=\
+ 	ssh-xmss.o \
 @@ -190,6 +191,9 @@ ssh-pkcs11-helper$(EXEEXT): $(LIBCOMPAT)
  ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) libssh.a ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o
  	$(LD) -o $@ ldapconf.o ldapbody.o ldapmisc.o ldap-helper.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lopenbsd-compat -lfipscheck $(LIBS) $(LDAPLIBS)
@@ -203,7 +203,7 @@ diff -up openssh/platform.c.keycat openssh/platform.c
 diff -up openssh/ssh-keycat.c.keycat openssh/ssh-keycat.c
 --- openssh/ssh-keycat.c.keycat	2015-06-24 10:57:50.161849599 +0200
 +++ openssh/ssh-keycat.c	2015-06-24 10:57:50.161849599 +0200
-@@ -0,0 +1,238 @@
+@@ -0,0 +1,241 @@
 +/*
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -253,6 +253,9 @@ diff -up openssh/ssh-keycat.c.keycat openssh/ssh-keycat.c
 +#include <pwd.h>
 +#include <fcntl.h>
 +#include <unistd.h>
++#ifdef HAVE_STDINT_H
++#include <stdint.h>
++#endif
 +
 +#include <security/pam_appl.h>
 +
