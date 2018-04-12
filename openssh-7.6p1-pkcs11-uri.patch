@@ -163,29 +163,6 @@ index d7bcaf01..171a8597 100644
  
  echo ""
  
-diff --git a/readconf.c b/readconf.c
-index 88051db5..c1e7ce93 100644
---- a/readconf.c
-+++ b/readconf.c
-@@ -1016,7 +1016,8 @@ parse_time:
- 		break;
- 
- 	case oIdentityFile:
--		arg = strdelim(&s);
-+		/* Can't use strdelim() becase it would break on equal signs */
-+		arg = s;
- 		if (!arg || *arg == '\0')
- 			fatal("%.200s line %d: Missing argument.", filename, linenum);
- 		if (*activep) {
-@@ -1027,7 +1028,7 @@ parse_time:
- 			add_identity_file(options, NULL,
- 			    arg, flags & SSHCONF_USERCONF);
- 		}
--		break;
-+		return 0;
- 
- 	case oCertificateFile:
- 		arg = strdelim(&s);
 diff --git a/regress/Makefile b/regress/Makefile
 index d15898ad..9c15afa4 100644
 --- a/regress/Makefile
@@ -483,7 +460,7 @@ index 00000000..cf98e379
 +
 +
 +trace "Test PKCS#11 URI specification in configuration files"
-+echo "IdentityFile pkcs11:id=${ID2}?module-path=${TEST_SSH_PKCS11}" \
++echo "IdentityFile \"pkcs11:id=${ID2}?module-path=${TEST_SSH_PKCS11}\"" \
 +    >> $OBJ/ssh_proxy
 +trace "  (second key should succeed)"
 +echo ${TEST_SSH_PIN} | notty ${SSH} -F $OBJ/ssh_proxy somehost exit 5
@@ -502,7 +479,7 @@ index 00000000..cf98e379
 +sed -i -e "/IdentityFile/d" $OBJ/ssh_proxy
 +
 +trace "Test PKCS#11 URI specification in configuration files with bogus spaces"
-+echo "IdentityFile     pkcs11:id=${ID1}?module-path=${TEST_SSH_PKCS11}    " \
++echo "IdentityFile \"    pkcs11:id=${ID1}?module-path=${TEST_SSH_PKCS11}    \"" \
 +    >> $OBJ/ssh_proxy
 +echo ${TEST_SSH_PIN} | notty ${SSH} -F $OBJ/ssh_proxy somehost exit 5
 +r=$?
@@ -525,7 +502,7 @@ index 00000000..cf98e379
 +
 +trace "Regress: Missing provider in PKCS11URI option"
 +${SSH} -F $OBJ/ssh_proxy \
-+    -o IdentityFile='pkcs11:token=segfault' somehost exit 5
++    -o IdentityFile=\"pkcs11:token=segfault\" somehost exit 5
 +r=$?
 +if [ $r -eq 139 ]; then
 +	fail "ssh connect with missing provider_id from configuration option" \
