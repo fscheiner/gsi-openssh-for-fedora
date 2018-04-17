@@ -1,0 +1,152 @@
+From 4f60e4f66b5880c9f50ef758e8b7f7a9ae786d21 Mon Sep 17 00:00:00 2001
+From: Darren Tucker <dtucker@dtucker.net>
+Date: Fri, 13 Apr 2018 13:13:33 +1000
+Subject: [PATCH 1/5] Revert $REGRESSTMP changes.
+
+Revert 3fd2d229 and subsequent changes as they turned out to be a
+portability hassle.
+---
+ Makefile.in | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/Makefile.in b/Makefile.in
+index 04e1c8e53..dd942ee7b 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -577,8 +577,6 @@ regress-binaries: regress/modpipe$(EXEEXT) \
+ 	regress/unittests/pkcs11/test_pkcs11$(EXEEXT) \
+ 	regress/misc/kexfuzz/kexfuzz$(EXEEXT)
+ 
+-REGRESSTMP = "$(PWD)/regress"
+-
+ tests interop-tests t-exec unit: regress-prep regress-binaries $(TARGETS)
+ 	BUILDDIR=`pwd`; \
+ 	TEST_SSH_SCP="$${BUILDDIR}/scp"; \
+@@ -602,7 +600,7 @@ tests interop-tests t-exec unit: regress-prep regress-binaries $(TARGETS)
+ 		.OBJDIR="$${BUILDDIR}/regress" \
+ 		.CURDIR="`pwd`" \
+ 		BUILDDIR="$${BUILDDIR}" \
+-		OBJ="$(REGRESSTMP)" \
++		OBJ="$${BUILDDIR}/regress/" \
+ 		PATH="$${BUILDDIR}:$${PATH}" \
+ 		TEST_ENV=MALLOC_OPTIONS="@TEST_MALLOC_OPTIONS@" \
+ 		TEST_MALLOC_OPTIONS="@TEST_MALLOC_OPTIONS@" \
+
+From b81b2d120e9c8a83489e241620843687758925ad Mon Sep 17 00:00:00 2001
+From: Damien Miller <djm@mindrot.org>
+Date: Fri, 13 Apr 2018 13:38:06 +1000
+Subject: [PATCH 2/5] Fix tunnel forwarding broken in 7.7p1
+
+bz2855, ok dtucker@
+---
+ openbsd-compat/port-net.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/openbsd-compat/port-net.c b/openbsd-compat/port-net.c
+index 7050629c3..bb535626f 100644
+--- a/openbsd-compat/port-net.c
++++ b/openbsd-compat/port-net.c
+@@ -185,7 +185,7 @@ sys_tun_open(int tun, int mode, char **ifname)
+ 	else
+ 		debug("%s: %s mode %d fd %d", __func__, ifr.ifr_name, mode, fd);
+ 
+-	if (ifname != NULL && (*ifname = strdup(ifr.ifr_name)))
++	if (ifname != NULL && (*ifname = strdup(ifr.ifr_name)) == NULL)
+ 		goto failed;
+ 
+ 	return (fd);
+@@ -272,7 +272,7 @@ sys_tun_open(int tun, int mode, char **ifname)
+ 			goto failed;
+ 	}
+ 
+-	if (ifname != NULL && (*ifname = strdup(ifr.ifr_name)))
++	if (ifname != NULL && (*ifname = strdup(ifr.ifr_name)) == NULL)
+ 		goto failed;
+ 
+ 	close(sock);
+
+From 341727df910e12e26ef161508ed76d91c40a61eb Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Mon, 9 Apr 2018 23:54:49 +0000
+Subject: [PATCH 3/5] upstream: don't kill ssh-agent's listening socket
+ entriely if we
+
+fail to accept a connection; bz#2837, patch from Lukas Kuster
+
+OpenBSD-Commit-ID: 52413f5069179bebf30d38f524afe1a2133c738f
+---
+ ssh-agent.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/ssh-agent.c b/ssh-agent.c
+index 2a4578b03..68de56ce6 100644
+--- a/ssh-agent.c
++++ b/ssh-agent.c
+@@ -1,4 +1,4 @@
+-/* $OpenBSD: ssh-agent.c,v 1.228 2018/02/23 15:58:37 markus Exp $ */
++/* $OpenBSD: ssh-agent.c,v 1.229 2018/04/09 23:54:49 djm Exp $ */
+ /*
+  * Author: Tatu Ylonen <ylo@cs.hut.fi>
+  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
+@@ -909,9 +909,8 @@ after_poll(struct pollfd *pfd, size_t npfd)
+ 		/* Process events */
+ 		switch (sockets[socknum].type) {
+ 		case AUTH_SOCKET:
+-			if ((pfd[i].revents & (POLLIN|POLLERR)) != 0 &&
+-			    handle_socket_read(socknum) != 0)
+-				close_socket(&sockets[socknum]);
++			if ((pfd[i].revents & (POLLIN|POLLERR)) != 0)
++				handle_socket_read(socknum);
+ 			break;
+ 		case AUTH_CONNECTION:
+ 			if ((pfd[i].revents & (POLLIN|POLLERR)) != 0 &&
+
+From 3402cc607049ac900f6d8574bc2ce657a8cdf4fe Mon Sep 17 00:00:00 2001
+From: Darren Tucker <dtucker@dtucker.net>
+Date: Fri, 13 Apr 2018 13:43:55 +1000
+Subject: [PATCH 4/5] Using "==" in shell tests is not portable.
+
+Patch from rsbecker at nexbridge.com.
+---
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index 663062bef..2e84d90b7 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1398,7 +1398,7 @@ AC_RUN_IFELSE(
+ )
+ AC_MSG_RESULT([$func_calloc_0_nonnull])
+ 
+-if test "x$func_calloc_0_nonnull" == "xyes"; then
++if test "x$func_calloc_0_nonnull" = "xyes"; then
+ 	AC_DEFINE(HAVE_CALLOC, 1, [calloc(0, x) returns non-null])
+ else
+ 	AC_DEFINE(HAVE_CALLOC, 0, [calloc(0, x) returns NULL])
+
+From 85fe48fd49f2e81fa30902841b362cfbb7f1933b Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Sat, 14 Apr 2018 21:50:41 +0000
+Subject: [PATCH 5/5] upstream: don't free the %C expansion, it's used later
+ for
+
+LocalCommand
+
+OpenBSD-Commit-ID: 857b5cb37b2d856bfdfce61289a415257a487fb1
+---
+ ssh.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/ssh.c b/ssh.c
+index d3619fe29..9c011dd7e 100644
+--- a/ssh.c
++++ b/ssh.c
+@@ -1323,7 +1323,6 @@ main(int ac, char **av)
+ 		    (char *)NULL);
+ 		free(cp);
+ 	}
+-	free(conn_hash_hex);
+ 
+ 	if (config_test) {
+ 		dump_client_config(&options, host);
