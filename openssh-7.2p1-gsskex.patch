@@ -540,7 +540,7 @@ diff -up openssh/gss-serv.c.gsskex openssh/gss-serv.c
 -    { GSS_C_EMPTY_BUFFER, GSS_C_EMPTY_BUFFER,
 -    GSS_C_NO_CREDENTIAL, NULL, {NULL, NULL, NULL, NULL}};
 +    { GSS_C_EMPTY_BUFFER, GSS_C_EMPTY_BUFFER, GSS_C_NO_CREDENTIAL,
-+    GSS_C_NO_NAME, NULL, {NULL, NULL, NULL, NULL, NULL}, 0, 0};
++    GSS_C_NO_NAME, NULL, {NULL, NULL, NULL, NULL}, 0, 0};
  
  ssh_gssapi_mech gssapi_null_mech =
 -    { NULL, NULL, {0, NULL}, NULL, NULL, NULL, NULL};
@@ -710,7 +710,7 @@ diff -up openssh/gss-serv.c.gsskex openssh/gss-serv.c
  			/* Destroy delegated credentials if userok fails */
  			gss_release_buffer(&lmin, &gssapi_client.displayname);
  			gss_release_buffer(&lmin, &gssapi_client.exportedname);
-@@ -383,14 +469,90 @@ ssh_gssapi_userok(char *user)
+@@ -383,14 +469,89 @@ ssh_gssapi_userok(char *user)
  	return (0);
  }
  
@@ -748,8 +748,7 @@ diff -up openssh/gss-serv.c.gsskex openssh/gss-serv.c
 +	char *envstr;
 +#endif
 +
-+	if (gssapi_client.store.filename == NULL && 
-+	    gssapi_client.store.envval == NULL &&
++	if (gssapi_client.store.envval == NULL &&
 +	    gssapi_client.store.envvar == NULL)
 +		return;
 + 
@@ -819,7 +818,7 @@ diff -up openssh/gss-serv-krb5.c.gsskex openssh/gss-serv-krb5.c
  	const char *errmsg;
  
  	if (client->creds == NULL) {
-@@ -181,11 +181,26 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
+@@ -181,11 +181,23 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
  		return;
  	}
  
@@ -833,7 +832,6 @@ diff -up openssh/gss-serv-krb5.c.gsskex openssh/gss-serv-krb5.c
 -	snprintf(client->store.envval, len, "FILE:%s", client->store.filename);
 +#ifdef USE_CCAPI
 +	xasprintf(&client->store.envval, "API:%s", new_ccname);
-+	client->store.filename = NULL;
 +#else
 +	if (new_ccname[0] == ':')
 +		new_ccname++;
@@ -844,8 +842,6 @@ diff -up openssh/gss-serv-krb5.c.gsskex openssh/gss-serv-krb5.c
 +		if (p)
 +			*p = '\0';
 +	}
-+	if ((strcmp(new_cctype, "FILE") == 0) || (strcmp(new_cctype, "DIR") == 0))
-+		client->store.filename = xstrdup(new_ccname);
 +#endif
  
  #ifdef USE_PAM
@@ -1794,7 +1790,7 @@ diff -up openssh/monitor.c.gsskex openssh/monitor.c
  
  	buffer_clear(m);
  	buffer_put_int(m, authenticated);
-@@ -1854,5 +1880,73 @@ mm_answer_gss_userok(int sock, Buffer *m
+@@ -1854,5 +1880,71 @@ mm_answer_gss_userok(int sock, Buffer *m
  	/* Monitor loop will terminate if authenticated */
  	return (authenticated);
  }
@@ -1848,13 +1844,11 @@ diff -up openssh/monitor.c.gsskex openssh/monitor.c
 +	ssh_gssapi_ccache store;
 +	int ok;
 +
-+	store.filename = buffer_get_string(m, NULL);
 +	store.envvar   = buffer_get_string(m, NULL);
 +	store.envval   = buffer_get_string(m, NULL);
 +
 +	ok = ssh_gssapi_update_creds(&store);
 +
-+	free(store.filename);
 +	free(store.envvar);
 +	free(store.envval);
 +
@@ -1892,7 +1886,7 @@ diff -up openssh/monitor_wrap.c.gsskex openssh/monitor_wrap.c
  {
  	Buffer m;
  	int authenticated = 0;
-@@ -967,5 +967,50 @@ mm_ssh_gssapi_userok(char *user)
+@@ -967,5 +967,49 @@ mm_ssh_gssapi_userok(char *user)
  	debug3("%s: user %sauthenticated",__func__, authenticated ? "" : "not ");
  	return (authenticated);
  }
@@ -1927,7 +1921,6 @@ diff -up openssh/monitor_wrap.c.gsskex openssh/monitor_wrap.c
 +
 +	buffer_init(&m);
 +
-+	buffer_put_cstring(&m, store->filename ? store->filename : "");
 +	buffer_put_cstring(&m, store->envvar ? store->envvar : "");
 +	buffer_put_cstring(&m, store->envval ? store->envval : "");
 +

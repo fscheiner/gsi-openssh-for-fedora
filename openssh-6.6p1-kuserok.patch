@@ -192,26 +192,26 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
  	if (options->password_authentication == -1)
  		options->password_authentication = 1;
  	if (options->kbd_interactive_authentication == -1)
-@@ -399,7 +402,8 @@ typedef enum {
+@@ -399,7 +402,7 @@ typedef enum {
  	sPermitRootLogin, sLogFacility, sLogLevel,
  	sRhostsRSAAuthentication, sRSAAuthentication,
  	sKerberosAuthentication, sKerberosOrLocalPasswd, sKerberosTicketCleanup,
--	sKerberosGetAFSToken, sChallengeResponseAuthentication,
-+	sKerberosGetAFSToken, sKerberosUseKuserok,
-+ 	sChallengeResponseAuthentication,
+-	sKerberosGetAFSToken, sKerberosUniqueTicket,
++	sKerberosGetAFSToken, sKerberosUniqueTicket, sKerberosUseKuserok,
+ 	sChallengeResponseAuthentication,
  	sPasswordAuthentication, sKbdInteractiveAuthentication,
  	sListenAddress, sAddressFamily,
- 	sPrintMotd, sPrintLastLog, sIgnoreRhosts,
-@@ -478,11 +481,13 @@ static struct {
- #else
+@@ -478,12 +481,14 @@ static struct {
  	{ "kerberosgetafstoken", sUnsupported, SSHCFG_GLOBAL },
  #endif
+ 	{ "kerberosuniqueticket", sKerberosUniqueTicket, SSHCFG_GLOBAL },
 +	{ "kerberosusekuserok", sKerberosUseKuserok, SSHCFG_ALL },
  #else
  	{ "kerberosauthentication", sUnsupported, SSHCFG_ALL },
  	{ "kerberosorlocalpasswd", sUnsupported, SSHCFG_GLOBAL },
  	{ "kerberosticketcleanup", sUnsupported, SSHCFG_GLOBAL },
  	{ "kerberosgetafstoken", sUnsupported, SSHCFG_GLOBAL },
+ 	{ "kerberosuniqueticket", sUnsupported, SSHCFG_GLOBAL },
 +	{ "kerberosusekuserok", sUnsupported, SSHCFG_ALL },
  #endif
  	{ "kerberostgtpassing", sUnsupported, SSHCFG_GLOBAL },
@@ -236,9 +236,9 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
  	M_CP_INTOPT(rekey_interval);
  	M_CP_INTOPT(log_level);
 @@ -2309,6 +2319,7 @@ dump_config(ServerOptions *o)
- # ifdef USE_AFS
  	dump_cfg_fmtint(sKerberosGetAFSToken, o->kerberos_get_afs_token);
  # endif
+ 	dump_cfg_fmtint(sKerberosUniqueTicket, o->kerberos_unique_ticket);
 +	dump_cfg_fmtint(sKerberosUseKuserok, o->use_kuserok);
  #endif
  #ifdef GSSAPI
@@ -247,9 +247,9 @@ diff -up openssh-7.4p1/servconf.h.kuserok openssh-7.4p1/servconf.h
 --- openssh-7.4p1/servconf.h.kuserok	2016-12-23 14:36:07.630465944 +0100
 +++ openssh-7.4p1/servconf.h	2016-12-23 14:36:07.645465936 +0100
 @@ -118,6 +118,7 @@ typedef struct {
- 						 * file on logout. */
- 	int     kerberos_get_afs_token;		/* If true, try to get AFS token if
  						 * authenticated with Kerberos. */
+ 	int     kerberos_unique_ticket;		/* If true, the aquired ticket will
+ 						 * be stored in per-session ccache */
 +	int	use_kuserok;
  	int     gss_authentication;	/* If true, permit GSSAPI authentication */
  	int     gss_keyex;		/* If true, permit GSSAPI key exchange */
@@ -258,9 +258,9 @@ diff -up openssh-7.4p1/sshd_config.5.kuserok openssh-7.4p1/sshd_config.5
 --- openssh-7.4p1/sshd_config.5.kuserok	2016-12-23 14:36:07.637465940 +0100
 +++ openssh-7.4p1/sshd_config.5	2016-12-23 15:14:03.117162222 +0100
 @@ -850,6 +850,10 @@ Specifies whether to automatically destr
- file on logout.
+ tickets aquired in different sessions of the same user.
  The default is
- .Cm yes .
+ .Cm no .
 +.It Cm KerberosUseKuserok
 +Specifies whether to look at .k5login file for user's aliases.
 +The default is

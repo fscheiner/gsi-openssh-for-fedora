@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.7p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -99,7 +99,7 @@ Patch702: openssh-5.1p1-askpass-progress.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=198332
 Patch703: openssh-4.3p2-askpass-grab-info.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
-Patch707: openssh-6.6p1-redhat.patch
+Patch707: openssh-7.7p1-redhat.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
 Patch708: openssh-6.6p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
@@ -124,12 +124,11 @@ Patch802: openssh-6.6p1-GSSAPIEnablek5users.patch
 # Documentation about GSSAPI
 # from https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=765655
 Patch803: openssh-7.1p1-gssapi-documentation.patch
-# use default_ccache_name from /etc/krb5.conf (#991186)
-Patch804: openssh-6.3p1-krb5-use-default_ccache_name.patch
+# Improve ccache handling in openssh (#991186, #1199363, #1566494)
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2775
+Patch804: openssh-7.7p1-gssapi-new-unique.patch
 # Respect k5login_directory option in krk5.conf (#1328243)
 Patch805: openssh-7.2p2-k5login_directory.patch
-# Do not export KRBCCNAME if the default path is used (#1199363)
-Patch806: openssh-7.5p1-gss-environment.patch
 # Support SHA2 in GSS key exchanges from draft-ssorce-gss-keyex-sha2-02
 Patch807: openssh-7.5p1-gssapi-kex-with-ec.patch
 
@@ -312,7 +311,6 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch803 -p1 -b .gss-docs
 %patch804 -p1 -b .ccache_name
 %patch805 -p1 -b .k5login
-%patch806 -p1 -b .gss-env
 
 %patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
@@ -548,6 +546,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Jul 05 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.7p1-4
+- Based on openssh-7.7p1-5.fc28
+
 * Tue Apr 17 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.7p1-3
 - Based on openssh-7.7p1-3.fc28
 

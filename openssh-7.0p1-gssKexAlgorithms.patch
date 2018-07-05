@@ -401,8 +401,8 @@ diff -up openssh-7.0p1/ssh-gss.h.gsskexalg openssh-7.0p1/ssh-gss.h
 +	KEX_GSS_GRP14_SHA1_ID
 +
  typedef struct {
- 	char *filename;
  	char *envvar;
+ 	char *envval;
 @@ -147,9 +151,9 @@ int ssh_gssapi_credentials_updated(Gssct
  /* In the server */
  typedef int ssh_gssapi_check_fn(Gssctxt **, gss_OID, const char *, 
