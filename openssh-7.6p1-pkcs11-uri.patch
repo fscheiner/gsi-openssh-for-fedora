@@ -3102,7 +3102,7 @@ diff --git a/ssh-agent.c b/ssh-agent.c
 index 2a4578b0..f6c86240 100644
 --- a/ssh-agent.c
 +++ b/ssh-agent.c
-@@ -546,10 +546,70 @@ no_identities(SocketEntry *e)
+@@ -546,10 +546,72 @@ no_identities(SocketEntry *e)
  }
  
  #ifdef ENABLE_PKCS11
@@ -3141,12 +3141,14 @@ index 2a4578b0..f6c86240 100644
 +			verbose("failed PKCS#11 provider \"%.100s\": realpath: %s",
 +			    module_path, strerror(errno));
 +			free(module_path);
++			pkcs11_uri_cleanup(uri);
 +			return NULL;
 +		}
 +		free(module_path);
 +		if (match_pattern_list(canonical_provider, pkcs11_whitelist, 0) != 1) {
 +			verbose("refusing PKCS#11 provider \"%.100s\": "
 +			    "not whitelisted", canonical_provider);
++			pkcs11_uri_cleanup(uri);
 +			return NULL;
 +		}
 +
@@ -3311,7 +3313,7 @@ new file mode 100644
 index 00000000..da15c164
 --- /dev/null
 +++ b/ssh-pkcs11-uri.c
-@@ -0,0 +1,399 @@
+@@ -0,0 +1,400 @@
 +/*
 + * Copyright (c) 2017 Red Hat
 + *
@@ -3616,6 +3618,7 @@ index 00000000..da15c164
 +			break;
 +		opcode = parse_token(tok);
 +		if (opcode == pBadOption) {
++			free(p);
 +			verbose("Unknown key in PKCS#11 URI: %s", tok);
 +			return -1;
 +		}
@@ -4290,7 +4293,7 @@ index 88c9d6e2..a29b4451 100644
  			free(attribs[i].pValue);
  	}
  	if ((rv = f->C_FindObjectsFinal(session)) != CKR_OK)
-@@ -581,126 +740,238 @@ pkcs11_fetch_keys_filter(struct pkcs11_provider *p, CK_ULONG slotidx,
+@@ -581,126 +740,239 @@ pkcs11_fetch_keys_filter(struct pkcs11_provider *p, CK_ULONG slotidx,
  int
  pkcs11_add_provider(char *provider_id, char *pin, struct sshkey ***keyp)
  {
@@ -4497,6 +4500,7 @@ index 88c9d6e2..a29b4451 100644
 +		error("C_Finalize for provider %s failed: %lu",
 +		    provider_module, rv);
 +	free(provider_module);
++	free(p);
 +	if (handle)
 +		dlclose(handle);
 +	return NULL;

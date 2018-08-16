@@ -31,12 +31,12 @@
 %global ldap 1
 
 %global openssh_ver 7.7p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -93,7 +93,7 @@ Patch607: openssh-5.8p2-sigpipe.patch
 Patch609: openssh-7.2p2-x11.patch
 
 #?
-Patch700: openssh-7.2p1-fips.patch
+Patch700: openssh-7.7p1-fips.patch
 #?
 Patch702: openssh-5.1p1-askpass-progress.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=198332
@@ -546,6 +546,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Aug 16 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.7p1-5
+- Based on openssh-7.7p1-6.fc28
+
 * Fri Jul 13 2018 Fedora Release Engineering <releng@fedoraproject.org> - 7.7p1-4.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
 
