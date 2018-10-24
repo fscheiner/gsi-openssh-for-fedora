@@ -49,4 +49,4 @@ diff -up openssh-7.4p1/sshd_config.5.gss-docs openssh-7.4p1/sshd_config.5
 +needs to be enabled in the server and also used by the client.
  .It Cm HostbasedAcceptedKeyTypes
  Specifies the key types that will be accepted for hostbased authentication
- as a comma-separated pattern list.
+ as a list of comma-separated patterns.

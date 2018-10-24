@@ -34,9 +34,9 @@ diff -up openssh-7.4p1/log.h.log-in-chroot openssh-7.4p1/log.h
  
  void     log_init(char *, LogLevel, SyslogFacility, int);
 +void     log_init_handler(char *, LogLevel, SyslogFacility, int, int);
+ LogLevel log_level_get(void);
  int      log_change_level(LogLevel);
  int      log_is_on_stderr(void);
- void     log_redirect_stderr_to(const char *);
 diff -up openssh-7.4p1/monitor.c.log-in-chroot openssh-7.4p1/monitor.c
 --- openssh-7.4p1/monitor.c.log-in-chroot	2016-12-23 15:14:33.311168085 +0100
 +++ openssh-7.4p1/monitor.c	2016-12-23 15:16:42.154193100 +0100
@@ -65,7 +65,7 @@ diff -up openssh-7.4p1/monitor.c.log-in-chroot openssh-7.4p1/monitor.c
 -	do_log2(level, "%s [preauth]", msg);
 +	do_log2(level, "%s [%s]", msg, pmonitor->m_state);
  
- 	buffer_free(&logmsg);
+ 	sshbuf_free(logmsg);
  	free(msg);
 @@ -1719,13 +1723,28 @@ monitor_init(void)
  	mon = xcalloc(1, sizeof(*mon));

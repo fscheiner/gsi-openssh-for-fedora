@@ -29,7 +29,7 @@ diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
  {
  	static RSA_METHOD helper_rsa;
  
-@@ -152,6 +160,81 @@ wrap_key(RSA *rsa)
+@@ -152,6 +160,88 @@ wrap_key(RSA *rsa)
  	return (0);
  }
  
@@ -38,30 +38,35 @@ diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
 +pkcs11_ecdsa_private_sign(const unsigned char *from, int flen,
 +    const BIGNUM *inv, const BIGNUM *rp, EC_KEY * ecdsa)
 +{
-+	Key key;
++	struct sshkey *key = NULL;
 +	u_char *blob, *signature = NULL;
-+	u_int blen, slen = 0;
-+	Buffer msg;
++	size_t blen, slen = 0;
++	struct sshbuf *msg = NULL;
 +	ECDSA_SIG *ret = NULL;
 +	BIGNUM *r = NULL, *s = NULL;
++	int rv;
 +
-+	key.type = KEY_ECDSA;
-+	key.ecdsa = ecdsa;
-+	key.ecdsa_nid = sshkey_ecdsa_key_to_nid(ecdsa);
-+	if (key_to_blob(&key, &blob, &blen) == 0)
-+		return NULL;
-+	buffer_init(&msg);
-+	buffer_put_char(&msg, SSH2_AGENTC_SIGN_REQUEST);
-+	buffer_put_string(&msg, blob, blen);
-+	buffer_put_string(&msg, from, flen);
-+	buffer_put_int(&msg, 0);
++	if ((key = sshkey_new(KEY_ECDSA)) == NULL)
++		fatal("%s: sshkey_new failed", __func__);
++	key->ecdsa = ecdsa;
++	key->ecdsa_nid = sshkey_ecdsa_key_to_nid(ecdsa);
++	if (sshkey_to_blob(key, &blob, &blen) == 0)
++		goto out;
++	if ((msg = sshbuf_new()) == NULL)
++		fatal("%s: sshbuf_new failed", __func__);
++	if ((rv = sshbuf_put_u8(msg, SSH2_AGENTC_SIGN_REQUEST)) != 0 ||
++	    (rv = sshbuf_put_string(msg, blob, blen)) != 0 ||
++	    (rv = sshbuf_put_string(msg, from, flen)) != 0 ||
++	    (rv = sshbuf_put_u32(msg, 0)) != 0)
++		fatal("%s: buffer error: %s", __func__, ssh_err(rv));
 +	free(blob);
-+	send_msg(&msg);
-+	buffer_clear(&msg);
++	send_msg(msg);
++	sshbuf_reset(msg);
 +
-+	if (recv_msg(&msg) == SSH2_AGENT_SIGN_RESPONSE) {
-+		signature = buffer_get_string(&msg, &slen);
-+		if (slen <= (u_int)ECDSA_size(ecdsa)) {
++	if (recv_msg(msg) == SSH2_AGENT_SIGN_RESPONSE) {
++		if ((rv = sshbuf_get_string(msg, &signature, &slen)) != 0)
++			fatal("%s: buffer error: %s", __func__, ssh_err(rv));
++		if (slen <= (size_t)ECDSA_size(ecdsa)) {
 +			int nlen = slen / 2;
 +			ret = ECDSA_SIG_new();
 +			r = BN_new();
@@ -72,7 +77,9 @@ diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
 +		}
 +		free(signature);
 +	}
-+	buffer_free(&msg);
++out:
++	sshkey_free(key);
++	sshbuf_free(msg);
 +	return (ret);
 +}
 +
@@ -112,9 +119,9 @@ diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
  pkcs11_start_helper(void)
  {
 @@ -212,7 +281,15 @@ pkcs11_add_provider(char *name, char *pi
- 			blob = buffer_get_string(&msg, &blen);
- 			free(buffer_get_string(&msg, NULL));
- 			k = key_from_blob(blob, blen);
+ 				    __func__, ssh_err(r));
+ 			if ((r = sshkey_from_blob(blob, blen, &k)) != 0)
+ 				fatal("%s: bad key: %s", __func__, ssh_err(r));
 -			wrap_key(k->rsa);
 +			if(k->type == KEY_RSA) {
 +				 wrap_rsa_key(k->rsa);

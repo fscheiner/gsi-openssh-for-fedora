@@ -157,7 +157,7 @@ diff -up openssh-6.8p1/Makefile.in.ldap openssh-6.8p1/Makefile.in
  	ssh-xmss.o \
 @@ -112,8 +115,8 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passw
  	sandbox-seccomp-filter.o sandbox-capsicum.o sandbox-pledge.o \
- 	sandbox-solaris.o
+ 	sandbox-solaris.o uidswap.o
  
 -MANPAGES	= moduli.5.out scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-keysign.8.out ssh-pkcs11-helper.8.out sshd_config.5.out ssh_config.5.out
 -MANPAGES_IN	= moduli.5 scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-keysign.8 ssh-pkcs11-helper.8 sshd_config.5 ssh_config.5
@@ -356,7 +356,7 @@ diff -up openssh-6.8p1/configure.ac.ldap openssh-6.8p1/configure.ac
 diff -up openssh-6.8p1/ldap-helper.c.ldap openssh-6.8p1/ldap-helper.c
 --- openssh-6.8p1/ldap-helper.c.ldap	2015-03-18 11:11:29.030801464 +0100
 +++ openssh-6.8p1/ldap-helper.c	2015-03-18 11:11:29.030801464 +0100
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,151 @@
 +/* $OpenBSD: ssh-pka-ldap.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
 + * Copyright (c) 2009 Jan F. Chadima.  All rights reserved.
@@ -390,6 +390,7 @@ diff -up openssh-6.8p1/ldap-helper.c.ldap openssh-6.8p1/ldap-helper.c
 +#include "ldapbody.h"
 +#include <string.h>
 +#include <unistd.h>
++#include <stdlib.h>
 +
 +static int config_debug = 0;
 +int config_exclusive_config_file = 0;
@@ -507,11 +508,6 @@ diff -up openssh-6.8p1/ldap-helper.c.ldap openssh-6.8p1/ldap-helper.c
 +	ldap_do_close();
 +	return 0;
 +}
-+
-+/* Ugly hack */
-+void   *buffer_get_string(Buffer *b, u_int *l) { return NULL; }
-+void    buffer_put_string(Buffer *b, const void *f, u_int l) {}
-+
 diff -up openssh-6.8p1/ldap-helper.h.ldap openssh-6.8p1/ldap-helper.h
 --- openssh-6.8p1/ldap-helper.h.ldap	2015-03-18 11:11:29.031801462 +0100
 +++ openssh-6.8p1/ldap-helper.h	2015-03-18 11:11:29.031801462 +0100
@@ -650,7 +646,7 @@ diff -up openssh-6.8p1/ldap.conf.ldap openssh-6.8p1/ldap.conf
 diff -up openssh-6.8p1/ldapbody.c.ldap openssh-6.8p1/ldapbody.c
 --- openssh-6.8p1/ldapbody.c.ldap	2015-03-18 11:11:29.031801462 +0100
 +++ openssh-6.8p1/ldapbody.c	2015-03-18 11:11:29.031801462 +0100
-@@ -0,0 +1,493 @@
+@@ -0,0 +1,494 @@
 +/* $OpenBSD: ldapbody.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
 + * Copyright (c) 2009 Jan F. Chadima.  All rights reserved.
@@ -684,6 +680,7 @@ diff -up openssh-6.8p1/ldapbody.c.ldap openssh-6.8p1/ldapbody.c
 +#include "ldapbody.h"
 +#include <stdio.h>
 +#include <unistd.h>
++#include <stdlib.h>
 +#include "misc.h"
 +
 +#define LDAPSEARCH_FORMAT "(&(objectclass=%c)(objectclass=ldapPublicKey)(uid=%u)%f)"
@@ -804,7 +801,8 @@ diff -up openssh-6.8p1/ldapbody.c.ldap openssh-6.8p1/ldapbody.c
 +				char *logfilename;
 +				int logfilenamelen;
 +
-+				logfilenamelen = strlen (LDAP_LOGFILE) + strlen ("000000") + strlen (options.logdir);
++				logfilenamelen = strlen(LDAP_LOGFILE)
++				    + strlen("000000") + strlen (options.logdir);
 +				logfilename = xmalloc (logfilenamelen);
 +				snprintf (logfilename, logfilenamelen, LDAP_LOGFILE, options.logdir, (int) getpid ());
 +				logfilename[logfilenamelen - 1] = 0;
@@ -1188,7 +1186,7 @@ diff -up openssh-6.8p1/ldapbody.h.ldap openssh-6.8p1/ldapbody.h
 diff -up openssh-6.8p1/ldapconf.c.ldap openssh-6.8p1/ldapconf.c
 --- openssh-6.8p1/ldapconf.c.ldap	2015-03-18 11:11:29.032801460 +0100
 +++ openssh-6.8p1/ldapconf.c	2015-03-18 11:11:29.032801460 +0100
-@@ -0,0 +1,728 @@
+@@ -0,0 +1,729 @@
 +/* $OpenBSD: ldapconf.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
 + * Copyright (c) 2009 Jan F. Chadima.  All rights reserved.
@@ -1222,6 +1220,7 @@ diff -up openssh-6.8p1/ldapconf.c.ldap openssh-6.8p1/ldapconf.c
 +#include "ldapconf.h"
 +#include <unistd.h>
 +#include <string.h>
++#include <stdlib.h>
 +
 +/* Keyword tokens. */
 +

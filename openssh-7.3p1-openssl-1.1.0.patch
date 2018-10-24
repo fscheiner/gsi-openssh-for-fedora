@@ -136,7 +136,7 @@ diff -up openssh/dh.c.openssl openssh/dh.c
  	    need > INT_MAX / 2 || 2 * need > pbits)
  		return SSH_ERR_INVALID_ARGUMENT;
  	if (need < 256)
-@@ -271,10 +275,11 @@ dh_gen_key(DH *dh, int need)
+@@ -271,11 +275,11 @@ dh_gen_key(DH *dh, int need)
  	 * Pollard Rho, Big step/Little Step attacks are O(sqrt(n)),
  	 * so double requested need here.
  	 */
@@ -144,6 +144,7 @@ diff -up openssh/dh.c.openssl openssh/dh.c
 -	if (DH_generate_key(dh) == 0 ||
 -	    !dh_pub_is_valid(dh, dh->pub_key)) {
 -		BN_clear_free(dh->priv_key);
+-		dh->priv_key = NULL;
 +	DH_set_length(dh, MINIMUM(need * 2, pbits - 1));
 +	if (DH_generate_key(dh) == 0)
 +		return SSH_ERR_LIBCRYPTO_ERROR;
@@ -300,8 +301,8 @@ diff -up openssh/gss-genr.c.openssl openssh/gss-genr.c
  
  	if (gss_enc2oid != NULL) {
 @@ -113,6 +113,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
- 
- 	buffer_init(&buf);
+ 	if ((buf = sshbuf_new()) == NULL)
+ 		fatal("%s: sshbuf_new failed", __func__);
  
 +	md = EVP_MD_CTX_new();
  	oidpos = 0;
@@ -452,7 +453,7 @@ diff -up openssh/kexdhs.c.openssl openssh/kexdhs.c
  	    hash, &hashlen)) != 0)
  		goto out;
 @@ -197,7 +203,7 @@ input_kex_dh_init(int type, u_int32_t se
- 	/* send server hostkey, DH pubkey 'f' and singed H */
+ 	/* send server hostkey, DH pubkey 'f' and signed H */
  	if ((r = sshpkt_start(ssh, SSH2_MSG_KEXDH_REPLY)) != 0 ||
  	    (r = sshpkt_put_string(ssh, server_host_key_blob, sbloblen)) != 0 ||
 -	    (r = sshpkt_put_bignum2(ssh, kex->dh->pub_key)) != 0 ||	/* f */
@@ -599,7 +600,7 @@ diff -up openssh/kexgexs.c.openssl openssh/kexgexs.c
  	    hash, &hashlen)) != 0)
  		goto out;
 @@ -227,7 +236,7 @@ input_kex_dh_gex_init(int type, u_int32_
- 	/* send server hostkey, DH pubkey 'f' and singed H */
+ 	/* send server hostkey, DH pubkey 'f' and signed H */
  	if ((r = sshpkt_start(ssh, SSH2_MSG_KEX_DH_GEX_REPLY)) != 0 ||
  	    (r = sshpkt_put_string(ssh, server_host_key_blob, sbloblen)) != 0 ||
 -	    (r = sshpkt_put_bignum2(ssh, kex->dh->pub_key)) != 0 ||     /* f */
@@ -636,8 +637,8 @@ diff -up openssh/kexgssc.c.openssl openssh/kexgssc.c
  			} else {
  				packet_start(SSH2_MSG_KEXGSS_CONTINUE);
 @@ -282,13 +284,14 @@ kexgss_client(struct ssh *ssh) {
- 		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
- 		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
+ 		    sshbuf_ptr(ssh->kex->my), sshbuf_len(ssh->kex->my),
+ 		    sshbuf_ptr(ssh->kex->peer), sshbuf_len(ssh->kex->peer),
  		    (serverhostkey ? serverhostkey : empty), slen,
 -		    dh->pub_key,	/* e */
 +		    pub_key,		/* e */
@@ -652,7 +653,7 @@ diff -up openssh/kexgssc.c.openssl openssh/kexgssc.c
  		    ssh->kex->hash_alg,
  		    ssh->kex->client_version_string,
 @@ -297,8 +300,8 @@ kexgss_client(struct ssh *ssh) {
- 		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
+ 		    sshbuf_ptr(ssh->kex->peer), sshbuf_len(ssh->kex->peer),
  		    (serverhostkey ? serverhostkey : empty), slen,
   		    min, nbits, max,
 -		    dh->p, dh->g,
@@ -695,8 +696,8 @@ diff -up openssh/kexgsss.c.openssl openssh/kexgsss.c
  	switch (ssh->kex->kex_type) {
  	case KEX_GSS_GRP1_SHA1:
 @@ -232,7 +235,7 @@ kexgss_server(struct ssh *ssh)
- 		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
- 		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
+ 		    sshbuf_ptr(ssh->kex->peer), sshbuf_len(ssh->kex->peer),
+ 		    sshbuf_ptr(ssh->kex->my), sshbuf_len(ssh->kex->my),
  		    NULL, 0, /* Change this if we start sending host keys */
 -		    dh_client_pub, dh->pub_key, shared_secret,
 +		    dh_client_pub, pub_key, shared_secret,
@@ -704,7 +705,7 @@ diff -up openssh/kexgsss.c.openssl openssh/kexgsss.c
  		);
  		break;
 @@ -244,9 +247,9 @@ kexgss_server(struct ssh *ssh)
- 		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
+ 		    sshbuf_ptr(ssh->kex->my), sshbuf_len(ssh->kex->my),
  		    NULL, 0,
  		    cmin, nbits, cmax,
 -		    dh->p, dh->g,
@@ -1241,14 +1242,14 @@ diff -up openssh/monitor.c.openssl openssh/monitor.c
 +		const BIGNUM *p, *g;
 +
 +		DH_get0_pqg(dh, &p, NULL, &g);
- 		buffer_put_char(m, 1);
--		buffer_put_bignum2(m, dh->p);
--		buffer_put_bignum2(m, dh->g);
-+		buffer_put_bignum2(m, p);
-+		buffer_put_bignum2(m, g);
+ 		if ((r = sshbuf_put_u8(m, 1)) != 0 ||
+-		    (r = sshbuf_put_bignum2(m, dh->p)) != 0 ||
+-		    (r = sshbuf_put_bignum2(m, dh->g)) != 0)
++		    (r = sshbuf_put_bignum2(m, p)) != 0 ||
++		    (r = sshbuf_put_bignum2(m, g)) != 0)
+			fatal("%s: buffer error: %s", __func__, ssh_err(r));
  
  		DH_free(dh);
- 	}
 diff -up openssh/openbsd-compat/openssl-compat.c.openssl openssh/openbsd-compat/openssl-compat.c
 --- openssh/openbsd-compat/openssl-compat.c.openssl	2017-09-19 06:26:43.000000000 +0200
 +++ openssh/openbsd-compat/openssl-compat.c	2017-09-26 13:19:31.799249709 +0200
@@ -1393,17 +1394,6 @@ diff -up openssh/regress/unittests/sshkey/test_sshkey.c.openssl openssh/regress/
  	TEST_DONE();
  
  	TEST_START("equal KEY_DSA/demoted KEY_DSA");
-diff -up openssh/sshconnect2.c.openssl openssh/sshconnect2.c
---- openssh/sshconnect2.c.openssl	2017-09-26 13:19:31.786249629 +0200
-+++ openssh/sshconnect2.c	2017-09-26 13:19:31.800249715 +0200
-@@ -306,6 +306,7 @@ ssh_kex2(char *host, struct sockaddr *ho
- 	packet_send();
- 	packet_write_wait();
- #endif
-+	/* XXX free myproposal ?? */
- }
- 
- /*
 diff -up openssh/ssh.c.openssl openssh/ssh.c
 --- openssh/ssh.c.openssl	2017-09-26 13:19:31.786249629 +0200
 +++ openssh/ssh.c	2017-09-26 13:19:31.800249715 +0200

@@ -40,7 +40,7 @@ diff -up openssh-6.8p1/Makefile.in.kdf-cavs openssh-6.8p1/Makefile.in
 diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 --- openssh-6.8p1/ssh-cavs.c.kdf-cavs	2015-03-18 11:23:46.348049354 +0100
 +++ openssh-6.8p1/ssh-cavs.c	2015-03-18 11:23:46.348049354 +0100
-@@ -0,0 +1,380 @@
+@@ -0,0 +1,377 @@
 +/*
 + * Copyright (C) 2015, Stephan Mueller <smueller@chronox.de>
 + *
@@ -88,11 +88,12 @@ diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 +#include <openssl/bn.h>
 +
 +#include "xmalloc.h"
-+#include "buffer.h"
-+#include "key.h"
++#include "sshbuf.h"
++#include "sshkey.h"
 +#include "cipher.h"
 +#include "kex.h"
 +#include "packet.h"
++#include "digest.h"
 +
 +static int bin_char(unsigned char hex)
 +{
@@ -234,16 +235,16 @@ diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 +	/* select the right hash based on struct ssh_digest digests */
 +	switch (test->ik_len) {
 +		case 20:
-+			kex.hash_alg = 2;
++			kex.hash_alg = SSH_DIGEST_SHA1;
 +			break;
 +		case 32:
-+			kex.hash_alg = 3;
++			kex.hash_alg = SSH_DIGEST_SHA256;
 +			break;
 +		case 48:
-+			kex.hash_alg = 4;
++			kex.hash_alg = SSH_DIGEST_SHA384;
 +			break;
 +		case 64:
-+			kex.hash_alg = 5;
++			kex.hash_alg = SSH_DIGEST_SHA512;
 +			break;
 +		default:
 +			printf("Wrong hash type %u\n", test->ik_len);
@@ -320,10 +321,6 @@ diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 +out:
 +	if (Kbn)
 +		BN_free(Kbn);
-+	if (kex.newkeys[0])
-+		free(kex.newkeys[0]);
-+	if (kex.newkeys[1])
-+		free(kex.newkeys[1]);
 +	if (ssh)
 +		ssh_packet_close(ssh);
 +	return ret;

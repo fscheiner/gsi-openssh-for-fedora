@@ -10,8 +10,8 @@ diff -up openssh-7.4p1/channels.c.x11max openssh-7.4p1/channels.c
 +/* Minimum port number for X11 forwarding */
 +#define X11_PORT_MIN 6000
  
- /*
-  * Data structure for storing which hosts are permitted for forward requests.
+ /* Per-channel callback for pre/post select() actions */
+ typedef void chan_fn(struct ssh *, Channel *c,
 @@ -4228,7 +4228,7 @@ channel_send_window_changes(void)
   */
  int

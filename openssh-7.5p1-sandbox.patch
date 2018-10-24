@@ -20,8 +20,8 @@ index ca75cc7..6e7de31 100644
 +#if defined(__NR_flock) && defined(__s390__)
 +	SC_ALLOW(__NR_flock),
 +#endif
- #ifdef __NR_getpgid
- 	SC_ALLOW(__NR_getpgid),
+ #ifdef __NR_geteuid
+ 	SC_ALLOW(__NR_geteuid),
  #endif
 @@ -178,6 +181,9 @@ static const struct sock_filter preauth_insns[] = {
  #ifdef __NR_gettimeofday
@@ -30,8 +30,8 @@ index ca75cc7..6e7de31 100644
 +#if defined(__NR_ipc) && defined(__s390__)
 +	SC_ALLOW(__NR_ipc),
 +#endif
- #ifdef __NR_madvise
- 	SC_ALLOW(__NR_madvise),
+ #ifdef __NR_getuid
+ 	SC_ALLOW(__NR_getuid),
  #endif
 -- 
 1.9.1

@@ -7,7 +7,7 @@ index 8f32464..18a2ca4 100644
  #include "servconf.h"
  #include "port-linux.h"
 +#include "misc.h"
- #include "key.h"
+ #include "sshkey.h"
  #include "hostfile.h"
  #include "auth.h"
 @@ -445,7 +446,7 @@ sshd_selinux_setup_exec_context(char *pwname)
@@ -50,10 +50,10 @@ index 8f32464..18a2ca4 100644
 +
 +					cp = line;
 +					arg = strdelim(&cp);
-+					if (*arg == '\0')
++					if (arg && *arg == '\0')
 +						arg = strdelim(&cp);
 +
-+					if (strcmp(arg, "privsep_preauth") == 0) {
++					if (arg && strcmp(arg, "privsep_preauth") == 0) {
 +						arg = strdelim(&cp);
 +						if (!arg || *arg == '\0') {
 +							debug("%s: privsep_preauth is empty", __func__);
@@ -82,6 +82,14 @@ diff --git a/openbsd-compat/port-linux.c b/openbsd-compat/port-linux.c
 index 22ea8ef..1fc963d 100644
 --- a/openbsd-compat/port-linux.c
 +++ b/openbsd-compat/port-linux.c
+@@ -26,6 +26,7 @@
+ #include <stdarg.h>
+ #include <string.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ 
+ #include "log.h"
+ #include "xmalloc.h"
 @@ -179,7 +179,7 @@ ssh_selinux_change_context(const char *newname)
  	strlcpy(newctx + len, newname, newlen - len);
  	if ((cx = index(cx + 1, ':')))

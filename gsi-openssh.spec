@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.7p1
-%global openssh_rel 5
+%global openssh_ver 7.8p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -59,8 +59,6 @@ Patch100: openssh-6.7p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
 #https://bugzilla.redhat.com/show_bug.cgi?id=735889
 #Patch102: openssh-5.8p1-getaddrinfo.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1889
-Patch103: openssh-5.8p1-packet.patch
 # OpenSSL 1.1.0 compatibility
 Patch104: openssh-7.3p1-openssl-1.1.0.patch
 
@@ -72,7 +70,7 @@ Patch200: openssh-7.6p1-audit.patch
 Patch201: openssh-7.1p2-audit-race-condition.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1641 (WONTFIX)
-Patch400: openssh-6.6p1-role-mls.patch
+Patch400: openssh-7.8p1-role-mls.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=781634
 Patch404: openssh-6.6p1-privsep-selinux.patch
 
@@ -100,12 +98,10 @@ Patch702: openssh-5.1p1-askpass-progress.patch
 Patch703: openssh-4.3p2-askpass-grab-info.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
 Patch707: openssh-7.7p1-redhat.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1890 (WONTFIX) need integration to prng helper which is discontinued :)
-Patch708: openssh-6.6p1-entropy.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
 Patch709: openssh-6.2p1-vendor.patch
 # warn users for unsupported UsePAM=no (#757545)
-Patch711: openssh-7.2p2-UsePAM-UseLogin-warning.patch
+Patch711: openssh-7.8p1-UsePAM-warning.patch
 # make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
 Patch712: openssh-6.3p1-ctr-evp-fast.patch
 # add cavs test binary for the aes-ctr
@@ -115,7 +111,7 @@ Patch714: openssh-6.7p1-kdf-cavs.patch
 
 #http://www.sxw.org.uk/computing/patches/openssh.html
 #changed cache storage type - #848228
-Patch800: openssh-7.2p1-gsskex.patch
+Patch800: openssh-7.8p1-gsskex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
 Patch801: openssh-6.6p1-force_krb.patch
 # add new option GSSAPIEnablek5users and disable using ~/.k5users by default (#1169843)
@@ -139,14 +135,12 @@ Patch901: openssh-6.6p1-kuserok.patch
 Patch906: openssh-6.4p1-fromto-remote.patch
 # privsep_preauth: use SELinux context from selinux-policy (#1008580)
 Patch916: openssh-6.6.1p1-selinux-contexts.patch
-# use different values for DH for Cisco servers (#1026430)
-Patch917: openssh-6.6.1p1-cisco-dh-keys.patch
 # log via monitor in chroots without /dev/log (#2681)
 Patch918: openssh-6.6.1p1-log-in-chroot.patch
 # scp file into non-existing directory (#1142223)
 Patch919: openssh-6.6.1p1-scp-non-existing-directory.patch
 # Config parser shouldn't accept ip/port syntax (#1130733)
-Patch920: openssh-6.6.1p1-ip-port-config-parser.patch
+Patch920: openssh-7.8p1-ip-port-config-parser.patch
 # apply upstream patch and make sshd -T more consistent (#1187521)
 Patch922: openssh-6.8p1-sshdT-output.patch
 # Add sftp option to force mode of created files (#1191055)
@@ -155,8 +149,6 @@ Patch926: openssh-6.7p1-sftp-force-permission.patch
 Patch929: openssh-6.9p1-permit-root-login.patch
 # Add GSSAPIKexAlgorithms option for server and client application
 Patch932: openssh-7.0p1-gssKexAlgorithms.patch
-# Possibility to validate legacy systems by more fingerprints (#1249626)(#2439)
-Patch933: openssh-7.0p1-show-more-fingerprints.patch
 # make s390 use /dev/ crypto devices -- ignore closefrom
 Patch939: openssh-7.2p2-s390-closefrom.patch
 # Move MAX_DISPLAYS to a configuration option (#1341302)
@@ -171,12 +163,12 @@ Patch950: openssh-7.5p1-sandbox.patch
 Patch951: openssh-7.6p1-pkcs11-uri.patch
 # PKCS#11 ECDSA keys (upstream #2474, 8th iteration)
 Patch952: openssh-7.6p1-pkcs11-ecdsa.patch
-# Opening tun devices fails + other regressions in OpenSSH v7.7 (#2855, #1567775)
-Patch953: openssh-7.7p1-tun-devices.patch
+# Unbreak scp between two IPv6 hosts (#1620333)
+Patch953: openssh-7.8p1-scp-ipv6.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-7.7p1-gsissh.patch
+Patch98: openssh-7.8p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -279,8 +271,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %setup -q -n openssh-%{version}
 
-# investigate %patch102 -p1 -b .getaddrinfo
-%patch103 -p1 -b .packet
+# investigate %%patch102 -p1 -b .getaddrinfo
 
 %patch400 -p1 -b .role-mls
 %patch404 -p1 -b .privsep-selinux
@@ -299,7 +290,6 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch702 -p1 -b .progress
 %patch703 -p1 -b .grab-info
 %patch707 -p1 -b .redhat
-%patch708 -p1 -b .entropy
 %patch709 -p1 -b .vendor
 %patch711 -p1 -b .log-usepam-no
 %patch712 -p1 -b .evp-ctr
@@ -316,7 +306,6 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch901 -p1 -b .kuserok
 %patch906 -p1 -b .fromto-remote
 %patch916 -p1 -b .contexts
-#%patch917 -p1 -b .cisco-dh # investigate
 %patch918 -p1 -b .log-in-chroot
 %patch919 -p1 -b .scp
 %patch920 -p1 -b .config
@@ -325,7 +314,6 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch926 -p1 -b .sftp-force-mode
 %patch929 -p1 -b .root-login
 %patch932 -p1 -b .gsskexalg
-%patch933 -p1 -b .fingerprint
 %patch939 -p1 -b .s390-dev
 %patch944 -p1 -b .x11max
 %patch948 -p1 -b .systemd
@@ -334,7 +322,7 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch950 -p1 -b .sandbox
 %patch951 -p1 -b .pkcs11-uri
 %patch952 -p1 -b .pkcs11-ecdsa
-%patch953 -p1 -b .tun-devices
+%patch953 -p1 -b .scp-ipv6
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -396,6 +384,7 @@ fi
 	--with-ssl-engine \
 	--with-ipaddr-display \
 	--with-pie=no \
+	--without-hardening `# The hardening flags are configured by system` \
 	--with-systemd \
 	--with-default-pkcs11-provider=yes \
 %if %{ldap}
@@ -546,6 +535,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Oct 23 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.8p1-1
+- Based on openssh-7.8p1-3.fc28
+
 * Thu Aug 16 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.7p1-5
 - Based on openssh-7.7p1-6.fc28
 

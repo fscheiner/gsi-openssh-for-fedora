@@ -120,7 +120,7 @@ diff -up openssh-7.4p1/serverloop.c.coverity openssh-7.4p1/serverloop.c
 -		while (read(notify_pipe[0], &c, 1) != -1)
 +	if (notify_pipe[0] >= 0 && FD_ISSET(notify_pipe[0], readset))
 +		while (read(notify_pipe[0], &c, 1) >= 0)
- 			debug2("notify_done: reading");
+ 			debug2("%s: reading", __func__);
  }
  
 @@ -518,7 +518,7 @@ server_request_tun(void)

@@ -34,7 +34,7 @@ diff -up openssh-7.4p1/servconf.c.vendor openssh-7.4p1/servconf.c
  	options->client_alive_interval = -1;
  	options->client_alive_count_max = -1;
 @@ -325,6 +326,8 @@ fill_default_server_options(ServerOption
- 		options->ip_qos_bulk = IPTOS_THROUGHPUT;
+ 		options->ip_qos_bulk = IPTOS_DSCP_CS1;
  	if (options->version_addendum == NULL)
  		options->version_addendum = xstrdup("");
 +	if (options->show_patchlevel == -1)
@@ -71,7 +71,7 @@ diff -up openssh-7.4p1/servconf.c.vendor openssh-7.4p1/servconf.c
  		while ((arg = strdelim(&cp)) && *arg != '\0') {
  			if (match_user(NULL, NULL, NULL, arg) == -1)
 @@ -2269,6 +2277,7 @@ dump_config(ServerOptions *o)
- 	dump_cfg_fmtint(sPermitUserEnvironment, o->permit_user_env);
+ 	dump_cfg_fmtint(sEmptyPasswd, o->permit_empty_passwd);
  	dump_cfg_fmtint(sCompression, o->compression);
  	dump_cfg_fmtint(sGatewayPorts, o->fwd_opts.gateway_ports);
 +	dump_cfg_fmtint(sShowPatchLevel, o->show_patchlevel);
@@ -89,28 +89,13 @@ diff -up openssh-7.4p1/servconf.h.vendor openssh-7.4p1/servconf.h
  	int	use_dns;
  	int	client_alive_interval;	/*
  					 * poke the client this often to
-diff -up openssh-7.4p1/sshd_config.0.vendor openssh-7.4p1/sshd_config.0
---- openssh-7.4p1/sshd_config.0.vendor	2016-12-23 13:34:51.695253847 +0100
-+++ openssh-7.4p1/sshd_config.0	2016-12-23 13:36:53.146277511 +0100
-@@ -792,6 +792,11 @@ DESCRIPTION
-              rdomain(4).  If the routing domain is set to %D, then the domain
-              in which the incoming connection was received will be applied.
- 
-+     ShowPatchLevel
-+	     Specifies whether sshd will display the specific patch level of
-+	     the binary in the server identification string.  The patch level
-+	     is set at compile-time.  The default is M-bM-^@M-^\noM-bM-^@M-^].
-+
-      StreamLocalBindMask
-              Sets the octal file creation mode mask (umask) used when creating
-              a Unix-domain socket file for local or remote port forwarding.
 diff -up openssh-7.4p1/sshd_config.5.vendor openssh-7.4p1/sshd_config.5
 --- openssh-7.4p1/sshd_config.5.vendor	2016-12-23 13:34:51.695253847 +0100
 +++ openssh-7.4p1/sshd_config.5	2016-12-23 13:37:17.482282253 +0100
 @@ -1334,6 +1334,13 @@ an OpenSSH Key Revocation List (KRL) as
- If the routing domain is set to
- .Cm \&%D ,
- then the domain in which the incoming connection was received will be applied.
+ .Cm AcceptEnv
+ or
+ .Cm PermitUserEnvironment .
 +.It Cm ShowPatchLevel 
 +Specifies whether 
 +.Nm sshd 

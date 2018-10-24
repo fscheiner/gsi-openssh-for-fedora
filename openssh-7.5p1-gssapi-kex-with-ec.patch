@@ -91,7 +91,7 @@ index 132df8b5..ed23f06d 100644
 +	case KEX_GSS_GRP16_SHA512:
  		kex_dh_hash(ssh->kex->hash_alg, ssh->kex->client_version_string, 
  		    ssh->kex->server_version_string,
- 		    buffer_ptr(ssh->kex->my), buffer_len(ssh->kex->my),
+		    sshbuf_ptr(ssh->kex->my), sshbuf_len(ssh->kex->my),
 diff --git a/kexgsss.c b/kexgsss.c
 index 82a715cc..b7da8823 100644
 --- a/kexgsss.c
@@ -117,7 +117,7 @@ index 82a715cc..b7da8823 100644
 +	case KEX_GSS_GRP16_SHA512:
  		kex_dh_hash(ssh->kex->hash_alg,
  		    ssh->kex->client_version_string, ssh->kex->server_version_string,
- 		    buffer_ptr(ssh->kex->peer), buffer_len(ssh->kex->peer),
+		    sshbuf_ptr(ssh->kex->peer), sshbuf_len(ssh->kex->peer),
 diff --git a/monitor.c b/monitor.c
 index 17046936..d6bc7ac7 100644
 --- a/monitor.c
@@ -371,7 +371,7 @@ index ed23f06d..bdb3109a 100644
  					/* If we're already complete - protocol error */
  					if (maj_status == GSS_S_COMPLETE)
  						packet_disconnect("Protocol error: received token when complete");
-@@ -344,4 +345,381 @@ kexgss_client(struct ssh *ssh) {
+@@ -344,4 +345,382 @@ kexgss_client(struct ssh *ssh) {
  	return kex_send_newkeys(ssh);
  }
  
@@ -385,7 +385,7 @@ index ed23f06d..bdb3109a 100644
 +	u_char *server_pub = NULL;
 +	u_int server_pub_len = 0;
 +	BIGNUM *shared_secret = NULL;
-+	u_char *kbuf;
++	u_char *kbuf = NULL;
 +	u_char *serverhostkey = NULL;
 +	u_char *empty = "";
 +	char *msg;
@@ -446,8 +446,9 @@ index ed23f06d..bdb3109a 100644
 +		    sizeof(kex->c25519_client_key));
 +#endif
 +
-+		sshbuf_put_string(Q_C, kex->c25519_client_pubkey,
-+		    sizeof(kex->c25519_client_pubkey));
++		if ((r = sshbuf_put_string(Q_C, kex->c25519_client_pubkey,
++		    sizeof(kex->c25519_client_pubkey))) != 0)
++			fatal("%s: buffer error: %s", __func__, ssh_err(r));
 +		break;
 +	default:
 +		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
@@ -674,8 +675,8 @@ index ed23f06d..bdb3109a 100644
 +		kex_c25519_hash(
 +		    kex->hash_alg,
 +		    kex->client_version_string, kex->server_version_string,
-+		    buffer_ptr(kex->my), buffer_len(kex->my),
-+		    buffer_ptr(kex->peer), buffer_len(kex->peer),
++		    sshbuf_ptr(kex->my), sshbuf_len(kex->my),
++		    sshbuf_ptr(kex->peer), sshbuf_len(kex->peer),
 +		    (serverhostkey ? serverhostkey : empty), slen,
 +		    kex->c25519_client_pubkey, server_pub,
 +		    sshbuf_ptr(c25519_shared_secret), sshbuf_len(c25519_shared_secret),
@@ -765,7 +766,7 @@ index b7da8823..a7c42803 100644
  
  extern ServerOptions options;
  
-@@ -303,4 +304,336 @@ kexgss_server(struct ssh *ssh)
+@@ -303,4 +304,338 @@ kexgss_server(struct ssh *ssh)
  		ssh_gssapi_rekey_creds();
  	return 0;
  }
@@ -787,7 +788,7 @@ index b7da8823..a7c42803 100644
 +	gss_buffer_desc send_tok = GSS_C_EMPTY_BUFFER;
 +	Gssctxt *ctxt = NULL;
 +	u_int slen, klen = 0;
-+	u_char *kbuf;
++	u_char *kbuf = NULL;
 +	BIGNUM *shared_secret = NULL;
 +	int type = 0;
 +	gss_OID oid;
@@ -854,8 +855,9 @@ index b7da8823..a7c42803 100644
 +		dump_digest("server private key:", c25519_server_key,
 +		    sizeof(c25519_server_key));
 +#endif
-+		sshbuf_put_string(Q_S, c25519_server_pubkey,
-+		    sizeof(c25519_server_pubkey));
++		if ((r = sshbuf_put_string(Q_S, c25519_server_pubkey,
++		    sizeof(c25519_server_pubkey))) != 0)
++			fatal("%s: buffer error: %s", __func__, ssh_err(r));
 +		break;
 +	default:
 +		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
@@ -1008,8 +1010,8 @@ index b7da8823..a7c42803 100644
 +		kex_c25519_hash(
 +		    kex->hash_alg,
 +		    kex->client_version_string, kex->server_version_string,
-+		    buffer_ptr(kex->peer), buffer_len(kex->peer),
-+		    buffer_ptr(kex->my), buffer_len(kex->my),
++		    sshbuf_ptr(kex->peer), sshbuf_len(kex->peer),
++		    sshbuf_ptr(kex->my), sshbuf_len(kex->my),
 +		    NULL, 0,
 +		    client_pub, c25519_server_pubkey,
 +		    sshbuf_ptr(c25519_shared_secret), sshbuf_len(c25519_shared_secret),
@@ -1036,7 +1038,8 @@ index b7da8823..a7c42803 100644
 +	{
 +		const u_char *ptr;
 +		size_t len;
-+		sshbuf_get_string_direct(Q_S, &ptr, &len);
++		if ((r = sshbuf_get_string_direct(Q_S, &ptr, &len)) != 0)
++			fatal("%s: buffer error: %s", __func__, ssh_err(r));
 +		packet_put_string(ptr, len);
 +	}
 +	packet_put_string(msg_tok.value, msg_tok.length);
@@ -1117,8 +1120,8 @@ index d6bc7ac7..b11616c8 100644
  		kex->load_host_public_key=&get_hostkey_public_by_type;
 @@ -1867,7 +1869,8 @@ mm_answer_gss_sign(int socket, Buffer *m)
  
- 	data.value = buffer_get_string(m, &len);
- 	data.length = len;
+ 	if ((r = sshbuf_get_string(m, (u_char **)&data.value, &data.length)) != 0)
+ 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 -	if (data.length != 20) 
 +	/* Lengths of SHA-1, SHA-256 and SHA-512 hashes that are used */
 +	if (data.length != 20 && data.length != 32 && data.length != 64)

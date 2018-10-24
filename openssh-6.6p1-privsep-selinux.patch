@@ -54,9 +54,9 @@ diff -up openssh-7.4p1/session.c.privsep-selinux openssh-7.4p1/session.c
  		if (setusercontext(lc, pw, pw->pw_uid,
  		    (LOGIN_SETALL & ~(LOGIN_SETPATH|LOGIN_SETUSER))) < 0) {
 @@ -1361,6 +1361,9 @@ do_setusercontext(struct passwd *pw)
- 			    pw->pw_uid);
- 			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
- 			    "u", pw->pw_name, (char *)NULL);
+			    (unsigned long long)pw->pw_uid);
+			chroot_path = percent_expand(tmp, "h", pw->pw_dir,
+			    "u", pw->pw_name, "U", uidstr, (char *)NULL);
 +#ifdef WITH_SELINUX
 +			sshd_selinux_copy_context();
 +#endif

@@ -11,9 +11,9 @@ index 413b845..54dd383 100644
 +#include <unistd.h>
  
  #include "xmalloc.h"
- #include "key.h"
+ #include "sshkey.h"
 @@ -45,6 +47,7 @@
- #include "buffer.h"
+ 
  #include "ssh-gss.h"
  
 +extern Authctxt *the_authctxt;
@@ -66,7 +66,7 @@ index 413b845..54dd383 100644
  	} else
  		retval = 0;
  
-@@ -110,6 +133,135 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
+@@ -110,6 +133,137 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
  	return retval;
  }
  
@@ -97,13 +97,14 @@ index 413b845..54dd383 100644
 +{
 +	FILE *fp;
 +	char file[MAXPATHLEN];
-+	char line[BUFSIZ] = "";
++	char *line = NULL;
 +	char kuser[65]; /* match krb5_kuserok() */
 +	struct stat st;
 +	struct passwd *pw = the_authctxt->pw;
 +	int found_principal = 0;
 +	int ncommands = 0, allcommands = 0;
-+	u_long linenum;
++	u_long linenum = 0;
++	size_t linesize = 0;
 +
 +	snprintf(file, sizeof(file), "%s/.k5users", pw->pw_dir);
 +	/* If both .k5login and .k5users DNE, self-login is ok. */
@@ -147,9 +148,9 @@ index 413b845..54dd383 100644
 +	k5users_allowed_cmds = xcalloc(++ncommands,
 +	    sizeof(*k5users_allowed_cmds));
 +
-+	/* Check each line.  ksu allows unlimited length lines.  We don't. */
-+	while (!allcommands && read_keyfile_line(fp, file, line, sizeof(line),
-+	    &linenum) != -1) {
++	/* Check each line.  ksu allows unlimited length lines. */
++	while (!allcommands && getline(&line, &linesize, fp) != -1) {
++		linenum++;
 +		char *token;
 +
 +		/* we parse just like ksu, even though we could do better */
@@ -182,6 +183,7 @@ index 413b845..54dd383 100644
 +			}
 +		}
 +       }
++	free(line);
 +	if (k5users_allowed_cmds) {
 +		/* terminate vector */
 +		k5users_allowed_cmds[ncommands-1] = NULL;

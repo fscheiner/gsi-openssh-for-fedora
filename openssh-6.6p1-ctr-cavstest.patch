@@ -19,8 +19,8 @@ diff -up openssh-6.8p1/Makefile.in.ctr-cavs openssh-6.8p1/Makefile.in
  XMSS_OBJS=\
  	ssh-xmss.o \
 @@ -194,6 +195,9 @@ ssh-ldap-helper$(EXEEXT): $(LIBCOMPAT) l
- ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o
- 	$(LD) -o $@ ssh-keycat.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(KEYCATLIBS) $(LIBS)
+ ssh-keycat$(EXEEXT): $(LIBCOMPAT) $(SSHDOBJS) libssh.a ssh-keycat.o uidswap.o
+ 	$(LD) -o $@ ssh-keycat.o uidswap.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(KEYCATLIBS) $(LIBS)
  
 +ctr-cavstest$(EXEEXT): $(LIBCOMPAT) libssh.a ctr-cavstest.o
 +	$(LD) -o $@ ctr-cavstest.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh -lfipscheck $(LIBS)
@@ -39,7 +39,7 @@ diff -up openssh-6.8p1/Makefile.in.ctr-cavs openssh-6.8p1/Makefile.in
 diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 --- openssh-6.8p1/ctr-cavstest.c.ctr-cavs	2015-03-18 11:22:05.521288952 +0100
 +++ openssh-6.8p1/ctr-cavstest.c	2015-03-18 11:22:05.521288952 +0100
-@@ -0,0 +1,208 @@
+@@ -0,0 +1,215 @@
 +/*
 + *
 + * invocation (all of the following are equal):
@@ -60,6 +60,7 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +
 +#include "xmalloc.h"
 +#include "log.h"
++#include "ssherr.h"
 +#include "cipher.h"
 +
 +/* compatibility with old or broken OpenSSL versions */
@@ -148,7 +149,7 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +        char *hexiv = "00000000000000000000000000000000";
 +        char *hexdata = NULL;
 +        char *p;
-+        int i;
++        int i, r;
 +        int encrypt = 1;
 +        void *key;
 +        size_t keylen;
@@ -221,10 +222,13 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +		return 2;
 +	}
 +
-+	cipher_init(&cc, c, key, keylen, iv, ivlen, encrypt);
++	if ((r = cipher_init(&cc, c, key, keylen, iv, ivlen, encrypt)) != 0) {
++		fprintf(stderr, "Error: cipher_init failed: %s\n", ssh_err(r));
++		return 2;
++	}
 +
-+        free(key);
-+        free(iv);
++	free(key);
++	free(iv);
 +
 +	outdata = malloc(datalen);
 +	if(outdata == NULL) {
@@ -232,9 +236,12 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +		return 2;
 +	}
 +
-+	cipher_crypt(cc, 0, outdata, data, datalen, 0, 0);
++	if ((r = cipher_crypt(cc, 0, outdata, data, datalen, 0, 0)) != 0) {
++		fprintf(stderr, "Error: cipher_crypt failed: %s\n", ssh_err(r));
++		return 2;
++	}
 +
-+        free(data);
++	free(data);
 +
 +	cipher_free(cc);
 +

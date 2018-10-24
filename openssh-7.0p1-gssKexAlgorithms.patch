@@ -23,9 +23,9 @@ diff -up openssh-7.0p1/gss-genr.c.gsskexalg openssh-7.0p1/gss-genr.c
  ssh_gssapi_kex_mechs(gss_OID_set gss_supported, ssh_gssapi_check_fn *check,
 -    const char *host, const char *client) {
 +    const char *host, const char *client, const char *kex) {
- 	Buffer buf;
+ 	struct sshbuf *buf;
  	size_t i;
- 	int oidpos, enclen;
+ 	int oidpos, enclen, r;
 @@ -100,6 +101,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
  	char deroid[2];
  	const EVP_MD *evp_md = EVP_md5();
@@ -35,39 +35,44 @@ diff -up openssh-7.0p1/gss-genr.c.gsskexalg openssh-7.0p1/gss-genr.c
  	if (gss_enc2oid != NULL) {
  		for (i = 0; gss_enc2oid[i].encoded != NULL; i++)
 @@ -113,6 +115,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
- 	buffer_init(&buf);
+ 		fatal("%s: sshbuf_new failed", __func__);
  
  	oidpos = 0;
 +	s = cp = xstrdup(kex);
  	for (i = 0; i < gss_supported->count; i++) {
  		if (gss_supported->elements[i].length < 128 &&
  		    (*check)(NULL, &(gss_supported->elements[i]), host, client)) {
-@@ -131,26 +134,22 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
+@@ -131,28 +134,25 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
  			enclen = __b64_ntop(digest, EVP_MD_size(evp_md),
  			    encoded, EVP_MD_size(evp_md) * 2);
  
 -			if (oidpos != 0)
--				buffer_put_char(&buf, ',');
+-				if ((r = sshbuf_put_u8(buf, ',')) != 0)
+-					fatal("%s: buffer error: %s", __func__, ssh_err(r));
 -
--			buffer_append(&buf, KEX_GSS_GEX_SHA1_ID,
--			    sizeof(KEX_GSS_GEX_SHA1_ID) - 1);
--			buffer_append(&buf, encoded, enclen);
--			buffer_put_char(&buf, ',');
--			buffer_append(&buf, KEX_GSS_GRP1_SHA1_ID, 
--			    sizeof(KEX_GSS_GRP1_SHA1_ID) - 1);
--			buffer_append(&buf, encoded, enclen);
--			buffer_put_char(&buf, ',');
--			buffer_append(&buf, KEX_GSS_GRP14_SHA1_ID,
--			    sizeof(KEX_GSS_GRP14_SHA1_ID) - 1);
--			buffer_append(&buf, encoded, enclen);
+-			if ((r = sshbuf_put(buf, KEX_GSS_GEX_SHA1_ID,
+-			    sizeof(KEX_GSS_GEX_SHA1_ID) - 1)) != 0 ||
+-			    (r = sshbuf_put(buf, encoded, enclen)) != 0 ||
+-			    (r = sshbuf_put_u8(buf, ',')) != 0 ||
+-			    (r = sshbuf_put(buf, KEX_GSS_GRP1_SHA1_ID, 
+-			    sizeof(KEX_GSS_GRP1_SHA1_ID) - 1)) != 0 ||
+-			    (r = sshbuf_put(buf, encoded, enclen)) != 0 ||
+-			    (r = sshbuf_put_u8(buf, ',')) != 0 ||
+-			    (r = sshbuf_put(buf, KEX_GSS_GRP14_SHA1_ID,
+-			    sizeof(KEX_GSS_GRP14_SHA1_ID) - 1)) != 0 ||
+-			    (r = sshbuf_put(buf, encoded, enclen)) != 0)
+-		 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 +			cp = strncpy(s, kex, strlen(kex));
 +			for ((p = strsep(&cp, ",")); p && *p != '\0';
 +				(p = strsep(&cp, ","))) {
-+				if (buffer_len(&buf) != 0)
-+					buffer_put_char(&buf, ',');
-+				buffer_append(&buf, p,
-+				    strlen(p));
-+				buffer_append(&buf, encoded, enclen);
++				if (sshbuf_len(buf) != 0)
++					if ((r = sshbuf_put_u8(buf, ',')) != 0)
++			 			fatal("%s: buffer error: %s",
++						    __func__, ssh_err(r));
++				if ((r = sshbuf_put(buf, p, strlen(p))) != 0 ||
++				    (r = sshbuf_put(buf, encoded, enclen)) != 0)
++			 		fatal("%s: buffer error: %s",
++					    __func__, ssh_err(r));
 +			}
  
  			gss_enc2oid[oidpos].oid = &(gss_supported->elements[i]);
@@ -104,7 +109,7 @@ diff -up openssh-7.0p1/kex.c.gsskexalg openssh-7.0p1/kex.c
  #include "ssherr.h"
  #include "sshbuf.h"
 @@ -232,6 +232,29 @@ kex_assemble_names(const char *def, char
- 	return 0;
+ 	return r;
  }
  
 +/* Validate GSS KEX method name list */
@@ -139,7 +144,7 @@ diff -up openssh-7.0p1/kex.h.gsskexalg openssh-7.0p1/kex.h
 @@ -173,6 +173,7 @@ int	 kex_names_valid(const char *);
  char	*kex_alg_list(char);
  char	*kex_names_cat(const char *, const char *);
- int	 kex_assemble_names(const char *, char **);
+ int	 kex_assemble_names(char **, const char *, const char *);
 +int	 gss_kex_names_valid(const char *);
  
  int	 kex_new(struct ssh *, char *[PROPOSAL_MAX], struct kex **);
@@ -162,7 +167,7 @@ diff -up openssh-7.0p1/readconf.c.gsskexalg openssh-7.0p1/readconf.c
 -	oGssServerIdentity, 
 +	oGssServerIdentity, oGssKexAlgorithms,
  	oServerAliveInterval, oServerAliveCountMax, oIdentitiesOnly,
- 	oSendEnv, oControlPath, oControlMaster, oControlPersist,
+ 	oSendEnv, oSetEnv, oControlPath, oControlMaster, oControlPersist,
  	oHashKnownHosts,
 @@ -200,6 +201,7 @@ static struct {
  	{ "gssapiclientidentity", oGssClientIdentity },
@@ -263,9 +268,9 @@ diff -up openssh-7.0p1/servconf.c.gsskexalg openssh-7.0p1/servconf.c
  	sHostKeyAlgorithms,
  	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,
  	sGssAuthentication, sGssCleanupCreds, sGssEnablek5users, sGssStrictAcceptor,
--	sGssKeyEx, sGssStoreRekey, sAcceptEnv, sPermitTunnel,
-+	sGssKeyEx, sGssStoreRekey, sGssKexAlgorithms, sAcceptEnv, sPermitTunnel,
- 	sMatch, sPermitOpen, sForceCommand, sChrootDirectory,
+-	sGssKeyEx, sGssStoreRekey, sAcceptEnv, sSetEnv, sPermitTunnel,
++	sGssKeyEx, sGssStoreRekey, sGssKexAlgorithms, sAcceptEnv, sSetEnv, sPermitTunnel,
+ 	sMatch, sPermitOpen, sPermitListen, sForceCommand, sChrootDirectory,
  	sUsePrivilegeSeparation, sAllowAgentForwarding,
  	sHostCertificate,
 @@ -506,6 +510,7 @@ static struct {
@@ -388,7 +393,7 @@ diff -up openssh-7.0p1/sshconnect2.c.gsskexalg openssh-7.0p1/sshconnect2.c
 +This option only applies to protocol version 2 connections using GSSAPI.
  .It Cm HostbasedAcceptedKeyTypes
  Specifies the key types that will be accepted for hostbased authentication
- as a comma-separated pattern list.
+ as a list of comma-separated patterns.
 diff -up openssh-7.0p1/ssh-gss.h.gsskexalg openssh-7.0p1/ssh-gss.h
 --- openssh-7.0p1/ssh-gss.h.gsskexalg	2015-08-19 12:28:38.031518944 +0200
 +++ openssh-7.0p1/ssh-gss.h	2015-08-19 12:28:38.081518832 +0200

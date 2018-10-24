@@ -148,7 +148,7 @@ diff -up openssh-7.7p1/sshd_config.redhat openssh-7.7p1/sshd_config
 +
  #PrintLastLog yes
  #TCPKeepAlive yes
- #UseLogin no
+ #PermitUserEnvironment no
 @@ -106,6 +126,12 @@ AuthorizedKeysFile	.ssh/authorized_keys
  # no default banner path
  #Banner none
