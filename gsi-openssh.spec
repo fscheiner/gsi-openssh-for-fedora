@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.6p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -174,6 +174,8 @@ Patch949: openssh-7.6p1-cleanup-selinux.patch
 Patch950: openssh-7.5p1-sandbox.patch
 # PermitOpen bug in OpenSSH 7.6:
 Patch951: openssh-7.6p1-permitopen-bug.patch
+# CVE-2018-15473: User "enumeration" via malformed packets in authentication requests
+Patch952: openssh-7.6p1-CVE-2018-15473.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -332,6 +334,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch949 -p1 -b .refactor
 %patch950 -p1 -b .sandbox
 %patch951 -p1 -b .permitOpen
+%patch952 -p3 -b .enumeration
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -546,6 +549,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Oct 24 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-4
+- Based on openssh-7.6p1-6.fc27
+
 * Thu Feb 15 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.6p1-3
 - Based on openssh-7.6p1-5.fc27
 
