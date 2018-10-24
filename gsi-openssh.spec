@@ -30,7 +30,7 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.8p1
+%global openssh_ver 7.9p1
 %global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
@@ -59,8 +59,6 @@ Patch100: openssh-6.7p1-coverity.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1894
 #https://bugzilla.redhat.com/show_bug.cgi?id=735889
 #Patch102: openssh-5.8p1-getaddrinfo.patch
-# OpenSSL 1.1.0 compatibility
-Patch104: openssh-7.3p1-openssl-1.1.0.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 # https://bugzilla.redhat.com/show_bug.cgi?id=1171248
@@ -127,6 +125,8 @@ Patch804: openssh-7.7p1-gssapi-new-unique.patch
 Patch805: openssh-7.2p2-k5login_directory.patch
 # Support SHA2 in GSS key exchanges from draft-ssorce-gss-keyex-sha2-02
 Patch807: openssh-7.5p1-gssapi-kex-with-ec.patch
+# Do not break when using AuthenticationMethods with gssapi-keyex auth method (#1625366)
+Patch808: openssh-7.9p1-gsskex-method.patch
 
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
@@ -168,7 +168,7 @@ Patch953: openssh-7.8p1-scp-ipv6.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-7.8p1-gsissh.patch
+Patch98: openssh-7.9p1-gsissh.patch
 
 License: BSD
 Group: Applications/Internet
@@ -323,13 +323,13 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch951 -p1 -b .pkcs11-uri
 %patch952 -p1 -b .pkcs11-ecdsa
 %patch953 -p1 -b .scp-ipv6
+%patch808 -p1 -b .gsskex-method
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
 %patch700 -p1 -b .fips
 
 %patch100 -p1 -b .coverity
-%patch104 -p1 -b .openssl
 
 %patch98 -p1 -b .gsi
 
@@ -375,7 +375,7 @@ fi
 	--sysconfdir=%{_sysconfdir}/gsissh \
 	--libexecdir=%{_libexecdir}/gsissh \
 	--datadir=%{_datadir}/gsissh \
-	--with-default-path=/usr/local/bin:/usr/bin \
+	--with-default-path=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin \
 	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
 	--with-privsep-path=%{_var}/empty/gsisshd \
 	--enable-vendor-patchlevel="FC-%{openssh_ver}-%{openssh_rel}" \
@@ -535,6 +535,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Oct 23 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-1
+- Based on openssh-7.9p1-1.fc29
+
 * Tue Oct 23 2018 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.8p1-1
 - Based on openssh-7.8p1-3.fc28
 

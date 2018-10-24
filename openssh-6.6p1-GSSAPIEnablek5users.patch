@@ -83,7 +83,7 @@ diff -up openssh-7.4p1/servconf.c.GSSAPIEnablek5users openssh-7.4p1/servconf.c
  	M_CP_INTOPT(log_level);
 @@ -2320,6 +2330,7 @@ dump_config(ServerOptions *o)
  # endif
- 	dump_cfg_fmtint(sKerberosUniqueTicket, o->kerberos_unique_ticket);
+ 	dump_cfg_fmtint(sKerberosUniqueCCache, o->kerberos_unique_ccache);
  	dump_cfg_fmtint(sKerberosUseKuserok, o->use_kuserok);
 +	dump_cfg_fmtint(sGssEnablek5users, o->enable_k5users);
  #endif
@@ -93,7 +93,7 @@ diff -up openssh-7.4p1/servconf.h.GSSAPIEnablek5users openssh-7.4p1/servconf.h
 --- openssh-7.4p1/servconf.h.GSSAPIEnablek5users	2016-12-23 15:18:40.616216100 +0100
 +++ openssh-7.4p1/servconf.h	2016-12-23 15:18:40.629216102 +0100
 @@ -174,6 +174,7 @@ typedef struct {
-	int     kerberos_unique_ticket;		/* If true, the aquired ticket will
+	int     kerberos_unique_ccache;		/* If true, the acquired ticket will
 						 * be stored in per-session ccache */
  	int	use_kuserok;
 +	int		enable_k5users;

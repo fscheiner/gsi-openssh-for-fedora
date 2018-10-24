@@ -82,14 +82,6 @@ diff --git a/openbsd-compat/port-linux.c b/openbsd-compat/port-linux.c
 index 22ea8ef..1fc963d 100644
 --- a/openbsd-compat/port-linux.c
 +++ b/openbsd-compat/port-linux.c
-@@ -26,6 +26,7 @@
- #include <stdarg.h>
- #include <string.h>
- #include <stdio.h>
-+#include <stdlib.h>
- 
- #include "log.h"
- #include "xmalloc.h"
 @@ -179,7 +179,7 @@ ssh_selinux_change_context(const char *newname)
  	strlcpy(newctx + len, newname, newlen - len);
  	if ((cx = index(cx + 1, ':')))

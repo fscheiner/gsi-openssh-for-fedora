@@ -235,9 +235,9 @@ index 28659ec..9c94d8e 100644
 +#endif
 +#endif
 +
+ 	s->forced = 0;
  	if (forced != NULL) {
- 		if (IS_INTERNAL_SFTP(command)) {
- 			s->is_subsystem = s->is_subsystem ?
+ 		s->forced = 1;
 diff --git a/ssh-gss.h b/ssh-gss.h
 index 0374c88..509109a 100644
 --- a/ssh-gss.h

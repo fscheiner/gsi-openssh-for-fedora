@@ -196,22 +196,22 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
  	sPermitRootLogin, sLogFacility, sLogLevel,
  	sRhostsRSAAuthentication, sRSAAuthentication,
  	sKerberosAuthentication, sKerberosOrLocalPasswd, sKerberosTicketCleanup,
--	sKerberosGetAFSToken, sKerberosUniqueTicket,
-+	sKerberosGetAFSToken, sKerberosUniqueTicket, sKerberosUseKuserok,
+-	sKerberosGetAFSToken, sKerberosUniqueCCache,
++	sKerberosGetAFSToken, sKerberosUniqueCCache, sKerberosUseKuserok,
  	sChallengeResponseAuthentication,
  	sPasswordAuthentication, sKbdInteractiveAuthentication,
  	sListenAddress, sAddressFamily,
 @@ -478,12 +481,14 @@ static struct {
  	{ "kerberosgetafstoken", sUnsupported, SSHCFG_GLOBAL },
  #endif
- 	{ "kerberosuniqueticket", sKerberosUniqueTicket, SSHCFG_GLOBAL },
+ 	{ "kerberosuniqueccache", sKerberosUniqueCCache, SSHCFG_GLOBAL },
 +	{ "kerberosusekuserok", sKerberosUseKuserok, SSHCFG_ALL },
  #else
  	{ "kerberosauthentication", sUnsupported, SSHCFG_ALL },
  	{ "kerberosorlocalpasswd", sUnsupported, SSHCFG_GLOBAL },
  	{ "kerberosticketcleanup", sUnsupported, SSHCFG_GLOBAL },
  	{ "kerberosgetafstoken", sUnsupported, SSHCFG_GLOBAL },
- 	{ "kerberosuniqueticket", sUnsupported, SSHCFG_GLOBAL },
+ 	{ "kerberosuniqueccache", sUnsupported, SSHCFG_GLOBAL },
 +	{ "kerberosusekuserok", sUnsupported, SSHCFG_ALL },
  #endif
  	{ "kerberostgtpassing", sUnsupported, SSHCFG_GLOBAL },
@@ -238,7 +238,7 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
 @@ -2309,6 +2319,7 @@ dump_config(ServerOptions *o)
  	dump_cfg_fmtint(sKerberosGetAFSToken, o->kerberos_get_afs_token);
  # endif
- 	dump_cfg_fmtint(sKerberosUniqueTicket, o->kerberos_unique_ticket);
+ 	dump_cfg_fmtint(sKerberosUniqueCCache, o->kerberos_unique_ccache);
 +	dump_cfg_fmtint(sKerberosUseKuserok, o->use_kuserok);
  #endif
  #ifdef GSSAPI
@@ -248,7 +248,7 @@ diff -up openssh-7.4p1/servconf.h.kuserok openssh-7.4p1/servconf.h
 +++ openssh-7.4p1/servconf.h	2016-12-23 14:36:07.645465936 +0100
 @@ -118,6 +118,7 @@ typedef struct {
  						 * authenticated with Kerberos. */
- 	int     kerberos_unique_ticket;		/* If true, the aquired ticket will
+ 	int     kerberos_unique_ccache;		/* If true, the acquired ticket will
  						 * be stored in per-session ccache */
 +	int	use_kuserok;
  	int     gss_authentication;	/* If true, permit GSSAPI authentication */
@@ -258,9 +258,9 @@ diff -up openssh-7.4p1/sshd_config.5.kuserok openssh-7.4p1/sshd_config.5
 --- openssh-7.4p1/sshd_config.5.kuserok	2016-12-23 14:36:07.637465940 +0100
 +++ openssh-7.4p1/sshd_config.5	2016-12-23 15:14:03.117162222 +0100
 @@ -850,6 +850,10 @@ Specifies whether to automatically destr
- tickets aquired in different sessions of the same user.
- The default is
- .Cm no .
+ .Cm no
+ can lead to overwriting previous tickets by subseqent connections to the same
+ user account.
 +.It Cm KerberosUseKuserok
 +Specifies whether to look at .k5login file for user's aliases.
 +The default is

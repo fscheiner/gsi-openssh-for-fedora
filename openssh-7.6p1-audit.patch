@@ -2048,12 +2048,12 @@ diff -up openssh-7.6p1/sshd.c.audit openssh-7.6p1/sshd.c
 +				fp = sshkey_fingerprint(sensitive_data.host_keys[i], options.fingerprint_hash, SSH_FP_HEX);
 +			else
 +				fp = NULL;
-			if ((r = sshkey_demote(sensitive_data.host_keys[i],
-			    &tmp)) != 0)
-				fatal("could not demote host %s key: %s",
-				    sshkey_type(sensitive_data.host_keys[i]),
-				    ssh_err(r));
-			sshkey_free(sensitive_data.host_keys[i]);
+ 			if ((r = sshkey_from_private(
+ 			    sensitive_data.host_keys[i], &tmp)) != 0)
+ 				fatal("could not demote host %s key: %s",
+ 				    sshkey_type(sensitive_data.host_keys[i]),
+ 				    ssh_err(r));
+ 			sshkey_free(sensitive_data.host_keys[i]);
  			sensitive_data.host_keys[i] = tmp;
 +			if (fp != NULL) {
 +#ifdef SSH_AUDIT_EVENTS
@@ -2126,7 +2126,7 @@ diff -up openssh-7.6p1/sshd.c.audit openssh-7.6p1/sshd.c
 diff -up openssh-7.6p1/sshkey.c.audit openssh-7.6p1/sshkey.c
 --- openssh-7.6p1/sshkey.c.audit	2017-10-04 17:18:32.758504660 +0200
 +++ openssh-7.6p1/sshkey.c	2017-10-04 17:18:32.839505074 +0200
-@@ -295,6 +295,32 @@ sshkey_type_is_valid_ca(int type)
+@@ -295,6 +295,38 @@ sshkey_type_is_valid_ca(int type)
  }
  
  int
@@ -2135,11 +2135,17 @@ diff -up openssh-7.6p1/sshkey.c.audit openssh-7.6p1/sshkey.c
 +      switch (k->type) {
 +#ifdef WITH_OPENSSL
 +      case KEY_RSA_CERT:
-+      case KEY_RSA:
-+              return k->rsa->d != NULL;
++      case KEY_RSA: {
++              const BIGNUM *d;
++              RSA_get0_key(k->rsa, NULL, NULL, &d);
++              return d != NULL;
++          }
 +      case KEY_DSA_CERT:
-+      case KEY_DSA:
-+              return k->dsa->priv_key != NULL;
++      case KEY_DSA: {
++              const BIGNUM *priv_key;
++              DSA_get0_key(k->dsa, NULL, &priv_key);
++              return priv_key != NULL;
++          }
 +#ifdef OPENSSL_HAS_ECC
 +      case KEY_ECDSA_CERT:
 +      case KEY_ECDSA:

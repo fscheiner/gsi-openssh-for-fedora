@@ -113,7 +113,7 @@ index a5a81ed2..63f877f2 100644
  	if (authctxt->krb5_user) {
  		krb5_free_principal(authctxt->krb5_ctx, authctxt->krb5_user);
  		authctxt->krb5_user = NULL;
-@@ -237,36 +287,186 @@ krb5_cleanup_proc(Authctxt *authctxt)
+@@ -237,36 +287,188 @@ krb5_cleanup_proc(Authctxt *authctxt)
  	}
  }
  
@@ -195,7 +195,7 @@ index a5a81ed2..63f877f2 100644
 +			continue;
 +		} else {
 +			p_o = strchr(p_n, '}') + 1;
-+			p_o = '\0';
++			*p_o = '\0';
 +			debug("%s: unsupported token %s in %s", __func__, p_n, template);
 +			/* unknown token, fallback to the default */
 +			goto cleanup;
@@ -248,7 +248,7 @@ index a5a81ed2..63f877f2 100644
 +	if (need_environment)
 +		*need_environment = 0;
 +	ret = ssh_krb5_get_cctemplate(ctx, &ccname);
-+	if (ret || !ccname || options.kerberos_unique_ticket) {
++	if (ret || !ccname || options.kerberos_unique_ccache) {
 +		/* Otherwise, go with the old method */
 +		if (ccname)
 +			free(ccname);
@@ -307,6 +307,7 @@ index a5a81ed2..63f877f2 100644
 +	if (krb5_cc_support_switch(ctx, type)) {
 +		debug3("%s: calling cc_new_unique(%s)", __func__, ccname);
 +		ret = krb5_cc_new_unique(ctx, type, NULL, ccache);
++		free(type);
 +		if (ret)
 +			return ret;
 +
@@ -317,6 +318,7 @@ index a5a81ed2..63f877f2 100644
 +		 * it is already unique from above or the type does not support
 +		 * collections
 +		 */
++		free(type);
 +		debug3("%s: calling cc_resolve(%s)", __func__, ccname);
 +		return (krb5_cc_resolve(ctx, ccname, ccache));
 +	}
@@ -492,7 +494,7 @@ index cb578658..a6e01df2 100644
  	options->kerberos_or_local_passwd = -1;
  	options->kerberos_ticket_cleanup = -1;
  	options->kerberos_get_afs_token = -1;
-+	options->kerberos_unique_ticket = -1;
++	options->kerberos_unique_ccache = -1;
  	options->gss_authentication=-1;
  	options->gss_keyex = -1;
  	options->gss_cleanup_creds = -1;
@@ -500,8 +502,8 @@ index cb578658..a6e01df2 100644
  		options->kerberos_ticket_cleanup = 1;
  	if (options->kerberos_get_afs_token == -1)
  		options->kerberos_get_afs_token = 0;
-+	if (options->kerberos_unique_ticket == -1)
-+		options->kerberos_unique_ticket = 0;
++	if (options->kerberos_unique_ccache == -1)
++		options->kerberos_unique_ccache = 0;
  	if (options->gss_authentication == -1)
  		options->gss_authentication = 0;
  	if (options->gss_keyex == -1)
@@ -510,7 +512,7 @@ index cb578658..a6e01df2 100644
  	sRhostsRSAAuthentication, sRSAAuthentication,
  	sKerberosAuthentication, sKerberosOrLocalPasswd, sKerberosTicketCleanup,
 -	sKerberosGetAFSToken, sChallengeResponseAuthentication,
-+	sKerberosGetAFSToken, sKerberosUniqueTicket,
++	sKerberosGetAFSToken, sKerberosUniqueCCache,
 +	sChallengeResponseAuthentication,
  	sPasswordAuthentication, sKbdInteractiveAuthentication,
  	sListenAddress, sAddressFamily,
@@ -519,13 +521,13 @@ index cb578658..a6e01df2 100644
  #else
  	{ "kerberosgetafstoken", sUnsupported, SSHCFG_GLOBAL },
  #endif
-+	{ "kerberosuniqueticket", sKerberosUniqueTicket, SSHCFG_GLOBAL },
++	{ "kerberosuniqueccache", sKerberosUniqueCCache, SSHCFG_GLOBAL },
  #else
  	{ "kerberosauthentication", sUnsupported, SSHCFG_ALL },
  	{ "kerberosorlocalpasswd", sUnsupported, SSHCFG_GLOBAL },
  	{ "kerberosticketcleanup", sUnsupported, SSHCFG_GLOBAL },
  	{ "kerberosgetafstoken", sUnsupported, SSHCFG_GLOBAL },
-+	{ "kerberosuniqueticket", sUnsupported, SSHCFG_GLOBAL },
++	{ "kerberosuniqueccache", sUnsupported, SSHCFG_GLOBAL },
  #endif
  	{ "kerberostgtpassing", sUnsupported, SSHCFG_GLOBAL },
  	{ "afstokenpassing", sUnsupported, SSHCFG_GLOBAL },
@@ -533,8 +535,8 @@ index cb578658..a6e01df2 100644
  		intptr = &options->kerberos_get_afs_token;
  		goto parse_flag;
  
-+	case sKerberosUniqueTicket:
-+		intptr = &options->kerberos_unique_ticket;
++	case sKerberosUniqueCCache:
++		intptr = &options->kerberos_unique_ccache;
 +		goto parse_flag;
 +
  	case sGssAuthentication:
@@ -544,7 +546,7 @@ index cb578658..a6e01df2 100644
  # ifdef USE_AFS
  	dump_cfg_fmtint(sKerberosGetAFSToken, o->kerberos_get_afs_token);
  # endif
-+	dump_cfg_fmtint(sKerberosUniqueTicket, o->kerberos_unique_ticket);
++	dump_cfg_fmtint(sKerberosUniqueCCache, o->kerberos_unique_ccache);
  #endif
  #ifdef GSSAPI
  	dump_cfg_fmtint(sGssAuthentication, o->gss_authentication);
@@ -556,7 +558,7 @@ index db8362c6..4fa42d64 100644
  						 * file on logout. */
  	int     kerberos_get_afs_token;		/* If true, try to get AFS token if
  						 * authenticated with Kerberos. */
-+	int     kerberos_unique_ticket;		/* If true, the aquired ticket will
++	int     kerberos_unique_ccache;		/* If true, the acquired ticket will
 +						 * be stored in per-session ccache */
  	int     gss_authentication;	/* If true, permit GSSAPI authentication */
  	int     gss_keyex;		/* If true, permit GSSAPI key exchange */
@@ -631,16 +633,18 @@ diff --git a/sshd_config.5 b/sshd_config.5
 index c0683d4a..2349f477 100644
 --- a/sshd_config.5
 +++ b/sshd_config.5
-@@ -860,6 +860,12 @@ Specifies whether to automatically destroy the user's ticket cache
+@@ -860,6 +860,14 @@ Specifies whether to automatically destroy the user's ticket cache
  file on logout.
  The default is
  .Cm yes .
-+.It Cm KerberosUniqueTicket
-+Specifies whether to store the aquired tickets in the per-session credential
-+cache or whether to use per-user credential cache, which might overwrite
-+tickets aquired in different sessions of the same user.
-+The default is
-+.Cm no .
++.It Cm KerberosUniqueCCache
++Specifies whether to store the acquired tickets in the per-session credential
++cache under /tmp/ or whether to use per-user credential cache as configured in
++.Pa /etc/krb5.conf .
++The default value
++.Cm no
++can lead to overwriting previous tickets by subseqent connections to the same
++user account.
  .It Cm KexAlgorithms
  Specifies the available KEX (Key Exchange) algorithms.
  Multiple algorithms must be comma-separated.

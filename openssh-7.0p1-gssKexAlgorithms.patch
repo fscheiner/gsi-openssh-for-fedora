@@ -29,14 +29,14 @@ diff -up openssh-7.0p1/gss-genr.c.gsskexalg openssh-7.0p1/gss-genr.c
 @@ -100,6 +101,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
  	char deroid[2];
  	const EVP_MD *evp_md = EVP_md5();
- 	EVP_MD_CTX md;
+ 	EVP_MD_CTX *md;
 +	char *s, *cp, *p;
  
  	if (gss_enc2oid != NULL) {
  		for (i = 0; gss_enc2oid[i].encoded != NULL; i++)
 @@ -113,6 +115,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
- 		fatal("%s: sshbuf_new failed", __func__);
  
+ 	md = EVP_MD_CTX_new();
  	oidpos = 0;
 +	s = cp = xstrdup(kex);
  	for (i = 0; i < gss_supported->count; i++) {
@@ -81,9 +81,9 @@ diff -up openssh-7.0p1/gss-genr.c.gsskexalg openssh-7.0p1/gss-genr.c
  		}
  	}
 +	free(s);
+ 	EVP_MD_CTX_free(md);
  	gss_enc2oid[oidpos].oid = NULL;
  	gss_enc2oid[oidpos].encoded = NULL;
- 
 diff -up openssh-7.0p1/gss-serv.c.gsskexalg openssh-7.0p1/gss-serv.c
 --- openssh-7.0p1/gss-serv.c.gsskexalg	2015-08-19 12:28:38.024518959 +0200
 +++ openssh-7.0p1/gss-serv.c	2015-08-19 12:28:38.078518839 +0200

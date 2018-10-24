@@ -1,6 +1,6 @@
-diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11-client.c
---- openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa	2018-02-16 13:25:59.426469253 +0100
-+++ openssh-7.6p1/ssh-pkcs11-client.c	2018-02-16 13:25:59.428469265 +0100
+diff -up openssh/ssh-pkcs11-client.c.pkcs11-ecdsa openssh/ssh-pkcs11-client.c
+--- openssh/ssh-pkcs11-client.c.pkcs11-ecdsa	2018-10-12 14:05:55.020656974 +0200
++++ openssh/ssh-pkcs11-client.c	2018-10-12 14:05:55.023656999 +0200
 @@ -31,6 +31,15 @@
  #include <errno.h>
  
@@ -15,9 +15,9 @@ diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
 +#endif
 +#endif
  
- #include "pathnames.h"
- #include "xmalloc.h"
-@@ -139,9 +147,9 @@ pkcs11_rsa_private_encrypt(int flen, con
+ #include "openbsd-compat/openssl-compat.h"
+ 
+@@ -155,9 +164,9 @@ pkcs11_rsa_private_encrypt(int flen, con
  	return (ret);
  }
  
@@ -27,9 +27,9 @@ diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
 -wrap_key(RSA *rsa)
 +wrap_rsa_key(RSA *rsa)
  {
- 	static RSA_METHOD helper_rsa;
+ 	static RSA_METHOD *helper_rsa;
  
-@@ -152,6 +160,88 @@ wrap_key(RSA *rsa)
+@@ -170,6 +179,88 @@ wrap_key(RSA *rsa)
  	return (0);
  }
  
@@ -118,7 +118,7 @@ diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
  static int
  pkcs11_start_helper(void)
  {
-@@ -212,7 +281,15 @@ pkcs11_add_provider(char *name, char *pi
+@@ -238,7 +329,15 @@ pkcs11_add_provider(char *name, char *pi
  				    __func__, ssh_err(r));
  			if ((r = sshkey_from_blob(blob, blen, &k)) != 0)
  				fatal("%s: bad key: %s", __func__, ssh_err(r));
@@ -135,11 +135,11 @@ diff -up openssh-7.6p1/ssh-pkcs11-client.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
  			(*keysp)[i] = k;
  			free(blob);
  		}
-diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
---- openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa	2018-02-16 13:25:59.427469259 +0100
-+++ openssh-7.6p1/ssh-pkcs11.c	2018-02-16 13:44:51.270554797 +0100
-@@ -32,6 +32,16 @@
- #include "openbsd-compat/sys-queue.h"
+diff -up openssh/ssh-pkcs11.c.pkcs11-ecdsa openssh/ssh-pkcs11.c
+--- openssh/ssh-pkcs11.c.pkcs11-ecdsa	2018-10-12 14:05:55.021656982 +0200
++++ openssh/ssh-pkcs11.c	2018-10-12 14:11:54.292636679 +0200
+@@ -33,6 +33,16 @@
+ #include "openbsd-compat/openssl-compat.h"
  
  #include <openssl/x509.h>
 +#include <openssl/rsa.h>
@@ -155,15 +155,15 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  
  #define CRYPTOKI_COMPAT
  #include "pkcs11.h"
-@@ -67,6 +76,7 @@ TAILQ_HEAD(, pkcs11_provider) pkcs11_pro
+@@ -74,6 +84,7 @@ TAILQ_HEAD(, pkcs11_provider) pkcs11_pro
  struct pkcs11_key {
  	struct pkcs11_provider	*provider;
  	CK_ULONG		slotidx;
 +	CK_ULONG		key_type;
  	int			(*orig_finish)(RSA *rsa);
- 	RSA_METHOD		rsa_method;
+ 	RSA_METHOD		*rsa_method;
  	char			*keyid;
-@@ -75,6 +85,9 @@ struct pkcs11_key {
+@@ -82,6 +93,9 @@ struct pkcs11_key {
  };
  
  int pkcs11_interactive = 0;
@@ -173,7 +173,7 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  
  /*
   * This can't be in the ssh-pkcs11-uri, becase we can not depend on
-@@ -289,6 +302,40 @@ pkcs11_find(struct pkcs11_provider *p, C
+@@ -345,6 +359,40 @@ pkcs11_find(struct pkcs11_provider *p, C
  	return (ret);
  }
  
@@ -214,7 +214,7 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  /* openssl callback doing the actual signing operation */
  static int
  pkcs11_rsa_private_encrypt(int flen, const u_char *from, u_char *to, RSA *rsa,
-@@ -310,7 +357,6 @@ pkcs11_rsa_private_encrypt(int flen, con
+@@ -366,7 +414,6 @@ pkcs11_rsa_private_encrypt(int flen, con
  		{CKA_ID, NULL, 0},
  		{CKA_SIGN, NULL, sizeof(true_val) }
  	};
@@ -222,7 +222,7 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  	int			rval = -1;
  
  	key_filter[0].pValue = &private_key_class;
-@@ -326,33 +372,8 @@ pkcs11_rsa_private_encrypt(int flen, con
+@@ -383,33 +430,8 @@ pkcs11_rsa_private_encrypt(int flen, con
  	}
  	f = k11->provider->module->function_list;
  	si = &k11->provider->module->slotinfo[k11->slotidx];
@@ -258,7 +258,7 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  	}
  	key_filter[1].pValue = k11->keyid;
  	key_filter[1].ulValueLen = k11->keyid_len;
-@@ -390,6 +411,7 @@ pkcs11_rsa_wrap(struct pkcs11_provider *
+@@ -447,6 +469,7 @@ pkcs11_rsa_wrap(struct pkcs11_provider *
  	const RSA_METHOD	*def = RSA_get_default_method();
  
  	k11 = xcalloc(1, sizeof(*k11));
@@ -266,7 +266,7 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  	k11->provider = provider;
  	provider->refcount++;	/* provider referenced by RSA key */
  	k11->slotidx = slotidx;
-@@ -415,6 +437,184 @@ pkcs11_rsa_wrap(struct pkcs11_provider *
+@@ -477,6 +500,184 @@ pkcs11_rsa_wrap(struct pkcs11_provider *
  	return (0);
  }
  
@@ -451,7 +451,7 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  /* remove trailing spaces */
  static void
  rmspace(u_char *buf, size_t len)
-@@ -482,11 +646,13 @@ static int
+@@ -544,11 +745,13 @@ static int
  pkcs11_fetch_keys(struct pkcs11_provider *p, CK_ULONG slotidx,
      struct sshkey ***keysp, int *nkeys, struct pkcs11_uri *uri)
  {
@@ -466,7 +466,7 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  		{ CKA_ID, NULL, 0 },
  		{ CKA_LABEL, NULL, 0 }
  	};
-@@ -507,29 +673,60 @@ pkcs11_fetch_keys(struct pkcs11_provider
+@@ -569,29 +772,60 @@ pkcs11_fetch_keys(struct pkcs11_provider
  		{ CKA_SUBJECT, NULL, 0 },
  		{ CKA_VALUE, NULL, 0 }
  	};
@@ -533,9 +533,12 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  	    cert_attribs, keysp, nkeys) < 0)
  		return (-1);
  	return (0);
-@@ -553,6 +746,11 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+@@ -624,8 +858,13 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+     CK_ATTRIBUTE filter[], size_t filter_size, CK_ATTRIBUTE attribs[4],
+     struct sshkey ***keysp, int *nkeys)
  {
- 	struct sshkey		*key;
+-	struct sshkey		*key;
++	struct sshkey		*key = NULL;
  	RSA			*rsa;
 +#ifdef ENABLE_PKCS11_ECDSA
 +	EC_KEY			*ecdsa;
@@ -545,7 +548,7 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  	X509 			*x509;
  	EVP_PKEY		*evp = NULL;
  	int			i;
-@@ -608,6 +806,9 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+@@ -678,6 +917,9 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
  		 * or ID, label, subject and value for certificates.
  		 */
  		rsa = NULL;
@@ -555,9 +558,9 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  		if ((rv = f->C_GetAttributeValue(session, obj, attribs, nattribs))
  		    != CKR_OK) {
  			error("C_GetAttributeValue failed: %lu", rv);
-@@ -620,6 +821,45 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
- 				rsa->e = BN_bin2bn(attribs[3].pValue,
- 				    attribs[3].ulValueLen, NULL);
+@@ -700,6 +942,45 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+ 				BN_free(rsa_n);
+ 				BN_free(rsa_e);
  			}
 +#ifdef ENABLE_PKCS11_ECDSA
 +		} else if (attribs[2].type == CKA_EC_PARAMS ) {
@@ -601,43 +604,61 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  		} else {
  			cp = attribs[3].pValue;
  			if ((x509 = X509_new()) == NULL) {
-@@ -639,13 +879,28 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+@@ -707,13 +988,28 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+ 			} else if (d2i_X509(&x509, &cp, attribs[3].ulValueLen)
+ 			    == NULL) {
+ 				error("d2i_X509 failed");
+-			} else if ((evp = X509_get_pubkey(x509)) == NULL ||
+-			    EVP_PKEY_base_id(evp) != EVP_PKEY_RSA ||
+-			    EVP_PKEY_get0_RSA(evp) == NULL) {
+-				debug("X509_get_pubkey failed or no rsa");
+-			} else if ((rsa = RSAPublicKey_dup(
+-			    EVP_PKEY_get0_RSA(evp))) == NULL) {
+-				error("RSAPublicKey_dup");
++			} else if ((evp = X509_get_pubkey(x509)) == NULL) {
++				debug("X509_get_pubkey failed");
++			} else {
++				switch (EVP_PKEY_base_id(evp)) {
++				case EVP_PKEY_RSA:
++					if (EVP_PKEY_get0_RSA(evp) == NULL)
++						debug("Missing RSA key");
++					else if ((rsa = RSAPublicKey_dup(
++					    EVP_PKEY_get0_RSA(evp))) == NULL)
++						error("RSAPublicKey_dup failed");
++					break;
++				case EVP_PKEY_EC:
++					if (EVP_PKEY_get0_EC_KEY(evp) == NULL)
++						debug("Missing ECDSA key");
++					else if ((ecdsa = EC_KEY_dup(
++					    EVP_PKEY_get0_EC_KEY(evp))) == NULL)
++						error("EC_KEY_dup failed");
++					break;
++				default:
++					debug("not a RSA or ECDSA key");
++					break;
++				}
+ 			}
  			X509_free(x509);
  			EVP_PKEY_free(evp);
- 		}
--		if (rsa && rsa->n && rsa->e &&
--		    pkcs11_rsa_wrap(p, slotidx, &attribs[0], &attribs[1], rsa) == 0) {
--			if ((key = sshkey_new(KEY_UNSPEC)) == NULL)
--				fatal("sshkey_new failed");
--			key->rsa = rsa;
--			key->type = KEY_RSA;
--			key->flags |= SSHKEY_FLAG_EXT;
-+		key = NULL;
-+		if (rsa || ecdsa) {
-+			if (rsa && rsa->n && rsa->e &&
-+			    pkcs11_rsa_wrap(p, slotidx, &attribs[0], &attribs[1], rsa) == 0) {
-+				if ((key = sshkey_new(KEY_UNSPEC)) == NULL)
-+					fatal("sshkey_new failed");
-+				key->rsa = rsa;
-+				key->type = KEY_RSA;
-+				key->flags |= SSHKEY_FLAG_EXT;
+@@ -725,6 +1021,17 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+ 			key->rsa = rsa;
+ 			key->type = KEY_RSA;
+ 			key->flags |= SSHKEY_FLAG_EXT;
 +#ifdef ENABLE_PKCS11_ECDSA
-+			} else if(ecdsa && pkcs11_ecdsa_wrap(p, slotidx, &attribs[0], &attribs[1], ecdsa) == 0) {
-+				if ((key = sshkey_new(KEY_UNSPEC)) == NULL)
-+					fatal("sshkey_new failed");
-+				key->ecdsa = ecdsa;
-+				key->ecdsa_nid = sshkey_ecdsa_key_to_nid(ecdsa);
-+				key->type = KEY_ECDSA;
-+				key->flags |= SSHKEY_FLAG_EXT;
++		} else if (ecdsa &&
++		    pkcs11_ecdsa_wrap(p, slotidx, &attribs[0], &attribs[1], ecdsa) == 0) {
++			if ((key = sshkey_new(KEY_UNSPEC)) == NULL)
++				fatal("sshkey_new failed");
++			key->ecdsa = ecdsa;
++			key->type = KEY_ECDSA;
++			key->flags |= SSHKEY_FLAG_EXT;
 +#endif /* ENABLE_PKCS11_ECDSA */
-+			}
 +		}
-+
-+		if(key) {
++		if (key) {
  			if (pkcs11_key_included(keysp, nkeys, key)) {
  				sshkey_free(key);
  			} else {
-@@ -658,6 +913,10 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+@@ -737,6 +1044,10 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
  			}
  		} else if (rsa) {
  			RSA_free(rsa);
@@ -648,9 +669,9 @@ diff -up openssh-7.6p1/ssh-pkcs11.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.c
  		}
  		for (i = 0; i < nattribs; i++)
  			free(attribs[i].pValue);
-diff -up openssh-7.6p1/ssh-pkcs11-helper.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11-helper.c
---- openssh-7.6p1/ssh-pkcs11-helper.c.pkcs11-ecdsa	2017-10-02 21:34:26.000000000 +0200
-+++ openssh-7.6p1/ssh-pkcs11-helper.c	2018-02-16 13:25:59.428469265 +0100
+diff -up openssh/ssh-pkcs11-helper.c.pkcs11-ecdsa openssh/ssh-pkcs11-helper.c
+--- openssh/ssh-pkcs11-helper.c.pkcs11-ecdsa	2018-10-11 02:56:36.000000000 +0200
++++ openssh/ssh-pkcs11-helper.c	2018-10-12 14:05:55.023656999 +0200
 @@ -24,6 +24,17 @@
  
  #include "openbsd-compat/sys-queue.h"
@@ -669,7 +690,7 @@ diff -up openssh-7.6p1/ssh-pkcs11-helper.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
  #include <stdarg.h>
  #include <string.h>
  #include <unistd.h>
-@@ -80,7 +90,7 @@ del_keys_by_name(char *name)
+@@ -77,7 +88,7 @@ del_keys_by_name(char *name)
  		if (!strcmp(ki->providername, name)) {
  			TAILQ_REMOVE(&pkcs11_keylist, ki, next);
  			free(ki->providername);
@@ -678,7 +699,7 @@ diff -up openssh-7.6p1/ssh-pkcs11-helper.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
  			free(ki);
  		}
  	}
-@@ -164,6 +174,20 @@ process_del(void)
+@@ -172,6 +183,20 @@ process_del(void)
  	sshbuf_free(msg);
  }
  
@@ -699,7 +720,7 @@ diff -up openssh-7.6p1/ssh-pkcs11-helper.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
  static void
  process_sign(void)
  {
-@@ -180,14 +204,38 @@ process_sign(void)
+@@ -192,14 +217,38 @@ process_sign(void)
  	else {
  		if ((found = lookup_key(key)) != NULL) {
  #ifdef WITH_OPENSSL
@@ -746,9 +767,9 @@ diff -up openssh-7.6p1/ssh-pkcs11-helper.c.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11
  			}
  #endif /* WITH_OPENSSL */
  		}
-diff -up openssh-7.6p1/ssh-pkcs11.h.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.h
---- openssh-7.6p1/ssh-pkcs11.h.pkcs11-ecdsa	2018-02-16 13:25:59.429469272 +0100
-+++ openssh-7.6p1/ssh-pkcs11.h	2018-02-16 13:45:29.623800048 +0100
+diff -up openssh/ssh-pkcs11.h.pkcs11-ecdsa openssh/ssh-pkcs11.h
+--- openssh/ssh-pkcs11.h.pkcs11-ecdsa	2018-10-12 14:05:55.021656982 +0200
++++ openssh/ssh-pkcs11.h	2018-10-12 14:05:55.023656999 +0200
 @@ -20,6 +20,7 @@
  int	pkcs11_init(int);
  void	pkcs11_terminate(void);
@@ -757,45 +778,3 @@ diff -up openssh-7.6p1/ssh-pkcs11.h.pkcs11-ecdsa openssh-7.6p1/ssh-pkcs11.h
  int	pkcs11_add_provider_by_uri(struct pkcs11_uri *, char *, struct sshkey ***);
  int	pkcs11_del_provider(char *);
  int	pkcs11_uri_write(const struct sshkey *, FILE *);
-
-
-
-diff -up openssh-7.6p1/ssh-pkcs11.c.old openssh-7.6p1/ssh-pkcs11.c
---- openssh-7.6p1/ssh-pkcs11.c.old	2018-02-16 16:43:08.861520255 +0100
-+++ openssh-7.6p1/ssh-pkcs11.c	2018-02-16 16:56:35.312601451 +0100
-@@ -917,13 +917,28 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
- 			} else if (d2i_X509(&x509, &cp, attribs[3].ulValueLen)
- 			    == NULL) {
- 				error("d2i_X509 failed");
--			} else if ((evp = X509_get_pubkey(x509)) == NULL ||
--			    evp->type != EVP_PKEY_RSA ||
--			    evp->pkey.rsa == NULL) {
--				debug("X509_get_pubkey failed or no rsa");
--			} else if ((rsa = RSAPublicKey_dup(evp->pkey.rsa))
--			    == NULL) {
--				error("RSAPublicKey_dup");
-+			} else if ((evp = X509_get_pubkey(x509)) == NULL) {
-+				debug("X509_get_pubkey failed");
-+			} else {
-+				switch (evp->type) {
-+				case EVP_PKEY_RSA:
-+					if (evp->pkey.rsa == NULL)
-+						debug("Missing RSA key");
-+					else if ((rsa = RSAPublicKey_dup(
-+					    evp->pkey.rsa)) == NULL)
-+						error("RSAPublicKey_dup failed");
-+					break;
-+				case EVP_PKEY_EC:
-+					if (evp->pkey.ecdsa == NULL)
-+						debug("Missing ECDSA key");
-+					else if ((ecdsa = EC_KEY_dup(
-+					    evp->pkey.ecdsa)) == NULL)
-+						error("EC_KEY_dup failed");
-+					break;
-+				default:
-+					debug("not a RSA or ECDSA key");
-+					break;
-+				}
- 			}
- 			X509_free(x509);
- 			EVP_PKEY_free(evp);

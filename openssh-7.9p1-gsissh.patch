@@ -1,6 +1,6 @@
-diff -Nur openssh-7.8p1.orig/auth2.c openssh-7.8p1/auth2.c
---- openssh-7.8p1.orig/auth2.c	2018-10-24 14:09:16.619775688 +0200
-+++ openssh-7.8p1/auth2.c	2018-10-24 14:09:54.219377927 +0200
+diff -Nur openssh-7.9p1.orig/auth2.c openssh-7.9p1/auth2.c
+--- openssh-7.9p1.orig/auth2.c	2018-10-23 23:08:05.762762297 +0200
++++ openssh-7.9p1/auth2.c	2018-10-23 23:09:11.656055302 +0200
 @@ -270,7 +270,27 @@
  	user = packet_get_cstring(NULL);
  	service = packet_get_cstring(NULL);
@@ -99,9 +99,9 @@ diff -Nur openssh-7.8p1.orig/auth2.c openssh-7.8p1/auth2.c
  		    "(%s,%s) -> (%s,%s)",
  		    authctxt->user, authctxt->service, user, service);
  	}
-diff -Nur openssh-7.8p1.orig/auth2-gss.c openssh-7.8p1/auth2-gss.c
---- openssh-7.8p1.orig/auth2-gss.c	2018-10-24 14:09:16.410777899 +0200
-+++ openssh-7.8p1/auth2-gss.c	2018-10-24 17:39:13.477216029 +0200
+diff -Nur openssh-7.9p1.orig/auth2-gss.c openssh-7.9p1/auth2-gss.c
+--- openssh-7.9p1.orig/auth2-gss.c	2018-10-23 23:08:05.758762340 +0200
++++ openssh-7.9p1/auth2-gss.c	2018-10-24 17:39:01.494342784 +0200
 @@ -50,6 +50,7 @@
  
  extern ServerOptions options;
@@ -136,14 +136,14 @@ diff -Nur openssh-7.8p1.orig/auth2-gss.c openssh-7.8p1/auth2-gss.c
  	if (!GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gss_kex_context, 
 -	    &gssbuf, &mic))))
 -		authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
--		    authctxt->pw));
+-		    authctxt->pw, 1));
 +	    &gssbuf, &mic))) ||
 +	    !GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gss_kex_context, 
 +	    &gssbuf2, &mic)))) {
 +		if (authctxt->valid && authctxt->user && authctxt->user[0]) {
 +			authenticated =
 +			    PRIVSEP(ssh_gssapi_userok(authctxt->user,
-+			    authctxt->pw, 1 /* gssapi-keyex */));
++			    authctxt->pw, 1));
 +		}
 +	}
  	
@@ -234,11 +234,11 @@ diff -Nur openssh-7.8p1.orig/auth2-gss.c openssh-7.8p1/auth2-gss.c
  		fatal("%s: %s", __func__, ssh_err(r));
  
 -	authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
--	    authctxt->pw));
+-	    authctxt->pw, 1));
 +	/* user should be set if valid but we double-check here */
 +	if (authctxt->valid && authctxt->user && authctxt->user[0]) {
 +		authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
-+		    authctxt->pw, 1 /* gssapi-keyex */));
++		    authctxt->pw, 1));
 +	}
  
  	if ((!use_privsep || mm_is_monitor()) &&
@@ -249,7 +249,7 @@ diff -Nur openssh-7.8p1.orig/auth2-gss.c openssh-7.8p1/auth2-gss.c
  
 -	if (!GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gssctxt, &gssbuf, &mic))))
 -		authenticated = 
--		    PRIVSEP(ssh_gssapi_userok(authctxt->user, authctxt->pw));
+-		    PRIVSEP(ssh_gssapi_userok(authctxt->user, authctxt->pw, 0));
 -	else
 +	gssapi_set_username(authctxt);
 +
@@ -257,7 +257,7 @@ diff -Nur openssh-7.8p1.orig/auth2-gss.c openssh-7.8p1/auth2-gss.c
 +		if (authctxt->valid && authctxt->user && authctxt->user[0]) {
 +			authenticated =
 +			    PRIVSEP(ssh_gssapi_userok(authctxt->user,
-+			    authctxt->pw, 0 /* !gssapi-keyex */));
++			    authctxt->pw, 0));
 +		}
 +	} else {
  		logit("GSSAPI MIC check failed");
@@ -289,9 +289,9 @@ diff -Nur openssh-7.8p1.orig/auth2-gss.c openssh-7.8p1/auth2-gss.c
  Authmethod method_gsskeyex = {
  	"gssapi-keyex",
  	userauth_gsskeyex,
-diff -Nur openssh-7.8p1.orig/auth.c openssh-7.8p1/auth.c
---- openssh-7.8p1.orig/auth.c	2018-10-24 14:09:16.621775667 +0200
-+++ openssh-7.8p1/auth.c	2018-10-24 14:09:54.220377916 +0200
+diff -Nur openssh-7.9p1.orig/auth.c openssh-7.9p1/auth.c
+--- openssh-7.9p1.orig/auth.c	2018-10-23 23:08:05.763762286 +0200
++++ openssh-7.9p1/auth.c	2018-10-23 23:09:11.658055281 +0200
 @@ -76,6 +76,9 @@
  #include "compat.h"
  #include "channels.h"
@@ -302,7 +302,7 @@ diff -Nur openssh-7.8p1.orig/auth.c openssh-7.8p1/auth.c
  /* import */
  extern ServerOptions options;
  extern int use_privsep;
-@@ -339,7 +342,8 @@
+@@ -343,7 +346,8 @@
  	    method,
  	    submethod != NULL ? "/" : "", submethod == NULL ? "" : submethod,
  	    authctxt->valid ? "" : "invalid user ",
@@ -312,7 +312,7 @@ diff -Nur openssh-7.8p1.orig/auth.c openssh-7.8p1/auth.c
  	    ssh_remote_ipaddr(ssh),
  	    ssh_remote_port(ssh),
  	    extra != NULL ? ": " : "",
-@@ -365,6 +369,23 @@
+@@ -369,6 +373,23 @@
  	if (authenticated == 0 && !authctxt->postponed && !partial)
  		audit_event(audit_classify_auth(method));
  #endif
@@ -336,7 +336,7 @@ diff -Nur openssh-7.8p1.orig/auth.c openssh-7.8p1/auth.c
  }
  
  
-@@ -577,6 +598,10 @@
+@@ -581,6 +602,10 @@
  #endif
  
  	pw = getpwnam(user);
@@ -347,7 +347,7 @@ diff -Nur openssh-7.8p1.orig/auth.c openssh-7.8p1/auth.c
  
  #if defined(_AIX) && defined(HAVE_SETAUTHDB)
  	aix_restoreauthdb();
-@@ -596,7 +621,8 @@
+@@ -600,7 +625,8 @@
  #endif
  	if (pw == NULL) {
  		logit("Invalid user %.100s from %.100s port %d",
@@ -357,9 +357,9 @@ diff -Nur openssh-7.8p1.orig/auth.c openssh-7.8p1/auth.c
  #ifdef CUSTOM_FAILED_LOGIN
  		record_failed_login(user,
  		    auth_get_canonical_hostname(ssh, options.use_dns), "ssh");
-diff -Nur openssh-7.8p1.orig/auth.h openssh-7.8p1/auth.h
---- openssh-7.8p1.orig/auth.h	2018-10-24 14:09:16.622775656 +0200
-+++ openssh-7.8p1/auth.h	2018-10-24 14:09:54.220377916 +0200
+diff -Nur openssh-7.9p1.orig/auth.h openssh-7.9p1/auth.h
+--- openssh-7.9p1.orig/auth.h	2018-10-23 23:08:05.763762286 +0200
++++ openssh-7.9p1/auth.h	2018-10-23 23:09:11.658055281 +0200
 @@ -85,6 +85,8 @@
  	krb5_principal	 krb5_user;
  	char		*krb5_ticket_file;
@@ -369,9 +369,9 @@ diff -Nur openssh-7.8p1.orig/auth.h openssh-7.8p1/auth.h
  	int		 krb5_set_env;
  #endif
  	struct sshbuf	*loginmsg;
-diff -Nur openssh-7.8p1.orig/auth-pam.c openssh-7.8p1/auth-pam.c
---- openssh-7.8p1.orig/auth-pam.c	2018-10-24 14:09:16.677775074 +0200
-+++ openssh-7.8p1/auth-pam.c	2018-10-24 14:09:54.221377906 +0200
+diff -Nur openssh-7.9p1.orig/auth-pam.c openssh-7.9p1/auth-pam.c
+--- openssh-7.9p1.orig/auth-pam.c	2018-10-23 23:08:05.624763778 +0200
++++ openssh-7.9p1/auth-pam.c	2018-10-23 23:09:11.659055270 +0200
 @@ -288,6 +288,55 @@
  # define pam_chauthtok(a,b)	(sshpam_chauthtok_ruid((a), (b)))
  #endif
@@ -514,9 +514,9 @@ diff -Nur openssh-7.8p1.orig/auth-pam.c openssh-7.8p1/auth-pam.c
  	sshpam_password = NULL;
  	free(fake);
  	if (sshpam_err == PAM_MAXTRIES)
-diff -Nur openssh-7.8p1.orig/auth-pam.h openssh-7.8p1/auth-pam.h
---- openssh-7.8p1.orig/auth-pam.h	2018-10-24 14:09:16.320778851 +0200
-+++ openssh-7.8p1/auth-pam.h	2018-10-24 14:09:54.221377906 +0200
+diff -Nur openssh-7.9p1.orig/auth-pam.h openssh-7.9p1/auth-pam.h
+--- openssh-7.9p1.orig/auth-pam.h	2018-10-23 23:08:05.625763767 +0200
++++ openssh-7.9p1/auth-pam.h	2018-10-23 23:09:11.659055270 +0200
 @@ -43,5 +43,6 @@
  int sshpam_get_maxtries_reached(void);
  void sshpam_set_maxtries_reached(int);
@@ -524,9 +524,9 @@ diff -Nur openssh-7.8p1.orig/auth-pam.h openssh-7.8p1/auth-pam.h
 +struct passwd *sshpam_getpw(const char *);
  
  #endif /* USE_PAM */
-diff -Nur openssh-7.8p1.orig/canohost.c openssh-7.8p1/canohost.c
---- openssh-7.8p1.orig/canohost.c	2018-08-23 07:41:42.000000000 +0200
-+++ openssh-7.8p1/canohost.c	2018-10-24 14:09:54.221377906 +0200
+diff -Nur openssh-7.9p1.orig/canohost.c openssh-7.9p1/canohost.c
+--- openssh-7.9p1.orig/canohost.c	2018-10-17 02:01:20.000000000 +0200
++++ openssh-7.9p1/canohost.c	2018-10-23 23:09:11.660055260 +0200
 @@ -17,6 +17,7 @@
  #include <sys/types.h>
  #include <sys/socket.h>
@@ -569,9 +569,9 @@ diff -Nur openssh-7.8p1.orig/canohost.c openssh-7.8p1/canohost.c
 +		}
 +	}
 +}
-diff -Nur openssh-7.8p1.orig/canohost.h openssh-7.8p1/canohost.h
---- openssh-7.8p1.orig/canohost.h	2018-08-23 07:41:42.000000000 +0200
-+++ openssh-7.8p1/canohost.h	2018-10-24 14:09:54.221377906 +0200
+diff -Nur openssh-7.9p1.orig/canohost.h openssh-7.9p1/canohost.h
+--- openssh-7.9p1.orig/canohost.h	2018-10-17 02:01:20.000000000 +0200
++++ openssh-7.9p1/canohost.h	2018-10-23 23:09:11.660055260 +0200
 @@ -23,4 +23,6 @@
  
  #endif /* _CANOHOST_H */
@@ -579,10 +579,10 @@ diff -Nur openssh-7.8p1.orig/canohost.h openssh-7.8p1/canohost.h
 +void		 resolve_localhost(char **host);
 +
  void		 ipv64_normalise_mapped(struct sockaddr_storage *, socklen_t *);
-diff -Nur openssh-7.8p1.orig/configure.ac openssh-7.8p1/configure.ac
---- openssh-7.8p1.orig/configure.ac	2018-10-24 14:09:16.709774736 +0200
-+++ openssh-7.8p1/configure.ac	2018-10-24 14:09:54.223377885 +0200
-@@ -4504,6 +4504,14 @@
+diff -Nur openssh-7.9p1.orig/configure.ac openssh-7.9p1/configure.ac
+--- openssh-7.9p1.orig/configure.ac	2018-10-23 23:08:05.747762458 +0200
++++ openssh-7.9p1/configure.ac	2018-10-23 23:09:11.661055249 +0200
+@@ -4631,6 +4631,14 @@
  			AC_CHECK_HEADER([gssapi_krb5.h], ,
  					[ CPPFLAGS="$oldCPP" ])
  
@@ -597,7 +597,7 @@ diff -Nur openssh-7.8p1.orig/configure.ac openssh-7.8p1/configure.ac
  		fi
  		if test ! -z "$need_dash_r" ; then
  			LDFLAGS="$LDFLAGS -R${KRB5ROOT}/lib"
-@@ -4543,6 +4551,50 @@
+@@ -4670,6 +4678,50 @@
  AC_SUBST([GSSLIBS])
  AC_SUBST([K5LIBS])
  
@@ -648,9 +648,9 @@ diff -Nur openssh-7.8p1.orig/configure.ac openssh-7.8p1/configure.ac
  # Check whether user wants systemd support
  SYSTEMD_MSG="no"
  AC_ARG_WITH(systemd,
-diff -Nur openssh-7.8p1.orig/gss-genr.c openssh-7.8p1/gss-genr.c
---- openssh-7.8p1.orig/gss-genr.c	2018-10-24 14:09:16.682775021 +0200
-+++ openssh-7.8p1/gss-genr.c	2018-10-24 14:09:54.223377885 +0200
+diff -Nur openssh-7.9p1.orig/gss-genr.c openssh-7.9p1/gss-genr.c
+--- openssh-7.9p1.orig/gss-genr.c	2018-10-23 23:08:05.738762555 +0200
++++ openssh-7.9p1/gss-genr.c	2018-10-23 23:09:11.662055238 +0200
 @@ -41,6 +41,7 @@
  #include "ssherr.h"
  #include "sshbuf.h"
@@ -659,7 +659,7 @@ diff -Nur openssh-7.8p1.orig/gss-genr.c openssh-7.8p1/gss-genr.c
  #include "ssh2.h"
  #include "cipher.h"
  #include "sshkey.h"
-@@ -396,9 +397,18 @@
+@@ -395,9 +396,18 @@
  ssh_gssapi_import_name(Gssctxt *ctx, const char *host)
  {
  	gss_buffer_desc gssbuf;
@@ -679,7 +679,7 @@ diff -Nur openssh-7.8p1.orig/gss-genr.c openssh-7.8p1/gss-genr.c
  	gssbuf.value = val;
  	gssbuf.length = strlen(gssbuf.value);
  
-@@ -406,6 +416,7 @@
+@@ -405,6 +415,7 @@
  	    &gssbuf, GSS_C_NT_HOSTBASED_SERVICE, &ctx->name)))
  		ssh_gssapi_error(ctx);
  
@@ -687,9 +687,9 @@ diff -Nur openssh-7.8p1.orig/gss-genr.c openssh-7.8p1/gss-genr.c
  	free(gssbuf.value);
  	return (ctx->major);
  }
-diff -Nur openssh-7.8p1.orig/gss-serv.c openssh-7.8p1/gss-serv.c
---- openssh-7.8p1.orig/gss-serv.c	2018-10-24 14:09:16.511776830 +0200
-+++ openssh-7.8p1/gss-serv.c	2018-10-24 14:09:54.224377874 +0200
+diff -Nur openssh-7.9p1.orig/gss-serv.c openssh-7.9p1/gss-serv.c
+--- openssh-7.9p1.orig/gss-serv.c	2018-10-23 23:08:05.758762340 +0200
++++ openssh-7.9p1/gss-serv.c	2018-10-23 23:20:40.923607619 +0200
 @@ -50,10 +50,12 @@
  #include "monitor_wrap.h"
  
@@ -888,16 +888,9 @@ diff -Nur openssh-7.8p1.orig/gss-serv.c openssh-7.8p1/gss-serv.c
  		return (*gssapi_client.mech->storecreds)(&gssapi_client);
  	} else
  		debug("ssh_gssapi_storecreds: Not a GSSAPI mechanism");
-@@ -442,16 +505,19 @@
- }
+@@ -449,11 +512,13 @@
  
- /* Privileged */
-+/* gssapi_keyex arg added for Globus usage */
- int
--ssh_gssapi_userok(char *user, struct passwd *pw)
-+ssh_gssapi_userok(char *user, struct passwd *pw, int gssapi_keyex)
- {
- 	OM_uint32 lmin;
+ 	(void) kex; /* used in privilege separation */
  
 -	if (gssapi_client.exportedname.length == 0 ||
 -	    gssapi_client.exportedname.value == NULL) {
@@ -912,7 +905,7 @@ diff -Nur openssh-7.8p1.orig/gss-serv.c openssh-7.8p1/gss-serv.c
  	if (gssapi_client.mech && gssapi_client.mech->userok)
  		if ((*gssapi_client.mech->userok)(&gssapi_client, user)) {
  			gssapi_client.used = 1;
-@@ -462,6 +528,7 @@
+@@ -464,6 +529,7 @@
  			gss_release_buffer(&lmin, &gssapi_client.displayname);
  			gss_release_buffer(&lmin, &gssapi_client.exportedname);
  			gss_release_cred(&lmin, &gssapi_client.creds);
@@ -920,7 +913,7 @@ diff -Nur openssh-7.8p1.orig/gss-serv.c openssh-7.8p1/gss-serv.c
  			explicit_bzero(&gssapi_client,
  			    sizeof(ssh_gssapi_client));
  			return 0;
-@@ -471,6 +538,24 @@
+@@ -473,6 +539,24 @@
  	return (0);
  }
  
@@ -945,7 +938,7 @@ diff -Nur openssh-7.8p1.orig/gss-serv.c openssh-7.8p1/gss-serv.c
  /* These bits are only used for rekeying. The unpriviledged child is running 
   * as the user, the monitor is root.
   *
-@@ -497,9 +582,11 @@
+@@ -499,9 +583,11 @@
  	pam_handle_t *pamh = NULL;
  	struct pam_conv pamconv = {ssh_gssapi_simple_conv, NULL};
  	char *envstr;
@@ -958,7 +951,7 @@ diff -Nur openssh-7.8p1.orig/gss-serv.c openssh-7.8p1/gss-serv.c
  	    gssapi_client.store.envvar == NULL)
  		return;
   
-@@ -525,6 +612,18 @@
+@@ -527,6 +613,18 @@
  	if (ret)
  		return;
  
@@ -977,7 +970,7 @@ diff -Nur openssh-7.8p1.orig/gss-serv.c openssh-7.8p1/gss-serv.c
  	xasprintf(&envstr, "%s=%s", gssapi_client.store.envvar, 
  	    gssapi_client.store.envval);
  
-@@ -565,4 +664,13 @@
+@@ -567,4 +665,13 @@
  	return (char *)gssapi_client.displayname.value;
  }
  
@@ -991,9 +984,9 @@ diff -Nur openssh-7.8p1.orig/gss-serv.c openssh-7.8p1/gss-serv.c
 +}
 +
  #endif
-diff -Nur openssh-7.8p1.orig/gss-serv-gsi.c openssh-7.8p1/gss-serv-gsi.c
---- openssh-7.8p1.orig/gss-serv-gsi.c	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-7.8p1/gss-serv-gsi.c	2018-10-24 14:09:54.224377874 +0200
+diff -Nur openssh-7.9p1.orig/gss-serv-gsi.c openssh-7.9p1/gss-serv-gsi.c
+--- openssh-7.9p1.orig/gss-serv-gsi.c	1970-01-01 01:00:00.000000000 +0100
++++ openssh-7.9p1/gss-serv-gsi.c	2018-10-23 23:09:11.664055217 +0200
 @@ -0,0 +1,328 @@
 +/*
 + * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
@@ -1323,9 +1316,9 @@ diff -Nur openssh-7.8p1.orig/gss-serv-gsi.c openssh-7.8p1/gss-serv-gsi.c
 +
 +#endif /* GSI */
 +#endif /* GSSAPI */
-diff -Nur openssh-7.8p1.orig/gss-serv-krb5.c openssh-7.8p1/gss-serv-krb5.c
---- openssh-7.8p1.orig/gss-serv-krb5.c	2018-10-24 14:09:16.497776978 +0200
-+++ openssh-7.8p1/gss-serv-krb5.c	2018-10-24 14:09:54.224377874 +0200
+diff -Nur openssh-7.9p1.orig/gss-serv-krb5.c openssh-7.9p1/gss-serv-krb5.c
+--- openssh-7.9p1.orig/gss-serv-krb5.c	2018-10-23 23:08:05.707762887 +0200
++++ openssh-7.9p1/gss-serv-krb5.c	2018-10-23 23:09:11.664055217 +0200
 @@ -379,6 +379,34 @@
  	return found_principal;
  }
@@ -1379,9 +1372,9 @@ diff -Nur openssh-7.8p1.orig/gss-serv-krb5.c openssh-7.8p1/gss-serv-krb5.c
  	&ssh_gssapi_krb5_storecreds,
  	&ssh_gssapi_krb5_updatecreds
  };
-diff -Nur openssh-7.8p1.orig/kexgsss.c openssh-7.8p1/kexgsss.c
---- openssh-7.8p1.orig/kexgsss.c	2018-10-24 14:09:16.685774989 +0200
-+++ openssh-7.8p1/kexgsss.c	2018-10-24 14:09:54.225377863 +0200
+diff -Nur openssh-7.9p1.orig/kexgsss.c openssh-7.9p1/kexgsss.c
+--- openssh-7.9p1.orig/kexgsss.c	2018-10-23 23:08:05.734762597 +0200
++++ openssh-7.9p1/kexgsss.c	2018-10-23 23:09:11.665055206 +0200
 @@ -48,6 +48,7 @@
  #include "digest.h"
  #include "ssherr.h"
@@ -1441,9 +1434,9 @@ diff -Nur openssh-7.8p1.orig/kexgsss.c openssh-7.8p1/kexgsss.c
 +	}
 +}
  #endif /* GSSAPI */
-diff -Nur openssh-7.8p1.orig/LICENSE.globus_usage openssh-7.8p1/LICENSE.globus_usage
---- openssh-7.8p1.orig/LICENSE.globus_usage	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-7.8p1/LICENSE.globus_usage	2018-10-24 14:09:54.225377863 +0200
+diff -Nur openssh-7.9p1.orig/LICENSE.globus_usage openssh-7.9p1/LICENSE.globus_usage
+--- openssh-7.9p1.orig/LICENSE.globus_usage	1970-01-01 01:00:00.000000000 +0100
++++ openssh-7.9p1/LICENSE.globus_usage	2018-10-23 23:09:11.665055206 +0200
 @@ -0,0 +1,18 @@
 +/*
 + * Portions of the Usage Metrics suport code are derived from the
@@ -1463,9 +1456,9 @@ diff -Nur openssh-7.8p1.orig/LICENSE.globus_usage openssh-7.8p1/LICENSE.globus_u
 + * See the License for the specific language governing permissions and
 + * limitations under the License.
 + */
-diff -Nur openssh-7.8p1.orig/Makefile.in openssh-7.8p1/Makefile.in
---- openssh-7.8p1.orig/Makefile.in	2018-10-24 14:09:16.688774958 +0200
-+++ openssh-7.8p1/Makefile.in	2018-10-24 14:09:54.225377863 +0200
+diff -Nur openssh-7.9p1.orig/Makefile.in openssh-7.9p1/Makefile.in
+--- openssh-7.9p1.orig/Makefile.in	2018-10-23 23:08:05.776762147 +0200
++++ openssh-7.9p1/Makefile.in	2018-10-23 23:09:11.666055195 +0200
 @@ -124,8 +124,10 @@
  	auth2-none.o auth2-passwd.o auth2-pubkey.o \
  	monitor.o monitor_wrap.o auth-krb5.o \
@@ -1477,10 +1470,10 @@ diff -Nur openssh-7.8p1.orig/Makefile.in openssh-7.8p1/Makefile.in
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
  	sandbox-seccomp-filter.o sandbox-capsicum.o sandbox-pledge.o \
  	sandbox-solaris.o uidswap.o
-diff -Nur openssh-7.8p1.orig/misc.c openssh-7.8p1/misc.c
---- openssh-7.8p1.orig/misc.c	2018-10-24 14:09:16.494777010 +0200
-+++ openssh-7.8p1/misc.c	2018-10-24 14:09:54.226377853 +0200
-@@ -237,11 +237,14 @@
+diff -Nur openssh-7.9p1.orig/misc.c openssh-7.9p1/misc.c
+--- openssh-7.9p1.orig/misc.c	2018-10-23 23:08:05.705762909 +0200
++++ openssh-7.9p1/misc.c	2018-10-23 23:09:11.666055195 +0200
+@@ -238,11 +238,14 @@
  #define WHITESPACE " \t\r\n"
  #define QUOTE	"\""
  
@@ -1496,7 +1489,7 @@ diff -Nur openssh-7.8p1.orig/misc.c openssh-7.8p1/misc.c
  	int wspace = 0;
  
  	if (*s == NULL)
-@@ -249,6 +252,21 @@
+@@ -250,6 +253,21 @@
  
  	old = *s;
  
@@ -1518,7 +1511,7 @@ diff -Nur openssh-7.8p1.orig/misc.c openssh-7.8p1/misc.c
  	*s = strpbrk(*s,
  	    split_equals ? WHITESPACE QUOTE "=" : WHITESPACE QUOTE);
  	if (*s == NULL)
-@@ -324,6 +342,20 @@
+@@ -325,6 +343,20 @@
  	return copy;
  }
  
@@ -1539,10 +1532,10 @@ diff -Nur openssh-7.8p1.orig/misc.c openssh-7.8p1/misc.c
  /*
   * Convert ASCII string to TCP/IP port number.
   * Port must be >=0 and <=65535.
-diff -Nur openssh-7.8p1.orig/misc.h openssh-7.8p1/misc.h
---- openssh-7.8p1.orig/misc.h	2018-10-24 14:09:16.494777010 +0200
-+++ openssh-7.8p1/misc.h	2018-10-24 14:09:54.226377853 +0200
-@@ -82,6 +82,7 @@
+diff -Nur openssh-7.9p1.orig/misc.h openssh-7.9p1/misc.h
+--- openssh-7.9p1.orig/misc.h	2018-10-23 23:08:05.705762909 +0200
++++ openssh-7.9p1/misc.h	2018-10-23 23:09:11.667055184 +0200
+@@ -83,6 +83,7 @@
  void	 sock_set_v6only(int);
  
  struct passwd *pwcopy(struct passwd *);
@@ -1550,10 +1543,10 @@ diff -Nur openssh-7.8p1.orig/misc.h openssh-7.8p1/misc.h
  const char *ssh_gai_strerror(int);
  
  typedef struct arglist arglist;
-diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
---- openssh-7.8p1.orig/monitor.c	2018-10-24 14:09:16.689774947 +0200
-+++ openssh-7.8p1/monitor.c	2018-10-24 14:09:54.226377853 +0200
-@@ -150,6 +150,9 @@
+diff -Nur openssh-7.9p1.orig/monitor.c openssh-7.9p1/monitor.c
+--- openssh-7.9p1.orig/monitor.c	2018-10-23 23:08:05.782762082 +0200
++++ openssh-7.9p1/monitor.c	2018-10-23 23:09:11.668055174 +0200
+@@ -152,6 +152,9 @@
  int mm_answer_gss_userok(int, struct sshbuf *);
  int mm_answer_gss_checkmic(int, struct sshbuf *);
  int mm_answer_gss_sign(int, struct sshbuf *);
@@ -1563,7 +1556,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
  int mm_answer_gss_updatecreds(int, struct sshbuf *);
  #endif
  
-@@ -200,7 +203,7 @@
+@@ -202,7 +205,7 @@
      {MONITOR_REQ_MODULI, MON_ONCE, mm_answer_moduli},
  #endif
      {MONITOR_REQ_SIGN, MON_ONCE, mm_answer_sign},
@@ -1572,7 +1565,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
      {MONITOR_REQ_AUTHSERV, MON_ONCE, mm_answer_authserv},
  #ifdef WITH_SELINUX
      {MONITOR_REQ_AUTHROLE, MON_ONCE, mm_answer_authrole},
-@@ -208,7 +211,7 @@
+@@ -210,7 +213,7 @@
      {MONITOR_REQ_AUTH2_READ_BANNER, MON_ONCE, mm_answer_auth2_read_banner},
      {MONITOR_REQ_AUTHPASSWORD, MON_AUTH, mm_answer_authpassword},
  #ifdef USE_PAM
@@ -1581,7 +1574,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
      {MONITOR_REQ_PAM_ACCOUNT, 0, mm_answer_pam_account},
      {MONITOR_REQ_PAM_INIT_CTX, MON_ONCE, mm_answer_pam_init_ctx},
      {MONITOR_REQ_PAM_QUERY, 0, mm_answer_pam_query},
-@@ -232,8 +235,11 @@
+@@ -234,8 +237,11 @@
      {MONITOR_REQ_GSSSETUP, MON_ISAUTH, mm_answer_gss_setup_ctx},
      {MONITOR_REQ_GSSSTEP, 0, mm_answer_gss_accept_ctx},
      {MONITOR_REQ_GSSUSEROK, MON_ONCE|MON_AUTHDECIDE, mm_answer_gss_userok},
@@ -1594,7 +1587,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
  #endif
      {0, 0, NULL}
  };
-@@ -243,6 +249,8 @@
+@@ -245,6 +251,8 @@
      {MONITOR_REQ_GSSSETUP, 0, mm_answer_gss_setup_ctx},
      {MONITOR_REQ_GSSSTEP, 0, mm_answer_gss_accept_ctx},
      {MONITOR_REQ_GSSSIGN, 0, mm_answer_gss_sign},
@@ -1603,7 +1596,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
      {MONITOR_REQ_GSSUPCREDS, 0, mm_answer_gss_updatecreds},
  #endif
  #ifdef WITH_OPENSSL
-@@ -324,6 +332,8 @@
+@@ -326,6 +334,8 @@
  #ifdef GSSAPI
  	/* and for the GSSAPI key exchange */
  	monitor_permit(mon_dispatch, MONITOR_REQ_GSSSETUP, 1);
@@ -1612,7 +1605,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
  #endif
  
  	/* The first few requests do not require asynchronous access */
-@@ -442,6 +452,8 @@
+@@ -444,6 +454,8 @@
  #ifdef GSSAPI
  	/* and for the GSSAPI key exchange */
  	monitor_permit(mon_dispatch, MONITOR_REQ_GSSSETUP, 1);
@@ -1621,7 +1614,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
  #endif		
  
  	if (auth_opts->permit_pty_flag) {
-@@ -763,15 +775,18 @@
+@@ -764,15 +776,18 @@
  
  	debug3("%s", __func__);
  
@@ -1643,38 +1636,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
  	setproctitle("%s [priv]", pwent ? username : "unknown");
  	free(username);
  
-@@ -2010,13 +2025,17 @@
- mm_answer_gss_userok(int sock, struct sshbuf *m)
- {
- 	int r, authenticated;
-+	int gssapi_keyex;
- 	const char *displayname;
- 
- 	if (!options.gss_authentication && !options.gss_keyex)
- 		fatal("%s: GSSAPI authentication not enabled", __func__);
- 
-+	if ((r = sshbuf_get_u32(m, &gssapi_keyex)) != 0)
-+		fatal("%s: buffer error: %s", __func__, ssh_err(r));
-+
- 	authenticated = authctxt->valid &&
--	    ssh_gssapi_userok(authctxt->user, authctxt->pw);
-+	    ssh_gssapi_userok(authctxt->user, authctxt->pw, gssapi_keyex);
- 
- 	sshbuf_reset(m);
- 	if ((r = sshbuf_put_u32(m, authenticated)) != 0)
-@@ -2025,7 +2044,10 @@
- 	debug3("%s: sending result %d", __func__, authenticated);
- 	mm_request_send(sock, MONITOR_ANS_GSSUSEROK, m);
- 
--	auth_method = "gssapi-with-mic";
-+	if (gssapi_keyex)
-+		auth_method = "gssapi-keyex";
-+	else
-+		auth_method = "gssapi-with-mic";
- 
- 	if ((displayname = ssh_gssapi_displayname()) != NULL)
- 		auth2_record_info(authctxt, "%s", displayname);
-@@ -2034,6 +2056,79 @@
+@@ -2042,6 +2057,79 @@
  	return (authenticated);
  }
  
@@ -1754,7 +1716,7 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
  int 
  mm_answer_gss_sign(int socket, struct sshbuf *m)
  {
-@@ -2085,12 +2180,14 @@
+@@ -2093,12 +2181,14 @@
  	ssh_gssapi_ccache store;
  	int ok, r;
  
@@ -1770,9 +1732,9 @@ diff -Nur openssh-7.8p1.orig/monitor.c openssh-7.8p1/monitor.c
  	free(store.envvar);
  	free(store.envval);
  
-diff -Nur openssh-7.8p1.orig/monitor.h openssh-7.8p1/monitor.h
---- openssh-7.8p1.orig/monitor.h	2018-10-24 14:09:16.630775571 +0200
-+++ openssh-7.8p1/monitor.h	2018-10-24 14:09:54.227377842 +0200
+diff -Nur openssh-7.9p1.orig/monitor.h openssh-7.9p1/monitor.h
+--- openssh-7.9p1.orig/monitor.h	2018-10-23 23:08:05.766762254 +0200
++++ openssh-7.9p1/monitor.h	2018-10-23 23:09:11.669055163 +0200
 @@ -73,8 +73,10 @@
  	MONITOR_REQ_AUDIT_UNSUPPORTED = 118, MONITOR_ANS_AUDIT_UNSUPPORTED = 119,
  	MONITOR_REQ_AUDIT_KEX = 120, MONITOR_ANS_AUDIT_KEX = 121,
@@ -1786,27 +1748,10 @@ diff -Nur openssh-7.8p1.orig/monitor.h openssh-7.8p1/monitor.h
  };
  
  struct monitor {
-diff -Nur openssh-7.8p1.orig/monitor_wrap.c openssh-7.8p1/monitor_wrap.c
---- openssh-7.8p1.orig/monitor_wrap.c	2018-10-24 14:09:16.665775201 +0200
-+++ openssh-7.8p1/monitor_wrap.c	2018-10-24 14:33:40.976350751 +0200
-@@ -1045,13 +1045,15 @@
- }
- 
- int
--mm_ssh_gssapi_userok(char *user, struct passwd *pw)
-+mm_ssh_gssapi_userok(char *user, struct passwd *pw, int gssapi_keyex)
- {
- 	struct sshbuf *m;
- 	int r, authenticated = 0;
- 
- 	if ((m = sshbuf_new()) == NULL)
- 		fatal("%s: sshbuf_new failed", __func__);
-+	if ((r = sshbuf_put_u32(m, gssapi_keyex)) != 0)
-+		fatal("%s: buffer error: %s", __func__, ssh_err(r));
- 
- 	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSUSEROK, m);
- 	mm_request_receive_expect(pmonitor->m_recvfd,
-@@ -1065,6 +1067,94 @@
+diff -Nur openssh-7.9p1.orig/monitor_wrap.c openssh-7.9p1/monitor_wrap.c
+--- openssh-7.9p1.orig/monitor_wrap.c	2018-10-23 23:08:05.783762072 +0200
++++ openssh-7.9p1/monitor_wrap.c	2018-10-24 15:25:13.876838426 +0200
+@@ -1067,6 +1067,94 @@
  	return (authenticated);
  }
  
@@ -1901,7 +1846,7 @@ diff -Nur openssh-7.8p1.orig/monitor_wrap.c openssh-7.8p1/monitor_wrap.c
  OM_uint32
  mm_ssh_gssapi_sign(Gssctxt *ctx, gss_buffer_desc *data, gss_buffer_desc *hash)
  {
-@@ -1098,7 +1188,8 @@
+@@ -1100,7 +1188,8 @@
  	if ((m = sshbuf_new()) == NULL)
  		fatal("%s: sshbuf_new failed", __func__);
  
@@ -1911,15 +1856,11 @@ diff -Nur openssh-7.8p1.orig/monitor_wrap.c openssh-7.8p1/monitor_wrap.c
  	    (r = sshbuf_put_cstring(m, store->envval ? store->envval : "")) != 0)
  		fatal("%s: buffer error: %s", __func__, ssh_err(r));
  
-diff -Nur openssh-7.8p1.orig/monitor_wrap.h openssh-7.8p1/monitor_wrap.h
---- openssh-7.8p1.orig/monitor_wrap.h	2018-10-24 14:09:16.647775391 +0200
-+++ openssh-7.8p1/monitor_wrap.h	2018-10-24 14:09:54.242377684 +0200
-@@ -65,9 +65,13 @@
- OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
- OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *,
-    gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
--int mm_ssh_gssapi_userok(char *user, struct passwd *);
-+int mm_ssh_gssapi_userok(char *user, struct passwd *, int gssapi_keyex);
+diff -Nur openssh-7.9p1.orig/monitor_wrap.h openssh-7.9p1/monitor_wrap.h
+--- openssh-7.9p1.orig/monitor_wrap.h	2018-10-23 23:08:05.771762201 +0200
++++ openssh-7.9p1/monitor_wrap.h	2018-10-23 23:35:33.766952547 +0200
+@@ -68,6 +68,10 @@
+ int mm_ssh_gssapi_userok(char *user, struct passwd *, int kex);
  OM_uint32 mm_ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
  OM_uint32 mm_ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
 +int mm_ssh_gssapi_localname(char **user);
@@ -1929,10 +1870,10 @@ diff -Nur openssh-7.8p1.orig/monitor_wrap.h openssh-7.8p1/monitor_wrap.h
  int mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *);
  #endif
  
-diff -Nur openssh-7.8p1.orig/readconf.c openssh-7.8p1/readconf.c
---- openssh-7.8p1.orig/readconf.c	2018-10-24 14:09:16.656775296 +0200
-+++ openssh-7.8p1/readconf.c	2018-10-24 14:09:54.246377641 +0200
-@@ -2013,13 +2013,13 @@
+diff -Nur openssh-7.9p1.orig/readconf.c openssh-7.9p1/readconf.c
+--- openssh-7.9p1.orig/readconf.c	2018-10-23 23:08:05.776762147 +0200
++++ openssh-7.9p1/readconf.c	2018-10-23 23:09:11.671055142 +0200
+@@ -2039,13 +2039,13 @@
  	if (options->challenge_response_authentication == -1)
  		options->challenge_response_authentication = 1;
  	if (options->gss_authentication == -1)
@@ -1950,10 +1891,10 @@ diff -Nur openssh-7.8p1.orig/readconf.c openssh-7.8p1/readconf.c
  	if (options->gss_renewal_rekey == -1)
  		options->gss_renewal_rekey = 0;
  #ifdef GSSAPI
-diff -Nur openssh-7.8p1.orig/readconf.h openssh-7.8p1/readconf.h
---- openssh-7.8p1.orig/readconf.h	2018-10-24 14:09:16.522776714 +0200
-+++ openssh-7.8p1/readconf.h	2018-10-24 14:09:54.247377631 +0200
-@@ -77,6 +77,8 @@
+diff -Nur openssh-7.9p1.orig/readconf.h openssh-7.9p1/readconf.h
+--- openssh-7.9p1.orig/readconf.h	2018-10-23 23:08:05.717762780 +0200
++++ openssh-7.9p1/readconf.h	2018-10-23 23:09:11.671055142 +0200
+@@ -78,6 +78,8 @@
  	char   *host_key_alias;	/* hostname alias for .ssh/known_hosts */
  	char   *proxy_command;	/* Proxy command for connecting the host. */
  	char   *user;		/* User to log in as. */
@@ -1962,9 +1903,9 @@ diff -Nur openssh-7.8p1.orig/readconf.h openssh-7.8p1/readconf.h
  	int     escape_char;	/* Escape character; -2 = none */
  
  	u_int	num_system_hostfiles;	/* Paths for /etc/ssh/ssh_known_hosts */
-diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
---- openssh-7.8p1.orig/servconf.c	2018-10-24 14:09:16.672775127 +0200
-+++ openssh-7.8p1/servconf.c	2018-10-24 14:09:54.247377631 +0200
+diff -Nur openssh-7.9p1.orig/servconf.c openssh-7.9p1/servconf.c
+--- openssh-7.9p1.orig/servconf.c	2018-10-23 23:08:05.784762061 +0200
++++ openssh-7.9p1/servconf.c	2018-10-23 23:09:11.672055131 +0200
 @@ -84,6 +84,7 @@
  
  	/* Portable-specific options */
@@ -1975,7 +1916,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	options->num_ports = 0;
 @@ -127,9 +128,11 @@
  	options->kerberos_get_afs_token = -1;
- 	options->kerberos_unique_ticket = -1;
+ 	options->kerberos_unique_ccache = -1;
  	options->gss_authentication=-1;
 +	options->gss_deleg_creds = -1;
  	options->gss_keyex = -1;
@@ -1985,7 +1926,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	options->gss_store_rekey = -1;
  	options->gss_kex_algorithms = NULL;
  	options->use_kuserok = -1;
-@@ -177,6 +180,8 @@
+@@ -178,6 +181,8 @@
  	options->chroot_directory = NULL;
  	options->authorized_keys_command = NULL;
  	options->authorized_keys_command_user = NULL;
@@ -1994,7 +1935,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	options->revoked_keys_file = NULL;
  	options->trusted_user_ca_keys = NULL;
  	options->authorized_principals_file = NULL;
-@@ -269,6 +274,8 @@
+@@ -273,6 +278,8 @@
  	/* Portable-specific options */
  	if (options->use_pam == -1)
  		options->use_pam = 0;
@@ -2003,9 +1944,9 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  
  	/* Standard Options */
  	if (options->num_host_key_files == 0) {
-@@ -346,13 +353,17 @@
- 	if (options->kerberos_unique_ticket == -1)
- 		options->kerberos_unique_ticket = 0;
+@@ -350,13 +357,17 @@
+ 	if (options->kerberos_unique_ccache == -1)
+ 		options->kerberos_unique_ccache = 0;
  	if (options->gss_authentication == -1)
 -		options->gss_authentication = 0;
 +		options->gss_authentication = 1;
@@ -2023,7 +1964,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	if (options->gss_store_rekey == -1)
  		options->gss_store_rekey = 0;
  #ifdef GSSAPI
-@@ -487,7 +498,7 @@
+@@ -491,7 +502,7 @@
  typedef enum {
  	sBadOption,		/* == unknown option */
  	/* Portable-specific options */
@@ -2032,7 +1973,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	/* Standard Options */
  	sPort, sHostKeyFile, sLoginGraceTime,
  	sPermitRootLogin, sLogFacility, sLogLevel,
-@@ -509,10 +520,14 @@
+@@ -513,10 +524,14 @@
  	sHostbasedUsesNameFromPacketOnly, sHostbasedAcceptedKeyTypes,
  	sHostKeyAlgorithms,
  	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,
@@ -2047,7 +1988,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	sHostCertificate,
  	sRevokedKeys, sTrustedUserCAKeys, sAuthorizedPrincipalsFile,
  	sAuthorizedPrincipalsCommand, sAuthorizedPrincipalsCommandUser,
-@@ -538,8 +553,10 @@
+@@ -542,8 +557,10 @@
  	/* Portable-specific options */
  #ifdef USE_PAM
  	{ "usepam", sUsePAM, SSHCFG_GLOBAL },
@@ -2058,7 +1999,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  #endif
  	{ "pamauthenticationviakbdint", sDeprecated, SSHCFG_GLOBAL },
  	/* Standard Options */
-@@ -587,7 +604,14 @@
+@@ -591,7 +608,14 @@
  	{ "afstokenpassing", sUnsupported, SSHCFG_GLOBAL },
  #ifdef GSSAPI
  	{ "gssapiauthentication", sGssAuthentication, SSHCFG_ALL },
@@ -2073,7 +2014,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	{ "gssapistrictacceptorcheck", sGssStrictAcceptor, SSHCFG_GLOBAL },
  	{ "gssapikeyexchange", sGssKeyEx, SSHCFG_GLOBAL },
  	{ "gssapistorecredentialsonrekey", sGssStoreRekey, SSHCFG_GLOBAL },
-@@ -595,7 +619,10 @@
+@@ -599,7 +623,10 @@
  	{ "gssapikexalgorithms", sGssKexAlgorithms, SSHCFG_GLOBAL },
  #else
  	{ "gssapiauthentication", sUnsupported, SSHCFG_ALL },
@@ -2084,7 +2025,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	{ "gssapistrictacceptorcheck", sUnsupported, SSHCFG_GLOBAL },
  	{ "gssapikeyexchange", sUnsupported, SSHCFG_GLOBAL },
  	{ "gssapistorecredentialsonrekey", sUnsupported, SSHCFG_GLOBAL },
-@@ -666,6 +693,8 @@
+@@ -670,6 +697,8 @@
  	{ "permitlisten", sPermitListen, SSHCFG_ALL },
  	{ "forcecommand", sForceCommand, SSHCFG_ALL },
  	{ "chrootdirectory", sChrootDirectory, SSHCFG_ALL },
@@ -2093,7 +2034,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	{ "hostcertificate", sHostCertificate, SSHCFG_GLOBAL },
  	{ "revokedkeys", sRevokedKeys, SSHCFG_ALL },
  	{ "trustedusercakeys", sTrustedUserCAKeys, SSHCFG_ALL },
-@@ -1296,6 +1325,10 @@
+@@ -1301,6 +1330,10 @@
  		intptr = &options->use_pam;
  		goto parse_flag;
  
@@ -2104,7 +2045,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	/* Standard Options */
  	case sBadOption:
  		return -1;
-@@ -1510,6 +1543,10 @@
+@@ -1519,6 +1552,10 @@
  		intptr = &options->gss_authentication;
  		goto parse_flag;
  
@@ -2115,7 +2056,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	case sGssKeyEx:
  		intptr = &options->gss_keyex;
  		goto parse_flag;
-@@ -1518,6 +1555,10 @@
+@@ -1527,6 +1564,10 @@
  		intptr = &options->gss_cleanup_creds;
  		goto parse_flag;
  
@@ -2126,7 +2067,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	case sGssStrictAcceptor:
  		intptr = &options->gss_strict_acceptor;
  		goto parse_flag;
-@@ -1538,6 +1579,12 @@
+@@ -1547,6 +1588,12 @@
  			options->gss_kex_algorithms = xstrdup(arg);
  		break;
  
@@ -2139,7 +2080,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	case sPasswordAuthentication:
  		intptr = &options->password_authentication;
  		goto parse_flag;
-@@ -2051,6 +2098,35 @@
+@@ -2060,6 +2107,35 @@
  			*charptr = xstrdup(arg);
  		break;
  
@@ -2175,7 +2116,7 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	case sTrustedUserCAKeys:
  		charptr = &options->trusted_user_ca_keys;
  		goto parse_filename;
-@@ -2345,6 +2421,7 @@
+@@ -2354,6 +2430,7 @@
  
  	M_CP_INTOPT(password_authentication);
  	M_CP_INTOPT(gss_authentication);
@@ -2183,10 +2124,10 @@ diff -Nur openssh-7.8p1.orig/servconf.c openssh-7.8p1/servconf.c
  	M_CP_INTOPT(pubkey_authentication);
  	M_CP_INTOPT(kerberos_authentication);
  	M_CP_INTOPT(hostbased_authentication);
-diff -Nur openssh-7.8p1.orig/servconf.h openssh-7.8p1/servconf.h
---- openssh-7.8p1.orig/servconf.h	2018-10-24 14:09:16.535776576 +0200
-+++ openssh-7.8p1/servconf.h	2018-10-24 14:09:54.248377620 +0200
-@@ -129,9 +129,12 @@
+diff -Nur openssh-7.9p1.orig/servconf.h openssh-7.9p1/servconf.h
+--- openssh-7.9p1.orig/servconf.h	2018-10-23 23:08:05.725762694 +0200
++++ openssh-7.9p1/servconf.h	2018-10-23 23:09:11.673055120 +0200
+@@ -130,9 +130,12 @@
  						 * be stored in per-session ccache */
  	int	use_kuserok;
  	int		enable_k5users;
@@ -2199,7 +2140,7 @@ diff -Nur openssh-7.8p1.orig/servconf.h openssh-7.8p1/servconf.h
  	int     gss_strict_acceptor;	/* If true, restrict the GSSAPI acceptor name */
  	int 	gss_store_rekey;
  	char   *gss_kex_algorithms;	/* GSSAPI kex methods to be offered by client. */
-@@ -191,6 +194,7 @@
+@@ -192,6 +195,7 @@
  	char   *adm_forced_command;
  
  	int	use_pam;		/* Enable auth via PAM */
@@ -2207,7 +2148,7 @@ diff -Nur openssh-7.8p1.orig/servconf.h openssh-7.8p1/servconf.h
  
  	int	permit_tun;
  
-@@ -200,6 +204,10 @@
+@@ -201,6 +205,10 @@
  	u_int   num_permitted_listens;
  
  	char   *chroot_directory;
@@ -2218,10 +2159,10 @@ diff -Nur openssh-7.8p1.orig/servconf.h openssh-7.8p1/servconf.h
  	char   *revoked_keys_file;
  	char   *trusted_user_ca_keys;
  	char   *authorized_keys_command;
-diff -Nur openssh-7.8p1.orig/ssh.1 openssh-7.8p1/ssh.1
---- openssh-7.8p1.orig/ssh.1	2018-10-24 14:09:16.525776682 +0200
-+++ openssh-7.8p1/ssh.1	2018-10-24 14:09:54.249377610 +0200
-@@ -1423,6 +1423,18 @@
+diff -Nur openssh-7.9p1.orig/ssh.1 openssh-7.9p1/ssh.1
+--- openssh-7.9p1.orig/ssh.1	2018-10-23 23:08:05.719762758 +0200
++++ openssh-7.9p1/ssh.1	2018-10-23 23:09:11.674055109 +0200
+@@ -1433,6 +1433,18 @@
  on to new connections).
  .It Ev USER
  Set to the name of the user logging in.
@@ -2240,9 +2181,9 @@ diff -Nur openssh-7.8p1.orig/ssh.1 openssh-7.8p1/ssh.1
  .El
  .Pp
  Additionally,
-diff -Nur openssh-7.8p1.orig/ssh.c openssh-7.8p1/ssh.c
---- openssh-7.8p1.orig/ssh.c	2018-10-24 14:09:16.690774937 +0200
-+++ openssh-7.8p1/ssh.c	2018-10-24 14:09:54.249377610 +0200
+diff -Nur openssh-7.9p1.orig/ssh.c openssh-7.9p1/ssh.c
+--- openssh-7.9p1.orig/ssh.c	2018-10-23 23:08:05.778762125 +0200
++++ openssh-7.9p1/ssh.c	2018-10-23 23:09:11.674055109 +0200
 @@ -541,6 +541,32 @@
  			fatal("Can't open user config file %.100s: "
  			    "%.100s", config, strerror(errno));
@@ -2276,7 +2217,7 @@ diff -Nur openssh-7.8p1.orig/ssh.c openssh-7.8p1/ssh.c
  		r = snprintf(buf, sizeof buf, "%s/%s", pw->pw_dir,
  		    _PATH_SSH_USER_CONFFILE);
  		if (r > 0 && (size_t)r < sizeof(buf))
-@@ -1283,8 +1309,12 @@
+@@ -1289,8 +1315,12 @@
  		logit("FIPS mode initialized");
  	}
  
@@ -2290,9 +2231,9 @@ diff -Nur openssh-7.8p1.orig/ssh.c openssh-7.8p1/ssh.c
  
  	/* Set up strings used to percent_expand() arguments */
  	if (gethostname(thishost, sizeof(thishost)) == -1)
-diff -Nur openssh-7.8p1.orig/ssh_config openssh-7.8p1/ssh_config
---- openssh-7.8p1.orig/ssh_config	2018-10-24 14:09:16.427777719 +0200
-+++ openssh-7.8p1/ssh_config	2018-10-24 14:09:54.249377610 +0200
+diff -Nur openssh-7.9p1.orig/ssh_config openssh-7.9p1/ssh_config
+--- openssh-7.9p1.orig/ssh_config	2018-10-23 23:08:05.675763231 +0200
++++ openssh-7.9p1/ssh_config	2018-10-23 23:09:11.675055099 +0200
 @@ -22,10 +22,10 @@
  #   ForwardX11 no
  #   PasswordAuthentication yes
@@ -2308,9 +2249,9 @@ diff -Nur openssh-7.8p1.orig/ssh_config openssh-7.8p1/ssh_config
  #   BatchMode no
  #   CheckHostIP yes
  #   AddressFamily any
-diff -Nur openssh-7.8p1.orig/ssh_config.5 openssh-7.8p1/ssh_config.5
---- openssh-7.8p1.orig/ssh_config.5	2018-10-24 14:09:16.599775899 +0200
-+++ openssh-7.8p1/ssh_config.5	2018-10-24 14:09:54.250377599 +0200
+diff -Nur openssh-7.9p1.orig/ssh_config.5 openssh-7.9p1/ssh_config.5
+--- openssh-7.9p1.orig/ssh_config.5	2018-10-23 23:08:05.750762426 +0200
++++ openssh-7.9p1/ssh_config.5	2018-10-23 23:09:11.675055099 +0200
 @@ -52,6 +52,12 @@
  user's configuration file
  .Pq Pa ~/.ssh/config
@@ -2324,7 +2265,7 @@ diff -Nur openssh-7.8p1.orig/ssh_config.5 openssh-7.8p1/ssh_config.5
  system-wide configuration file
  .Pq Pa /etc/ssh/ssh_config
  .El
-@@ -717,7 +723,7 @@
+@@ -735,7 +741,7 @@
  .It Cm GSSAPIAuthentication
  Specifies whether user authentication based on GSSAPI is allowed.
  The default is
@@ -2333,7 +2274,7 @@ diff -Nur openssh-7.8p1.orig/ssh_config.5 openssh-7.8p1/ssh_config.5
  .It Cm GSSAPIClientIdentity
  If set, specifies the GSSAPI client identity that ssh should use when 
  connecting to the server. The default is unset, which means that the default 
-@@ -725,12 +731,12 @@
+@@ -743,12 +749,12 @@
  .It Cm GSSAPIDelegateCredentials
  Forward (delegate) credentials to the server.
  The default is
@@ -2348,7 +2289,7 @@ diff -Nur openssh-7.8p1.orig/ssh_config.5 openssh-7.8p1/ssh_config.5
  .It Cm GSSAPIRenewalForcesRekey
  If set to 
  .Dq yes
-@@ -762,7 +768,7 @@
+@@ -780,7 +786,7 @@
  the hostname entered on the
  command line will be passed untouched to the GSSAPI library.
  The default is
@@ -2357,7 +2298,7 @@ diff -Nur openssh-7.8p1.orig/ssh_config.5 openssh-7.8p1/ssh_config.5
  .It Cm GSSAPIKexAlgorithms
  The list of key exchange algorithms that are offered for GSSAPI
  key exchange. Possible values are
-@@ -1227,7 +1233,7 @@
+@@ -1249,7 +1255,7 @@
  .Cm password ) .
  The default is:
  .Bd -literal -offset indent
@@ -2366,10 +2307,10 @@ diff -Nur openssh-7.8p1.orig/ssh_config.5 openssh-7.8p1/ssh_config.5
  keyboard-interactive,password
  .Ed
  .It Cm ProxyCommand
-diff -Nur openssh-7.8p1.orig/sshconnect2.c openssh-7.8p1/sshconnect2.c
---- openssh-7.8p1.orig/sshconnect2.c	2018-10-24 14:09:16.658775275 +0200
-+++ openssh-7.8p1/sshconnect2.c	2018-10-24 14:09:54.257377525 +0200
-@@ -863,6 +863,11 @@
+diff -Nur openssh-7.9p1.orig/sshconnect2.c openssh-7.9p1/sshconnect2.c
+--- openssh-7.9p1.orig/sshconnect2.c	2018-10-23 23:08:05.778762125 +0200
++++ openssh-7.9p1/sshconnect2.c	2018-10-23 23:09:11.676055088 +0200
+@@ -894,6 +894,11 @@
  	int r, ok = 0;
  	const char *gss_host = NULL;
  
@@ -2381,7 +2322,7 @@ diff -Nur openssh-7.8p1.orig/sshconnect2.c openssh-7.8p1/sshconnect2.c
  	if (options.gss_server_identity)
  		gss_host = options.gss_server_identity;
  	else if (options.gss_trust_dns) {
-@@ -956,7 +961,8 @@
+@@ -987,7 +992,8 @@
  
  	if (status == GSS_S_COMPLETE) {
  		/* send either complete or MIC, depending on mechanism */
@@ -2391,7 +2332,7 @@ diff -Nur openssh-7.8p1.orig/sshconnect2.c openssh-7.8p1/sshconnect2.c
  			if ((r = sshpkt_start(ssh,
  			    SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE)) != 0 ||
  			    (r = sshpkt_send(ssh)) != 0)
-@@ -1126,6 +1132,20 @@
+@@ -1157,6 +1163,20 @@
  	return r;
  }
  
@@ -2412,7 +2353,7 @@ diff -Nur openssh-7.8p1.orig/sshconnect2.c openssh-7.8p1/sshconnect2.c
  int
  userauth_gsskeyex(Authctxt *authctxt)
  {
-@@ -1146,6 +1166,11 @@
+@@ -1177,6 +1197,11 @@
  	if ((b = sshbuf_new()) == NULL)
  		fatal("%s: sshbuf_new failed", __func__);
  
@@ -2424,7 +2365,7 @@ diff -Nur openssh-7.8p1.orig/sshconnect2.c openssh-7.8p1/sshconnect2.c
  	ssh_gssapi_buildmic(b, authctxt->server_user, authctxt->service,
  	    "gssapi-keyex");
  
-@@ -1158,7 +1183,13 @@
+@@ -1189,7 +1214,13 @@
  	}
  
  	packet_start(SSH2_MSG_USERAUTH_REQUEST);
@@ -2438,9 +2379,9 @@ diff -Nur openssh-7.8p1.orig/sshconnect2.c openssh-7.8p1/sshconnect2.c
  	packet_put_cstring(authctxt->service);
  	packet_put_cstring(authctxt->method->name);
  	packet_put_string(mic.value, mic.length);
-diff -Nur openssh-7.8p1.orig/sshd.8 openssh-7.8p1/sshd.8
---- openssh-7.8p1.orig/sshd.8	2018-10-24 14:09:16.457777401 +0200
-+++ openssh-7.8p1/sshd.8	2018-10-24 14:09:54.258377514 +0200
+diff -Nur openssh-7.9p1.orig/sshd.8 openssh-7.9p1/sshd.8
+--- openssh-7.9p1.orig/sshd.8	2018-10-23 23:08:05.689763080 +0200
++++ openssh-7.9p1/sshd.8	2018-10-23 23:09:11.677055077 +0200
 @@ -788,6 +788,44 @@
  # A CA key, accepted for any host in *.mydomain.com or *.mydomain.org
  @cert-authority *.mydomain.org,*.mydomain.com ssh-rsa AAAAB5W...
@@ -2486,9 +2427,9 @@ diff -Nur openssh-7.8p1.orig/sshd.8 openssh-7.8p1/sshd.8
  .Sh FILES
  .Bl -tag -width Ds -compact
  .It Pa ~/.hushlogin
-diff -Nur openssh-7.8p1.orig/sshd.c openssh-7.8p1/sshd.c
---- openssh-7.8p1.orig/sshd.c	2018-10-24 14:09:16.691774926 +0200
-+++ openssh-7.8p1/sshd.c	2018-10-24 14:09:54.259377504 +0200
+diff -Nur openssh-7.9p1.orig/sshd.c openssh-7.9p1/sshd.c
+--- openssh-7.9p1.orig/sshd.c	2018-10-23 23:08:05.785762050 +0200
++++ openssh-7.9p1/sshd.c	2018-10-23 23:09:11.677055077 +0200
 @@ -130,6 +130,7 @@
  #include "auth-options.h"
  #include "version.h"
@@ -2520,9 +2461,9 @@ diff -Nur openssh-7.8p1.orig/sshd.c openssh-7.8p1/sshd.c
  		temporarily_use_uid(authctxt->pw);
  		authctxt->krb5_set_env = ssh_gssapi_storecreds();
  		restore_uid();
-diff -Nur openssh-7.8p1.orig/sshd_config openssh-7.8p1/sshd_config
---- openssh-7.8p1.orig/sshd_config	2018-10-24 14:09:16.509776851 +0200
-+++ openssh-7.8p1/sshd_config	2018-10-24 14:09:54.259377504 +0200
+diff -Nur openssh-7.9p1.orig/sshd_config openssh-7.9p1/sshd_config
+--- openssh-7.9p1.orig/sshd_config	2018-10-23 23:08:05.714762812 +0200
++++ openssh-7.9p1/sshd_config	2018-10-23 23:09:11.678055066 +0200
 @@ -84,10 +84,11 @@
  #KerberosUseKuserok yes
  
@@ -2559,10 +2500,10 @@ diff -Nur openssh-7.8p1.orig/sshd_config openssh-7.8p1/sshd_config
  # Example of overriding settings on a per-user basis
  #Match User anoncvs
  #	X11Forwarding no
-diff -Nur openssh-7.8p1.orig/sshd_config.5 openssh-7.8p1/sshd_config.5
---- openssh-7.8p1.orig/sshd_config.5	2018-10-24 14:09:16.562776291 +0200
-+++ openssh-7.8p1/sshd_config.5	2018-10-24 14:09:54.259377504 +0200
-@@ -576,6 +576,15 @@
+diff -Nur openssh-7.9p1.orig/sshd_config.5 openssh-7.9p1/sshd_config.5
+--- openssh-7.9p1.orig/sshd_config.5	2018-10-23 23:08:05.736762576 +0200
++++ openssh-7.9p1/sshd_config.5	2018-10-23 23:09:11.678055066 +0200
+@@ -587,6 +587,15 @@
  TCP and StreamLocal.
  This option overrides all other forwarding-related options and may
  simplify restricted configurations.
@@ -2578,7 +2519,7 @@ diff -Nur openssh-7.8p1.orig/sshd_config.5 openssh-7.8p1/sshd_config.5
  .It Cm ExposeAuthInfo
  Writes a temporary file containing a list of authentication methods and
  public credentials (e.g. keys) used to authenticate the user.
-@@ -633,15 +642,34 @@
+@@ -644,15 +653,34 @@
  to allow the client to select the address to which the forwarding is bound.
  The default is
  .Cm no .
@@ -2614,7 +2555,7 @@ diff -Nur openssh-7.8p1.orig/sshd_config.5 openssh-7.8p1/sshd_config.5
  .It Cm GSSAPIEnablek5users
  Specifies whether to look at .k5users file for GSSAPI authentication
  access control. Further details are described in
-@@ -652,7 +680,7 @@
+@@ -663,7 +691,7 @@
  Specifies whether key exchange based on GSSAPI is allowed. GSSAPI key exchange
  doesn't rely on ssh keys to verify host identity.
  The default is
@@ -2623,7 +2564,7 @@ diff -Nur openssh-7.8p1.orig/sshd_config.5 openssh-7.8p1/sshd_config.5
  .It Cm GSSAPIStrictAcceptorCheck
  Determines whether to be strict about the identity of the GSSAPI acceptor
  a client authenticates against.
-@@ -691,7 +719,6 @@
+@@ -702,7 +730,6 @@
  .Pp
  The default is
  .Dq gss-gex-sha1-,gss-group14-sha1- .
@@ -2631,7 +2572,7 @@ diff -Nur openssh-7.8p1.orig/sshd_config.5 openssh-7.8p1/sshd_config.5
  .It Cm HostbasedAcceptedKeyTypes
  Specifies the key types that will be accepted for hostbased authentication
  as a list of comma-separated patterns.
-@@ -1627,6 +1654,103 @@
+@@ -1640,6 +1667,103 @@
  .Cm TrustedUserCAKeys .
  For more details on certificates, see the CERTIFICATES section in
  .Xr ssh-keygen 1 .
@@ -2735,7 +2676,7 @@ diff -Nur openssh-7.8p1.orig/sshd_config.5 openssh-7.8p1/sshd_config.5
  .It Cm UseDNS
  Specifies whether
  .Xr sshd 8
-@@ -1668,6 +1792,12 @@
+@@ -1681,6 +1805,12 @@
  as a non-root user.
  The default is
  .Cm no .
@@ -2748,9 +2689,9 @@ diff -Nur openssh-7.8p1.orig/sshd_config.5 openssh-7.8p1/sshd_config.5
  .It Cm VersionAddendum
  Optionally specifies additional text to append to the SSH protocol banner
  sent by the server upon connection.
-diff -Nur openssh-7.8p1.orig/ssh-globus-usage.c openssh-7.8p1/ssh-globus-usage.c
---- openssh-7.8p1.orig/ssh-globus-usage.c	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-7.8p1/ssh-globus-usage.c	2018-10-24 14:09:54.260377493 +0200
+diff -Nur openssh-7.9p1.orig/ssh-globus-usage.c openssh-7.9p1/ssh-globus-usage.c
+--- openssh-7.9p1.orig/ssh-globus-usage.c	1970-01-01 01:00:00.000000000 +0100
++++ openssh-7.9p1/ssh-globus-usage.c	2018-10-23 23:09:11.679055056 +0200
 @@ -0,0 +1,396 @@
 +/*
 + * Copyright 2009 The Board of Trustees of the University
@@ -3148,9 +3089,9 @@ diff -Nur openssh-7.8p1.orig/ssh-globus-usage.c openssh-7.8p1/ssh-globus-usage.c
 +
 +#endif /* HAVE_GLOBUS_USAGE */
 +}
-diff -Nur openssh-7.8p1.orig/ssh-globus-usage.h openssh-7.8p1/ssh-globus-usage.h
---- openssh-7.8p1.orig/ssh-globus-usage.h	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-7.8p1/ssh-globus-usage.h	2018-10-24 14:09:54.260377493 +0200
+diff -Nur openssh-7.9p1.orig/ssh-globus-usage.h openssh-7.9p1/ssh-globus-usage.h
+--- openssh-7.9p1.orig/ssh-globus-usage.h	1970-01-01 01:00:00.000000000 +0100
++++ openssh-7.9p1/ssh-globus-usage.h	2018-10-23 23:09:11.679055056 +0200
 @@ -0,0 +1,48 @@
 +/*
 + * Copyright 2009 The Board of Trustees of the University
@@ -3200,9 +3141,9 @@ diff -Nur openssh-7.8p1.orig/ssh-globus-usage.h openssh-7.8p1/ssh-globus-usage.h
 +                              const char *userdn);
 +
 +#endif /* __SSH_GLOBUS_USAGE_H */
-diff -Nur openssh-7.8p1.orig/ssh-gss.h openssh-7.8p1/ssh-gss.h
---- openssh-7.8p1.orig/ssh-gss.h	2018-10-24 14:09:16.560776312 +0200
-+++ openssh-7.8p1/ssh-gss.h	2018-10-24 14:09:54.260377493 +0200
+diff -Nur openssh-7.9p1.orig/ssh-gss.h openssh-7.9p1/ssh-gss.h
+--- openssh-7.9p1.orig/ssh-gss.h	2018-10-23 23:08:05.759762329 +0200
++++ openssh-7.9p1/ssh-gss.h	2018-10-23 23:09:11.679055056 +0200
 @@ -85,6 +85,7 @@
  	KEX_GSS_GRP14_SHA1_ID
  
@@ -3246,15 +3187,6 @@ diff -Nur openssh-7.8p1.orig/ssh-gss.h openssh-7.8p1/ssh-gss.h
  /* In the server */
  typedef int ssh_gssapi_check_fn(Gssctxt **, gss_OID, const char *, 
      const char *);
-@@ -165,7 +171,7 @@
- int ssh_gssapi_server_check_mech(Gssctxt **,gss_OID, const char *, 
-     const char *);
- OM_uint32 ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
--int ssh_gssapi_userok(char *name, struct passwd *);
-+int ssh_gssapi_userok(char *name, struct passwd *, int gssapi_keyex);
- OM_uint32 ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
- void ssh_gssapi_do_child(char ***, u_int *);
- void ssh_gssapi_cleanup_creds(void);
 @@ -178,6 +184,7 @@
  int ssh_gssapi_update_creds(ssh_gssapi_ccache *store);
  
@@ -3263,12 +3195,12 @@ diff -Nur openssh-7.8p1.orig/ssh-gss.h openssh-7.8p1/ssh-gss.h
  #endif /* GSSAPI */
  
  #endif /* _SSH_GSS_H */
-diff -Nur openssh-7.8p1.orig/version.h openssh-7.8p1/version.h
---- openssh-7.8p1.orig/version.h	2018-08-23 07:41:42.000000000 +0200
-+++ openssh-7.8p1/version.h	2018-10-24 14:09:54.260377493 +0200
+diff -Nur openssh-7.9p1.orig/version.h openssh-7.9p1/version.h
+--- openssh-7.9p1.orig/version.h	2018-10-17 02:01:20.000000000 +0200
++++ openssh-7.9p1/version.h	2018-10-23 23:09:11.680055045 +0200
 @@ -2,5 +2,19 @@
  
- #define SSH_VERSION	"OpenSSH_7.8"
+ #define SSH_VERSION	"OpenSSH_7.9"
  
 +#ifdef GSI
 +#define GSI_VERSION	" GSI"
