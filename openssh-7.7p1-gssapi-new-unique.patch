@@ -84,7 +84,7 @@ index a5a81ed2..63f877f2 100644
 +			/* There is at least one other ccache in collection
 +			 * we can switch to */
 +			krb5_cc_switch(ctx, ccache);
-+		} else {
++		} else if (authctxt->krb5_ccname != NULL) {
 +			/* Clean up the collection too */
 +			strncpy(krb5_ccname, authctxt->krb5_ccname, sizeof(krb5_ccname) - 10);
 +			krb5_ccname_dir_start = strchr(krb5_ccname, ':') + 1;

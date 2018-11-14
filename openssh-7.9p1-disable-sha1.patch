@@ -1,0 +1,62 @@
+diff --git a/monitor.c b/monitor.c
+index 12b33e7..a1c3c97 100644
+--- a/monitor.c
++++ b/monitor.c
+@@ -875,6 +875,34 @@ mm_answer_bsdauthrespond(int sock, struct sshbuf *m)
+ }
+ #endif
+ 
++/*
++ * Check that the key type appears in the supplied pattern list, ignoring
++ * mismastches in the signature algorithm. (Signature algorithm checks are
++ * performed in the unprivileged authentication code).
++ * Returns 1 on success, 0 otherwise.
++ */
++static int
++key_base_type_match(const struct sshkey *key, const char *list)
++{
++	char *s, *l, *ol = xstrdup(list);
++	int found = 0;
++
++	l = ol;
++	for ((s = strsep(&l, ",")); s && *s != '\0'; (s = strsep(&l, ","))) {
++		if (sshkey_type_from_name(s) == key->type) {
++			found = 1;
++			break;
++		}
++	}
++	if (!found) {
++		debug("key type %s does not appear in list %s",
++		    sshkey_ssh_name(key), list);
++	}
++
++	free(ol);
++	return found;
++}
++
+ int
+ mm_answer_keyallowed(int sock, struct sshbuf *m)
+ {
+@@ -909,8 +937,8 @@ mm_answer_keyallowed(int sock, struct sshbuf *m)
+ 				break;
+ 			if (auth2_key_already_used(authctxt, key))
+ 				break;
+-			if (match_pattern_list(sshkey_ssh_name(key),
+-			    options.pubkey_key_types, 0) != 1)
++			if (!key_base_type_match(key,
++			    options.pubkey_key_types))
+ 				break;
+ 			allowed = user_key_allowed(ssh, authctxt->pw, key,
+ 			    pubkey_auth_attempt, &opts);
+@@ -921,8 +949,8 @@ mm_answer_keyallowed(int sock, struct sshbuf *m)
+ 				break;
+ 			if (auth2_key_already_used(authctxt, key))
+ 				break;
+-			if (match_pattern_list(sshkey_ssh_name(key),
+-			    options.hostbased_key_types, 0) != 1)
++			if (!key_base_type_match(key,
++			    options.hostbased_key_types))
+ 				break;
+ 			allowed = hostbased_key_allowed(authctxt->pw,
+ 			    cuser, chost, key);
+
