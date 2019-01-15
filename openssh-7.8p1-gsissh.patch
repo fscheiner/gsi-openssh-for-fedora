@@ -2243,7 +2243,7 @@ diff -Nur openssh-7.8p1.orig/ssh.1 openssh-7.8p1/ssh.1
 diff -Nur openssh-7.8p1.orig/ssh.c openssh-7.8p1/ssh.c
 --- openssh-7.8p1.orig/ssh.c	2018-10-24 14:09:16.690774937 +0200
 +++ openssh-7.8p1/ssh.c	2018-10-24 14:09:54.249377610 +0200
-@@ -541,6 +541,32 @@
+@@ -541,6 +541,38 @@
  			fatal("Can't open user config file %.100s: "
  			    "%.100s", config, strerror(errno));
  	} else {
@@ -2259,18 +2259,24 @@ diff -Nur openssh-7.8p1.orig/ssh.c openssh-7.8p1/ssh.c
 +		r = snprintf(buf, sizeof buf, "%s/%s.gssapi", pw->pw_dir,
 +		    _PATH_SSH_USER_CONFFILE);
 +		if (r > 0 && (size_t)r < sizeof(buf))
-+			(void)read_config_file(buf, pw, host, host_arg, &options, 1);
++			(void)read_config_file(buf, pw, host, host_name,
++			    &options, SSHCONF_CHECKPERM | SSHCONF_USERCONF |
++			    (post_canon ? SSHCONF_POSTCANON : 0));
 +#ifdef GSI
 +		r = snprintf(buf, sizeof buf, "%s/%s.gsi", pw->pw_dir,
 +		    _PATH_SSH_USER_CONFFILE);
 +		if (r > 0 && (size_t)r < sizeof(buf))
-+			(void)read_config_file(buf, pw, host, host_arg, &options, 1);
++			(void)read_config_file(buf, pw, host, host_name,
++			    &options, SSHCONF_CHECKPERM | SSHCONF_USERCONF |
++			    (post_canon ? SSHCONF_POSTCANON : 0));
 +#endif
 +#if defined(KRB5)
 +		r = snprintf(buf, sizeof buf, "%s/%s.krb", pw->pw_dir,
 +		    _PATH_SSH_USER_CONFFILE);
 +		if (r > 0 && (size_t)r < sizeof(buf))
-+			(void)read_config_file(buf, pw, host, host_arg, &options, 1);
++			(void)read_config_file(buf, pw, host, host_name,
++			    &options, SSHCONF_CHECKPERM | SSHCONF_USERCONF |
++			    (post_canon ? SSHCONF_POSTCANON : 0));
 +#endif
 +#endif
  		r = snprintf(buf, sizeof buf, "%s/%s", pw->pw_dir,
