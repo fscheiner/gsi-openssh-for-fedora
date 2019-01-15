@@ -124,10 +124,10 @@ diff -up openssh/ssh-pkcs11-client.c.pkcs11-ecdsa openssh/ssh-pkcs11-client.c
  				fatal("%s: bad key: %s", __func__, ssh_err(r));
 -			wrap_key(k->rsa);
 +			if(k->type == KEY_RSA) {
-+				 wrap_rsa_key(k->rsa);
++				wrap_rsa_key(k->rsa);
 +#ifdef ENABLE_PKCS11_ECDSA
 +			} else if(k->type == KEY_ECDSA) {
-+				 wrap_ecdsa_key(k->ecdsa);
++				wrap_ecdsa_key(k->ecdsa);
 +#endif /* ENABLE_PKCS11_ECDSA */
 +			} else {
 +				/* Unsupported type */
@@ -640,7 +640,7 @@ diff -up openssh/ssh-pkcs11.c.pkcs11-ecdsa openssh/ssh-pkcs11.c
  			}
  			X509_free(x509);
  			EVP_PKEY_free(evp);
-@@ -725,6 +1021,17 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+@@ -725,6 +1021,18 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
  			key->rsa = rsa;
  			key->type = KEY_RSA;
  			key->flags |= SSHKEY_FLAG_EXT;
@@ -650,6 +650,7 @@ diff -up openssh/ssh-pkcs11.c.pkcs11-ecdsa openssh/ssh-pkcs11.c
 +			if ((key = sshkey_new(KEY_UNSPEC)) == NULL)
 +				fatal("sshkey_new failed");
 +			key->ecdsa = ecdsa;
++			key->ecdsa_nid = sshkey_ecdsa_key_to_nid(key->ecdsa);
 +			key->type = KEY_ECDSA;
 +			key->flags |= SSHKEY_FLAG_EXT;
 +#endif /* ENABLE_PKCS11_ECDSA */

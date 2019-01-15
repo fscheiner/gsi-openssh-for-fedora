@@ -227,7 +227,7 @@ diff -up openssh-7.0p1/readconf.c.gsskexalg openssh-7.0p1/readconf.c
  	dump_cfg_string(oGssClientIdentity, o->gss_client_identity);
  	dump_cfg_string(oGssServerIdentity, o->gss_client_identity);
  	dump_cfg_fmtint(oGssRenewalRekey, o->gss_renewal_rekey);
-+	dump_cfg_string(oKexAlgorithms, o->gss_kex_algorithms ?
++	dump_cfg_string(oGssKexAlgorithms, o->gss_kex_algorithms ?
 +		o->gss_kex_algorithms : GSS_KEX_DEFAULT_KEX);
  #endif /* GSSAPI */
  	dump_cfg_fmtint(oHashKnownHosts, o->hash_known_hosts);

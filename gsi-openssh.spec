@@ -31,12 +31,12 @@
 %global ldap 1
 
 %global openssh_ver 7.9p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -168,6 +168,13 @@ Patch953: openssh-7.8p1-scp-ipv6.patch
 # Allow to disable RSA signatures with SHA-1 in server
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2746
 Patch954: openssh-7.9p1-disable-sha1.patch
+# Backport Match final so the crypto-policies do not break canonicalization (#1630166)
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2906
+Patch955: openssh-7.9p1-match-final.patch
+# Backport more after-release fixes (#1665611)
+Patch956: openssh-7.9p1-backports.patch
+# Backport patch for CVE-2018-20685 (#1665786)
+Patch957: openssh-7.9p1-CVE-2018-20685.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -328,6 +335,9 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch953 -p1 -b .scp-ipv6
 %patch808 -p1 -b .gsskex-method
 %patch954 -p1 -b .disable-sha1
+%patch955 -p1 -b .match-final
+%patch956 -p1 -b .backports
+%patch957 -p1 -b .CVE-2018-20685
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -340,6 +350,7 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
 sed 's!/etc/sysconfig/sshd!/etc/sysconfig/gsisshd!' -i sshd_config
+sed 's!/etc/pam.d/sshd!/etc/pam.d/gsisshd!' -i sshd_config
 
 cp -p %{SOURCE99} .
 
@@ -539,6 +550,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Jan 15 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-3
+- Based on openssh-7.9p1-3.fc29
+
 * Mon Jan 14 2019 Björn Esser <besser82@fedoraproject.org> - 7.9p1-2.1
 - Rebuilt for libcrypt.so.2 (#1666033)
 
