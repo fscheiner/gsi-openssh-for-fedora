@@ -181,7 +181,6 @@ Patch957: openssh-7.9p1-CVE-2018-20685.patch
 Patch98: openssh-7.9p1-gsissh.patch
 
 License: BSD
-Group: Applications/Internet
 Requires: /sbin/nologin
 Obsoletes: %{name}-clients-fips, %{name}-server-fips
 
@@ -229,7 +228,6 @@ BuildRequires: gnupg2
 Summary: SSH client applications with GSI authentication
 Provides: gsissh-clients = %{version}-%{release}
 Obsoletes: gsissh-clients < 5.8p2-2
-Group: Applications/Internet
 Requires: %{name} = %{version}-%{release}
 Requires: fipscheck-lib%{_isa} >= 1.3.0
 Requires: crypto-policies >= 20180306-1
@@ -238,7 +236,6 @@ Requires: crypto-policies >= 20180306-1
 Summary: SSH server daemon with GSI authentication
 Provides: gsissh-server = %{version}-%{release}
 Obsoletes: gsissh-server < 5.8p2-2
-Group: System Environment/Daemons
 Requires: %{name} = %{version}-%{release}
 Requires(pre): /usr/sbin/useradd
 Requires: pam >= 1.0.1-3
