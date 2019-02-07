@@ -12,15 +12,13 @@ diff -up openssh-7.7p1/ssh_config.redhat openssh-7.7p1/ssh_config
 diff -up openssh-7.7p1/ssh_config_redhat.redhat openssh-7.7p1/ssh_config_redhat
 --- openssh-7.7p1/ssh_config_redhat.redhat	2018-07-03 10:44:06.522245125 +0200
 +++ openssh-7.7p1/ssh_config_redhat	2018-07-03 10:44:06.522245125 +0200
-@@ -0,0 +1,20 @@
-+# Follow system-wide Crypto Policy, if defined:
-+Include /etc/crypto-policies/back-ends/openssh.config
+@@ -0,0 +1,21 @@
++# The options here are in the "Match final block" to be applied as the last
++# options and could be potentially overwritten by the user configuration
++Match final all
++	# Follow system-wide Crypto Policy, if defined:
++	Include /etc/crypto-policies/back-ends/openssh.config
 +
-+# Uncomment this if you want to use .local domain
-+# Host *.local
-+#   CheckHostIP no
-+
-+Host *
 +	GSSAPIAuthentication yes
 +
 +# If this option is set to yes then remote X11 clients will have full access
@@ -33,6 +31,10 @@ diff -up openssh-7.7p1/ssh_config_redhat.redhat openssh-7.7p1/ssh_config_redhat
 +	SendEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT
 +	SendEnv LC_IDENTIFICATION LC_ALL LANGUAGE
 +	SendEnv XMODIFIERS
++
++# Uncomment this if you want to use .local domain
++# Host *.local
++#   CheckHostIP no
 diff -up openssh-7.7p1/sshd_config.0.redhat openssh-7.7p1/sshd_config.0
 --- openssh-7.7p1/sshd_config.0.redhat	2018-04-02 07:39:27.000000000 +0200
 +++ openssh-7.7p1/sshd_config.0	2018-07-03 10:44:06.523245133 +0200

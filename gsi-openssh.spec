@@ -31,12 +31,12 @@
 %global ldap 1
 
 %global openssh_ver 7.9p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -175,6 +175,13 @@ Patch955: openssh-7.9p1-match-final.patch
 Patch956: openssh-7.9p1-backports.patch
 # Backport patch for CVE-2018-20685 (#1665786)
 Patch957: openssh-7.9p1-CVE-2018-20685.patch
+# ssh-copy-id is unmaintained: Aggreagete patches
+#  - do not return 0 if the write fails (full disk)
+#  - shellcheck reports (upstream #2902)
+Patch958: openssh-7.9p1-ssh-copy-id.patch
+# log when a client requests an interactive session and only sftp is allowed
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2960
+Patch959: openssh-7.9p1-log-sftp-only-connections.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -335,6 +342,8 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch955 -p1 -b .match-final
 %patch956 -p1 -b .backports
 %patch957 -p1 -b .CVE-2018-20685
+%patch958 -p1 -b .ssh-copy-id
+%patch959 -p1 -b .log-sftp-only
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -547,6 +556,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Feb 07 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-4
+- Based on openssh-7.9p1-4.fc29
+
 * Fri Feb 01 2019 Fedora Release Engineering <releng@fedoraproject.org> - 7.9p1-3.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild
 
