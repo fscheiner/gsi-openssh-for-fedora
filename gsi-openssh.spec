@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.8p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -539,6 +539,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Feb 08 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.8p1-3
+- CVE-2019-7639
+
 * Tue Jan 15 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.8p1-2
 - Based on openssh-7.8p1-4.fc28
 
