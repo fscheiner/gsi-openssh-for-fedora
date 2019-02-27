@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.9p1
-%global openssh_rel 5
+%global openssh_rel 6
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -213,7 +213,6 @@ BuildRequires: krb5-devel
 BuildRequires: globus-gss-assist-devel >= 8
 BuildRequires: globus-gssapi-gsi-devel >= 12.12
 BuildRequires: globus-common-devel >= 14
-BuildRequires: globus-usage-devel >= 3
 %endif
 
 %if %{libedit}
@@ -512,7 +511,7 @@ getent passwd sshd >/dev/null || \
 %systemd_postun_with_restart gsisshd.service
 
 %files
-%license LICENCE LICENSE.globus_usage
+%license LICENCE
 %doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
@@ -556,6 +555,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Feb 27 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-6
+- Remove usage statistics collection support
+
 * Fri Feb 08 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-5
 - CVE-2019-7639
 
