@@ -35,7 +35,7 @@
 %global nologin 1
 
 %global openssh_ver 5.3p1
-%global openssh_rel 17
+%global openssh_rel 18
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -272,7 +272,6 @@ BuildRequires: krb5-devel
 BuildRequires: globus-gss-assist-devel >= 8
 BuildRequires: globus-gssapi-gsi-devel >= 12.12
 BuildRequires: globus-common-devel >= 14
-BuildRequires: globus-usage-devel >= 3
 %endif
 
 %if %{libedit}
@@ -625,7 +624,7 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc CREDITS ChangeLog INSTALL LICENCE LICENSE.globus_usage OVERVIEW PROTOCOL PROTOCOL.agent PROTOCOL.certkeys README* TODO WARNING*
+%doc CREDITS ChangeLog INSTALL LICENCE OVERVIEW PROTOCOL PROTOCOL.agent PROTOCOL.certkeys README* TODO WARNING*
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
 %attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
@@ -664,6 +663,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Wed Feb 27 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-18
+- Remove usage statistics collection support
+
 * Mon Nov 13 2017 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-17
 - Based on openssh-5.3p1-123.el6_9
 

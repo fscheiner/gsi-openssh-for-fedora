@@ -64,13 +64,13 @@
  char *client_version_string = NULL;
  char *server_version_string = NULL;
 @@ -171,6 +172,7 @@ ssh_proxy_fdpass_connect(const char *host, u_short port,
- 	packet_set_connection(sock, sock);
+ 	packet_set_connection(pout[0], pin[1]);
  	packet_set_timeout(options.server_alive_interval,
  	    options.server_alive_count_max);
 +	set_remote_ipaddr();
  
+ 	/* Indicate OK return */
  	return 0;
- }
 @@ -493,6 +495,7 @@ ssh_connect_direct(const char *host, struct addrinfo *aitop,
  	packet_set_connection(sock, sock);
  	packet_set_timeout(options.server_alive_interval,
