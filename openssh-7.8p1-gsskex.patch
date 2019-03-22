@@ -693,7 +693,7 @@ diff -up openssh/gss-serv.c.gsskex openssh/gss-serv.c
 +			debug("%s: krb5_cc_resolve(): %.100s", __func__,
 +				krb5_get_err_text(gssapi_client.store.data, problem));
 +		} else if ((problem = krb5_cc_destroy(gssapi_client.store.data, ccache))) {
-+			debug("%s: krb5_cc_resolve(): %.100s", __func__,
++			debug("%s: krb5_cc_destroy(): %.100s", __func__,
 +				krb5_get_err_text(gssapi_client.store.data, problem));
 +		} else {
 +			krb5_free_context(gssapi_client.store.data);

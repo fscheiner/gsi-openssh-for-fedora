@@ -466,7 +466,7 @@ diff -up openssh/ssh-pkcs11.c.pkcs11-ecdsa openssh/ssh-pkcs11.c
  		{ CKA_ID, NULL, 0 },
  		{ CKA_LABEL, NULL, 0 }
  	};
-@@ -569,29 +772,60 @@ pkcs11_fetch_keys(struct pkcs11_provider
+@@ -569,37 +772,72 @@ pkcs11_fetch_keys(struct pkcs11_provider
  		{ CKA_SUBJECT, NULL, 0 },
  		{ CKA_VALUE, NULL, 0 }
  	};
@@ -532,7 +532,20 @@ diff -up openssh/ssh-pkcs11.c.pkcs11-ecdsa openssh/ssh-pkcs11.c
 +	    pkcs11_fetch_keys_filter(p, slotidx, cert_filter, filter_size - 1,
  	    cert_attribs, keysp, nkeys) < 0)
  		return (-1);
- 	return (0);
+ 	if (*nkeys == 0) {
+ 		/* Try once more without the label filter */
+ 		filter_size--;
+ 		if (pkcs11_fetch_keys_filter(p, slotidx, pubkey_filter, filter_size,
+ 		    pubkey_attribs, keysp, nkeys) < 0 ||
+-		    pkcs11_fetch_keys_filter(p, slotidx, cert_filter, filter_size,
++#ifdef ENABLE_PKCS11_ECDSA
++		    pkcs11_fetch_keys_filter(p, slotidx, ecdsa_filter, filter_size,
++		    ecdsa_attribs, keysp, nkeys) < 0||
++#endif /* ENABLE_PKCS11_ECDSA */
++		    pkcs11_fetch_keys_filter(p, slotidx, cert_filter, filter_size - 1,
+ 		    cert_attribs, keysp, nkeys) < 0)
+ 	 		return (-1);
+ 	}
 @@ -624,8 +858,13 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
      CK_ATTRIBUTE filter[], size_t filter_size, CK_ATTRIBUTE attribs[4],
      struct sshkey ***keysp, int *nkeys)

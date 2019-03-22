@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.9p1
-%global openssh_rel 6
+%global openssh_rel 7
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -182,6 +182,8 @@ Patch958: openssh-7.9p1-ssh-copy-id.patch
 # log when a client requests an interactive session and only sftp is allowed
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2960
 Patch959: openssh-7.9p1-log-sftp-only-connections.patch
+# Update cached passwd structure after PAM authentication (#1674541)
+Patch960: openssh-7.9p1-updated-cached-pw.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -343,6 +345,7 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch957 -p1 -b .CVE-2018-20685
 %patch958 -p1 -b .ssh-copy-id
 %patch959 -p1 -b .log-sftp-only
+%patch960 -p1 -b .update-pw
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -555,6 +558,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Mar 22 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-7
+- Based on openssh-7.9p1-5.fc29
+
 * Wed Feb 27 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-6
 - Remove usage statistics collection support
 

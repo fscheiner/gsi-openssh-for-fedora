@@ -3785,7 +3785,7 @@ diff -up openssh/ssh-pkcs11.c.pkcs11-uri openssh/ssh-pkcs11.c
  	return (0);
  }
  
-@@ -404,38 +537,62 @@ pkcs11_open_session(struct pkcs11_provid
+@@ -404,39 +537,72 @@ pkcs11_open_session(struct pkcs11_provid
   * keysp points to an (possibly empty) array with *nkeys keys.
   */
  static int pkcs11_fetch_keys_filter(struct pkcs11_provider *, CK_ULONG,
@@ -3854,8 +3854,18 @@ diff -up openssh/ssh-pkcs11.c.pkcs11-uri openssh/ssh-pkcs11.c
 +	    pkcs11_fetch_keys_filter(p, slotidx, cert_filter, filter_size,
 +	    cert_attribs, keysp, nkeys) < 0)
  		return (-1);
++	if (*nkeys == 0) {
++		/* Try once more without the label filter */
++		filter_size--;
++		if (pkcs11_fetch_keys_filter(p, slotidx, pubkey_filter, filter_size,
++		    pubkey_attribs, keysp, nkeys) < 0 ||
++		    pkcs11_fetch_keys_filter(p, slotidx, cert_filter, filter_size,
++		    cert_attribs, keysp, nkeys) < 0)
++	 		return (-1);
++	}
  	return (0);
  }
+ 
 @@ -462,14 +619,15 @@ have_rsa_key(const RSA *rsa)
  
  static int
@@ -3989,7 +3999,7 @@ diff -up openssh/ssh-pkcs11.c.pkcs11-uri openssh/ssh-pkcs11.c
  			free(attribs[i].pValue);
  	}
  	if ((rv = f->C_FindObjectsFinal(session)) != CKR_OK)
-@@ -592,126 +750,239 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
+@@ -592,126 +750,240 @@ pkcs11_fetch_keys_filter(struct pkcs11_p
  int
  pkcs11_add_provider(char *provider_id, char *pin, struct sshkey ***keyp)
  {
@@ -4276,6 +4286,7 @@ diff -up openssh/ssh-pkcs11.c.pkcs11-uri openssh/ssh-pkcs11.c
 -		free(p->slotlist);
 -		free(p->slotinfo);
 -		free(p);
++ 		TAILQ_REMOVE(&pkcs11_providers, p, next);
 +		pkcs11_provider_unref(p);
  	}
 -	if (handle)

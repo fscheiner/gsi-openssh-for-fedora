@@ -1806,7 +1806,7 @@ diff -up openssh-7.6p1/session.c.audit openssh-7.6p1/session.c
  	if (s->ttyfd != -1)
  		ret = do_exec_pty(ssh, s, command);
 @@ -1499,8 +1511,11 @@ do_child(struct ssh *ssh, Session *s, co
- 	int r = 0;
+ 	}
  
  	/* remove hostkey from the child's memory */
 -	destroy_sensitive_data();

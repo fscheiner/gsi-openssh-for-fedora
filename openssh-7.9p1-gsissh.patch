@@ -902,12 +902,12 @@ diff -Nur openssh-7.9p1.orig/gss-serv.c openssh-7.9p1/gss-serv.c
 +	char **p; char **pw;
  #endif
  
--	if (gssapi_client.store.envval == NULL &&
+-	if (gssapi_client.store.envval == NULL)
 +	if (gssapi_client.store.filename == NULL && 
-+	    gssapi_client.store.envval == NULL &&
- 	    gssapi_client.store.envvar == NULL)
++	    gssapi_client.store.envval == NULL)
  		return;
   
+ 	ok = PRIVSEP(ssh_gssapi_update_creds(&gssapi_client.store));
 @@ -527,6 +613,18 @@
  	if (ret)
  		return;

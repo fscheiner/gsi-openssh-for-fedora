@@ -172,8 +172,8 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
   * Performs common processing for the child, such as setting up the
   * environment, closing extra file descriptors, setting the user and group
 @@ -1554,13 +1608,6 @@ do_child(Session *s, const char *command
- 	struct passwd *pw = s->pw;
- 	int r = 0;
+ 		pw = s->pw;
+ 	}
  
 -	/* remove hostkey from the child's memory */
 -	destroy_sensitive_data(1);
