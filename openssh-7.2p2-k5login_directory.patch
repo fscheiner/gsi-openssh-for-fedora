@@ -2,10 +2,11 @@ diff --git a/auth-krb5.c b/auth-krb5.c
 index 2b02a04..19b9364 100644
 --- a/auth-krb5.c
 +++ b/auth-krb5.c
-@@ -375,6 +375,22 @@ cleanup:
- 	return -1;
+@@ -375,5 +375,21 @@ cleanup:
+ 		return (krb5_cc_resolve(ctx, ccname, ccache));
+ 	}
  }
- 
++
 +/*
 + * Reads  k5login_directory  option from the  krb5.conf
 + */
@@ -21,10 +22,8 @@ index 2b02a04..19b9364 100644
 +	return profile_get_string(p, "libdefaults", "k5login_directory", NULL, NULL,
 +		k5login_directory);
 +}
-+
- krb5_error_code
- ssh_krb5_get_cctemplate(krb5_context ctx, char **ccname) {
- 	profile_t p;
+ #endif /* !HEIMDAL */
+ #endif /* KRB5 */
 diff --git a/auth.h b/auth.h
 index f9d191c..c432d2f 100644
 --- a/auth.h

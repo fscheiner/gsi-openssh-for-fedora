@@ -2,8 +2,8 @@ diff -up openssh-7.4p1/session.c.update-pw openssh-7.4p1/session.c
 --- openssh-7.4p1/session.c.update-pw	2019-03-04 14:10:57.287054645 +0100
 +++ openssh-7.4p1/session.c	2019-03-04 14:12:39.259997218 +0100
 @@ -1522,9 +1522,18 @@ do_child(Session *s, const char *command
- 	char **env;
- 	char *argv[ARGV_MAX];
+ 	extern char **environ;
+ 	char **env, *argv[ARGV_MAX], remote_id[512];
  	const char *shell, *shell0;
 -	struct passwd *pw = s->pw;
 +	struct passwd *pw = NULL;
@@ -18,6 +18,6 @@ diff -up openssh-7.4p1/session.c.update-pw openssh-7.4p1/session.c
 +		pw = s->pw;
 +	}
 +
+ 	sshpkt_fmt_connection_id(ssh, remote_id, sizeof(remote_id));
+ 
  	/* remove hostkey from the child's memory */
- 	destroy_sensitive_data();
- 	packet_clear_keys();

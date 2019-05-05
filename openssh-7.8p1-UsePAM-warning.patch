@@ -9,9 +9,9 @@ diff --git a/sshd.c b/sshd.c
 +	if (! options.use_pam)
 +		logit("WARNING: 'UsePAM no' is not supported in Fedora and may cause several problems.");
 +
- 	seed_rng();
- 
  	/* Fill in default values for those options not explicitly set. */
+ 	fill_default_server_options(&options);
+ 
 diff --git a/sshd_config b/sshd_config
 --- a/sshd_config
 +++ b/sshd_config

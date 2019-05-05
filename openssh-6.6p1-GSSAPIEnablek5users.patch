@@ -22,15 +22,15 @@ diff -up openssh-7.4p1/servconf.c.GSSAPIEnablek5users openssh-7.4p1/servconf.c
 --- openssh-7.4p1/servconf.c.GSSAPIEnablek5users	2016-12-23 15:18:40.615216100 +0100
 +++ openssh-7.4p1/servconf.c	2016-12-23 15:35:36.354401156 +0100
 @@ -168,6 +168,7 @@ initialize_server_options(ServerOptions
- 	options->gss_strict_acceptor = -1;
  	options->gss_store_rekey = -1;
+ 	options->gss_kex_algorithms = NULL;
  	options->use_kuserok = -1;
 +	options->enable_k5users = -1;
  	options->password_authentication = -1;
  	options->kbd_interactive_authentication = -1;
  	options->challenge_response_authentication = -1;
 @@ -345,6 +346,8 @@ fill_default_server_options(ServerOption
- 		options->gss_store_rekey = 0;
+ #endif
  	if (options->use_kuserok == -1)
  		options->use_kuserok = 1;
 +	if (options->enable_k5users == -1)
@@ -44,20 +44,22 @@ diff -up openssh-7.4p1/servconf.c.GSSAPIEnablek5users openssh-7.4p1/servconf.c
  	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,
 -	sGssAuthentication, sGssCleanupCreds, sGssStrictAcceptor,
 +	sGssAuthentication, sGssCleanupCreds, sGssEnablek5users, sGssStrictAcceptor,
- 	sGssKeyEx, sGssStoreRekey, sAcceptEnv, sSetEnv, sPermitTunnel,
+ 	sGssKeyEx, sGssKexAlgorithms, sGssStoreRekey,
+ 	sAcceptEnv, sSetEnv, sPermitTunnel,
  	sMatch, sPermitOpen, sPermitListen, sForceCommand, sChrootDirectory,
- 	sUsePrivilegeSeparation, sAllowAgentForwarding,
-@@ -497,12 +500,14 @@ static struct {
- 	{ "gssapistrictacceptorcheck", sGssStrictAcceptor, SSHCFG_GLOBAL },
+@@ -497,14 +500,16 @@ static struct {
  	{ "gssapikeyexchange", sGssKeyEx, SSHCFG_GLOBAL },
  	{ "gssapistorecredentialsonrekey", sGssStoreRekey, SSHCFG_GLOBAL },
+ 	{ "gssapikexalgorithms", sGssKexAlgorithms, SSHCFG_GLOBAL },
 +	{ "gssapienablek5users", sGssEnablek5users, SSHCFG_ALL },
  #else
  	{ "gssapiauthentication", sUnsupported, SSHCFG_ALL },
  	{ "gssapicleanupcredentials", sUnsupported, SSHCFG_GLOBAL },
+ 	{ "gssapicleanupcreds", sUnsupported, SSHCFG_GLOBAL },
  	{ "gssapistrictacceptorcheck", sUnsupported, SSHCFG_GLOBAL },
  	{ "gssapikeyexchange", sUnsupported, SSHCFG_GLOBAL },
  	{ "gssapistorecredentialsonrekey", sUnsupported, SSHCFG_GLOBAL },
+ 	{ "gssapikexalgorithms", sUnsupported, SSHCFG_GLOBAL },
 +	{ "gssapienablek5users", sUnsupported, SSHCFG_ALL },
  #endif
  	{ "gssusesessionccache", sUnsupported, SSHCFG_GLOBAL },

@@ -411,7 +411,7 @@ diff -up openssh-7.9p1/gss-serv-krb5.c.ccache_name openssh-7.9p1/gss-serv-krb5.c
  	}
  
  	krb5_free_principal(krb_context, princ);
-@@ -331,29 +332,19 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
+@@ -331,32 +332,21 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_cl
  	    client->creds, ccache))) {
  		logit("gss_krb5_copy_ccache() failed");
  		krb5_cc_destroy(krb_context, ccache);
@@ -425,6 +425,7 @@ diff -up openssh-7.9p1/gss-serv-krb5.c.ccache_name openssh-7.9p1/gss-serv-krb5.c
 -	client->store.envvar = "KRB5CCNAME";
 -#ifdef USE_CCAPI
 -	xasprintf(&client->store.envval, "API:%s", new_ccname);
+-	client->store.filename = NULL;
 -#else
 -	if (new_ccname[0] == ':')
 -		new_ccname++;
@@ -438,6 +439,8 @@ diff -up openssh-7.9p1/gss-serv-krb5.c.ccache_name openssh-7.9p1/gss-serv-krb5.c
 +	if (set_env) {
 +		client->store.envvar = "KRB5CCNAME";
  	}
+ 	if ((strcmp(new_cctype, "FILE") == 0) || (strcmp(new_cctype, "DIR") == 0))
+ 		client->store.filename = xstrdup(new_ccname);
 -#endif
  
  #ifdef USE_PAM
@@ -477,15 +480,16 @@ index 6cae720e..16e55cbc 100644
  }
  
  /* This allows GSSAPI methods to do things to the childs environment based
-@@ -496,8 +498,7 @@ ssh_gssapi_rekey_creds() {
+@@ -498,9 +500,7 @@ ssh_gssapi_rekey_creds() {
  	char *envstr;
  #endif
  
--	if (gssapi_client.store.envval == NULL &&
+-	if (gssapi_client.store.filename == NULL &&
+-	    gssapi_client.store.envval == NULL &&
 -	    gssapi_client.store.envvar == NULL)
 +	if (gssapi_client.store.envval == NULL)
  		return;
-  
+ 
  	ok = PRIVSEP(ssh_gssapi_update_creds(&gssapi_client.store));
 diff -up openssh-7.9p1/servconf.c.ccache_name openssh-7.9p1/servconf.c
 --- openssh-7.9p1/servconf.c.ccache_name	2019-03-01 15:17:42.704611768 +0100
@@ -590,14 +594,6 @@ diff --git a/ssh-gss.h b/ssh-gss.h
 index 6593e422..245178af 100644
 --- a/ssh-gss.h
 +++ b/ssh-gss.h
-@@ -62,7 +62,6 @@
- #define KEX_GSS_GEX_SHA1_ID				"gss-gex-sha1-"
- 
- typedef struct {
--	char *filename;
- 	char *envvar;
- 	char *envval;
- 	struct passwd *owner;
 @@ -83,7 +82,7 @@ typedef struct ssh_gssapi_mech_struct {
  	int (*dochild) (ssh_gssapi_client *);
  	int (*userok) (ssh_gssapi_client *, char *);

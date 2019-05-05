@@ -5,7 +5,7 @@ diff -up openssh-7.9p1/cipher.c.fips openssh-7.9p1/cipher.c
  
  #include <sys/types.h>
  
-+#include <openssl/fips.h>
++#include <openssl/crypto.h>
 +
  #include <string.h>
  #include <stdarg.h>
@@ -154,20 +154,12 @@ diff -up openssh-7.9p1/dh.h.fips openssh-7.9p1/dh.h
  
  u_int	 dh_estimate(int);
  
-@@ -51,6 +52,7 @@ u_int	 dh_estimate(int);
-  * Miniumum increased in light of DH precomputation attacks.
-  */
- #define DH_GRP_MIN	2048
-+#define DH_GRP_MIN_FIPS	2048
- #define DH_GRP_MAX	8192
- 
- /*
 diff -up openssh-7.9p1/entropy.c.fips openssh-7.9p1/entropy.c
 --- openssh-7.9p1/entropy.c.fips	2018-10-17 02:01:20.000000000 +0200
 +++ openssh-7.9p1/entropy.c	2019-03-11 17:06:37.621878041 +0100
 @@ -223,6 +223,11 @@ seed_rng(void)
- 		fatal("OpenSSL version mismatch. Built against %lx, you "
- 		    "have %lx", (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
+ 		    "have %lx", (u_long)OPENSSL_VERSION_NUMBER,
+ 		    OpenSSL_version_num());
  
 +	/* clean the PRNG status when exiting the program */
 +#if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -175,21 +167,13 @@ diff -up openssh-7.9p1/entropy.c.fips openssh-7.9p1/entropy.c
 +#endif
 +
  #ifndef OPENSSL_PRNG_ONLY
- 	if (RAND_status() == 1) {
+ 	if (RAND_status() == 1)
  		debug3("RNG is ready, skipping seeding");
 diff -up openssh-7.9p1/kex.c.fips openssh-7.9p1/kex.c
 --- openssh-7.9p1/kex.c.fips	2019-03-11 17:06:37.614877975 +0100
 +++ openssh-7.9p1/kex.c	2019-03-11 17:06:37.621878041 +0100
-@@ -35,6 +35,7 @@
- #ifdef WITH_OPENSSL
- #include <openssl/crypto.h>
- #include <openssl/dh.h>
-+#include <openssl/fips.h>
- #endif
- 
- #include "ssh2.h"
 @@ -122,6 +123,26 @@ static const struct kexalg kexalgs[] = {
- 	{ NULL, -1, -1, -1},
+ 	{ NULL, -1, -1, -1 },
  };
  
 +static const struct kexalg kexalgs_fips[] = {
@@ -209,22 +193,22 @@ diff -up openssh-7.9p1/kex.c.fips openssh-7.9p1/kex.c
 +	    SSH_DIGEST_SHA512 },
 +# endif
 +#endif
-+	{ NULL, -1, -1, -1},
++	{ NULL, -1, -1, -1 },
 +};
 +
+ static char *
+ kex_alg_list_internal(char sep, const struct kexalg *algs)
+ {
+@@ -129,7 +150,7 @@ kex_alg_list(char sep)
  char *
  kex_alg_list(char sep)
  {
-@@ -129,7 +150,7 @@ kex_alg_list(char sep)
- 	size_t nlen, rlen = 0;
- 	const struct kexalg *k;
+-	return kex_alg_list_internal(sep, kexalgs);
++	return kex_alg_list_internal(sep, (FIPS_mode() ? kexalgs_fips : kexalgs));
+ }
  
--	for (k = kexalgs; k->name != NULL; k++) {
-+	for (k = (FIPS_mode() ? kexalgs_fips : kexalgs); k->name != NULL; k++) {
- 		if (ret != NULL)
- 			ret[rlen++] = sep;
- 		nlen = strlen(k->name);
-@@ -149,7 +170,7 @@ kex_alg_by_name(const char *name)
+ char *
+@@ -149,11 +170,11 @@ kex_alg_by_name(const char *name)
  {
  	const struct kexalg *k;
  
@@ -232,7 +216,13 @@ diff -up openssh-7.9p1/kex.c.fips openssh-7.9p1/kex.c
 +	for (k = (FIPS_mode() ? kexalgs_fips : kexalgs); k->name != NULL; k++) {
  		if (strcmp(k->name, name) == 0)
  			return k;
- #ifdef GSSAPI
+	}
+-	for (k = gss_kexalgs; k->name != NULL; k++) {
++	for (k = (FIPS_mode() ? NULL : gss_kexalgs); k->name != NULL; k++) {
+ 		if (strncmp(k->name, name, strlen(k->name)) == 0)
+ 			return k;
+ 	}
+ 	return NULL;
 @@ -175,7 +196,10 @@ kex_names_valid(const char *names)
  	for ((p = strsep(&cp, ",")); p && *p != '\0';
  	    (p = strsep(&cp, ","))) {
@@ -252,19 +242,10 @@ diff -up openssh-7.9p1/kexgexc.c.fips openssh-7.9p1/kexgexc.c
  
  #ifdef WITH_OPENSSL
  
-+#include <openssl/fips.h>
++#include <openssl/crypto.h>
  #include <sys/types.h>
  
  #include <openssl/dh.h>
-@@ -65,7 +66,7 @@ kexgex_client(struct ssh *ssh)
- 
- 	nbits = dh_estimate(kex->dh_need * 8);
- 
--	kex->min = DH_GRP_MIN;
-+	kex->min = FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN;
- 	kex->max = DH_GRP_MAX;
- 	kex->nbits = nbits;
- 	if (datafellows & SSH_BUG_DHGEX_LARGE)
 @@ -118,6 +119,10 @@ input_kex_dh_gex_group(int type, u_int32
  		r = SSH_ERR_ALLOC_FAIL;
  		goto out;
@@ -276,21 +257,6 @@ diff -up openssh-7.9p1/kexgexc.c.fips openssh-7.9p1/kexgexc.c
  	p = g = NULL; /* belong to kex->dh now */
  
  	/* generate and send 'e', client DH public key */
-diff -up openssh-7.9p1/kexgexs.c.fips openssh-7.9p1/kexgexs.c
---- openssh-7.9p1/kexgexs.c.fips	2018-10-17 02:01:20.000000000 +0200
-+++ openssh-7.9p1/kexgexs.c	2019-03-11 17:06:37.621878041 +0100
-@@ -85,9 +85,9 @@ input_kex_dh_gex_request(int type, u_int
- 	kex->nbits = nbits;
- 	kex->min = min;
- 	kex->max = max;
--	min = MAXIMUM(DH_GRP_MIN, min);
-+	min = MAXIMUM(FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN, min);
- 	max = MINIMUM(DH_GRP_MAX, max);
--	nbits = MAXIMUM(DH_GRP_MIN, nbits);
-+	nbits = MAXIMUM(FIPS_mode() ? DH_GRP_MIN_FIPS : DH_GRP_MIN, nbits);
- 	nbits = MINIMUM(DH_GRP_MAX, nbits);
- 
- 	if (kex->max < kex->min || kex->nbits < kex->min ||
 diff -up openssh-7.9p1/mac.c.fips openssh-7.9p1/mac.c
 --- openssh-7.9p1/mac.c.fips	2019-03-11 17:06:37.614877975 +0100
 +++ openssh-7.9p1/mac.c	2019-03-11 17:06:37.621878041 +0100
@@ -298,11 +264,11 @@ diff -up openssh-7.9p1/mac.c.fips openssh-7.9p1/mac.c
  
  #include <sys/types.h>
  
-+#include <openssl/fips.h>
++#include <openssl/crypto.h>
 +
  #include <string.h>
  #include <stdio.h>
- 
+ #include <stdlib.h>
 @@ -54,7 +56,7 @@ struct macalg {
  	int		etm;		/* Encrypt-then-MAC */
  };
@@ -384,7 +350,7 @@ diff -up openssh-7.9p1/Makefile.in.fips openssh-7.9p1/Makefile.in
 -	$(LD) -o $@ ssh-keygen.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
 +	$(LD) -o $@ ssh-keygen.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
  
- ssh-keysign$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keysign.o readconf.o uidswap.o
+ ssh-keysign$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keysign.o readconf.o uidswap.o compat.o
 -	$(LD) -o $@ ssh-keysign.o readconf.o uidswap.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
 +	$(LD) -o $@ ssh-keysign.o readconf.o uidswap.o $(LDFLAGS) -lssh -lopenbsd-compat -lfipscheck $(LIBS)
  
@@ -472,15 +438,15 @@ diff -up openssh-7.9p1/readconf.c.fips openssh-7.9p1/readconf.c
 +		    all)) != 0) \
  			fatal("%s: %s: %s", __func__, #what, ssh_err(r)); \
  	} while (0)
--	ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, all_cipher);
--	ASSEMBLE(macs, KEX_SERVER_MAC, all_mac);
--	ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, all_kex);
+-	ASSEMBLE(ciphers, KEX_CLIENT_ENCRYPT, all_cipher);
+-	ASSEMBLE(macs, KEX_CLIENT_MAC, all_mac);
+-	ASSEMBLE(kex_algorithms, KEX_CLIENT_KEX, all_kex);
 -	ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, all_key);
 -	ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, all_key);
 -	ASSEMBLE(ca_sign_algorithms, SSH_ALLOWED_CA_SIGALGS, all_sig);
-+	ASSEMBLE(ciphers, KEX_SERVER_ENCRYPT, KEX_FIPS_ENCRYPT, all_cipher);
-+	ASSEMBLE(macs, KEX_SERVER_MAC, KEX_FIPS_MAC, all_mac);
-+	ASSEMBLE(kex_algorithms, KEX_SERVER_KEX, KEX_DEFAULT_KEX_FIPS, all_kex);
++	ASSEMBLE(ciphers, KEX_CLIENT_ENCRYPT, KEX_FIPS_ENCRYPT, all_cipher);
++	ASSEMBLE(macs, KEX_CLIENT_MAC, KEX_FIPS_MAC, all_mac);
++	ASSEMBLE(kex_algorithms, KEX_CLIENT_KEX, KEX_DEFAULT_KEX_FIPS, all_kex);
 +	ASSEMBLE(hostbased_key_types, KEX_DEFAULT_PK_ALG, KEX_FIPS_PK_ALG, all_key);
 +	ASSEMBLE(pubkey_key_types, KEX_DEFAULT_PK_ALG, KEX_FIPS_PK_ALG, all_key);
 +	ASSEMBLE(ca_sign_algorithms, SSH_ALLOWED_CA_SIGALGS, KEX_FIPS_PK_ALG, all_sig);
@@ -539,7 +505,7 @@ diff -up openssh-7.9p1/ssh.c.fips openssh-7.9p1/ssh.c
  #include <openssl/evp.h>
  #include <openssl/err.h>
  #endif
-+#include <openssl/fips.h>
++#include <openssl/crypto.h>
 +#include <fipscheck.h>
  #include "openbsd-compat/openssl-compat.h"
  #include "openbsd-compat/sys-queue.h"
@@ -561,14 +527,6 @@ diff -up openssh-7.9p1/ssh.c.fips openssh-7.9p1/ssh.c
  
  #ifndef HAVE_SETPROCTITLE
  	/* Prepare for later setproctitle emulation */
-@@ -1047,7 +1059,6 @@ main(int ac, char **av)
- 	host_arg = xstrdup(host);
- 
- #ifdef WITH_OPENSSL
--	OpenSSL_add_all_algorithms();
- 	ERR_load_crypto_strings();
- #endif
- 
 @@ -1283,6 +1294,10 @@ main(int ac, char **av)
  
  	seed_rng();
@@ -577,9 +535,9 @@ diff -up openssh-7.9p1/ssh.c.fips openssh-7.9p1/ssh.c
 +		logit("FIPS mode initialized");
 +	}
 +
- 	if (options.user == NULL)
- 		options.user = xstrdup(pw->pw_name);
- 
+ 	/*
+ 	 * Discard other fds that are hanging around. These can cause problem
+ 	 * with backgrounded ssh processes started by ControlPersist.
 diff -up openssh-7.9p1/sshconnect2.c.fips openssh-7.9p1/sshconnect2.c
 --- openssh-7.9p1/sshconnect2.c.fips	2019-03-11 17:06:37.580877655 +0100
 +++ openssh-7.9p1/sshconnect2.c	2019-03-11 17:06:37.623878060 +0100
@@ -587,12 +545,12 @@ diff -up openssh-7.9p1/sshconnect2.c.fips openssh-7.9p1/sshconnect2.c
  #include <vis.h>
  #endif
  
-+#include <openssl/fips.h>
++#include <openssl/crypto.h>
 +
  #include "openbsd-compat/sys-queue.h"
  
  #include "xmalloc.h"
-@@ -235,7 +237,8 @@ order_hostkeyalgs(char *host, struct soc
+@@ -117,7 +117,8 @@ order_hostkeyalgs(char *host, struct soc
  	for (i = 0; i < options.num_system_hostfiles; i++)
  		load_hostkeys(hostkeys, hostname, options.system_hostfiles[i]);
  
@@ -602,53 +560,7 @@ diff -up openssh-7.9p1/sshconnect2.c.fips openssh-7.9p1/sshconnect2.c
  	maxlen = strlen(avail) + 1;
  	first = xmalloc(maxlen);
  	last = xmalloc(maxlen);
-@@ -290,23 +293,28 @@ ssh_kex2(char *host, struct sockaddr *ho
- 
- #ifdef GSSAPI
- 	if (options.gss_keyex) {
--		/* Add the GSSAPI mechanisms currently supported on this 
--		 * client to the key exchange algorithm proposal */
--		orig = options.kex_algorithms;
--
--		if (options.gss_server_identity)
--			gss_host = options.gss_server_identity;
--		else if (options.gss_trust_dns)
--			gss_host = (char *)get_canonical_hostname(active_state, 1);
--		else
--			gss_host = host;
--
--		gss = ssh_gssapi_client_mechanisms(gss_host,
--		    options.gss_client_identity, options.gss_kex_algorithms);
--		if (gss) {
--			debug("Offering GSSAPI proposal: %s", gss);
--			xasprintf(&options.kex_algorithms,
--			    "%s,%s", gss, orig);
-+		if (FIPS_mode()) {
-+			logit("Disabling GSSAPIKeyExchange. Not usable in FIPS mode");
-+			options.gss_keyex = 0;
-+		} else {
-+			/* Add the GSSAPI mechanisms currently supported on this
-+			 * client to the key exchange algorithm proposal */
-+			orig = options.kex_algorithms;
-+
-+			if (options.gss_server_identity)
-+				gss_host = options.gss_server_identity;
-+			else if (options.gss_trust_dns)
-+				gss_host = (char *)get_canonical_hostname(active_state, 1);
-+			else
-+				gss_host = host;
-+
-+			gss = ssh_gssapi_client_mechanisms(gss_host,
-+			    options.gss_client_identity, options.gss_kex_algorithms);
-+			if (gss) {
-+				debug("Offering GSSAPI proposal: %s", gss);
-+				xasprintf(&options.kex_algorithms,
-+				    "%s,%s", gss, orig);
-+			}
- 		}
- 	}
- #endif
-@@ -326,14 +334,16 @@ ssh_kex2(char *host, struct sockaddr *ho
+@@ -185,14 +185,16 @@ ssh_kex2(char *host, struct sockaddr *ho
  	if (options.hostkeyalgorithms != NULL) {
  		all_key = sshkey_alg_list(0, 0, 1, ',');
  		if (kex_assemble_names(&options.hostkeyalgorithms,
@@ -667,6 +579,64 @@ diff -up openssh-7.9p1/sshconnect2.c.fips openssh-7.9p1/sshconnect2.c
  		/* Prefer algorithms that we already have keys for */
  		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] =
  		    compat_pkalg_proposal(
+@@ -201,29 +201,34 @@ ssh_kex2(char *host, struct sockaddr *ho
+ 
+ #if defined(GSSAPI) && defined(WITH_OPENSSL)
+ 	if (options.gss_keyex) {
+-		/* Add the GSSAPI mechanisms currently supported on this
+-		 * client to the key exchange algorithm proposal */
+-		orig = myproposal[PROPOSAL_KEX_ALGS];
+-
+-		if (options.gss_server_identity)
+-			gss_host = xstrdup(options.gss_server_identity);
+-		else if (options.gss_trust_dns)
+-			gss_host = remote_hostname(ssh);
+-		else
+-			gss_host = xstrdup(host);
+-
+-		gss = ssh_gssapi_client_mechanisms(gss_host,
+-		    options.gss_client_identity, options.gss_kex_algorithms);
+-		if (gss) {
+-			debug("Offering GSSAPI proposal: %s", gss);
+-			xasprintf(&myproposal[PROPOSAL_KEX_ALGS],
+-			    "%s,%s", gss, orig);
+-
+-			/* If we've got GSSAPI algorithms, then we also support the
+-			 * 'null' hostkey, as a last resort */
+-			orig = myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS];
+-			xasprintf(&myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS],
+-			    "%s,null", orig);
++		if (FIPS_mode()) {
++			logit("Disabling GSSAPIKeyExchange. Not usable in FIPS mode");
++			options.gss_keyex = 0;
++		} else {
++			/* Add the GSSAPI mechanisms currently supported on this
++			 * client to the key exchange algorithm proposal */
++			orig = myproposal[PROPOSAL_KEX_ALGS];
++
++			if (options.gss_server_identity)
++				gss_host = xstrdup(options.gss_server_identity);
++			else if (options.gss_trust_dns)
++				gss_host = remote_hostname(ssh);
++			else
++				gss_host = xstrdup(host);
++
++			gss = ssh_gssapi_client_mechanisms(gss_host,
++			    options.gss_client_identity, options.gss_kex_algorithms);
++			if (gss) {
++				debug("Offering GSSAPI proposal: %s", gss);
++				xasprintf(&myproposal[PROPOSAL_KEX_ALGS],
++				    "%s,%s", gss, orig);
++
++				/* If we've got GSSAPI algorithms, then we also support the
++				 * 'null' hostkey, as a last resort */
++				orig = myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS];
++				xasprintf(&myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS],
++				    "%s,null", orig);
++			}
+ 		}
+ 	}
+ #endif
 diff -up openssh-7.9p1/sshd.c.fips openssh-7.9p1/sshd.c
 --- openssh-7.9p1/sshd.c.fips	2019-03-11 17:06:37.617878003 +0100
 +++ openssh-7.9p1/sshd.c	2019-03-11 17:06:37.624878069 +0100
@@ -682,7 +652,7 @@ diff -up openssh-7.9p1/sshd.c.fips openssh-7.9p1/sshd.c
  #include <openssl/dh.h>
  #include <openssl/bn.h>
  #include <openssl/rand.h>
-+#include <openssl/fips.h>
++#include <openssl/crypto.h>
 +#include <fipscheck.h>
  #include "openbsd-compat/openssl-compat.h"
  #endif
@@ -706,15 +676,6 @@ diff -up openssh-7.9p1/sshd.c.fips openssh-7.9p1/sshd.c
  	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
  	saved_argc = ac;
  	rexec_argc = ac;
-@@ -1722,7 +1737,7 @@ main(int ac, char **av)
- 	else
- 		closefrom(REEXEC_DEVCRYPTO_RESERVED_FD);
- 
--#ifdef WITH_OPENSSL
-+#if 0 /* FIPS */
- 	OpenSSL_add_all_algorithms();
- #endif
- 
 @@ -2036,6 +2051,10 @@ main(int ac, char **av)
  	/* Reinitialize the log (because of the fork above). */
  	log_init(__progname, options.log_level, options.log_facility, log_stderr);
@@ -752,7 +713,7 @@ diff -up openssh-7.9p1/sshkey.c.fips openssh-7.9p1/sshkey.c
  #include <openssl/evp.h>
  #include <openssl/err.h>
  #include <openssl/pem.h>
-+#include <openssl/fips.h>
++#include <openssl/crypto.h>
  #endif
  
  #include "crypto_api.h"

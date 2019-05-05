@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 7.9p1
-%global openssh_rel 7
+%global openssh_ver 8.0p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -96,8 +96,6 @@ Patch702: openssh-5.1p1-askpass-progress.patch
 Patch703: openssh-4.3p2-askpass-grab-info.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1635 (WONTFIX)
 Patch707: openssh-7.7p1-redhat.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1640 (WONTFIX)
-Patch709: openssh-6.2p1-vendor.patch
 # warn users for unsupported UsePAM=no (#757545)
 Patch711: openssh-7.8p1-UsePAM-warning.patch
 # make aes-ctr ciphers use EVP engines such as AES-NI from OpenSSL
@@ -107,28 +105,20 @@ Patch713: openssh-6.6p1-ctr-cavstest.patch
 # add SSH KDF CAVS test driver
 Patch714: openssh-6.7p1-kdf-cavs.patch
 
-#http://www.sxw.org.uk/computing/patches/openssh.html
-#changed cache storage type - #848228
-Patch800: openssh-7.8p1-gsskex.patch
+# GSSAPI Key Exchange (RFC 4462 + draft-ietf-curdle-gss-keyex-sha2-08)
+# from https://github.com/openssh-gsskex/openssh-gsskex/tree/fedora/master
+Patch800: openssh-8.0p1-gssapi-keyex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
 Patch801: openssh-6.6p1-force_krb.patch
 # add new option GSSAPIEnablek5users and disable using ~/.k5users by default (#1169843)
 # CVE-2014-9278
 Patch802: openssh-6.6p1-GSSAPIEnablek5users.patch
-# Documentation about GSSAPI
-# from https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=765655
-Patch803: openssh-7.1p1-gssapi-documentation.patch
 # Improve ccache handling in openssh (#991186, #1199363, #1566494)
 # https://bugzilla.mindrot.org/show_bug.cgi?id=2775
 Patch804: openssh-7.7p1-gssapi-new-unique.patch
 # Respect k5login_directory option in krk5.conf (#1328243)
 Patch805: openssh-7.2p2-k5login_directory.patch
-# Support SHA2 in GSS key exchanges from draft-ssorce-gss-keyex-sha2-02
-Patch807: openssh-7.5p1-gssapi-kex-with-ec.patch
-# Do not break when using AuthenticationMethods with gssapi-keyex auth method (#1625366)
-Patch808: openssh-7.9p1-gsskex-method.patch
 
-Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
 Patch901: openssh-6.6p1-kuserok.patch
 # Use tty allocation for a remote scp (#985650)
@@ -139,16 +129,12 @@ Patch916: openssh-6.6.1p1-selinux-contexts.patch
 Patch918: openssh-6.6.1p1-log-in-chroot.patch
 # scp file into non-existing directory (#1142223)
 Patch919: openssh-6.6.1p1-scp-non-existing-directory.patch
-# Config parser shouldn't accept ip/port syntax (#1130733)
-Patch920: openssh-7.8p1-ip-port-config-parser.patch
 # apply upstream patch and make sshd -T more consistent (#1187521)
 Patch922: openssh-6.8p1-sshdT-output.patch
 # Add sftp option to force mode of created files (#1191055)
 Patch926: openssh-6.7p1-sftp-force-permission.patch
 # Restore compatible default (#89216)
 Patch929: openssh-6.9p1-permit-root-login.patch
-# Add GSSAPIKexAlgorithms option for server and client application
-Patch932: openssh-7.0p1-gssKexAlgorithms.patch
 # make s390 use /dev/ crypto devices -- ignore closefrom
 Patch939: openssh-7.2p2-s390-closefrom.patch
 # Move MAX_DISPLAYS to a configuration option (#1341302)
@@ -160,34 +146,19 @@ Patch949: openssh-7.6p1-cleanup-selinux.patch
 # Sandbox adjustments for s390 and audit
 Patch950: openssh-7.5p1-sandbox.patch
 # PKCS#11 URIs (upstream #2817, 2nd iteration)
-Patch951: openssh-7.6p1-pkcs11-uri.patch
-# PKCS#11 ECDSA keys (upstream #2474, 8th iteration)
-Patch952: openssh-7.6p1-pkcs11-ecdsa.patch
+Patch951: openssh-8.0p1-pkcs11-uri.patch
 # Unbreak scp between two IPv6 hosts (#1620333)
 Patch953: openssh-7.8p1-scp-ipv6.patch
-# Allow to disable RSA signatures with SHA-1 in server
-# https://bugzilla.mindrot.org/show_bug.cgi?id=2746
-Patch954: openssh-7.9p1-disable-sha1.patch
-# Backport Match final so the crypto-policies do not break canonicalization (#1630166)
-# https://bugzilla.mindrot.org/show_bug.cgi?id=2906
-Patch955: openssh-7.9p1-match-final.patch
-# Backport more after-release fixes (#1665611)
-Patch956: openssh-7.9p1-backports.patch
-# Backport patch for CVE-2018-20685 (#1665786)
-Patch957: openssh-7.9p1-CVE-2018-20685.patch
 # ssh-copy-id is unmaintained: Aggreagete patches
 #  - do not return 0 if the write fails (full disk)
 #  - shellcheck reports (upstream #2902)
 Patch958: openssh-7.9p1-ssh-copy-id.patch
-# log when a client requests an interactive session and only sftp is allowed
-# https://bugzilla.mindrot.org/show_bug.cgi?id=2960
-Patch959: openssh-7.9p1-log-sftp-only-connections.patch
 # Update cached passwd structure after PAM authentication (#1674541)
 Patch960: openssh-7.9p1-updated-cached-pw.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-7.9p1-gsissh.patch
+Patch98: openssh-8.0p1-gsissh.patch
 
 License: BSD
 Requires: /sbin/nologin
@@ -305,7 +276,6 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch702 -p1 -b .progress
 %patch703 -p1 -b .grab-info
 %patch707 -p1 -b .redhat
-%patch709 -p1 -b .vendor
 %patch711 -p1 -b .log-usepam-no
 %patch712 -p1 -b .evp-ctr
 %patch713 -p1 -b .ctr-cavs
@@ -313,38 +283,26 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 
 %patch800 -p1 -b .gsskex
 %patch801 -p1 -b .force_krb
-%patch803 -p1 -b .gss-docs
 %patch804 -p1 -b .ccache_name
 %patch805 -p1 -b .k5login
 
-%patch900 -p1 -b .canohost
 %patch901 -p1 -b .kuserok
 %patch906 -p1 -b .fromto-remote
 %patch916 -p1 -b .contexts
 %patch918 -p1 -b .log-in-chroot
 %patch919 -p1 -b .scp
-%patch920 -p1 -b .config
 %patch802 -p1 -b .GSSAPIEnablek5users
 %patch922 -p1 -b .sshdt
 %patch926 -p1 -b .sftp-force-mode
 %patch929 -p1 -b .root-login
-%patch932 -p1 -b .gsskexalg
 %patch939 -p1 -b .s390-dev
 %patch944 -p1 -b .x11max
 %patch948 -p1 -b .systemd
-%patch807 -p1 -b .gsskex-ec
 %patch949 -p1 -b .refactor
 %patch950 -p1 -b .sandbox
 %patch951 -p1 -b .pkcs11-uri
-%patch952 -p1 -b .pkcs11-ecdsa
 %patch953 -p1 -b .scp-ipv6
-%patch808 -p1 -b .gsskex-method
-%patch954 -p1 -b .disable-sha1
-%patch955 -p1 -b .match-final
-%patch956 -p1 -b .backports
-%patch957 -p1 -b .CVE-2018-20685
 %patch958 -p1 -b .ssh-copy-id
-%patch959 -p1 -b .log-sftp-only
 %patch960 -p1 -b .update-pw
 
 %patch200 -p1 -b .audit
@@ -401,7 +359,6 @@ fi
 	--with-default-path=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin \
 	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
 	--with-privsep-path=%{_var}/empty/gsisshd \
-	--enable-vendor-patchlevel="FC-%{openssh_ver}-%{openssh_rel}" \
 	--disable-strip \
 	--without-zlib-version-check \
 	--with-ssl-engine \
@@ -558,6 +515,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri May  3 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-1
+- Based on openssh-8.0p1-1.fc30
+
 * Fri Mar 22 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-7
 - Based on openssh-7.9p1-5.fc29
 

@@ -176,17 +176,17 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
 --- openssh-7.4p1/servconf.c.kuserok	2016-12-23 14:36:07.630465944 +0100
 +++ openssh-7.4p1/servconf.c	2016-12-23 15:11:52.278133344 +0100
 @@ -116,6 +116,7 @@ initialize_server_options(ServerOptions
- 	options->gss_cleanup_creds = -1;
  	options->gss_strict_acceptor = -1;
  	options->gss_store_rekey = -1;
+ 	options->gss_kex_algorithms = NULL;
 +	options->use_kuserok = -1;
  	options->password_authentication = -1;
  	options->kbd_interactive_authentication = -1;
  	options->challenge_response_authentication = -1;
 @@ -278,6 +279,8 @@ fill_default_server_options(ServerOption
- 		options->gss_strict_acceptor = 1;
- 	if (options->gss_store_rekey == -1)
- 		options->gss_store_rekey = 0;
+ 	if (options->gss_kex_algorithms == NULL)
+ 		options->gss_kex_algorithms = strdup(GSS_KEX_DEFAULT_KEX);
+ #endif
 +	if (options->use_kuserok == -1)
 +		options->use_kuserok = 1;
  	if (options->password_authentication == -1)
