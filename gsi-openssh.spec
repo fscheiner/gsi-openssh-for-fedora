@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -56,9 +56,6 @@ Source99: README.sshd-and-gsisshd
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=2581
 Patch100: openssh-6.7p1-coverity.patch
-#https://bugzilla.mindrot.org/show_bug.cgi?id=1894
-#https://bugzilla.redhat.com/show_bug.cgi?id=735889
-#Patch102: openssh-5.8p1-getaddrinfo.patch
 
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1402
 # https://bugzilla.redhat.com/show_bug.cgi?id=1171248
@@ -155,6 +152,15 @@ Patch953: openssh-7.8p1-scp-ipv6.patch
 Patch958: openssh-7.9p1-ssh-copy-id.patch
 # Update cached passwd structure after PAM authentication (#1674541)
 Patch960: openssh-7.9p1-updated-cached-pw.patch
+# Verify the SCP vulnerabilities are fixed in the package testsuite
+# https://bugzilla.mindrot.org/show_bug.cgi?id=3007
+Patch961: openssh-8.0p1-scp-tests.patch
+# Mention crypto-policies in manual pages (#1668325)
+Patch962: openssh-8.0p1-crypto-policies.patch
+# Use OpenSSL high-level API to produce and verify signatures (#1707485)
+Patch963: openssh-8.0p1-openssl-evp.patch
+# Use OpenSSL KDF (#1631761)
+Patch964: openssh-8.0p1-openssl-kdf.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -257,8 +263,6 @@ This version of OpenSSH has been modified to support GSI authentication.
 gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %setup -q -n openssh-%{version}
 
-# investigate %%patch102 -p1 -b .getaddrinfo
-
 %patch400 -p1 -b .role-mls
 %patch404 -p1 -b .privsep-selinux
 
@@ -304,6 +308,10 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch953 -p1 -b .scp-ipv6
 %patch958 -p1 -b .ssh-copy-id
 %patch960 -p1 -b .update-pw
+%patch961 -p1 -b .scp-tests
+%patch962 -p1 -b .crypto-policies
+%patch963 -p1 -b .openssl-evp
+%patch964 -p1 -b .openssl-kdf
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -515,7 +523,10 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
-* Fri May  3 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-1
+* Mon May 20 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-2
+- Based on openssh-8.0p1-2.fc30
+
+* Fri May 03 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-1
 - Based on openssh-8.0p1-1.fc30
 
 * Fri Mar 22 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.9p1-7
