@@ -1791,7 +1791,7 @@ diff -Nur openssh-8.0p1.orig/monitor_wrap.h openssh-8.0p1/monitor_wrap.h
 diff -Nur openssh-8.0p1.orig/readconf.c openssh-8.0p1/readconf.c
 --- openssh-8.0p1.orig/readconf.c	2019-05-20 08:24:38.169774825 +0200
 +++ openssh-8.0p1/readconf.c	2019-05-20 08:25:21.586323072 +0200
-@@ -2052,13 +2052,13 @@
+@@ -2052,11 +2052,11 @@
  	if (options->challenge_response_authentication == -1)
  		options->challenge_response_authentication = 1;
  	if (options->gss_authentication == -1)
@@ -1804,11 +1804,8 @@ diff -Nur openssh-8.0p1.orig/readconf.c openssh-8.0p1/readconf.c
 -		options->gss_deleg_creds = 0;
 +		options->gss_deleg_creds = 1;
  	if (options->gss_trust_dns == -1)
--		options->gss_trust_dns = 0;
-+		options->gss_trust_dns = 1;
+ 		options->gss_trust_dns = 0;
  	if (options->gss_renewal_rekey == -1)
- 		options->gss_renewal_rekey = 0;
- #ifdef GSSAPI
 diff -Nur openssh-8.0p1.orig/readconf.h openssh-8.0p1/readconf.h
 --- openssh-8.0p1.orig/readconf.h	2019-05-20 08:24:38.074775813 +0200
 +++ openssh-8.0p1/readconf.h	2019-05-20 08:25:21.586323072 +0200
@@ -2099,21 +2096,19 @@ diff -Nur openssh-8.0p1.orig/ssh.c openssh-8.0p1/ssh.c
 diff -Nur openssh-8.0p1.orig/ssh_config openssh-8.0p1/ssh_config
 --- openssh-8.0p1.orig/ssh_config	2019-05-20 08:24:38.076775793 +0200
 +++ openssh-8.0p1/ssh_config	2019-05-20 08:25:21.588323052 +0200
-@@ -22,10 +22,10 @@
+@@ -22,9 +22,9 @@
  #   ForwardX11 no
  #   PasswordAuthentication yes
  #   HostbasedAuthentication no
 -#   GSSAPIAuthentication no
 -#   GSSAPIDelegateCredentials no
 -#   GSSAPIKeyExchange no
--#   GSSAPITrustDNS no
 +#   GSSAPIAuthentication yes
 +#   GSSAPIDelegateCredentials yes
 +#   GSSAPIKeyExchange yes
-+#   GSSAPITrustDNS yes
+ #   GSSAPITrustDNS no
  #   BatchMode no
  #   CheckHostIP yes
- #   AddressFamily any
 diff -Nur openssh-8.0p1.orig/ssh_config.5 openssh-8.0p1/ssh_config.5
 --- openssh-8.0p1.orig/ssh_config.5	2019-05-20 08:24:38.145775075 +0200
 +++ openssh-8.0p1/ssh_config.5	2019-05-20 08:32:58.762570830 +0200
@@ -2154,15 +2149,6 @@ diff -Nur openssh-8.0p1.orig/ssh_config.5 openssh-8.0p1/ssh_config.5
  .It Cm GSSAPIRenewalForcesRekey
  If set to
  .Dq yes
-@@ -796,7 +802,7 @@
- the hostname entered on the
- command line will be passed untouched to the GSSAPI library.
- The default is
--.Dq no .
-+.Dq yes .
- .It Cm GSSAPIKexAlgorithms
- The list of key exchange algorithms that are offered for GSSAPI
- key exchange. Possible values are
 @@ -814,7 +820,6 @@
  .Xr crypto-policies 7 .
  To see the defaults and how to modifuy this default, see manual page

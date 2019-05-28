@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -150,8 +150,6 @@ Patch953: openssh-7.8p1-scp-ipv6.patch
 #  - do not return 0 if the write fails (full disk)
 #  - shellcheck reports (upstream #2902)
 Patch958: openssh-7.9p1-ssh-copy-id.patch
-# Update cached passwd structure after PAM authentication (#1674541)
-Patch960: openssh-7.9p1-updated-cached-pw.patch
 # Verify the SCP vulnerabilities are fixed in the package testsuite
 # https://bugzilla.mindrot.org/show_bug.cgi?id=3007
 Patch961: openssh-8.0p1-scp-tests.patch
@@ -307,7 +305,6 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch951 -p1 -b .pkcs11-uri
 %patch953 -p1 -b .scp-ipv6
 %patch958 -p1 -b .ssh-copy-id
-%patch960 -p1 -b .update-pw
 %patch961 -p1 -b .scp-tests
 %patch962 -p1 -b .crypto-policies
 %patch963 -p1 -b .openssl-evp
@@ -523,6 +520,10 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue May 28 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-3
+- Based on openssh-8.0p1-3.fc30
+- Change GSSAPITrustDNS default to no
+
 * Mon May 20 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-2
 - Based on openssh-8.0p1-2.fc30
 
