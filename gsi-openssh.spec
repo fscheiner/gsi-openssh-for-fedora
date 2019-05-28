@@ -35,7 +35,7 @@
 %global nologin 1
 
 %global openssh_ver 5.3p1
-%global openssh_rel 19
+%global openssh_rel 20
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -666,6 +666,9 @@ fi
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 
 %changelog
+* Tue May 28 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-20
+- Change GSSAPITrustDNS default to no
+
 * Wed Apr 10 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 5.3p1-19
 - Based on openssh-5.3p1-124.el6_10
 

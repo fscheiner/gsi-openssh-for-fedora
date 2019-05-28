@@ -1784,7 +1784,7 @@ diff -Nur openssh-5.3p1.orig/monitor_wrap.h openssh-5.3p1/monitor_wrap.h
 diff -Nur openssh-5.3p1.orig/readconf.c openssh-5.3p1/readconf.c
 --- openssh-5.3p1.orig/readconf.c	2019-04-10 18:03:23.672097969 +0200
 +++ openssh-5.3p1/readconf.c	2019-04-10 18:03:59.825705790 +0200
-@@ -1230,13 +1230,13 @@
+@@ -1230,11 +1230,11 @@
  	if (options->challenge_response_authentication == -1)
  		options->challenge_response_authentication = 1;
  	if (options->gss_authentication == -1)
@@ -1797,11 +1797,8 @@ diff -Nur openssh-5.3p1.orig/readconf.c openssh-5.3p1/readconf.c
 -		options->gss_deleg_creds = 0;
 +		options->gss_deleg_creds = 1;
  	if (options->gss_trust_dns == -1)
--		options->gss_trust_dns = 0;
-+		options->gss_trust_dns = 1;
+ 		options->gss_trust_dns = 0;
  	if (options->gss_renewal_rekey == -1)
- 		options->gss_renewal_rekey = 0;
- 	if (options->gss_kex_algorithms == NULL)
 diff -Nur openssh-5.3p1.orig/readconf.h openssh-5.3p1/readconf.h
 --- openssh-5.3p1.orig/readconf.h	2019-04-10 18:03:23.672097969 +0200
 +++ openssh-5.3p1/readconf.h	2019-04-10 18:03:59.825705790 +0200
@@ -2083,21 +2080,19 @@ diff -Nur openssh-5.3p1.orig/ssh.c openssh-5.3p1/ssh.c
 diff -Nur openssh-5.3p1.orig/ssh_config openssh-5.3p1/ssh_config
 --- openssh-5.3p1.orig/ssh_config	2019-04-10 18:03:23.453100356 +0200
 +++ openssh-5.3p1/ssh_config	2019-04-10 18:03:59.827705769 +0200
-@@ -24,10 +24,10 @@
+@@ -24,9 +24,9 @@
  #   RSAAuthentication yes
  #   PasswordAuthentication yes
  #   HostbasedAuthentication no
 -#   GSSAPIAuthentication no
 -#   GSSAPIDelegateCredentials no
 -#   GSSAPIKeyExchange no
--#   GSSAPITrustDNS no
 +#   GSSAPIAuthentication yes
 +#   GSSAPIDelegateCredentials yes
 +#   GSSAPIKeyExchange yes
-+#   GSSAPITrustDNS yes
+ #   GSSAPITrustDNS no
  #   BatchMode no
  #   CheckHostIP yes
- #   AddressFamily any
 diff -Nur openssh-5.3p1.orig/ssh_config.5 openssh-5.3p1/ssh_config.5
 --- openssh-5.3p1.orig/ssh_config.5	2019-04-10 18:03:23.704097620 +0200
 +++ openssh-5.3p1/ssh_config.5	2019-04-10 18:03:59.827705769 +0200
@@ -2139,15 +2134,6 @@ diff -Nur openssh-5.3p1.orig/ssh_config.5 openssh-5.3p1/ssh_config.5
  Note that this option applies to protocol version 2 connections using GSSAPI.
  .It Cm GSSAPIRenewalForcesRekey
  If set to 
-@@ -530,7 +536,7 @@
- .Dq no, the hostname entered on the
- command line will be passed untouched to the GSSAPI library.
- The default is
--.Dq no .
-+.Dq yes .
- This option only applies to protocol version 2 connections using GSSAPI.
- .It Cm GSSAPIKexAlgorithms
- The list of key exchange algorithms that are accepted by GSSAPI
 @@ -803,7 +809,8 @@
  over another method (e.g.\&
  .Cm password )
@@ -2441,7 +2427,7 @@ diff -Nur openssh-5.3p1.orig/ssh-gss.h openssh-5.3p1/ssh-gss.h
 diff -Nur openssh-5.3p1.orig/version.h openssh-5.3p1/version.h
 --- openssh-5.3p1.orig/version.h	2009-07-05 23:13:04.000000000 +0200
 +++ openssh-5.3p1/version.h	2019-04-10 18:03:59.830705736 +0200
-@@ -1,6 +1,21 @@
+@@ -1,6 +1,20 @@
  /* $OpenBSD: version.h,v 1.56 2009/06/30 14:54:40 markus Exp $ */
  
 +#ifdef GSI
@@ -2456,11 +2442,10 @@ diff -Nur openssh-5.3p1.orig/version.h openssh-5.3p1/version.h
 +#define KRB5_VERSION	""
 +#endif
 +
-+#define NCSA_VERSION	" GLOBUS_GSSAPI_20100106"
-+
  #define SSH_VERSION	"OpenSSH_5.3"
  
  #define SSH_PORTABLE	"p1"
 -#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE
-+#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE \
-+			NCSA_VERSION GSI_VERSION KRB5_VERSION
++#define GSI_PORTABLE	"c-GSI"
++#define SSH_RELEASE	SSH_VERSION SSH_PORTABLE GSI_PORTABLE \
++			GSI_VERSION KRB5_VERSION
