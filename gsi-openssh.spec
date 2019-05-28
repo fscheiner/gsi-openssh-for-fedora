@@ -29,7 +29,7 @@
 %global ldap 1
 
 %global openssh_ver 7.4p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -579,6 +579,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Tue May 28 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-4
+- Change GSSAPITrustDNS default to no
+
 * Wed Feb 27 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-3
 - Remove usage statistics collection support
 
