@@ -1,0 +1,31 @@
+From 2317ce4b0ed7d8c4b0c684e2d47bff5006bd1178 Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Fri, 14 Jun 2019 03:51:47 +0000
+Subject: [PATCH] upstream: process agent requests for RSA certificate private
+ keys using
+
+correct signature algorithm when requested. Patch from Jakub Jelen in bz3016
+ok dtucker markus
+
+OpenBSD-Commit-ID: 61f86efbeb4a1857a3e91298c1ccc6cf49b79624
+---
+ ssh-agent.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/ssh-agent.c b/ssh-agent.c
+index 034f31387..4669b679c 100644
+--- a/ssh-agent.c
++++ b/ssh-agent.c
+@@ -269,6 +269,11 @@ agent_decode_alg(struct sshkey *key, u_int flags)
+ 			return "rsa-sha2-256";
+ 		else if (flags & SSH_AGENT_RSA_SHA2_512)
+ 			return "rsa-sha2-512";
++	} else if (key->type == KEY_RSA_CERT) {
++		if (flags & SSH_AGENT_RSA_SHA2_256)
++			return "rsa-sha2-256-cert-v01@openssh.com";
++		else if (flags & SSH_AGENT_RSA_SHA2_512)
++			return "rsa-sha2-512-cert-v01@openssh.com";
+ 	}
+ 	return NULL;
+ }
+

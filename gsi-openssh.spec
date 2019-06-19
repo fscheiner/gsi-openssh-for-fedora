@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -159,6 +159,10 @@ Patch962: openssh-8.0p1-crypto-policies.patch
 Patch963: openssh-8.0p1-openssl-evp.patch
 # Use OpenSSL KDF (#1631761)
 Patch964: openssh-8.0p1-openssl-kdf.patch
+# Use new OpenSSL for PEM export to avoid MD5 dependency (#1712436)
+Patch965: openssh-8.0p1-openssl-pem.patch
+# Properly encode SHA2 certificate types in ssh-agent
+Patch966: openssh-8.0p1-agent-certs-sha2.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -309,6 +313,8 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch962 -p1 -b .crypto-policies
 %patch963 -p1 -b .openssl-evp
 %patch964 -p1 -b .openssl-kdf
+%patch965 -p1 -b .openssl-pem
+%patch966 -p1 -b .agent-cert-sha2
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -520,6 +526,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Jun 19 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-4
+- Based on openssh-8.0p1-4.fc30
+
 * Tue May 28 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-3
 - Based on openssh-8.0p1-3.fc30
 - Change GSSAPITrustDNS default to no

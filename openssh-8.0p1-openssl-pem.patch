@@ -1,0 +1,67 @@
+commit 2fe812887139ce32eeca52f9a0c141bdc7c4c8af
+Author: Jakub Jelen <jjelen@redhat.com>
+Date:   Wed May 22 17:25:22 2019 +0200
+
+    New PEM export format withou MD5
+
+diff --git a/sshkey.c b/sshkey.c
+index b95ed0b1..1a271512 100644
+--- a/sshkey.c
++++ b/sshkey.c
+@@ -3805,26 +3805,28 @@ sshkey_private_pem_to_blob(struct sshkey *key, struct sshbuf *blob,
+ 	const EVP_CIPHER *cipher = (len > 0) ? EVP_aes_128_cbc() : NULL;
+ 	char *bptr;
+ 	BIO *bio = NULL;
++	EVP_PKEY *pkey = NULL;
+ 
+ 	if (len > 0 && len <= 4)
+ 		return SSH_ERR_PASSPHRASE_TOO_SHORT;
+ 	if ((bio = BIO_new(BIO_s_mem())) == NULL)
+ 		return SSH_ERR_ALLOC_FAIL;
++	if ((pkey = EVP_PKEY_new()) == NULL) {
++		BIO_free(bio);
++		return SSH_ERR_ALLOC_FAIL;
++	}
+ 
+ 	switch (key->type) {
+ 	case KEY_DSA:
+-		success = PEM_write_bio_DSAPrivateKey(bio, key->dsa,
+-		    cipher, passphrase, len, NULL, NULL);
++		success = EVP_PKEY_set1_DSA(pkey, key->dsa);
+ 		break;
+ #ifdef OPENSSL_HAS_ECC
+ 	case KEY_ECDSA:
+-		success = PEM_write_bio_ECPrivateKey(bio, key->ecdsa,
+-		    cipher, passphrase, len, NULL, NULL);
++		success = EVP_PKEY_set1_EC_KEY(pkey, key->ecdsa);
+ 		break;
+ #endif
+ 	case KEY_RSA:
+-		success = PEM_write_bio_RSAPrivateKey(bio, key->rsa,
+-		    cipher, passphrase, len, NULL, NULL);
++		success = EVP_PKEY_set1_RSA(pkey, key->rsa);
+ 		break;
+ 	default:
+ 		success = 0;
+@@ -3834,6 +3836,12 @@ sshkey_private_pem_to_blob(struct sshkey *key, struct sshbuf *blob,
+ 		r = SSH_ERR_LIBCRYPTO_ERROR;
+ 		goto out;
+ 	}
++	success = PEM_write_bio_PrivateKey(bio, pkey,
++	    cipher, passphrase, len, NULL, NULL);
++	if (success == 0) {
++		r = SSH_ERR_LIBCRYPTO_ERROR;
++		goto out;
++	}
+ 	if ((blen = BIO_get_mem_data(bio, &bptr)) <= 0) {
+ 		r = SSH_ERR_INTERNAL_ERROR;
+ 		goto out;
+@@ -3842,6 +3850,7 @@ sshkey_private_pem_to_blob(struct sshkey *key, struct sshbuf *blob,
+ 		goto out;
+ 	r = 0;
+  out:
++	EVP_PKEY_free(pkey);
+ 	BIO_free(bio);
+ 	return r;
+ }
+

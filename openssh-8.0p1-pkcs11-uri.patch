@@ -2466,7 +2466,7 @@ index 70f06bff..59332945 100644
 -
 -	if (providerp == NULL)
 +	char *provider_module = NULL;
-+	struct pkcs11_module *m;
++	struct pkcs11_module *m = NULL;
 +
 +	/* if no provider specified, fallback to p11-kit */
 +	if (uri->module_path == NULL) {
@@ -3068,3 +3068,69 @@ index 41262963..a211034e 100644
  .It Cm IgnoreUnknown
  Specifies a pattern-list of unknown options to be ignored if they are
  encountered in configuration parsing.
+
+commit 1efe98998408593861fdcd4da392dd10820f0fde
+Author: Jakub Jelen <jjelen@redhat.com>
+Date:   Wed Jun 12 14:30:30 2019 +0200
+
+    Allow to specify the pin also for the ssh-add
+
+diff --git a/ssh-add.c b/ssh-add.c
+index f039e00e..adc4e5c9 100644
+--- a/ssh-add.c
++++ b/ssh-add.c
+@@ -190,20 +190,28 @@ delete_all(int agent_fd, int qflag)
+ }
+ 
+ #ifdef ENABLE_PKCS11
+-static int update_card(int, int, const char *, int);
++static int update_card(int, int, const char *, int, char *);
+ 
+ int
+ update_pkcs11_uri(int agent_fd, int adding, const char *pkcs11_uri, int qflag)
+ {
++	char *pin = NULL;
+ 	struct pkcs11_uri *uri;
+ 
+ 	/* dry-run parse to make sure the URI is valid and to report errors */
+ 	uri = pkcs11_uri_init();
+ 	if (pkcs11_uri_parse((char *) pkcs11_uri, uri) != 0)
+ 		fatal("Failed to parse PKCS#11 URI");
++	if (uri->pin != NULL) {
++		pin = strdup(uri->pin);
++		if (pin == NULL) {
++			fatal("Failed to dupplicate string");
++		}
++		/* pin is freed in the update_card() */
++	}
+ 	pkcs11_uri_cleanup(uri);
+ 
+-	return update_card(agent_fd, adding, pkcs11_uri, qflag);
++	return update_card(agent_fd, adding, pkcs11_uri, qflag, pin);
+ }
+ #endif
+ 
+@@ -409,12 +417,11 @@ add_file(int agent_fd, const char *filename, int key_only, int qflag)
+ }
+ 
+ static int
+-update_card(int agent_fd, int add, const char *id, int qflag)
++update_card(int agent_fd, int add, const char *id, int qflag, char *pin)
+ {
+-	char *pin = NULL;
+ 	int r, ret = -1;
+ 
+-	if (add) {
++	if (add && pin == NULL) {
+ 		if ((pin = read_passphrase("Enter passphrase for PKCS#11: ",
+ 		    RP_ALLOW_STDIN)) == NULL)
+ 			return -1;
+@@ -734,7 +741,7 @@ main(int argc, char **argv)
+ 	}
+ 	if (pkcs11provider != NULL) {
+ 		if (update_card(agent_fd, !deleting, pkcs11provider,
+-		    qflag) == -1)
++		    qflag, NULL) == -1)
+ 			ret = 1;
+ 		goto done;
+ 	}
