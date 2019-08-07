@@ -31,12 +31,12 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -170,7 +170,6 @@ Patch98: openssh-8.0p1-gsissh.patch
 
 License: BSD
 Requires: /sbin/nologin
-Obsoletes: %{name}-clients-fips, %{name}-server-fips
 
 %if %{ldap}
 BuildRequires: openldap-devel
@@ -483,7 +482,7 @@ getent passwd sshd >/dev/null || \
 
 %files
 %license LICENCE
-%doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
+%doc CREDITS ChangeLog OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
@@ -526,6 +525,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Aug 02 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-5
+- Based on openssh-8.0p1-5.fc30
+
 * Thu Jul 25 2019 Fedora Release Engineering <releng@fedoraproject.org> - 8.0p1-4.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild
 

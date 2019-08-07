@@ -1366,7 +1366,7 @@ diff -Nur openssh-8.0p1.orig/kexgsss.c openssh-8.0p1/kexgsss.c
  	} while (maj_status & GSS_S_CONTINUE_NEEDED);
  
  	if (GSS_ERROR(maj_status)) {
-+	  kex_gss_send_error(ctxt, ssh);
++		kex_gss_send_error(ctxt, ssh);
  		if (send_tok.length > 0) {
  			if ((r = sshpkt_start(ssh, SSH2_MSG_KEXGSS_CONTINUE)) != 0 ||
  			    (r = sshpkt_put_string(ssh, send_tok.value, send_tok.length)) != 0 ||
@@ -2151,7 +2151,7 @@ diff -Nur openssh-8.0p1.orig/ssh_config.5 openssh-8.0p1/ssh_config.5
  .Dq yes
 @@ -814,7 +820,6 @@
  .Xr crypto-policies 7 .
- To see the defaults and how to modifuy this default, see manual page
+ To see the defaults and how to modify this default, see manual page
  .Xr update-crypto-policies 8 .
 -This option only applies to protocol version 2 connections using GSSAPI.
  .It Cm HashKnownHosts
@@ -2358,7 +2358,7 @@ diff -Nur openssh-8.0p1.orig/sshd_config.5 openssh-8.0p1/sshd_config.5
  a client authenticates against.
 @@ -702,7 +721,6 @@
  .Xr crypto-policies 7 .
- To see the defaults and how to modifuy this default, see manual page
+ To see the defaults and how to modify this default, see manual page
  .Xr update-crypto-policies 8 .
 -This option only applies to protocol version 2 connections using GSSAPI.
  .It Cm HostbasedAcceptedKeyTypes
