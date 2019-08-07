@@ -1,0 +1,50 @@
+From 26f96ca10ad0ec5da9b05b99de1e1ccea15a11be Mon Sep 17 00:00:00 2001
+From: "djm@openbsd.org" <djm@openbsd.org>
+Date: Fri, 15 Jun 2018 07:01:11 +0000
+Subject: [PATCH] upstream: invalidate supplemental group cache used by
+
+temporarily_use_uid() when the target uid differs; could cause failure to
+read authorized_keys under some configurations. patch by Jakub Jelen via
+bz2873; ok dtucker, markus
+
+OpenBSD-Commit-ID: 48a345f0ee90f6c465a078eb5e89566b23abd8a1
+---
+ uidswap.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/uidswap.c b/uidswap.c
+index 8bf6b244e..1430b822a 100644
+--- a/uidswap.c
++++ b/uidswap.c
+@@ -49,6 +49,7 @@ static gid_t	saved_egid = 0;
+ /* Saved effective uid. */
+ static int	privileged = 0;
+ static int	temporarily_use_uid_effective = 0;
++static uid_t	user_groups_uid;
+ static gid_t	*saved_egroups = NULL, *user_groups = NULL;
+ static int	saved_egroupslen = -1, user_groupslen = -1;
+ 
+@@ -92,10 +93,11 @@ temporarily_use_uid(struct passwd *pw)
+ 			fatal("getgroups: %.100s", strerror(errno));
+ 	} else { /* saved_egroupslen == 0 */
+ 		free(saved_egroups);
++		saved_egroups = NULL;
+ 	}
+ 
+ 	/* set and save the user's groups */
+-	if (user_groupslen == -1) {
++	if (user_groupslen == -1 || user_groups_uid != pw->pw_uid) {
+ 		if (initgroups(pw->pw_name, pw->pw_gid) < 0)
+ 			fatal("initgroups: %s: %.100s", pw->pw_name,
+ 			    strerror(errno));
+@@ -110,7 +112,9 @@ temporarily_use_uid(struct passwd *pw)
+ 				fatal("getgroups: %.100s", strerror(errno));
+ 		} else { /* user_groupslen == 0 */
+ 			free(user_groups);
++			user_groups = NULL;
+ 		}
++		user_groups_uid = pw->pw_uid;
+ 	}
+ 	/* Set the effective uid to the given (unprivileged) uid. */
+ 	if (setgroups(user_groupslen, user_groups) < 0)
+

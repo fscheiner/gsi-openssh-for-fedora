@@ -10,7 +10,7 @@ diff -up openssh-7.4p1/cipher.c.fips openssh-7.4p1/cipher.c
  #include <string.h>
  #include <stdarg.h>
  #include <stdio.h>
-@@ -116,6 +118,20 @@ static const struct sshcipher ciphers[]
+@@ -116,6 +118,24 @@ static const struct sshcipher ciphers[]
  	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
  };
  
@@ -25,6 +25,10 @@ diff -up openssh-7.4p1/cipher.c.fips openssh-7.4p1/cipher.c
 +	{ "aes128-ctr",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 0, EVP_aes_128_ctr },
 +	{ "aes192-ctr",	SSH_CIPHER_SSH2, 16, 24, 0, 0, 0, 0, EVP_aes_192_ctr },
 +	{ "aes256-ctr",	SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 0, EVP_aes_256_ctr },
++	{ "aes128-gcm@openssh.com",
++			SSH_CIPHER_SSH2, 16, 16, 12, 16, 0, 0, EVP_aes_128_gcm },
++	{ "aes256-gcm@openssh.com",
++			SSH_CIPHER_SSH2, 16, 32, 12, 16, 0, 0, EVP_aes_256_gcm },
 +	{ NULL,		SSH_CIPHER_INVALID, 0, 0, 0, 0, 0, 0, NULL }
 +};
 +
@@ -338,12 +342,13 @@ diff -up openssh-7.4p1/myproposal.h.fips openssh-7.4p1/myproposal.h
  /* the actual algorithms */
  
  #define KEX_CLIENT_ENCRYPT \
-@@ -144,6 +152,37 @@
+@@ -144,6 +152,38 @@
  
  #define KEX_CLIENT_MAC KEX_SERVER_MAC
  
 +#define	KEX_FIPS_ENCRYPT \
-+	"aes128-ctr,aes192-ctr,aes256-ctr," \
++	"aes128-ctr,aes192-ctr,aes256-ctr" \
++	AESGCM_CIPHER_MODES "," \
 +	"aes128-cbc,3des-cbc," \
 +	"aes192-cbc,aes256-cbc,rijndael-cbc@lysator.liu.se"
 +#ifdef HAVE_EVP_SHA256
