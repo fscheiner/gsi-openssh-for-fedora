@@ -6,6 +6,7 @@ After=gsisshd-keygen.target
 
 [Service]
 EnvironmentFile=-/etc/crypto-policies/back-ends/opensshserver.config
+EnvironmentFile=-/etc/sysconfig/sshd-permitrootlogin
 EnvironmentFile=-/etc/sysconfig/gsisshd
-ExecStart=-/usr/sbin/gsisshd -i $OPTIONS $CRYPTO_POLICY
+ExecStart=-/usr/sbin/gsisshd -i $OPTIONS $CRYPTO_POLICY $PERMITROOTLOGIN
 StandardInput=socket

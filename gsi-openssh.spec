@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 5
+%global openssh_rel 6
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -130,8 +130,6 @@ Patch919: openssh-6.6.1p1-scp-non-existing-directory.patch
 Patch922: openssh-6.8p1-sshdT-output.patch
 # Add sftp option to force mode of created files (#1191055)
 Patch926: openssh-6.7p1-sftp-force-permission.patch
-# Restore compatible default (#89216)
-Patch929: openssh-6.9p1-permit-root-login.patch
 # make s390 use /dev/ crypto devices -- ignore closefrom
 Patch939: openssh-7.2p2-s390-closefrom.patch
 # Move MAX_DISPLAYS to a configuration option (#1341302)
@@ -299,7 +297,6 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch802 -p1 -b .GSSAPIEnablek5users
 %patch922 -p1 -b .sshdt
 %patch926 -p1 -b .sftp-force-mode
-%patch929 -p1 -b .root-login
 %patch939 -p1 -b .s390-dev
 %patch944 -p1 -b .x11max
 %patch948 -p1 -b .systemd
@@ -525,6 +522,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Aug 08 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-6
+- Based on openssh-8.0p1-8.fc31
+
 * Fri Aug 02 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-5
 - Based on openssh-8.0p1-5.fc30
 
