@@ -2884,8 +2884,8 @@ index 00000000..e83aca54
 +	    compose_uri(NULL, 0, "SSH Keys", NULL, NULL, NULL, NULL));
 +	/* MUST NOT contain duplicate attributes of the same name */
 +	check_parse_rv("pkcs11:id=%01;id=%02", EMPTY_URI, -1);
-+	/* Unrecognized attribute in path SHOULD be error */
-+	check_parse_rv("pkcs11:key_name=SSH", EMPTY_URI, -1);
++	/* Unrecognized attribute in path are ignored with log message */
++	check_parse("pkcs11:key_name=SSH", EMPTY_URI);
 +	/* Unrecognized attribute in query SHOULD be ignored */
 +	check_parse("pkcs11:?key_name=SSH", EMPTY_URI);
 +}

@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 7.8p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -127,6 +127,8 @@ Patch804: openssh-7.7p1-gssapi-new-unique.patch
 Patch805: openssh-7.2p2-k5login_directory.patch
 # Support SHA2 in GSS key exchanges from draft-ssorce-gss-keyex-sha2-02
 Patch807: openssh-7.5p1-gssapi-kex-with-ec.patch
+# Do not break when using AuthenticationMethods with gssapi-keyex auth method (#1625366)
+Patch808: openssh-7.9p1-gsskex-method.patch
 
 Patch900: openssh-6.1p1-gssapi-canohost.patch
 #https://bugzilla.mindrot.org/show_bug.cgi?id=1780
@@ -165,8 +167,11 @@ Patch951: openssh-7.6p1-pkcs11-uri.patch
 Patch952: openssh-7.6p1-pkcs11-ecdsa.patch
 # Unbreak scp between two IPv6 hosts (#1620333)
 Patch953: openssh-7.8p1-scp-ipv6.patch
+# Allow to disable RSA signatures with SHA-1 in server
+# https://bugzilla.mindrot.org/show_bug.cgi?id=2746
+Patch954: openssh-7.9p1-disable-sha1.patch
 # Backport patch for CVE-2018-20685 (#1665786)
-Patch954: openssh-7.9p1-CVE-2018-20685.patch
+Patch955: openssh-7.9p1-CVE-2018-20685.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -324,7 +329,9 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch951 -p1 -b .pkcs11-uri
 %patch952 -p1 -b .pkcs11-ecdsa
 %patch953 -p1 -b .scp-ipv6
-%patch954 -p1 -b .CVE-2018-20685
+%patch808 -p1 -b .gsskex-method
+%patch954 -p1 -b .disable-sha1
+%patch955 -p1 -b .CVE-2018-20685
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -378,7 +385,7 @@ fi
 	--sysconfdir=%{_sysconfdir}/gsissh \
 	--libexecdir=%{_libexecdir}/gsissh \
 	--datadir=%{_datadir}/gsissh \
-	--with-default-path=/usr/local/bin:/usr/bin \
+	--with-default-path=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin \
 	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
 	--with-privsep-path=%{_var}/empty/gsisshd \
 	--enable-vendor-patchlevel="FC-%{openssh_ver}-%{openssh_rel}" \
@@ -538,6 +545,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Aug 19 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.8p1-5
+- Based on openssh-7.8p1-4.el8
+
 * Wed Feb 27 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.8p1-4
 - Remove usage statistics collection support
 

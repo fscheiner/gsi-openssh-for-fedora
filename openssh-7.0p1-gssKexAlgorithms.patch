@@ -223,10 +223,19 @@ diff -up openssh-7.0p1/readconf.c.gsskexalg openssh-7.0p1/readconf.c
  	if (options->password_authentication == -1)
  		options->password_authentication = 1;
  	if (options->kbd_interactive_authentication == -1)
-diff -up openssh-7.0p1/readconf.h.gsskexalg openssh-7.0p1/readconf.h
---- openssh-7.0p1/readconf.h.gsskexalg	2015-08-19 12:28:38.026518955 +0200
-+++ openssh-7.0p1/readconf.h	2015-08-19 12:28:38.079518836 +0200
-@@ -51,6 +51,7 @@ typedef struct {
+@@ -2651,6 +2671,8 @@ dump_client_config(Options *o, const cha
+ 	dump_cfg_string(oGssClientIdentity, o->gss_client_identity);
+ 	dump_cfg_string(oGssServerIdentity, o->gss_client_identity);
+ 	dump_cfg_fmtint(oGssRenewalRekey, o->gss_renewal_rekey);
++	dump_cfg_string(oGssKexAlgorithms, o->gss_kex_algorithms ?
++		o->gss_kex_algorithms : GSS_KEX_DEFAULT_KEX);
+ #endif /* GSSAPI */
+ 	dump_cfg_fmtint(oHashKnownHosts, o->hash_known_hosts);
+ 	dump_cfg_fmtint(oHostbasedAuthentication, o->hostbased_authentication);
+diff -up openssh-7.9p1/readconf.h.gsskexalg openssh-7.9p1/readconf.h
+--- openssh-7.9p1/readconf.h.gsskexalg	2018-11-14 09:20:06.616350574 +0100
++++ openssh-7.9p1/readconf.h	2018-11-14 09:20:06.647350828 +0100
+@@ -46,6 +46,7 @@ typedef struct {
  	int	gss_renewal_rekey;	/* Credential renewal forces rekey */
  	char    *gss_client_identity;   /* Principal to initiate GSSAPI with */
  	char    *gss_server_identity;   /* GSSAPI target principal */

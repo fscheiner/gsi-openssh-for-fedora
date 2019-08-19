@@ -1,0 +1,150 @@
+From bc74944ce7a2eabd228d47051f277ce108914c96 Mon Sep 17 00:00:00 2001
+From: Jakub Jelen <jjelen@redhat.com>
+Date: Tue, 16 Oct 2018 16:44:40 +0200
+Subject: [PATCH] Unbreak authentication using gssapi-keyex (#1625366)
+
+---
+ auth2-gss.c    |  6 +++---
+ gss-serv.c     |  4 +++-
+ monitor.c      | 13 ++++++++++---
+ monitor_wrap.c |  4 +++-
+ monitor_wrap.h |  2 +-
+ ssh-gss.h      |  2 +-
+ 6 files changed, 21 insertions(+), 10 deletions(-)
+
+diff --git a/auth2-gss.c b/auth2-gss.c
+index 3f2ad21d..a61ac089 100644
+--- a/auth2-gss.c
++++ b/auth2-gss.c
+@@ -84,7 +84,7 @@ userauth_gsskeyex(Authctxt *authctxt)
+ 	if (!GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gss_kex_context, 
+ 	    &gssbuf, &mic))))
+ 		authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
+-		    authctxt->pw));
++		    authctxt->pw, 1));
+ 	
+ 	sshbuf_free(b);
+ 	free(mic.value);
+@@ -299,7 +299,7 @@ input_gssapi_exchange_complete(int type, u_int32_t plen, struct ssh *ssh)
+ 		fatal("%s: %s", __func__, ssh_err(r));
+ 
+ 	authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
+-	    authctxt->pw));
++	    authctxt->pw, 1));
+ 
+ 	if ((!use_privsep || mm_is_monitor()) &&
+ 	    (displayname = ssh_gssapi_displayname()) != NULL)
+@@ -347,7 +347,7 @@ input_gssapi_mic(int type, u_int32_t plen, struct ssh *ssh)
+ 
+ 	if (!GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gssctxt, &gssbuf, &mic))))
+ 		authenticated = 
+-		    PRIVSEP(ssh_gssapi_userok(authctxt->user, authctxt->pw));
++		    PRIVSEP(ssh_gssapi_userok(authctxt->user, authctxt->pw, 0));
+ 	else
+ 		logit("GSSAPI MIC check failed");
+ 
+diff --git a/gss-serv.c b/gss-serv.c
+index 786ac95c..87de2baa 100644
+--- a/gss-serv.c
++++ b/gss-serv.c
+@@ -493,10 +493,12 @@ verify_authentication_indicators(Gssctxt *gssctxt)
+ 
+ /* Privileged */
+ int
+-ssh_gssapi_userok(char *user, struct passwd *pw)
++ssh_gssapi_userok(char *user, struct passwd *pw, int kex)
+ {
+ 	OM_uint32 lmin;
+ 
++	(void) kex; /* used in privilege separation */
++
+ 	if (gssapi_client.exportedname.length == 0 ||
+ 	    gssapi_client.exportedname.value == NULL) {
+ 		debug("No suitable client data");
+diff --git a/monitor.c b/monitor.c
+index 9bbe8cc4..7b1903af 100644
+--- a/monitor.c
++++ b/monitor.c
+@@ -1877,14 +1877,17 @@ mm_answer_gss_checkmic(int sock, struct sshbuf *m)
+ int
+ mm_answer_gss_userok(int sock, struct sshbuf *m)
+ {
+-	int r, authenticated;
++	int r, authenticated, kex;
+ 	const char *displayname;
+ 
+ 	if (!options.gss_authentication && !options.gss_keyex)
+ 		fatal("%s: GSSAPI authentication not enabled", __func__);
+ 
++	if ((r = sshbuf_get_u32(m, &kex)) != 0)
++		fatal("%s: buffer error: %s", __func__, ssh_err(r));
++
+ 	authenticated = authctxt->valid &&
+-	    ssh_gssapi_userok(authctxt->user, authctxt->pw);
++	    ssh_gssapi_userok(authctxt->user, authctxt->pw, kex);
+ 
+ 	sshbuf_reset(m);
+ 	if ((r = sshbuf_put_u32(m, authenticated)) != 0)
+@@ -1893,7 +1896,11 @@ mm_answer_gss_userok(int sock, struct sshbuf *m)
+ 	debug3("%s: sending result %d", __func__, authenticated);
+ 	mm_request_send(sock, MONITOR_ANS_GSSUSEROK, m);
+ 
+-	auth_method = "gssapi-with-mic";
++	if (kex) {
++		auth_method = "gssapi-keyex";
++	} else {
++		auth_method = "gssapi-with-mic";
++	}
+ 
+ 	if ((displayname = ssh_gssapi_displayname()) != NULL)
+ 		auth2_record_info(authctxt, "%s", displayname);
+diff --git a/monitor_wrap.c b/monitor_wrap.c
+index fb52a530..508d926d 100644
+--- a/monitor_wrap.c
++++ b/monitor_wrap.c
+@@ -984,13 +984,15 @@ mm_ssh_gssapi_checkmic(Gssctxt *ctx, gss_buffer_t gssbuf, gss_buffer_t gssmic)
+ }
+ 
+ int
+-mm_ssh_gssapi_userok(char *user, struct passwd *pw)
++mm_ssh_gssapi_userok(char *user, struct passwd *pw, int kex)
+ {
+ 	struct sshbuf *m;
+ 	int r, authenticated = 0;
+ 
+ 	if ((m = sshbuf_new()) == NULL)
+ 		fatal("%s: sshbuf_new failed", __func__);
++	if ((r = sshbuf_put_u32(m, kex)) != 0)
++		fatal("%s: buffer error: %s", __func__, ssh_err(r));
+ 
+ 	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSUSEROK, m);
+ 	mm_request_receive_expect(pmonitor->m_recvfd,
+diff --git a/monitor_wrap.h b/monitor_wrap.h
+index 494760dd..5eba5ecc 100644
+--- a/monitor_wrap.h
++++ b/monitor_wrap.h
+@@ -60,7 +60,7 @@ int mm_sshkey_verify(const struct sshkey *, const u_char *, size_t,
+ OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
+ OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *,
+    gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
+-int mm_ssh_gssapi_userok(char *user, struct passwd *);
++int mm_ssh_gssapi_userok(char *user, struct passwd *, int kex);
+ OM_uint32 mm_ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
+ OM_uint32 mm_ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
+ int mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *);
+diff --git a/ssh-gss.h b/ssh-gss.h
+index 39b6ce69..98262837 100644
+--- a/ssh-gss.h
++++ b/ssh-gss.h
+@@ -162,7 +162,7 @@ gss_OID ssh_gssapi_id_kex(Gssctxt *, char *, int);
+ int ssh_gssapi_server_check_mech(Gssctxt **,gss_OID, const char *, 
+     const char *);
+ OM_uint32 ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
+-int ssh_gssapi_userok(char *name, struct passwd *);
++int ssh_gssapi_userok(char *name, struct passwd *, int kex);
+ OM_uint32 ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
+ void ssh_gssapi_do_child(char ***, u_int *);
+ void ssh_gssapi_cleanup_creds(void);
+-- 
+2.17.2
+
