@@ -1414,7 +1414,7 @@ diff -Nur openssh-8.0p1.orig/Makefile.in openssh-8.0p1/Makefile.in
  	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o \
 +	gss-serv-gsi.o \
  	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
- 	sftp-server.o sftp-common.o \
+ 	sftp-server.o sftp-common.o sftp-realpath.o \
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
 diff -Nur openssh-8.0p1.orig/misc.c openssh-8.0p1/misc.c
 --- openssh-8.0p1.orig/misc.c	2019-05-20 08:24:38.020776375 +0200
@@ -2420,7 +2420,7 @@ diff -Nur openssh-8.0p1.orig/version.h openssh-8.0p1/version.h
 +++ openssh-8.0p1/version.h	2019-05-20 08:25:21.592323010 +0200
 @@ -2,5 +2,19 @@
  
- #define SSH_VERSION	"OpenSSH_8.0"
+ #define SSH_VERSION	"OpenSSH_8.1"
  
 +#ifdef GSI
 +#define GSI_VERSION	" GSI"

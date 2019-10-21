@@ -941,8 +941,8 @@ diff -up openssh/kex.c.audit openssh/kex.c
  		return SSH_ERR_NO_CIPHER_ALG_MATCH;
 +	}
  	if ((enc->cipher = cipher_by_name(name)) == NULL) {
+ 		error("%s: unsupported cipher %s", __func__, name);
  		free(name);
- 		return SSH_ERR_INTERNAL_ERROR;
 @@ -783,8 +788,12 @@ choose_mac(struct ssh *ssh, struct sshma
  {
  	char *name = match_list(client, server, NULL);
@@ -955,8 +955,8 @@ diff -up openssh/kex.c.audit openssh/kex.c
  		return SSH_ERR_NO_MAC_ALG_MATCH;
 +	}
  	if (mac_setup(mac, name) < 0) {
+ 		error("%s: unsupported MAC %s", __func__, name);
  		free(name);
- 		return SSH_ERR_INTERNAL_ERROR;
 @@ -796,12 +805,16 @@ choose_mac(struct ssh *ssh, struct sshma
  }
  
@@ -1659,9 +1659,9 @@ diff -up openssh/packet.c.audit openssh/packet.c
  
  #include "xmalloc.h"
 +#include "audit.h"
- #include "crc32.h"
  #include "compat.h"
  #include "ssh2.h"
+ #include "cipher.h"
 @@ -510,6 +511,13 @@ ssh_packet_get_connection_out(struct ssh
  	return ssh->state->connection_out;
  }
@@ -2309,8 +2309,8 @@ diff -up openssh/sshkey.h.audit openssh/sshkey.h
 --- openssh/sshkey.h.audit	2019-04-03 17:02:20.657885510 +0200
 +++ openssh/sshkey.h	2019-04-03 17:02:20.718886088 +0200
 @@ -148,6 +148,7 @@ u_int		 sshkey_size(const struct sshkey
- int		 sshkey_generate(int type, u_int bits, struct sshkey **keyp);
- int		 sshkey_from_private(const struct sshkey *, struct sshkey **);
+ int		 sshkey_unshield_private(struct sshkey *);
+ 
  int	 sshkey_type_from_name(const char *);
 +int	 sshkey_is_private(const struct sshkey *);
  int	 sshkey_is_cert(const struct sshkey *);

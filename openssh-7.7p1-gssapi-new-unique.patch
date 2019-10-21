@@ -336,14 +336,15 @@ index 29491df9..fdab5040 100644
  #endif
  	struct sshbuf	*loginmsg;
  
-@@ -243,6 +244,6 @@ int	 sys_auth_passwd(struct ssh *, const char *);
+@@ -238,7 +239,7 @@ int	 sys_auth_passwd(struct ssh *, const char *);
+ int	 sys_auth_passwd(struct ssh *, const char *);
  
  #if defined(KRB5) && !defined(HEIMDAL)
- #include <krb5.h>
 -krb5_error_code ssh_krb5_cc_gen(krb5_context, krb5_ccache *);
 +krb5_error_code ssh_krb5_cc_new_unique(krb5_context, krb5_ccache *, int *);
  #endif
- #endif
+ 
+ #endif /* AUTH_H */
 diff -up openssh-7.9p1/gss-serv-krb5.c.ccache_name openssh-7.9p1/gss-serv-krb5.c
 --- openssh-7.9p1/gss-serv-krb5.c.ccache_name	2019-03-01 15:17:42.708611802 +0100
 +++ openssh-7.9p1/gss-serv-krb5.c	2019-03-01 15:17:42.713611844 +0100

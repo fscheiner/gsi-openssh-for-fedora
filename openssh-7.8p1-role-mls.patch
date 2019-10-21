@@ -141,7 +141,7 @@ diff -up openssh/auth-pam.c.role-mls openssh/auth-pam.c
 +do_pam_putenv(char *name, const char *value)
  {
  	int ret = 1;
- #ifdef HAVE_PAM_PUTENV
+ 	char *compound;
 diff -up openssh/auth-pam.h.role-mls openssh/auth-pam.h
 --- openssh/auth-pam.h.role-mls	2018-08-20 07:57:29.000000000 +0200
 +++ openssh/auth-pam.h	2018-08-22 11:14:56.817430932 +0200

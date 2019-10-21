@@ -17,7 +17,7 @@ index 6f001bb3..c31821ac 100644
 -	auth2-gss.o gss-serv.o gss-serv-krb5.o \
 +	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o \
  	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
- 	sftp-server.o sftp-common.o \
+ 	sftp-server.o sftp-common.o sftp-realpath.o \
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
 diff --git a/auth.c b/auth.c
 index 332b6220..7664aaac 100644
@@ -60,7 +60,7 @@ index 332b6220..7664aaac 100644
 -	fromlen = sizeof(from);
 -	memset(&from, 0, sizeof(from));
 -	if (getpeername(ssh_packet_get_connection_in(ssh),
--	    (struct sockaddr *)&from, &fromlen) < 0) {
+-	    (struct sockaddr *)&from, &fromlen) == -1) {
 -		debug("getpeername failed: %.100s", strerror(errno));
 -		return strdup(ntop);
 -	}
@@ -279,7 +279,7 @@ index f71a0856..404731d2 100644
 +	fromlen = sizeof(from);
 +	memset(&from, 0, sizeof(from));
 +	if (getpeername(ssh_packet_get_connection_in(ssh),
-+	    (struct sockaddr *)&from, &fromlen) < 0) {
++	    (struct sockaddr *)&from, &fromlen) == -1) {
 +		debug("getpeername failed: %.100s", strerror(errno));
 +		return strdup(ntop);
 +	}
@@ -1258,18 +1258,6 @@ index ab3a15f0..6ce56e92 100644
  }
  
  /* Privileged */
-diff --git a/hmac.c b/hmac.c
-index 1c879640..a29f32c5 100644
---- a/hmac.c
-+++ b/hmac.c
-@@ -19,6 +19,7 @@
- 
- #include <sys/types.h>
- #include <string.h>
-+#include <stdlib.h>
- 
- #include "sshbuf.h"
- #include "digest.h"
 diff --git a/kex.c b/kex.c
 index 34808b5c..a2a4794e 100644
 --- a/kex.c
@@ -1293,7 +1281,7 @@ index 34808b5c..a2a4794e 100644
  static int kex_input_newkeys(int, u_int32_t, struct ssh *);
 @@ -113,15 +118,28 @@ static const struct kexalg kexalgs[] = {
  #endif /* HAVE_EVP_SHA256 || !WITH_OPENSSL */
- 	{ NULL, -1, -1, -1},
+ 	{ NULL, 0, -1, -1},
  };
 +static const struct kexalg gss_kexalgs[] = {
 +#ifdef GSSAPI
@@ -1306,7 +1294,7 @@ index 34808b5c..a2a4794e 100644
 +	    NID_X9_62_prime256v1, SSH_DIGEST_SHA256 },
 +	{ KEX_GSS_C25519_SHA256_ID, KEX_GSS_C25519_SHA256, 0, SSH_DIGEST_SHA256 },
 +#endif
-+	{ NULL, -1, -1, -1 },
++	{ NULL, 0, -1, -1 },
 +};
  
 -char *
@@ -2585,18 +2573,6 @@ index 00000000..60bc02de
 +	return r;
 +}
 +#endif /* defined(GSSAPI) && defined(WITH_OPENSSL) */
-diff --git a/mac.c b/mac.c
-index 51dc11d7..3d11eba6 100644
---- a/mac.c
-+++ b/mac.c
-@@ -29,6 +29,7 @@
- 
- #include <string.h>
- #include <stdio.h>
-+#include <stdlib.h>
- 
- #include "digest.h"
- #include "hmac.h"
 diff --git a/monitor.c b/monitor.c
 index 60e52944..669cdb4a 100644
 --- a/monitor.c

@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 8.0p1
-%global openssh_rel 6
+%global openssh_ver 8.1p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -148,23 +148,16 @@ Patch953: openssh-7.8p1-scp-ipv6.patch
 #  - do not return 0 if the write fails (full disk)
 #  - shellcheck reports (upstream #2902)
 Patch958: openssh-7.9p1-ssh-copy-id.patch
-# Verify the SCP vulnerabilities are fixed in the package testsuite
-# https://bugzilla.mindrot.org/show_bug.cgi?id=3007
-Patch961: openssh-8.0p1-scp-tests.patch
 # Mention crypto-policies in manual pages (#1668325)
 Patch962: openssh-8.0p1-crypto-policies.patch
 # Use OpenSSL high-level API to produce and verify signatures (#1707485)
 Patch963: openssh-8.0p1-openssl-evp.patch
 # Use OpenSSL KDF (#1631761)
 Patch964: openssh-8.0p1-openssl-kdf.patch
-# Use new OpenSSL for PEM export to avoid MD5 dependency (#1712436)
-Patch965: openssh-8.0p1-openssl-pem.patch
-# Properly encode SHA2 certificate types in ssh-agent
-Patch966: openssh-8.0p1-agent-certs-sha2.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-8.0p1-gsissh.patch
+Patch98: openssh-8.1p1-gsissh.patch
 
 License: BSD
 Requires: /sbin/nologin
@@ -305,12 +298,9 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch951 -p1 -b .pkcs11-uri
 %patch953 -p1 -b .scp-ipv6
 %patch958 -p1 -b .ssh-copy-id
-%patch961 -p1 -b .scp-tests
 %patch962 -p1 -b .crypto-policies
 %patch963 -p1 -b .openssl-evp
 %patch964 -p1 -b .openssl-kdf
-%patch965 -p1 -b .openssl-pem
-%patch966 -p1 -b .agent-cert-sha2
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -522,6 +512,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Oct 21 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.1p1-1
+- Based on openssh-8.1p1-1.fc31
+
 * Thu Aug 08 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-6
 - Based on openssh-8.0p1-8.fc31
 
