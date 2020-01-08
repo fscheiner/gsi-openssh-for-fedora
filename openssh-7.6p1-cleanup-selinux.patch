@@ -1,6 +1,6 @@
 diff -up openssh/auth2-pubkey.c.refactor openssh/auth2-pubkey.c
---- openssh/auth2-pubkey.c.refactor	2017-09-27 13:10:19.556830609 +0200
-+++ openssh/auth2-pubkey.c	2017-09-27 13:10:19.677831274 +0200
+--- openssh/auth2-pubkey.c.refactor	2019-04-04 13:19:12.188821236 +0200
++++ openssh/auth2-pubkey.c	2019-04-04 13:19:12.276822078 +0200
 @@ -72,6 +72,9 @@
  extern ServerOptions options;
  extern u_char *session_id2;
@@ -11,7 +11,7 @@ diff -up openssh/auth2-pubkey.c.refactor openssh/auth2-pubkey.c
  
  static char *
  format_key(const struct sshkey *key)
-@@ -432,7 +435,8 @@ match_principals_command(struct passwd *
+@@ -511,7 +514,8 @@ match_principals_command(struct ssh *ssh
  
  	if ((pid = subprocess("AuthorizedPrincipalsCommand", runas_pw, command,
  	    ac, av, &f,
@@ -21,7 +21,7 @@ diff -up openssh/auth2-pubkey.c.refactor openssh/auth2-pubkey.c
  		goto out;
  
  	uid_swapped = 1;
-@@ -762,7 +766,8 @@ user_key_command_allowed2(struct passwd
+@@ -981,7 +985,8 @@ user_key_command_allowed2(struct ssh *ss
  
  	if ((pid = subprocess("AuthorizedKeysCommand", runas_pw, command,
  	    ac, av, &f,
@@ -32,9 +32,9 @@ diff -up openssh/auth2-pubkey.c.refactor openssh/auth2-pubkey.c
  
  	uid_swapped = 1;
 diff -up openssh/auth.c.refactor openssh/auth.c
---- openssh/auth.c.refactor	2017-09-27 13:10:19.640831071 +0200
-+++ openssh/auth.c	2017-09-27 13:10:19.678831279 +0200
-@@ -1435,7 +1435,8 @@ argv_assemble(int argc, char **argv)
+--- openssh/auth.c.refactor	2019-04-04 13:19:12.235821686 +0200
++++ openssh/auth.c	2019-04-04 13:19:12.276822078 +0200
+@@ -756,7 +756,8 @@ auth_get_canonical_hostname(struct ssh *
   */
  pid_t
  subprocess(const char *tag, struct passwd *pw, const char *command,
@@ -44,7 +44,7 @@ diff -up openssh/auth.c.refactor openssh/auth.c
  {
  	FILE *f = NULL;
  	struct stat st;
-@@ -1551,7 +1552,7 @@ subprocess(const char *tag, struct passw
+@@ -872,7 +873,7 @@ subprocess(const char *tag, struct passw
  		}
  
  #ifdef WITH_SELINUX
@@ -54,9 +54,9 @@ diff -up openssh/auth.c.refactor openssh/auth.c
  			    strerror(errno));
  			_exit(127);
 diff -up openssh/auth.h.refactor openssh/auth.h
---- openssh/auth.h.refactor	2017-09-25 01:48:10.000000000 +0200
-+++ openssh/auth.h	2017-09-27 13:10:19.678831279 +0200
-@@ -144,7 +144,7 @@ int	 exited_cleanly(pid_t, const char *,
+--- openssh/auth.h.refactor	2019-04-04 13:19:12.251821839 +0200
++++ openssh/auth.h	2019-04-04 13:19:12.276822078 +0200
+@@ -235,7 +235,7 @@ struct passwd *fakepw(void);
  #define	SSH_SUBPROCESS_STDOUT_CAPTURE  (1<<1)  /* Redirect stdout */
  #define	SSH_SUBPROCESS_STDERR_DISCARD  (1<<2)  /* Discard stderr */
  pid_t	subprocess(const char *, struct passwd *,
@@ -66,8 +66,8 @@ diff -up openssh/auth.h.refactor openssh/auth.h
  int	 sys_auth_passwd(struct ssh *, const char *);
  
 diff -up openssh/openbsd-compat/port-linux.h.refactor openssh/openbsd-compat/port-linux.h
---- openssh/openbsd-compat/port-linux.h.refactor	2017-09-27 13:10:19.634831038 +0200
-+++ openssh/openbsd-compat/port-linux.h	2017-09-27 13:10:54.954025248 +0200
+--- openssh/openbsd-compat/port-linux.h.refactor	2019-04-04 13:19:12.256821887 +0200
++++ openssh/openbsd-compat/port-linux.h	2019-04-04 13:19:12.276822078 +0200
 @@ -26,8 +26,8 @@ void ssh_selinux_setfscreatecon(const ch
  
  int sshd_selinux_enabled(void);
@@ -80,9 +80,9 @@ diff -up openssh/openbsd-compat/port-linux.h.refactor openssh/openbsd-compat/por
  #endif
  
 diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compat/port-linux-sshd.c
---- openssh/openbsd-compat/port-linux-sshd.c.refactor	2017-09-27 13:10:19.634831038 +0200
-+++ openssh/openbsd-compat/port-linux-sshd.c	2017-09-27 13:12:06.811420371 +0200
-@@ -48,11 +48,6 @@
+--- openssh/openbsd-compat/port-linux-sshd.c.refactor	2019-04-04 13:19:12.256821887 +0200
++++ openssh/openbsd-compat/port-linux-sshd.c	2019-04-04 13:19:12.276822078 +0200
+@@ -49,11 +49,6 @@
  #include <unistd.h>
  #endif
  
@@ -94,7 +94,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  /* Wrapper around is_selinux_enabled() to log its return value once only */
  int
  sshd_selinux_enabled(void)
-@@ -222,7 +217,8 @@ get_user_context(const char *sename, con
+@@ -223,7 +218,8 @@ get_user_context(const char *sename, con
  }
  
  static void
@@ -104,7 +104,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  {
  	*role = NULL;
  	*level = NULL;
-@@ -240,8 +236,8 @@ ssh_selinux_get_role_level(char **role,
+@@ -241,8 +237,8 @@ ssh_selinux_get_role_level(char **role,
  
  /* Return the default security context for the given username */
  static int
@@ -115,7 +115,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  {
  	char *sename, *lvl;
  	char *role;
-@@ -249,7 +245,7 @@ sshd_selinux_getctxbyname(char *pwname,
+@@ -250,7 +246,7 @@ sshd_selinux_getctxbyname(char *pwname,
  	int r = 0;
  	context_t con = NULL;
  
@@ -124,7 +124,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  
  #ifdef HAVE_GETSEUSERBYNAME
  	if ((r=getseuserbyname(pwname, &sename, &lvl)) != 0) {
-@@ -271,7 +267,7 @@ sshd_selinux_getctxbyname(char *pwname,
+@@ -272,7 +268,7 @@ sshd_selinux_getctxbyname(char *pwname,
  
  	if (r == 0) {
  		/* If launched from xinetd, we must use current level */
@@ -133,7 +133,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  			security_context_t sshdsc=NULL;
  
  			if (getcon_raw(&sshdsc) < 0)
-@@ -332,7 +328,8 @@ sshd_selinux_getctxbyname(char *pwname,
+@@ -333,7 +329,8 @@ sshd_selinux_getctxbyname(char *pwname,
  
  /* Setup environment variables for pam_selinux */
  static int
@@ -143,7 +143,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  {
  	const char *reqlvl;
  	char *role;
-@@ -341,11 +338,11 @@ sshd_selinux_setup_variables(int(*set_it
+@@ -342,11 +339,11 @@ sshd_selinux_setup_variables(int(*set_it
  
  	debug3("%s: setting execution context", __func__);
  
@@ -157,7 +157,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  		use_current = "1";
  	} else {
  		use_current = "";
-@@ -361,9 +358,10 @@ sshd_selinux_setup_variables(int(*set_it
+@@ -362,9 +359,10 @@ sshd_selinux_setup_variables(int(*set_it
  }
  
  static int
@@ -170,7 +170,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  }
  
  static int
-@@ -373,25 +371,28 @@ do_setenv(char *name, const char *value)
+@@ -374,25 +372,28 @@ do_setenv(char *name, const char *value)
  }
  
  int
@@ -204,7 +204,7 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  			switch (security_getenforce()) {
  			case -1:
  				fatal("%s: security_getenforce() failed", __func__);
-@@ -409,7 +410,7 @@ sshd_selinux_setup_exec_context(char *pw
+@@ -410,7 +411,7 @@ sshd_selinux_setup_exec_context(char *pw
  
  	debug3("%s: setting execution context", __func__);
  
@@ -214,9 +214,9 @@ diff -up openssh/openbsd-compat/port-linux-sshd.c.refactor openssh/openbsd-compa
  		r = setexeccon(user_ctx);
  		if (r < 0) {
 diff -up openssh/platform.c.refactor openssh/platform.c
---- openssh/platform.c.refactor	2017-09-27 13:10:19.574830708 +0200
-+++ openssh/platform.c	2017-09-27 13:11:45.475303050 +0200
-@@ -33,6 +33,9 @@
+--- openssh/platform.c.refactor	2019-04-04 13:19:12.204821389 +0200
++++ openssh/platform.c	2019-04-04 13:19:12.277822088 +0200
+@@ -32,6 +32,9 @@
  
  extern int use_privsep;
  extern ServerOptions options;
@@ -226,7 +226,7 @@ diff -up openssh/platform.c.refactor openssh/platform.c
  
  void
  platform_pre_listen(void)
-@@ -184,7 +187,9 @@ platform_setusercontext_post_groups(stru
+@@ -183,7 +186,9 @@ platform_setusercontext_post_groups(stru
  	}
  #endif /* HAVE_SETPCRED */
  #ifdef WITH_SELINUX
@@ -238,9 +238,27 @@ diff -up openssh/platform.c.refactor openssh/platform.c
  }
  
 diff -up openssh/sshd.c.refactor openssh/sshd.c
---- openssh/sshd.c.refactor	2017-09-27 13:10:19.674831257 +0200
-+++ openssh/sshd.c	2017-09-27 13:12:01.635391909 +0200
-@@ -2135,7 +2135,9 @@ main(int ac, char **av)
+--- openssh/sshd.c.refactor	2019-04-04 13:19:12.275822068 +0200
++++ openssh/sshd.c	2019-04-04 13:19:51.270195262 +0200
+@@ -158,7 +158,7 @@ int debug_flag = 0;
+ static int test_flag = 0;
+ 
+ /* Flag indicating that the daemon is being started from inetd. */
+-static int inetd_flag = 0;
++int inetd_flag = 0;
+ 
+ /* Flag indicating that sshd should not detach and become a daemon. */
+ static int no_daemon_flag = 0;
+@@ -171,7 +171,7 @@ static char **saved_argv;
+ static int saved_argc;
+ 
+ /* re-exec */
+-static int rexeced_flag = 0;
++int rexeced_flag = 0;
+ static int rexec_flag = 1;
+ static int rexec_argc = 0;
+ static char **rexec_argv;
+@@ -2192,7 +2192,9 @@ main(int ac, char **av)
  	}
  #endif
  #ifdef WITH_SELINUX

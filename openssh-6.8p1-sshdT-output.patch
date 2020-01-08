@@ -10,18 +10,3 @@ diff -up openssh/servconf.c.sshdt openssh/servconf.c
  	dump_cfg_string(sForceCommand, o->adm_forced_command);
  	dump_cfg_string(sChrootDirectory, o->chroot_directory);
  	dump_cfg_string(sTrustedUserCAKeys, o->trusted_user_ca_keys);
-diff -up openssh/ssh.1.sshdt openssh/ssh.1
---- openssh/ssh.1.sshdt	2015-06-24 11:42:19.565102807 +0200
-+++ openssh/ssh.1	2015-06-24 11:42:29.042078701 +0200
-@@ -441,7 +441,11 @@ For full details of the options listed b
- .It GatewayPorts
- .It GlobalKnownHostsFile
- .It GSSAPIAuthentication
-+.It GSSAPIKeyExchange
-+.It GSSAPIClientIdentity
- .It GSSAPIDelegateCredentials
-+.It GSSAPIRenewalForcesRekey
-+.It GSSAPITrustDNS
- .It HashKnownHosts
- .It Host
- .It HostbasedAuthentication

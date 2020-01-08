@@ -40,7 +40,7 @@ diff -up openssh-6.8p1/Makefile.in.kdf-cavs openssh-6.8p1/Makefile.in
 diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 --- openssh-6.8p1/ssh-cavs.c.kdf-cavs	2015-03-18 11:23:46.348049354 +0100
 +++ openssh-6.8p1/ssh-cavs.c	2015-03-18 11:23:46.348049354 +0100
-@@ -0,0 +1,377 @@
+@@ -0,0 +1,387 @@
 +/*
 + * Copyright (C) 2015, Stephan Mueller <smueller@chronox.de>
 + *
@@ -208,6 +208,7 @@ diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 +{
 +	int ret = 0;
 +	struct kex kex;
++	struct sshbuf *Kb = NULL;
 +	BIGNUM *Kbn = NULL;
 +	int mode = 0;
 +	struct newkeys *ctoskeys;
@@ -222,10 +223,17 @@ diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 +	Kbn = BN_new();
 +	BN_bin2bn(test->K, test->Klen, Kbn);
 +	if (!Kbn) {
-+		printf("cannot convert K into BIGNUM\n");
++		printf("cannot convert K into bignum\n");
 +		ret = 1;
 +		goto out;
 +	}
++	Kb = sshbuf_new();
++	if (!Kb) {
++		printf("cannot convert K into sshbuf\n");
++		ret = 1;
++		goto out;
++	}
++	sshbuf_put_bignum2(Kb, Kbn);
 +
 +	kex.session_id = test->session_id;
 +	kex.session_id_len = test->session_id_len;
@@ -285,7 +293,7 @@ diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 +		goto out;
 +	}
 +	ssh->kex = &kex;
-+	kex_derive_keys_bn(ssh, test->H, test->Hlen, Kbn);
++	kex_derive_keys(ssh, test->H, test->Hlen, Kb);
 +
 +	ctoskeys = kex.newkeys[0];
 +	stockeys = kex.newkeys[1];
@@ -321,6 +329,8 @@ diff -up openssh-6.8p1/ssh-cavs.c.kdf-cavs openssh-6.8p1/ssh-cavs.c
 +out:
 +	if (Kbn)
 +		BN_free(Kbn);
++	if (Kb)
++		sshbuf_free(Kb);
 +	if (ssh)
 +		ssh_packet_close(ssh);
 +	return ret;

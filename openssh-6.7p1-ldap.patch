@@ -331,7 +331,7 @@ diff -up openssh-6.8p1/configure.ac.ldap openssh-6.8p1/configure.ac
 +					[ac_cv_ldap_set_rebind_proc=3],
 +					[ac_cv_ldap_set_rebind_proc=2])
 +				AC_MSG_RESULT($ac_cv_ldap_set_rebind_proc)
-+				AC_DEFINE(LDAP_SET_REBIND_PROC_ARGS, $ac_cv_ldap_set_rebind_proc, [number arguments of ldap_set_rebind_proc])
++				AC_DEFINE_UNQUOTED(LDAP_SET_REBIND_PROC_ARGS, $ac_cv_ldap_set_rebind_proc, [number arguments of ldap_set_rebind_proc])
 +			)
 +			LIBS="$saved_LIBS"
 +		fi
@@ -646,7 +646,7 @@ diff -up openssh-6.8p1/ldap.conf.ldap openssh-6.8p1/ldap.conf
 diff -up openssh-6.8p1/ldapbody.c.ldap openssh-6.8p1/ldapbody.c
 --- openssh-6.8p1/ldapbody.c.ldap	2015-03-18 11:11:29.031801462 +0100
 +++ openssh-6.8p1/ldapbody.c	2015-03-18 11:11:29.031801462 +0100
-@@ -0,0 +1,494 @@
+@@ -0,0 +1,499 @@
 +/* $OpenBSD: ldapbody.c,v 1.1 2009/12/03 03:34:42 jfch Exp $ */
 +/*
 + * Copyright (c) 2009 Jan F. Chadima.  All rights reserved.
@@ -708,7 +708,11 @@ diff -up openssh-6.8p1/ldapbody.c.ldap openssh-6.8p1/ldapbody.c
 +
 +#if defined(LDAP_API_FEATURE_X_OPENLDAP) && (LDAP_API_VERSION > 2000)
 +static int
++#if LDAP_API_VERSION > 3000
++_rebind_proc (LDAP * ld, LDAP_CONST char *url, ber_tag_t request, ber_int_t msgid, void *params)
++#else
 +_rebind_proc (LDAP * ld, LDAP_CONST char *url, int request, ber_int_t msgid)
++#endif
 +{
 +	struct timeval timeout;
 +	int rc;

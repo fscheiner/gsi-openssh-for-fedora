@@ -20,7 +20,7 @@ diff -up openssh-7.4p1/monitor.c.coverity openssh-7.4p1/monitor.c
 --- openssh-7.4p1/monitor.c.coverity	2016-12-23 16:40:26.888788688 +0100
 +++ openssh-7.4p1/monitor.c	2016-12-23 16:40:26.900788691 +0100
 @@ -411,7 +411,7 @@ monitor_child_preauth(Authctxt *_authctx
- 	mm_get_keystate(pmonitor);
+ 	mm_get_keystate(ssh, pmonitor);
  
  	/* Drain any buffered messages from the child */
 -	while (pmonitor->m_log_recvfd != -1 && monitor_read_log(pmonitor) == 0)
@@ -124,14 +124,14 @@ diff -up openssh-7.4p1/serverloop.c.coverity openssh-7.4p1/serverloop.c
  }
  
 @@ -518,7 +518,7 @@ server_request_tun(void)
+ 		debug("%s: invalid tun", __func__);
+ 		goto done;
  	}
- 
- 	tun = packet_get_int();
 -	if (auth_opts->force_tun_device != -1) {
 +	if (auth_opts->force_tun_device >= 0) {
- 		if (tun != SSH_TUNID_ANY && auth_opts->force_tun_device != tun)
+ 		if (tun != SSH_TUNID_ANY &&
+ 		    auth_opts->force_tun_device != (int)tun)
  			goto done;
- 		tun = auth_opts->force_tun_device;
 diff -up openssh-7.4p1/sftp.c.coverity openssh-7.4p1/sftp.c
 --- openssh-7.4p1/sftp.c.coverity	2016-12-19 05:59:41.000000000 +0100
 +++ openssh-7.4p1/sftp.c	2016-12-23 16:40:26.903788691 +0100
@@ -163,7 +163,7 @@ diff -up openssh-7.4p1/sshd.c.coverity openssh-7.4p1/sshd.c
 +++ openssh-7.4p1/sshd.c	2016-12-23 16:40:26.904788692 +0100
 @@ -691,8 +691,10 @@ privsep_preauth(Authctxt *authctxt)
  
- 		privsep_preauth_child();
+ 		privsep_preauth_child(ssh);
  		setproctitle("%s", "[net]");
 -		if (box != NULL)
 +		if (box != NULL) {
@@ -174,8 +174,8 @@ diff -up openssh-7.4p1/sshd.c.coverity openssh-7.4p1/sshd.c
  		return 0;
  	}
 @@ -1386,6 +1388,9 @@ server_accept_loop(int *sock_in, int *so
- 		if (num_listen_socks < 0)
- 			break;
+ 			explicit_bzero(rnd, sizeof(rnd));
+ 		}
  	}
 +
 +	if (fdset != NULL)

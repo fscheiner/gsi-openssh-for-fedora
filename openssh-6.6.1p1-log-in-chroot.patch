@@ -46,7 +46,7 @@ diff -up openssh-7.4p1/monitor.c.log-in-chroot openssh-7.4p1/monitor.c
  
 +	pmonitor->m_state = "preauth";
 +
- 	authctxt = _authctxt;
+ 	authctxt = (Authctxt *)ssh->authctxt;
  	memset(authctxt, 0, sizeof(*authctxt));
  	ssh->authctxt = authctxt;
 @@ -405,6 +407,8 @@ monitor_child_postauth(struct monitor *p
@@ -113,7 +113,7 @@ diff -up openssh-7.4p1/monitor.h.log-in-chroot openssh-7.4p1/monitor.h
 +void monitor_reinit(struct monitor *, const char *);
  
  struct Authctxt;
- void monitor_child_preauth(struct Authctxt *, struct monitor *);
+ void monitor_child_preauth(struct ssh *, struct monitor *);
 diff -up openssh-7.4p1/session.c.log-in-chroot openssh-7.4p1/session.c
 --- openssh-7.4p1/session.c.log-in-chroot	2016-12-23 15:14:33.319168086 +0100
 +++ openssh-7.4p1/session.c	2016-12-23 15:18:18.742211853 +0100

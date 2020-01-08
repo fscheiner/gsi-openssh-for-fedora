@@ -25,15 +25,15 @@ diff -up openssh-7.4p1/openbsd-compat/port-linux-sshd.c.privsep-selinux openssh-
 +		return;
 +
 +	if (getexeccon((security_context_t *)&ctx) != 0) {
-+		logit("%s: getcon failed with %s", __func__, strerror (errno));
++		logit("%s: getexeccon failed with %s", __func__, strerror(errno));
 +		return;
 +	}
 +	if (ctx != NULL) {
 +		/* unset exec context before we will lose this capabililty */
 +		if (setexeccon(NULL) != 0)
-+			fatal("%s: setexeccon failed with %s", __func__, strerror (errno));
++			fatal("%s: setexeccon failed with %s", __func__, strerror(errno));
 +		if (setcon(ctx) != 0)
-+			fatal("%s: setcon failed with %s", __func__, strerror (errno));
++			fatal("%s: setcon failed with %s", __func__, strerror(errno));
 +		freecon(ctx);
 +	}
 +}

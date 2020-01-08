@@ -187,7 +187,7 @@ diff -up openssh-6.8p1/ctr-cavstest.c.ctr-cavs openssh-6.8p1/ctr-cavstest.c
 +                usage();
 +        }
 +
-+	SSLeay_add_all_algorithms();
++	OpenSSL_add_all_algorithms();
 +
 +	c = cipher_by_name(algo);
 +	if (c == NULL) {

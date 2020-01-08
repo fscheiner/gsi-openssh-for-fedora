@@ -56,9 +56,9 @@ diff -up openssh-7.4p1/monitor_wrap.h.audit-race openssh-7.4p1/monitor_wrap.h
 --- openssh-7.4p1/monitor_wrap.h.audit-race	2016-12-23 16:35:52.694685771 +0100
 +++ openssh-7.4p1/monitor_wrap.h	2016-12-23 16:35:52.698685772 +0100
 @@ -83,6 +83,8 @@ void mm_audit_unsupported_body(int);
- void mm_audit_kex_body(int, char *, char *, char *, char *, pid_t, uid_t);
- void mm_audit_session_key_free_body(int, pid_t, uid_t);
- void mm_audit_destroy_sensitive_data(const char *, pid_t, uid_t);
+ void mm_audit_kex_body(struct ssh *, int, char *, char *, char *, char *, pid_t, uid_t);
+ void mm_audit_session_key_free_body(struct ssh *, int, pid_t, uid_t);
+ void mm_audit_destroy_sensitive_data(struct ssh *, const char *, pid_t, uid_t);
 +int mm_forward_audit_messages(int);
 +void mm_set_monitor_pipe(int);
  #endif
@@ -82,7 +82,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
  	return 1;
  }
  
-+void child_destory_sensitive_data();
++void child_destory_sensitive_data(struct ssh *ssh);
 +
  #define USE_PIPES 1
  /*
@@ -91,7 +91,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
  		close(err[0]);
  #endif
  
-+		child_destory_sensitive_data();
++		child_destory_sensitive_data(ssh);
 +
  		/* Do processing for the child (exec command etc). */
  		do_child(ssh, s, command);
@@ -101,7 +101,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
  		close(ttyfd);
  
 +		/* Do this early, so we will not block large MOTDs */
-+		child_destory_sensitive_data();
++		child_destory_sensitive_data(ssh);
 +
  		/* record login, etc. similar to login(1) */
  #ifndef HAVE_OSF_SIA
@@ -109,7 +109,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
 @@ -717,6 +728,8 @@ do_exec(Session *s, const char *command)
  	}
  	if (s->command != NULL && s->ptyfd == -1)
- 		s->command_handle = PRIVSEP(audit_run_command(s->command));
+ 		s->command_handle = PRIVSEP(audit_run_command(ssh, s->command));
 +	if (pipe(paudit) < 0)
 +		fatal("pipe: %s", strerror(errno));
  #endif
@@ -141,7 +141,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
  }
  
 +void
-+child_destory_sensitive_data()
++child_destory_sensitive_data(struct ssh *ssh)
 +{
 +#ifdef SSH_AUDIT_EVENTS
 +	int pparent = paudit[1];
@@ -152,15 +152,15 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
 +#endif
 +
 +	/* remove hostkey from the child's memory */
-+	destroy_sensitive_data(use_privsep);
++	destroy_sensitive_data(ssh, use_privsep);
 +	/*
 +	 * We can audit this, because we hacked the pipe to direct the
 +	 * messages over postauth child. But this message requires answer
 +	 * which we can't do using one-way pipe.
 +	 */
-+	packet_destroy_all(0, 1);
++	packet_destroy_all(ssh, 0, 1);
 +	/* XXX this will clean the rest but should not audit anymore */
-+	/* packet_clear_keys(); */
++	/* packet_clear_keys(ssh); */
 +
 +#ifdef SSH_AUDIT_EVENTS
 +	/* Notify parent that we are done */
@@ -172,15 +172,15 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
   * Performs common processing for the child, such as setting up the
   * environment, closing extra file descriptors, setting the user and group
 @@ -1554,13 +1608,6 @@ do_child(Session *s, const char *command
- 	struct passwd *pw = s->pw;
- 	int r = 0;
+ 
+ 	sshpkt_fmt_connection_id(ssh, remote_id, sizeof(remote_id));
  
 -	/* remove hostkey from the child's memory */
--	destroy_sensitive_data(1);
--	packet_clear_keys();
+-	destroy_sensitive_data(ssh, 1);
+-	ssh_packet_clear_keys(ssh);
 -	/* Don't audit this - both us and the parent would be talking to the
 -	   monitor over a single socket, with no synchronization. */
--	packet_destroy_all(0, 1);
+-	packet_destroy_all(ssh, 0, 1);
 -
  	/* Force a password change */
  	if (s->authctxt->force_pwchange) {
