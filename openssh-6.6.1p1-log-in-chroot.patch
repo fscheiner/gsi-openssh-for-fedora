@@ -56,8 +56,8 @@ diff -up openssh-7.4p1/monitor.c.log-in-chroot openssh-7.4p1/monitor.c
 +	pmonitor->m_state = "postauth";
 +
  	monitor_set_child_handler(pmonitor->m_pid);
- 	signal(SIGHUP, &monitor_child_handler);
- 	signal(SIGTERM, &monitor_child_handler);
+ 	ssh_signal(SIGHUP, &monitor_child_handler);
+ 	ssh_signal(SIGTERM, &monitor_child_handler);
 @@ -472,7 +476,7 @@ monitor_read_log(struct monitor *pmonito
  	if (log_level_name(level) == NULL)
  		fatal("%s: invalid log level %u (corrupted message?)",

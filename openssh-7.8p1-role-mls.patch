@@ -339,7 +339,7 @@ diff -up openssh/monitor_wrap.h.role-mls openssh/monitor_wrap.h
 +++ openssh/monitor_wrap.h	2018-08-22 11:22:10.439929513 +0200
 @@ -44,6 +44,9 @@ DH *mm_choose_dh(int, int, int);
  int mm_sshkey_sign(struct ssh *, struct sshkey *, u_char **, size_t *,
-     const u_char *, size_t, const char *, u_int compat);
+     const u_char *, size_t, const char *, const char *, u_int compat);
  void mm_inform_authserv(char *, char *);
 +#ifdef WITH_SELINUX
 +void mm_inform_authrole(char *);
@@ -359,7 +359,7 @@ diff -up openssh/openbsd-compat/Makefile.in.role-mls openssh/openbsd-compat/Make
 +	port-linux-sshd.o
  
  .c.o:
- 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
+ 	$(CC) $(CFLAGS_NOPIE) $(PICFLAG) $(CPPFLAGS) -c $<
 diff -up openssh/openbsd-compat/port-linux.c.role-mls openssh/openbsd-compat/port-linux.c
 --- openssh/openbsd-compat/port-linux.c.role-mls	2018-08-20 07:57:29.000000000 +0200
 +++ openssh/openbsd-compat/port-linux.c	2018-08-22 11:14:56.819430949 +0200

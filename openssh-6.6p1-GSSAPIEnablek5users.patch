@@ -122,7 +122,7 @@ diff -up openssh-7.4p1/sshd_config.GSSAPIEnablek5users openssh-7.4p1/sshd_config
 --- openssh-7.4p1/sshd_config.GSSAPIEnablek5users	2016-12-23 15:18:40.616216100 +0100
 +++ openssh-7.4p1/sshd_config	2016-12-23 15:18:40.631216103 +0100
 @@ -80,6 +80,7 @@ GSSAPIAuthentication yes
- GSSAPICleanupCredentials no
+ #GSSAPICleanupCredentials yes
  #GSSAPIStrictAcceptorCheck yes
  #GSSAPIKeyExchange no
 +#GSSAPIEnablek5users no

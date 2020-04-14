@@ -3,7 +3,7 @@ diff --git a/sshd.c b/sshd.c
 +++ b/sshd.c
 @@ -1701,6 +1701,10 @@ main(int ac, char **av)
  	parse_server_config(&options, rexeced_flag ? "rexec" : config_file_name,
- 	    cfg, NULL);
+ 	    cfg, &includes, NULL);
  
 +	/* 'UsePAM no' is not supported in Fedora */
 +	if (! options.use_pam)
@@ -21,6 +21,6 @@ diff --git a/sshd_config b/sshd_config
  # and ChallengeResponseAuthentication to 'no'.
 +# WARNING: 'UsePAM no' is not supported in Fedora and may cause several
 +# problems.
- UsePAM yes
+ #UsePAM no
  
  #AllowAgentForwarding yes

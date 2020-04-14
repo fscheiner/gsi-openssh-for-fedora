@@ -30,13 +30,13 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 8.1p1
+%global openssh_ver 8.2p1
 %global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -141,6 +141,8 @@ Patch949: openssh-7.6p1-cleanup-selinux.patch
 # Sandbox adjustments for s390 and audit
 Patch950: openssh-7.5p1-sandbox.patch
 # PKCS#11 URIs (upstream #2817, 2nd iteration)
+# https://github.com/Jakuje/openssh-portable/commits/jjelen-pkcs11
+# git show > ~/devel/fedora/openssh/openssh-8.0p1-pkcs11-uri.patch
 Patch951: openssh-8.0p1-pkcs11-uri.patch
 # Unbreak scp between two IPv6 hosts (#1620333)
 Patch953: openssh-7.8p1-scp-ipv6.patch
@@ -154,10 +156,14 @@ Patch962: openssh-8.0p1-crypto-policies.patch
 Patch963: openssh-8.0p1-openssl-evp.patch
 # Use OpenSSL KDF (#1631761)
 Patch964: openssh-8.0p1-openssl-kdf.patch
+# sk-dummy.so built with -fvisibility=hidden does not work
+Patch965: openssh-8.2p1-visibility.patch
+# Do not break X11 without IPv6
+Patch966: openssh-8.2p1-x11-without-ipv6.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-8.1p1-gsissh.patch
+Patch98: openssh-8.2p1-gsissh.patch
 
 License: BSD
 Requires: /sbin/nologin
@@ -169,11 +175,11 @@ BuildRequires: autoconf, automake, perl-interpreter, perl-generators, zlib-devel
 BuildRequires: audit-libs-devel >= 2.0.5
 BuildRequires: util-linux, groff
 BuildRequires: pam-devel
-BuildRequires: fipscheck-devel >= 1.3.0
 BuildRequires: openssl-devel >= 0.9.8j
 BuildRequires: systemd-devel
 BuildRequires: gcc
 BuildRequires: p11-kit-devel
+BuildRequires: libfido2-devel
 Recommends: p11-kit
 
 %if %{kerberos5}
@@ -206,7 +212,6 @@ Summary: SSH client applications with GSI authentication
 Provides: gsissh-clients = %{version}-%{release}
 Obsoletes: gsissh-clients < 5.8p2-2
 Requires: %{name} = %{version}-%{release}
-Requires: fipscheck-lib%{_isa} >= 1.3.0
 Requires: crypto-policies >= 20180306-1
 
 %package server
@@ -216,7 +221,6 @@ Obsoletes: gsissh-server < 5.8p2-2
 Requires: %{name} = %{version}-%{release}
 Requires(pre): /usr/sbin/useradd
 Requires: pam >= 1.0.1-3
-Requires: fipscheck-lib%{_isa} >= 1.3.0
 Requires: crypto-policies >= 20180306-1
 %{?systemd_requires}
 
@@ -301,6 +305,8 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch962 -p1 -b .crypto-policies
 %patch963 -p1 -b .openssl-evp
 %patch964 -p1 -b .openssl-kdf
+%patch965 -p1 -b .visibility
+%patch966 -p1 -b .x11-ipv6
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -364,6 +370,7 @@ fi
 	--without-hardening `# The hardening flags are configured by system` \
 	--with-systemd \
 	--with-default-pkcs11-provider=yes \
+	--with-security-key-builtin=yes \
 %if %{ldap}
 	--with-ldap \
 %endif
@@ -391,18 +398,11 @@ fi
 make SSH_PROGRAM=%{_bindir}/gsissh \
      ASKPASS_PROGRAM=%{_libexecdir}/openssh/ssh-askpass
 
-# Add generation of HMAC checksums of the final stripped binaries
-%global __spec_install_post \
-    %%{?__debug_package:%%{__debug_install_post}} \
-    %%{__arch_install_post} \
-    %%{__os_install_post} \
-    fipshmac -d $RPM_BUILD_ROOT%{_libdir}/fipscheck $RPM_BUILD_ROOT%{_bindir}/gsissh $RPM_BUILD_ROOT%{_sbindir}/gsisshd \
-%{nil}
-
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p -m755 $RPM_BUILD_ROOT%{_sysconfdir}/gsissh
 mkdir -p -m755 $RPM_BUILD_ROOT%{_sysconfdir}/gsissh/ssh_config.d
+mkdir -p -m755 $RPM_BUILD_ROOT%{_sysconfdir}/gsissh/sshd_config.d
 mkdir -p -m755 $RPM_BUILD_ROOT%{_libexecdir}/gsissh
 mkdir -p -m755 $RPM_BUILD_ROOT%{_var}/empty/gsisshd
 make install DESTDIR=$RPM_BUILD_ROOT
@@ -411,10 +411,10 @@ rm -f $RPM_BUILD_ROOT%{_sysconfdir}/gsissh/ldap.conf
 install -d $RPM_BUILD_ROOT/etc/pam.d/
 install -d $RPM_BUILD_ROOT/etc/sysconfig/
 install -d $RPM_BUILD_ROOT%{_libexecdir}/gsissh
-install -d $RPM_BUILD_ROOT%{_libdir}/fipscheck
 install -m644 %{SOURCE2} $RPM_BUILD_ROOT/etc/pam.d/gsisshd
 install -m644 %{SOURCE7} $RPM_BUILD_ROOT/etc/sysconfig/gsisshd
 install -m644 ssh_config_redhat $RPM_BUILD_ROOT/etc/gsissh/ssh_config.d/05-redhat.conf
+install -m644 sshd_config_redhat $RPM_BUILD_ROOT/etc/gsissh/sshd_config.d/05-redhat.conf
 install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
 install -m644 %{SOURCE9} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd@.service
 install -m644 %{SOURCE10} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.socket
@@ -434,12 +434,14 @@ rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-ldap-helper
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-ldap-wrapper
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-keycat
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-pkcs11-helper
+rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-sk-helper
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-add.1*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-agent.1*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-keyscan.1*
 rm $RPM_BUILD_ROOT%{_mandir}/man5/ssh-ldap.conf.5*
 rm $RPM_BUILD_ROOT%{_mandir}/man8/ssh-ldap-helper.8*
 rm $RPM_BUILD_ROOT%{_mandir}/man8/ssh-pkcs11-helper.8*
+rm $RPM_BUILD_ROOT%{_mandir}/man8/ssh-sk-helper.8*
 
 for f in $RPM_BUILD_ROOT%{_bindir}/* \
 	 $RPM_BUILD_ROOT%{_sbindir}/* \
@@ -480,7 +482,6 @@ getent passwd sshd >/dev/null || \
 
 %files clients
 %attr(0755,root,root) %{_bindir}/gsissh
-%attr(0644,root,root) %{_libdir}/fipscheck/gsissh.hmac
 %attr(0644,root,root) %{_mandir}/man1/gsissh.1*
 %attr(0755,root,root) %{_bindir}/gsiscp
 %attr(0644,root,root) %{_mandir}/man1/gsiscp.1*
@@ -494,7 +495,6 @@ getent passwd sshd >/dev/null || \
 %files server
 %dir %attr(0711,root,root) %{_var}/empty/gsisshd
 %attr(0755,root,root) %{_sbindir}/gsisshd
-%attr(0644,root,root) %{_libdir}/fipscheck/gsisshd.hmac
 %attr(0755,root,root) %{_libexecdir}/gsissh/sftp-server
 %attr(0755,root,root) %{_libexecdir}/gsissh/sshd-keygen
 %attr(0644,root,root) %{_mandir}/man5/gsisshd_config.5*
@@ -502,6 +502,8 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_mandir}/man8/gsisshd.8*
 %attr(0644,root,root) %{_mandir}/man8/gsisftp-server.8*
 %attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/sshd_config
+%dir %attr(0700,root,root) %{_sysconfdir}/gsissh/sshd_config.d/
+%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/sshd_config.d/05-redhat.conf
 %attr(0644,root,root) %config(noreplace) /etc/pam.d/gsisshd
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
@@ -512,6 +514,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Apr 14 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.2p1-1
+- Based on openssh-8.2p1-3.fc32
+
 * Wed Jan 29 2020 Fedora Release Engineering <releng@fedoraproject.org> - 8.1p1-1.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_32_Mass_Rebuild
 

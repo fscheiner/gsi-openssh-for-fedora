@@ -217,7 +217,7 @@ diff -up openssh-7.4p1/servconf.c.kuserok openssh-7.4p1/servconf.c
  	{ "kerberostgtpassing", sUnsupported, SSHCFG_GLOBAL },
  	{ "afstokenpassing", sUnsupported, SSHCFG_GLOBAL },
 @@ -1644,6 +1649,10 @@ process_server_config_line(ServerOptions
- 		*activep = value;
+ 		*activep = (inc_flags & SSHCFG_NEVERMATCH) ? 0 : value;
  		break;
  
 +	case sKerberosUseKuserok:
@@ -286,4 +286,4 @@ diff -up openssh-7.4p1/sshd_config.kuserok openssh-7.4p1/sshd_config
 +#KerberosUseKuserok yes
  
  # GSSAPI options
- GSSAPIAuthentication yes
+ #GSSAPIAuthentication no

@@ -747,20 +747,21 @@ diff -up openssh/auth2-hostbased.c.audit openssh/auth2-hostbased.c
  	    chost, key)) &&
 -	    PRIVSEP(sshkey_verify(key, sig, slen,
 +	    PRIVSEP(hostbased_key_verify(ssh, key, sig, slen,
- 	    sshbuf_ptr(b), sshbuf_len(b), pkalg, ssh->compat)) == 0)
+ 	    sshbuf_ptr(b), sshbuf_len(b), pkalg, ssh->compat, NULL)) == 0)
  		authenticated = 1;
  
-@@ -175,6 +175,19 @@ done:
+@@ -175,6 +175,20 @@ done:
  	return authenticated;
  }
  
 +int
 +hostbased_key_verify(struct ssh *ssh, const struct sshkey *key, const u_char *sig,
-+    size_t slen, const u_char *data, size_t datalen, const char *pkalg, u_int compat)
++    size_t slen, const u_char *data, size_t datalen, const char *pkalg, u_int compat,
++    struct sshkey_sig_details **detailsp)
 +{
 +	int rv;
 +
-+	rv = sshkey_verify(key, sig, slen, data, datalen, pkalg, compat);
++	rv = sshkey_verify(key, sig, slen, data, datalen, pkalg, compat, detailsp);
 +#ifdef SSH_AUDIT_EVENTS
 +	audit_key(ssh, 0, &rv, key);
 +#endif
@@ -781,18 +782,19 @@ diff -up openssh/auth2-pubkey.c.audit openssh/auth2-pubkey.c
 +		    PRIVSEP(user_key_verify(ssh, key, sig, slen,
  		    sshbuf_ptr(b), sshbuf_len(b),
  		    (ssh->compat & SSH_BUG_SIGTYPE) == 0 ? pkalg : NULL,
- 		    ssh->compat)) == 0) {
-@@ -278,6 +278,19 @@ done:
+ 		    ssh->compat, &sig_details)) == 0) {
+@@ -278,6 +278,20 @@ done:
  	return authenticated;
  }
  
 +int
 +user_key_verify(struct ssh *ssh, const struct sshkey *key, const u_char *sig,
-+    size_t slen, const u_char *data, size_t datalen, const char *pkalg, u_int compat)
++    size_t slen, const u_char *data, size_t datalen, const char *pkalg, u_int compat,
++    struct sshkey_sig_details **detailsp)
 +{
 +	int rv;
 +
-+	rv = sshkey_verify(key, sig, slen, data, datalen, pkalg, compat);
++	rv = sshkey_verify(key, sig, slen, data, datalen, pkalg, compat, detailsp);
 +#ifdef SSH_AUDIT_EVENTS
 +	audit_key(ssh, 1, &rv, key);
 +#endif
@@ -832,7 +834,7 @@ diff -up openssh/auth.h.audit openssh/auth.h
  char	*expand_authorized_keys(const char *, struct passwd *pw);
  char	*authorized_principals_file(struct passwd *);
 +int	 user_key_verify(struct ssh *, const struct sshkey *, const u_char *, size_t,
-+    const u_char *, size_t, const char *, u_int);
++    const u_char *, size_t, const char *, u_int, struct sshkey_sig_details **);
  
  FILE	*auth_openkeyfile(const char *, struct passwd *, int);
  FILE	*auth_openprincipals(const char *, struct passwd *, int);
@@ -841,7 +843,7 @@ diff -up openssh/auth.h.audit openssh/auth.h
  int	 sshd_hostkey_sign(struct ssh *, struct sshkey *, struct sshkey *,
      u_char **, size_t *, const u_char *, size_t, const char *);
 +int	 hostbased_key_verify(struct ssh *, const struct sshkey *, const u_char *, size_t,
-+    const u_char *, size_t, const char *, u_int);
++    const u_char *, size_t, const char *, u_int, struct sshkey_sig_details **);
  
  /* Key / cert options linkage to auth layer */
  const struct sshauthopt *auth_options(struct ssh *);
@@ -973,9 +975,9 @@ diff -up openssh/kex.c.audit openssh/kex.c
 +#endif
  		return SSH_ERR_NO_COMPRESS_ALG_MATCH;
 +	}
+ #ifdef WITH_ZLIB
  	if (strcmp(name, "zlib@openssh.com") == 0) {
  		comp->type = COMP_DELAYED;
- 	} else if (strcmp(name, "zlib") == 0) {
 @@ -933,7 +946,7 @@ kex_choose_conf(struct ssh *ssh)
  		nenc  = ctos ? PROPOSAL_ENC_ALGS_CTOS  : PROPOSAL_ENC_ALGS_STOC;
  		nmac  = ctos ? PROPOSAL_MAC_ALGS_CTOS  : PROPOSAL_MAC_ALGS_STOC;
@@ -1091,16 +1093,15 @@ diff -up openssh/mac.h.audit openssh/mac.h
 diff -up openssh/Makefile.in.audit openssh/Makefile.in
 --- openssh/Makefile.in.audit	2019-04-03 17:02:20.705885965 +0200
 +++ openssh/Makefile.in	2019-04-03 17:02:20.715886060 +0200
-@@ -109,7 +109,8 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
- 	kexgexc.o kexgexs.o \
+@@ -109,7 +109,7 @@ LIBSSH_OBJS=${LIBOPENSSH_OBJS} \
  	sntrup4591761.o kexsntrup4591761x25519.o kexgen.o \
  	kexgssc.o \
--	platform-pledge.o platform-tracing.o platform-misc.o
-+	platform-pledge.o platform-tracing.o platform-misc.o \
-+	auditstub.o
+	sftp-realpath.o platform-pledge.o platform-tracing.o platform-misc.o \
+-	sshbuf-io.o
++	sshbuf-io.o auditstub.o
  
+ SKOBJS=	ssh-sk-client.o
  
- SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
 diff -up openssh/monitor.c.audit openssh/monitor.c
 --- openssh/monitor.c.audit	2019-04-03 17:02:20.674885671 +0200
 +++ openssh/monitor.c	2019-04-03 17:03:17.201421405 +0200
@@ -1111,7 +1112,7 @@ diff -up openssh/monitor.c.audit openssh/monitor.c
 +#include "audit.h"
  #include "match.h"
  #include "ssherr.h"
- 
+ #include "sk-api.h"
 @@ -107,6 +108,8 @@ extern u_char session_id[];
  extern struct sshbuf *loginmsg;
  extern struct sshauthopt *auth_opts; /* XXX move to permanent ssh->authctxt? */
@@ -1157,16 +1158,16 @@ diff -up openssh/monitor.c.audit openssh/monitor.c
      {0, 0, NULL}
  };
 @@ -1445,8 +1462,10 @@ mm_answer_keyverify(struct ssh *ssh, int
- 	char *sigalg;
  	size_t signaturelen, datalen, bloblen;
- 	int r, ret, valid_data = 0, encoded_ret;
+ 	int r, ret, req_presence = 0, valid_data = 0, encoded_ret;
+ 	struct sshkey_sig_details *sig_details = NULL;
 +	int type = 0;
  
--	if ((r = sshbuf_get_string(m, &blob, &bloblen)) != 0 ||
+-	if ((r = sshbuf_get_string_direct(m, &blob, &bloblen)) != 0 ||
 +	if ((r = sshbuf_get_u32(m, &type)) != 0 ||
-+	    (r = sshbuf_get_string(m, &blob, &bloblen)) != 0 ||
- 	    (r = sshbuf_get_string(m, &signature, &signaturelen)) != 0 ||
- 	    (r = sshbuf_get_string(m, &data, &datalen)) != 0 ||
++	    (r = sshbuf_get_string_direct(m, &blob, &bloblen)) != 0 ||
+ 	    (r = sshbuf_get_string_direct(m, &signature, &signaturelen)) != 0 ||
+ 	    (r = sshbuf_get_string_direct(m, &data, &datalen)) != 0 ||
  	    (r = sshbuf_get_cstring(m, &sigalg, NULL)) != 0)
 @@ -1455,6 +1474,8 @@ mm_answer_keyverify(struct ssh *ssh, int
  	if (hostbased_cuser == NULL || hostbased_chost == NULL ||
@@ -1177,19 +1178,19 @@ diff -up openssh/monitor.c.audit openssh/monitor.c
  
  	/* Empty signature algorithm means NULL. */
  	if (*sigalg == '\0') {
-@@ -1470,21 +1491,24 @@ mm_answer_keyverify(struct ssh *ssh, int
+@@ -1470,25 +1491,28 @@ mm_answer_keyverify(struct ssh *ssh, int
  	case MM_USERKEY:
  		valid_data = monitor_valid_userblob(data, datalen);
  		auth_method = "publickey";
 +		ret = user_key_verify(ssh, key, signature, signaturelen, data,
-+		    datalen, sigalg, ssh->compat);
++		    datalen, sigalg, ssh->compat, &sig_details);
  		break;
  	case MM_HOSTKEY:
  		valid_data = monitor_valid_hostbasedblob(data, datalen,
  		    hostbased_cuser, hostbased_chost);
-+		ret = hostbased_key_verify(ssh, key, signature, signaturelen, data,
-+		    datalen, sigalg, ssh->compat);
  		auth_method = "hostbased";
++		ret = hostbased_key_verify(ssh, key, signature, signaturelen, data,
++		    datalen, sigalg, ssh->compat, &sig_details);
  		break;
  	default:
  		valid_data = 0;
@@ -1199,11 +1200,15 @@ diff -up openssh/monitor.c.audit openssh/monitor.c
  	if (!valid_data)
  		fatal("%s: bad signature data blob", __func__);
  
+ 	if ((fp = sshkey_fingerprint(key, options.fingerprint_hash,
+ 	    SSH_FP_DEFAULT)) == NULL)
+ 		fatal("%s: sshkey_fingerprint failed", __func__);
+ 
 -	ret = sshkey_verify(key, signature, signaturelen, data, datalen,
--	    sigalg, ssh->compat);
- 	debug3("%s: %s %p signature %s", __func__, auth_method, key,
- 	    (ret == 0) ? "verified" : "unverified");
- 	auth2_record_key(authctxt, ret == 0, key);
+-	    sigalg, ssh->compat, &sig_details);
+ 	debug3("%s: %s %p signature %s%s%s", __func__, auth_method, key,
+ 	    (ret == 0) ? "verified" : "unverified",
+ 	    (ret != 0) ? ": " : "", (ret != 0) ? ssh_err(ret) : "");
 @@ -1536,13 +1560,19 @@ mm_record_login(struct ssh *ssh, Session
  }
  
@@ -1459,11 +1464,11 @@ diff -up openssh/monitor_wrap.c.audit openssh/monitor_wrap.c
  int
 -mm_sshkey_verify(const struct sshkey *key, const u_char *sig, size_t siglen,
 +mm_sshkey_verify(enum mm_keytype type, const struct sshkey *key, const u_char *sig, size_t siglen,
-     const u_char *data, size_t datalen, const char *sigalg, u_int compat)
+     const u_char *data, size_t datalen, const char *sigalg, u_int compat,
+     struct sshkey_sig_details **sig_detailsp)
  {
- 	struct sshbuf *m;
 @@ -525,7 +525,8 @@ mm_sshkey_verify(const struct sshkey *ke
- 
+ 		*sig_detailsp = NULL;
  	if ((m = sshbuf_new()) == NULL)
  		fatal("%s: sshbuf_new failed", __func__);
 -	if ((r = sshkey_puts(key, m)) != 0 ||
@@ -1472,22 +1477,24 @@ diff -up openssh/monitor_wrap.c.audit openssh/monitor_wrap.c
  	    (r = sshbuf_put_string(m, sig, siglen)) != 0 ||
  	    (r = sshbuf_put_string(m, data, datalen)) != 0 ||
  	    (r = sshbuf_put_cstring(m, sigalg == NULL ? "" : sigalg)) != 0)
-@@ -547,6 +548,20 @@ mm_sshkey_verify(const struct sshkey *ke
+@@ -547,6 +548,22 @@ mm_sshkey_verify(const struct sshkey *ke
  	return 0;
  }
  
 +int
 +mm_hostbased_key_verify(struct ssh *ssh, const struct sshkey *key, const u_char *sig, size_t siglen,
-+    const u_char *data, size_t datalen, const char *pkalg, u_int compat)
++    const u_char *data, size_t datalen, const char *pkalg, u_int compat,
++    struct sshkey_sig_details **detailsp)
 +{
-+	return mm_sshkey_verify(MM_HOSTKEY, key, sig, siglen, data, datalen, pkalg, compat);
++	return mm_sshkey_verify(MM_HOSTKEY, key, sig, siglen, data, datalen, pkalg, compat, detailsp);
 +}
 +
 +int
 +mm_user_key_verify(struct ssh *ssh, const struct sshkey *key, const u_char *sig, size_t siglen,
-+    const u_char *data, size_t datalen, const char *pkalg, u_int compat)
++    const u_char *data, size_t datalen, const char *pkalg, u_int compat,
++    struct sshkey_sig_details **detailsp)
 +{
-+	return mm_sshkey_verify(MM_USERKEY, key, sig, siglen, data, datalen, pkalg, compat);
++	return mm_sshkey_verify(MM_USERKEY, key, sig, siglen, data, datalen, pkalg, compat, detailsp);
 +}
 +
  void
@@ -1632,9 +1639,9 @@ diff -up openssh/monitor_wrap.h.audit openssh/monitor_wrap.h
      const char *, struct sshkey *);
 -int mm_sshkey_verify(const struct sshkey *, const u_char *, size_t,
 +int mm_hostbased_key_verify(struct ssh *, const struct sshkey *, const u_char *, size_t,
-+    const u_char *, size_t, const char *, u_int);
++    const u_char *, size_t, const char *, u_int, struct sshkey_sig_details **);
 +int mm_user_key_verify(struct ssh*, const struct sshkey *, const u_char *, size_t,
-     const u_char *, size_t, const char *, u_int);
+     const u_char *, size_t, const char *, u_int, struct sshkey_sig_details **);
  
  #ifdef GSSAPI
 @@ -82,7 +84,12 @@ void mm_sshpam_free_ctx(void *);
@@ -1655,7 +1662,7 @@ diff -up openssh/packet.c.audit openssh/packet.c
 --- openssh/packet.c.audit	2019-03-27 23:26:14.000000000 +0100
 +++ openssh/packet.c	2019-04-03 17:02:20.716886069 +0200
 @@ -77,6 +77,7 @@
- #include <zlib.h>
+ #endif
  
  #include "xmalloc.h"
 +#include "audit.h"
@@ -1705,7 +1712,7 @@ diff -up openssh/packet.c.audit openssh/packet.c
  		kex_free_newkeys(state->newkeys[mode]);	/* current keys */
  		state->newkeys[mode] = NULL;
 @@ -636,8 +641,18 @@ ssh_packet_close_internal(struct ssh *ss
- 	}
+ #endif	/* WITH_ZLIB */
  	cipher_free(state->send_context);
  	cipher_free(state->receive_context);
 +	if (had_keys && state->server_side) {
@@ -2041,7 +2048,7 @@ diff -up openssh/sshd.c.audit openssh/sshd.c
 +void demote_sensitive_data(struct ssh *);
  static void do_ssh2_kex(struct ssh *);
  
- /*
+ static char *listener_proctitle;
 @@ -278,6 +279,15 @@ close_listen_socks(void)
  	num_listen_socks = -1;
  }
@@ -2314,5 +2321,5 @@ diff -up openssh/sshkey.h.audit openssh/sshkey.h
  int	 sshkey_type_from_name(const char *);
 +int	 sshkey_is_private(const struct sshkey *);
  int	 sshkey_is_cert(const struct sshkey *);
+ int	 sshkey_is_sk(const struct sshkey *);
  int	 sshkey_type_is_cert(int);
- int	 sshkey_type_plain(int);
