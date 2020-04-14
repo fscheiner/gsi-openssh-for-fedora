@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -161,6 +161,8 @@ Patch963: openssh-8.0p1-openssl-evp.patch
 Patch964: openssh-8.0p1-openssl-kdf.patch
 # Use new OpenSSL for PEM export to avoid MD5 dependency (#1712436)
 Patch965: openssh-8.0p1-openssl-pem.patch
+# Seed from dev/random if requested (#1785655)
+Patch966: openssh-8.0p1-entropy.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -315,6 +317,7 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch963 -p1 -b .openssl-evp
 %patch964 -p1 -b .openssl-kdf
 %patch965 -p1 -b .openssl-pem
+%patch966 -p1 -b .entropy
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -526,6 +529,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Apr 14 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-2
+- Based on openssh-8.0p1-4.el8
+
 * Wed Jan 08 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-1
 - Based on openssh-8.0p1-3.el8
 
