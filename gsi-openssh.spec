@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 5
+%global openssh_rel 6
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -525,6 +525,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon May  4 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-6
+- Add missing buffer initialization in gsissh patch
+
 * Fri Aug 02 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-5
 - Based on openssh-8.0p1-5.fc30
 
