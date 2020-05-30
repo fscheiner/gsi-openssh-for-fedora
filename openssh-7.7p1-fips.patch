@@ -453,5 +453,5 @@ diff -up openssh-8.0p1/ssh-keygen.c.fips openssh-8.0p1/ssh-keygen.c
  		fflush(stdout);
 -		type = sshkey_type_from_name(key_types[i].key_type);
  		if ((fd = mkstemp(prv_tmp)) == -1) {
- 			error("Could not save your public key in %s: %s",
- 			    prv_tmp, strerror(errno));
+ 			error("Could not save your private key in %s: %s",
+			    prv_tmp, strerror(errno));

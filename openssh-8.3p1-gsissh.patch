@@ -2427,7 +2427,7 @@ diff -Nur openssh-8.2p1.orig/version.h openssh-8.2p1/version.h
 +++ openssh-8.2p1/version.h	2020-05-04 19:35:31.407471988 +0200
 @@ -2,5 +2,19 @@
  
- #define SSH_VERSION	"OpenSSH_8.2"
+ #define SSH_VERSION	"OpenSSH_8.3"
  
 +#ifdef GSI
 +#define GSI_VERSION	" GSI"

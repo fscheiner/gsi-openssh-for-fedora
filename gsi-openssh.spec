@@ -30,8 +30,8 @@
 # Do we want LDAP support
 %global ldap 1
 
-%global openssh_ver 8.2p1
-%global openssh_rel 2
+%global openssh_ver 8.3p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -160,10 +160,12 @@ Patch964: openssh-8.0p1-openssl-kdf.patch
 Patch965: openssh-8.2p1-visibility.patch
 # Do not break X11 without IPv6
 Patch966: openssh-8.2p1-x11-without-ipv6.patch
+# Unbreak sshd_config include corner cases (#3122)
+Patch967: openssh-8.3p1-sshd_include.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-8.2p1-gsissh.patch
+Patch98: openssh-8.3p1-gsissh.patch
 
 License: BSD
 Requires: /sbin/nologin
@@ -307,6 +309,7 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch964 -p1 -b .openssl-kdf
 %patch965 -p1 -b .visibility
 %patch966 -p1 -b .x11-ipv6
+%patch967 -p1 -b .include
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -514,6 +517,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Sat May 30 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.3p1-1
+- Based on openssh-8.3p1-1.fc32
+
 * Mon May 04 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.2p1-2
 - Add missing buffer initialization in gsissh patch
 

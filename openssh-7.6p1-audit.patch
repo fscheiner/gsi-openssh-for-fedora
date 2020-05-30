@@ -883,8 +883,8 @@ diff -up openssh/cipher.c.audit openssh/cipher.c
 -	if (cc == NULL)
 +	if (cc == NULL || cc->cipher == NULL)
  		return;
- 	if ((cc->cipher->flags & CFLAG_CHACHAPOLY) != 0)
- 		explicit_bzero(&cc->cp_ctx, sizeof(cc->cp_ctx));
+ 	if ((cc->cipher->flags & CFLAG_CHACHAPOLY) != 0) {
+ 		chachapoly_free(cc->cp_ctx);
 diff -up openssh/cipher.h.audit openssh/cipher.h
 --- openssh/cipher.h.audit	2019-03-27 23:26:14.000000000 +0100
 +++ openssh/cipher.h	2019-04-03 17:02:20.714886050 +0200

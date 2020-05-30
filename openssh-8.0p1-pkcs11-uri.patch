@@ -48,7 +48,7 @@ index e7549470..4511f82a 100644
  	msg.o progressmeter.o dns.o entropy.o gss-genr.o umac.o umac128.o \
 -	ssh-pkcs11.o smult_curve25519_ref.o \
 +	ssh-pkcs11.o ssh-pkcs11-uri.o smult_curve25519_ref.o \
- 	poly1305.o chacha.o cipher-chachapoly.o \
+ 	poly1305.o chacha.o cipher-chachapoly.o cipher-chachapoly-libcrypto.o \
  	ssh-ed25519.o digest-openssl.o digest-libc.o \
  	hmac.o sc25519.o ge25519.o fe25519.o ed25519.o verify.o hash.o \
 @@ -289,6 +289,8 @@ clean:	regressclean
@@ -2502,7 +2502,7 @@ index a302c79c..879fe917 100644
  	int ret = -1;
  	struct pkcs11_provider *p = NULL;
  	void *handle = NULL;
-@@ -1484,165 +1670,301 @@ pkcs11_register_provider(char *provider_id, char *pin,
+@@ -1484,167 +1670,303 @@ pkcs11_register_provider(char *provider_id, char *pin,
  	CK_FUNCTION_LIST *f = NULL;
  	CK_TOKEN_INFO *token;
  	CK_ULONG i;
@@ -2830,6 +2830,8 @@ index a302c79c..879fe917 100644
  	}
 -	if (handle)
 -		dlclose(handle);
+ 	if (ret > 0)
+ 		ret = -1;
  	return (ret);
  }
  
@@ -3109,9 +3111,9 @@ index 15aee569..976844cb 100644
 +		}
 +#endif /* ENABLE_PKCS11 */
 +		cp = tilde_expand_filename(name, getuid());
- 		filename = percent_expand(cp, "d", pw->pw_dir,
- 		    "u", pw->pw_name, "l", thishost, "h", host,
- 		    "r", options.user, (char *)NULL);
+ 		filename = default_client_percent_expand(cp,
+ 		    pw->pw_dir, host, options.user, pw->pw_name);
+ 		free(cp);
 diff --git a/ssh_config.5 b/ssh_config.5
 index 06a32d31..4b2763bd 100644
 --- a/ssh_config.5
