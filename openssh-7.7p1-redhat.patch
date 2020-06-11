@@ -68,10 +68,14 @@ diff -up openssh/sshd_config.5.redhat openssh/sshd_config.5
 diff -up openssh/sshd_config.redhat openssh/sshd_config
 --- openssh/sshd_config.redhat	2020-02-11 23:28:35.000000000 +0100
 +++ openssh/sshd_config	2020-02-13 18:20:16.349913681 +0100
-@@ -10,6 +10,10 @@
+@@ -10,6 +10,14 @@
  # possible, but leave them commented.  Uncommented options override the
  # default value.
- 
+
++# To modify the system-wide sshd configuration, create a  *.conf  file under
++#  /etc/ssh/sshd_config.d/  which will be automatically included below
++Include /etc/ssh/sshd_config.d/*.conf
++
 +# If you want to change the port on a SELinux system, you have to tell
 +# SELinux about this change.
 +# semanage port -a -t ssh_port_t -p tcp #PORTNUMBER
@@ -79,23 +83,16 @@ diff -up openssh/sshd_config.redhat openssh/sshd_config
  #Port 22
  #AddressFamily any
  #ListenAddress 0.0.0.0
-@@ -114,3 +118,7 @@ Subsystem	sftp	/usr/libexec/sftp-server
- #	AllowTcpForwarding no
- #	PermitTTY no
- #	ForceCommand cvs server
-+
-+# To modify the system-wide sshd configuration, create a  *.conf  file under
-+#  /etc/ssh/sshd_config.d/  which will be automatically included below
-+Include /etc/ssh/sshd_config.d/*.conf
 diff -up openssh/sshd_config_redhat.redhat openssh/sshd_config_redhat
 --- openssh/sshd_config_redhat.redhat	2020-02-13 18:14:02.268006439 +0100
 +++ openssh/sshd_config_redhat	2020-02-13 18:19:20.765035947 +0100
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,29 @@
 +# This system is following system-wide crypto policy. The changes to
-+# crypto properties (Ciphers, MACs, ...) will not have any effect here.
-+# They will be overridden by command-line options passed to the server
-+# on command line.
-+# Please, check manual pages for update-crypto-policies(8) and sshd_config(5).
++# crypto properties (Ciphers, MACs, ...) will not have any effect in
++# this or following included files. To override some configuration option,
++# write it before this block or include it before this file.
++# Please, see manual pages for update-crypto-policies(8) and sshd_config(5).
++Include /etc/crypto-policies/back-ends/opensshserver.config
 +
 +SyslogFacility AUTHPRIV
 +

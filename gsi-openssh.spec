@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.3p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -214,7 +214,7 @@ Summary: SSH client applications with GSI authentication
 Provides: gsissh-clients = %{version}-%{release}
 Obsoletes: gsissh-clients < 5.8p2-2
 Requires: %{name} = %{version}-%{release}
-Requires: crypto-policies >= 20180306-1
+Requires: crypto-policies >= 20200610-1
 
 %package server
 Summary: SSH server daemon with GSI authentication
@@ -223,7 +223,7 @@ Obsoletes: gsissh-server < 5.8p2-2
 Requires: %{name} = %{version}-%{release}
 Requires(pre): /usr/sbin/useradd
 Requires: pam >= 1.0.1-3
-Requires: crypto-policies >= 20180306-1
+Requires: crypto-policies >= 20200610-1
 %{?systemd_requires}
 
 %description
@@ -416,8 +416,8 @@ install -d $RPM_BUILD_ROOT/etc/sysconfig/
 install -d $RPM_BUILD_ROOT%{_libexecdir}/gsissh
 install -m644 %{SOURCE2} $RPM_BUILD_ROOT/etc/pam.d/gsisshd
 install -m644 %{SOURCE7} $RPM_BUILD_ROOT/etc/sysconfig/gsisshd
-install -m644 ssh_config_redhat $RPM_BUILD_ROOT/etc/gsissh/ssh_config.d/05-redhat.conf
-install -m644 sshd_config_redhat $RPM_BUILD_ROOT/etc/gsissh/sshd_config.d/05-redhat.conf
+install -m644 ssh_config_redhat $RPM_BUILD_ROOT/etc/gsissh/ssh_config.d/50-redhat.conf
+install -m644 sshd_config_redhat $RPM_BUILD_ROOT/etc/gsissh/sshd_config.d/50-redhat.conf
 install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
 install -m644 %{SOURCE9} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd@.service
 install -m644 %{SOURCE10} $RPM_BUILD_ROOT/%{_unitdir}/gsisshd.socket
@@ -490,7 +490,7 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_mandir}/man1/gsiscp.1*
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/ssh_config
 %dir %attr(0755,root,root) %{_sysconfdir}/gsissh/ssh_config.d/
-%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/ssh_config.d/05-redhat.conf
+%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/ssh_config.d/50-redhat.conf
 %attr(0644,root,root) %{_mandir}/man5/gsissh_config.5*
 %attr(0755,root,root) %{_bindir}/gsisftp
 %attr(0644,root,root) %{_mandir}/man1/gsisftp.1*
@@ -506,7 +506,7 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_mandir}/man8/gsisftp-server.8*
 %attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/sshd_config
 %dir %attr(0700,root,root) %{_sysconfdir}/gsissh/sshd_config.d/
-%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/sshd_config.d/05-redhat.conf
+%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/sshd_config.d/50-redhat.conf
 %attr(0644,root,root) %config(noreplace) /etc/pam.d/gsisshd
 %attr(0640,root,root) %config(noreplace) /etc/sysconfig/gsisshd
 %attr(0644,root,root) %{_unitdir}/gsisshd.service
@@ -517,6 +517,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Jun 11 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.3p1-3
+- Based on openssh-8.3p1-3.fc32
+
 * Thu Jun 04 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.3p1-2
 - Based on openssh-8.3p1-2.fc32
 

@@ -6,10 +6,9 @@ Wants=gsisshd-keygen.target
 
 [Service]
 Type=notify
-EnvironmentFile=-/etc/crypto-policies/back-ends/opensshserver.config
 EnvironmentFile=-/etc/sysconfig/sshd-permitrootlogin
 EnvironmentFile=-/etc/sysconfig/gsisshd
-ExecStart=/usr/sbin/gsisshd -D $OPTIONS $CRYPTO_POLICY $PERMITROOTLOGIN
+ExecStart=/usr/sbin/gsisshd -D $OPTIONS $PERMITROOTLOGIN
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure
