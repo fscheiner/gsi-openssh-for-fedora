@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -167,6 +167,12 @@ Patch966: openssh-8.0p1-entropy.patch
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
 Patch98: openssh-8.0p1-gsissh.patch
+
+# This is the HPN patch
+# Based on https://sourceforge.net/projects/hpnssh/files/Patches/HPN-SSH%2014v19%208.0p1/
+# and https://github.com/rapier1/openssh-portable/commit/aae3bbcf7f60688eb0b092482422854be5360cf9
+# and https://github.com/rapier1/openssh-portable/commit/dd8b44b5f0157ec9304ad9caabc4ca5a3bd7351c
+Patch99: openssh-8.0p1-hpn-14.19-modified.patch
 
 License: BSD
 Group: Applications/Internet
@@ -326,6 +332,7 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch100 -p1 -b .coverity
 
 %patch98 -p1 -b .gsi
+%patch99 -p1 -b .hpn
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
@@ -486,7 +493,7 @@ getent passwd sshd >/dev/null || \
 
 %files
 %license LICENCE
-%doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
+%doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README HPN-README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
@@ -529,6 +536,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Sep 25 2020 Frank Scheiner <scheiner@hlrs.de> - 8.0p1-4
+- Add HPN patch
+
 * Mon May 04 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.0p1-3
 - Add missing buffer initialization in gsissh patch
 
