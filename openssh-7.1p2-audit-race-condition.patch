@@ -137,7 +137,7 @@ diff -up openssh-7.4p1/session.c.audit-race openssh-7.4p1/session.c
  }
  
 @@ -1538,6 +1565,34 @@ child_close_fds(void)
- 	endpwent();
+ 	log_redirect_stderr_to(NULL);
  }
  
 +void

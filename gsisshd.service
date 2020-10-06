@@ -6,9 +6,8 @@ Wants=gsisshd-keygen.target
 
 [Service]
 Type=notify
-EnvironmentFile=-/etc/sysconfig/sshd-permitrootlogin
 EnvironmentFile=-/etc/sysconfig/gsisshd
-ExecStart=/usr/sbin/gsisshd -D $OPTIONS $PERMITROOTLOGIN
+ExecStart=/usr/sbin/gsisshd -D $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure

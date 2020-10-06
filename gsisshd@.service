@@ -5,7 +5,6 @@ Wants=gsisshd-keygen.target
 After=gsisshd-keygen.target
 
 [Service]
-EnvironmentFile=-/etc/sysconfig/sshd-permitrootlogin
 EnvironmentFile=-/etc/sysconfig/gsisshd
-ExecStart=-/usr/sbin/gsisshd -i $OPTIONS $PERMITROOTLOGIN
+ExecStart=-/usr/sbin/gsisshd -i $OPTIONS
 StandardInput=socket

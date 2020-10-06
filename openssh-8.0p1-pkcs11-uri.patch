@@ -568,8 +568,8 @@ index 4e56e110..2690ebeb 100644
  
  REGRESS_FAIL_EARLY?=	yes
  SUBDIR=	test_helper sshbuf sshkey bitmap kex hostkeys utf8 match conversion
--SUBDIR+=authopt misc
-+SUBDIR+=authopt misc pkcs11
+-SUBDIR+=authopt misc sshsig
++SUBDIR+=authopt misc sshsig pkcs11
  
  .include <bsd.subdir.mk>
 diff --git a/regress/unittests/pkcs11/tests.c b/regress/unittests/pkcs11/tests.c
@@ -807,7 +807,7 @@ index 00000000..b637cb13
 +}
 +
 +void
-+check_encode(char *source, size_t len, char *whitelist, char *expect)
++check_encode(char *source, size_t len, char *allow_list, char *expect)
 +{
 +	char *buf = NULL;
 +	struct sshbuf *b;
@@ -816,7 +816,7 @@ index 00000000..b637cb13
 +	TEST_START(buf);
 +	free(buf);
 +
-+	b = percent_encode(source, len, whitelist);
++	b = percent_encode(source, len, allow_list);
 +	ASSERT_STRING_EQ(sshbuf_ptr(b), expect);
 +	sshbuf_free(b);
 +	TEST_DONE();
@@ -841,14 +841,14 @@ index 00000000..b637cb13
 +static void
 +test_percent_encode(void)
 +{
-+	/* Without whitelist encodes everything (for CKA_ID) */
++	/* Without allow list encodes everything (for CKA_ID) */
 +	check_encode("A*", 2, "", "%41%2A");
 +	check_encode("\x00", 1, "", "%00");
 +	check_encode("\x7F", 1, "", "%7F");
 +	check_encode("\x80", 1, "", "%80");
 +	check_encode("\xff", 1, "", "%FF");
 +
-+	/* Default whitelist encodes anything but safe letters */
++	/* Default allow list encodes anything but safe letters */
 +	check_encode("test" "\x00" "0alpha", 11, PKCS11_URI_WHITELIST,
 +	    "test%000alpha");
 +	check_encode(" ", 1, PKCS11_URI_WHITELIST,
@@ -920,9 +920,9 @@ index 8057eb1f..0c470e32 100644
 --- a/ssh-add.c
 +++ b/ssh-add.c
 @@ -67,6 +67,7 @@
- #include "ssherr.h"
  #include "digest.h"
  #include "ssh-sk.h"
+ #include "sk-api.h"
 +#include "ssh-pkcs11-uri.h"
  
  /* argv0 */
@@ -1045,9 +1045,9 @@ index 7eb6f0dc..27d8e4af 100644
 +			return NULL;
 +		}
 +		free(module_path);
-+		if (match_pattern_list(canonical_provider, provider_whitelist, 0) != 1) {
++		if (match_pattern_list(canonical_provider, allowed_providers, 0) != 1) {
 +			verbose("refusing PKCS#11 provider \"%.100s\": "
-+			    "not whitelisted", canonical_provider);
++			    "not allowed", canonical_provider);
 +			pkcs11_uri_cleanup(uri);
 +			return NULL;
 +		}
@@ -1085,9 +1085,9 @@ index 7eb6f0dc..27d8e4af 100644
 -		    provider, strerror(errno));
 -		goto send;
 -	}
--	if (match_pattern_list(canonical_provider, provider_whitelist, 0) != 1) {
+-	if (match_pattern_list(canonical_provider, allowed_providers, 0) != 1) {
 -		verbose("refusing PKCS#11 add of \"%.100s\": "
--		    "provider not whitelisted", canonical_provider);
+-		    "provider not allowed", canonical_provider);
 +
 +	sane_uri = sanitize_pkcs11_provider(provider);
 +	if (sane_uri == NULL)
@@ -1216,7 +1216,7 @@ new file mode 100644
 index 00000000..e1a7b4e0
 --- /dev/null
 +++ b/ssh-pkcs11-uri.c
-@@ -0,0 +1,421 @@
+@@ -0,0 +1,425 @@
 +/*
 + * Copyright (c) 2017 Red Hat
 + *
@@ -1342,7 +1342,7 @@ index 00000000..e1a7b4e0
 +}
 +
 +struct sshbuf *
-+percent_encode(const char *data, size_t length, const char *whitelist)
++percent_encode(const char *data, size_t length, const char *allow_list)
 +{
 +	struct sshbuf *b = NULL;
 +	char tmp[4], *cp;
@@ -1351,7 +1351,7 @@ index 00000000..e1a7b4e0
 +	if ((b = sshbuf_new()) == NULL)
 +		return NULL;
 +	for (i = 0; i < length; i++) {
-+		cp = strchr(whitelist, data[i]);
++		cp = strchr(allow_list, data[i]);
 +		/* if c is specified as '\0' pointer to terminator is returned !! */
 +		if (cp != NULL && *cp != '\0') {
 +			if (sshbuf_put(b, &data[i], 1) != 0)
@@ -1468,6 +1468,10 @@ index 00000000..e1a7b4e0
 +void
 +pkcs11_uri_cleanup(struct pkcs11_uri *pkcs11)
 +{
++	if (pkcs11 == NULL) {
++		return;
++	}
++
 +	free(pkcs11->id);
 +	free(pkcs11->module_path);
 +	free(pkcs11->token);
@@ -3111,7 +3115,7 @@ index 15aee569..976844cb 100644
 +		}
 +#endif /* ENABLE_PKCS11 */
 +		cp = tilde_expand_filename(name, getuid());
- 		filename = default_client_percent_expand(cp,
+ 		filename = default_client_percent_dollar_expand(cp,
  		    pw->pw_dir, host, options.user, pw->pw_name);
  		free(cp);
 diff --git a/ssh_config.5 b/ssh_config.5

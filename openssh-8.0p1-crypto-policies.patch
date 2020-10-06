@@ -39,18 +39,19 @@ diff -up openssh-8.2p1/ssh_config.5.crypto-policies openssh-8.2p1/ssh_config.5
  If the specified list begins with a
  .Sq +
 -character, then the specified ciphers will be appended to the default set
-+character, then the specified ciphers will be appended to the built-in default set
- instead of replacing them.
+-instead of replacing them.
++character, then the specified ciphers will be appended to the built-in
++openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq -
  character, then the specified ciphers (including wildcards) will be removed
 -from the default set instead of replacing them.
-+from the built-in default set instead of replacing them.
++from the built-in openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq ^
  character, then the specified ciphers will be placed at the head of the
 -default set.
-+built-in default set.
++built-in openssh default set.
  .Pp
  The supported ciphers are:
  .Bd -literal -offset indent
@@ -106,13 +107,14 @@ diff -up openssh-8.2p1/ssh_config.5.crypto-policies openssh-8.2p1/ssh_config.5
  If the specified list begins with a
  .Sq +
 -character, then the specified methods will be appended to the default set
-+character, then the specified methods will be appended to the built-in default set
- instead of replacing them.
+-instead of replacing them.
++character, then the specified methods will be appended to the built-in
++openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq -
  character, then the specified methods (including wildcards) will be removed
 -from the default set instead of replacing them.
-+from the built-in default set instead of replacing them.
++from the built-in openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq ^
  character, then the specified methods will be placed at the head of the
@@ -126,7 +128,7 @@ diff -up openssh-8.2p1/ssh_config.5.crypto-policies openssh-8.2p1/ssh_config.5
 -diffie-hellman-group18-sha512,
 -diffie-hellman-group14-sha256
 -.Ed
-+built-in default set.
++built-in openssh default set.
  .Pp
  The list of available key exchange algorithms may also be obtained using
  .Qq ssh -Q kex .
@@ -146,18 +148,19 @@ diff -up openssh-8.2p1/ssh_config.5.crypto-policies openssh-8.2p1/ssh_config.5
  If the specified list begins with a
  .Sq +
 -character, then the specified algorithms will be appended to the default set
-+character, then the specified algorithms will be appended to the built-in default set
- instead of replacing them.
+-instead of replacing them.
++character, then the specified algorithms will be appended to the built-in
++openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq -
  character, then the specified algorithms (including wildcards) will be removed
 -from the default set instead of replacing them.
-+from the built-in default set instead of replacing them.
++from the built-in openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq ^
  character, then the specified algorithms will be placed at the head of the
 -default set.
-+built-in default set.
++built-in openssh default set.
  .Pp
  The algorithms that contain
  .Qq -etm
@@ -190,13 +193,14 @@ diff -up openssh-8.2p1/ssh_config.5.crypto-policies openssh-8.2p1/ssh_config.5
  If the specified list begins with a
  .Sq +
 -character, then the key types after it will be appended to the default
-+character, then the key types after it will be appended to the built-in default
- instead of replacing it.
+-instead of replacing it.
++character, then the key types after it will be appended to the built-in
++openssh default instead of replacing it.
  If the specified list begins with a
  .Sq -
  character, then the specified key types (including wildcards) will be removed
 -from the default set instead of replacing them.
-+from the built-in default set instead of replacing them.
++from the built-in openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq ^
  character, then the specified key types will be placed at the head of the
@@ -217,7 +221,7 @@ diff -up openssh-8.2p1/ssh_config.5.crypto-policies openssh-8.2p1/ssh_config.5
 -ssh-ed25519,sk-ssh-ed25519@openssh.com,
 -rsa-sha2-512,rsa-sha2-256,ssh-rsa
 -.Ed
-+built-in default set.
++built-in openssh default set.
  .Pp
  The list of available key types may also be obtained using
  .Qq ssh -Q PubkeyAcceptedKeyTypes .
@@ -261,18 +265,19 @@ diff -up openssh-8.2p1/sshd_config.5.crypto-policies openssh-8.2p1/sshd_config.5
  If the specified list begins with a
  .Sq +
 -character, then the specified ciphers will be appended to the default set
-+character, then the specified ciphers will be appended to the built-in default set
- instead of replacing them.
+-instead of replacing them.
++character, then the specified ciphers will be appended to the built-in
++openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq -
  character, then the specified ciphers (including wildcards) will be removed
 -from the default set instead of replacing them.
-+from the built-in default set instead of replacing them.
++from the built-in openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq ^
  character, then the specified ciphers will be placed at the head of the
 -default set.
-+built-in default set.
++built-in openssh default set.
  .Pp
  The supported ciphers are:
  .Pp
@@ -370,18 +375,19 @@ diff -up openssh-8.2p1/sshd_config.5.crypto-policies openssh-8.2p1/sshd_config.5
  Alternately if the specified list begins with a
  .Sq +
 -character, then the specified methods will be appended to the default set
-+character, then the specified methods will be appended to the built-in default set
- instead of replacing them.
+-instead of replacing them.
++character, then the specified methods will be appended to the built-in
++openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq -
  character, then the specified methods (including wildcards) will be removed
 -from the default set instead of replacing them.
-+from the built-in default set instead of replacing them.
++from the built-in openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq ^
  character, then the specified methods will be placed at the head of the
 -default set.
-+built-in default set.
++built-in openssh default set.
  The supported algorithms are:
  .Pp
  .Bl -item -compact -offset indent
@@ -416,18 +422,19 @@ diff -up openssh-8.2p1/sshd_config.5.crypto-policies openssh-8.2p1/sshd_config.5
  If the specified list begins with a
  .Sq +
 -character, then the specified algorithms will be appended to the default set
-+character, then the specified algorithms will be appended to the built-in default set
- instead of replacing them.
+-instead of replacing them.
++character, then the specified algorithms will be appended to the built-in
++openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq -
  character, then the specified algorithms (including wildcards) will be removed
 -from the default set instead of replacing them.
-+from the built-in default set instead of replacing them.
++from the built-in openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq ^
  character, then the specified algorithms will be placed at the head of the
 -default set.
-+built-in default set.
++built-in openssh default set.
  .Pp
  The algorithms that contain
  .Qq -etm
@@ -461,13 +468,14 @@ diff -up openssh-8.2p1/sshd_config.5.crypto-policies openssh-8.2p1/sshd_config.5
  Alternately if the specified list begins with a
  .Sq +
 -character, then the specified key types will be appended to the default set
-+character, then the specified key types will be appended to the built-in default set
- instead of replacing them.
+-instead of replacing them.
++character, then the specified key types will be appended to the built-in
++openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq -
  character, then the specified key types (including wildcards) will be removed
 -from the default set instead of replacing them.
-+from the built-in default set instead of replacing them.
++from the built-in openssh default set instead of replacing them.
  If the specified list begins with a
  .Sq ^
  character, then the specified key types will be placed at the head of the
@@ -488,7 +496,7 @@ diff -up openssh-8.2p1/sshd_config.5.crypto-policies openssh-8.2p1/sshd_config.5
 -ssh-ed25519,sk-ssh-ed25519@openssh.com,
 -rsa-sha2-512,rsa-sha2-256,ssh-rsa
 -.Ed
-+built-in default set.
++built-in openssh default set.
  .Pp
  The list of available key types may also be obtained using
  .Qq ssh -Q PubkeyAcceptedKeyTypes .

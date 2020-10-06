@@ -154,20 +154,6 @@ diff -up openssh/auth-pam.h.role-mls openssh/auth-pam.h
  char ** fetch_pam_environment(void);
  char ** fetch_pam_child_environment(void);
  void free_pam_environment(char **);
-diff -up openssh/configure.ac.role-mls openssh/configure.ac
---- openssh/configure.ac.role-mls	2018-08-20 07:57:29.000000000 +0200
-+++ openssh/configure.ac	2018-08-22 11:14:56.820430957 +0200
-@@ -4241,10 +4241,7 @@ AC_ARG_WITH([selinux],
- 			  LIBS="$LIBS -lselinux"
- 			],
- 			AC_MSG_ERROR([SELinux support requires libselinux library]))
--		SSHLIBS="$SSHLIBS $LIBSELINUX"
--		SSHDLIBS="$SSHDLIBS $LIBSELINUX"
- 		AC_CHECK_FUNCS([getseuserbyname get_default_context_with_level])
--		LIBS="$save_LIBS"
- 	fi ]
- )
- AC_SUBST([SSHLIBS])
 diff -up openssh/misc.c.role-mls openssh/misc.c
 --- openssh/misc.c.role-mls	2018-08-20 07:57:29.000000000 +0200
 +++ openssh/misc.c	2018-08-22 11:14:56.817430932 +0200
@@ -338,8 +324,8 @@ diff -up openssh/monitor_wrap.h.role-mls openssh/monitor_wrap.h
 --- openssh/monitor_wrap.h.role-mls	2018-08-22 11:14:56.818430941 +0200
 +++ openssh/monitor_wrap.h	2018-08-22 11:22:10.439929513 +0200
 @@ -44,6 +44,9 @@ DH *mm_choose_dh(int, int, int);
- int mm_sshkey_sign(struct ssh *, struct sshkey *, u_char **, size_t *,
-     const u_char *, size_t, const char *, const char *, u_int compat);
+     const u_char *, size_t, const char *, const char *,
+     const char *, u_int compat);
  void mm_inform_authserv(char *, char *);
 +#ifdef WITH_SELINUX
 +void mm_inform_authrole(char *);

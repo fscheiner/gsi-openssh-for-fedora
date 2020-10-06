@@ -1,0 +1,130 @@
+From 66f16e5425eb881570e82bfef7baeac2e7accc0a Mon Sep 17 00:00:00 2001
+From: Oleg <Fallmay@users.noreply.github.com>
+Date: Thu, 1 Oct 2020 12:09:08 +0300
+Subject: [PATCH] Fix `EOF: command not found` error in ssh-copy-id
+
+---
+ contrib/ssh-copy-id | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/contrib/ssh-copy-id b/contrib/ssh-copy-id
+index 392f64f94..a76907717 100644
+--- a/contrib/ssh-copy-id
++++ b/contrib/ssh-copy-id
+@@ -247,7 +247,7 @@ installkeys_sh() {
+   #    the -z `tail ...` checks for a trailing newline. The echo adds one if was missing
+   #    the cat adds the keys we're getting via STDIN
+   #    and if available restorecon is used to restore the SELinux context
+-  INSTALLKEYS_SH=$(tr '\t\n' ' ' <<-EOF)
++  INSTALLKEYS_SH=$(tr '\t\n' ' ' <<-EOF
+ 	cd;
+ 	umask 077;
+ 	mkdir -p $(dirname "${AUTH_KEY_FILE}") &&
+@@ -258,6 +258,7 @@ installkeys_sh() {
+ 	  restorecon -F .ssh ${AUTH_KEY_FILE};
+ 	fi
+ EOF
++  )
+ 
+   # to defend against quirky remote shells: use 'exec sh -c' to get POSIX;
+   printf "exec sh -c '%s'" "${INSTALLKEYS_SH}"
+
+From de59a431cdec833e3ec15691dd950402b4c052cf Mon Sep 17 00:00:00 2001
+From: Philip Hands <phil@hands.com>
+Date: Sat, 3 Oct 2020 00:20:07 +0200
+Subject: [PATCH] un-nest $() to make ksh cheerful
+
+---
+ ssh-copy-id | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+From 02ac2c3c3db5478a440dfb1b90d15f686f2cbfc6 Mon Sep 17 00:00:00 2001
+From: Philip Hands <phil@hands.com>
+Date: Fri, 2 Oct 2020 21:30:10 +0200
+Subject: [PATCH] ksh doesn't grok 'local'
+
+and AFAICT it's not actually doing anything useful in the code, so let's
+see how things go without it.
+---
+ ssh-copy-id | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/contrib/ssh-copy-id b/contrib/ssh-copy-id
+index a769077..11c9463 100755
+--- a/contrib/ssh-copy-id
++++ b/contrib/ssh-copy-id
+@@ -76,7 +76,7 @@ quote() {
+ }
+ 
+ use_id_file() {
+-  local L_ID_FILE="$1"
++  L_ID_FILE="$1"
+ 
+   if [ -z "$L_ID_FILE" ] ; then
+     printf '%s: ERROR: no ID file found\n' "$0"
+@@ -94,7 +94,7 @@ use_id_file() {
+   # check that the files are readable
+   for f in "$PUB_ID_FILE" ${PRIV_ID_FILE:+"$PRIV_ID_FILE"} ; do
+     ErrMSG=$( { : < "$f" ; } 2>&1 ) || {
+-      local L_PRIVMSG=""
++      L_PRIVMSG=""
+       [ "$f" = "$PRIV_ID_FILE" ] && L_PRIVMSG="	(to install the contents of '$PUB_ID_FILE' anyway, look at the -f option)"
+       printf "\\n%s: ERROR: failed to open ID file '%s': %s\\n" "$0" "$f" "$(printf '%s\n%s\n' "$ErrMSG" "$L_PRIVMSG" | sed -e 's/.*: *//')"
+       exit 1
+@@ -169,7 +169,7 @@ fi
+ # populate_new_ids() uses several global variables ($USER_HOST, $SSH_OPTS ...)
+ # and has the side effect of setting $NEW_IDS
+ populate_new_ids() {
+-  local L_SUCCESS="$1"
++  L_SUCCESS="$1"
+ 
+   # shellcheck disable=SC2086
+   if [ "$FORCED" ] ; then
+@@ -181,13 +181,12 @@ populate_new_ids() {
+   eval set -- "$SSH_OPTS"
+ 
+   umask 0177
+-  local L_TMP_ID_FILE
+   L_TMP_ID_FILE=$(mktemp ~/.ssh/ssh-copy-id_id.XXXXXXXXXX)
+   if test $? -ne 0 || test "x$L_TMP_ID_FILE" = "x" ; then
+     printf '%s: ERROR: mktemp failed\n' "$0" >&2
+     exit 1
+   fi
+-  local L_CLEANUP="rm -f \"$L_TMP_ID_FILE\" \"${L_TMP_ID_FILE}.stderr\""
++  L_CLEANUP="rm -f \"$L_TMP_ID_FILE\" \"${L_TMP_ID_FILE}.stderr\""
+   # shellcheck disable=SC2064
+   trap "$L_CLEANUP" EXIT TERM INT QUIT
+   printf '%s: INFO: attempting to log in with the new key(s), to filter out any that are already installed\n' "$0" >&2
+@@ -237,7 +236,7 @@ populate_new_ids() {
+ #    produce a one-liner to add the keys to remote authorized_keys file
+ #    optionally takes an alternative path for authorized_keys
+ installkeys_sh() {
+-  local AUTH_KEY_FILE=${1:-.ssh/authorized_keys}
++  AUTH_KEY_FILE=${1:-.ssh/authorized_keys}
+ 
+   # In setting INSTALLKEYS_SH:
+   #    the tr puts it all on one line (to placate tcsh)
+-- 
+
+diff --git a/contrib/ssh-copy-id b/contrib/ssh-copy-id
+index 11c9463..ee3f637 100755
+--- a/contrib/ssh-copy-id
++++ b/contrib/ssh-copy-id
+@@ -237,6 +237,7 @@ populate_new_ids() {
+ #    optionally takes an alternative path for authorized_keys
+ installkeys_sh() {
+   AUTH_KEY_FILE=${1:-.ssh/authorized_keys}
++  AUTH_KEY_DIR=$(dirname "${AUTH_KEY_FILE}")
+ 
+   # In setting INSTALLKEYS_SH:
+   #    the tr puts it all on one line (to placate tcsh)
+@@ -249,7 +250,7 @@ installkeys_sh() {
+   INSTALLKEYS_SH=$(tr '\t\n' ' ' <<-EOF
+ 	cd;
+ 	umask 077;
+-	mkdir -p $(dirname "${AUTH_KEY_FILE}") &&
++	mkdir -p "${AUTH_KEY_DIR}" &&
+ 	  { [ -z \`tail -1c ${AUTH_KEY_FILE} 2>/dev/null\` ] || echo >> ${AUTH_KEY_FILE} || exit 1; } &&
+ 	  cat >> ${AUTH_KEY_FILE} ||
+ 	  exit 1;
+-- 

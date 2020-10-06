@@ -27,16 +27,13 @@
 # Do we want libedit support
 %global libedit 1
 
-# Do we want LDAP support
-%global ldap 1
-
-%global openssh_ver 8.3p1
-%global openssh_rel 3
+%global openssh_ver 8.4p1
+%global openssh_rel 1
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
 Version: %{openssh_ver}
-Release: %{openssh_rel}%{?dist}.1
+Release: %{openssh_rel}%{?dist}
 Provides: gsissh = %{version}-%{release}
 Obsoletes: gsissh < 5.8p2-2
 URL: http://www.openssh.com/portable.html
@@ -68,9 +65,6 @@ Patch201: openssh-7.1p2-audit-race-condition.patch
 Patch400: openssh-7.8p1-role-mls.patch
 #https://bugzilla.redhat.com/show_bug.cgi?id=781634
 Patch404: openssh-6.6p1-privsep-selinux.patch
-
-#?-- unwanted child :(
-Patch501: openssh-6.7p1-ldap.patch
 #?
 Patch502: openssh-6.6p1-keycat.patch
 
@@ -147,8 +141,7 @@ Patch951: openssh-8.0p1-pkcs11-uri.patch
 # Unbreak scp between two IPv6 hosts (#1620333)
 Patch953: openssh-7.8p1-scp-ipv6.patch
 # ssh-copy-id is unmaintained: Aggreagete patches
-#  - do not return 0 if the write fails (full disk)
-#  - shellcheck reports (upstream #2902)
+# https://gitlab.com/phil_hands/ssh-copy-id/-/merge_requests/2
 Patch958: openssh-7.9p1-ssh-copy-id.patch
 # Mention crypto-policies in manual pages (#1668325)
 Patch962: openssh-8.0p1-crypto-policies.patch
@@ -160,26 +153,22 @@ Patch964: openssh-8.0p1-openssl-kdf.patch
 Patch965: openssh-8.2p1-visibility.patch
 # Do not break X11 without IPv6
 Patch966: openssh-8.2p1-x11-without-ipv6.patch
-# Unbreak sshd_config include corner cases (#3122)
-Patch967: openssh-8.3p1-sshd_include.patch
+Patch967: openssh-8.4p1-ssh-copy-id.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
-Patch98: openssh-8.3p1-gsissh.patch
+Patch98: openssh-8.4p1-gsissh.patch
 
 License: BSD
 Requires: /sbin/nologin
 
-%if %{ldap}
-BuildRequires: openldap-devel
-%endif
 BuildRequires: autoconf, automake, perl-interpreter, perl-generators, zlib-devel
 BuildRequires: audit-libs-devel >= 2.0.5
 BuildRequires: util-linux, groff
 BuildRequires: pam-devel
 BuildRequires: openssl-devel >= 0.9.8j
 BuildRequires: systemd-devel
-BuildRequires: gcc
+BuildRequires: gcc make
 BuildRequires: p11-kit-devel
 BuildRequires: libfido2-devel
 Recommends: p11-kit
@@ -264,9 +253,6 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch400 -p1 -b .role-mls
 %patch404 -p1 -b .privsep-selinux
 
-%if %{ldap}
-%patch501 -p1 -b .ldap
-%endif
 %patch502 -p1 -b .keycat
 
 %patch601 -p1 -b .ip-opts
@@ -309,7 +295,7 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch964 -p1 -b .openssl-kdf
 %patch965 -p1 -b .visibility
 %patch966 -p1 -b .x11-ipv6
-%patch967 -p1 -b .include
+%patch967 -p1 -b .ssh-copy-id
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -374,9 +360,6 @@ fi
 	--with-systemd \
 	--with-default-pkcs11-provider=yes \
 	--with-security-key-builtin=yes \
-%if %{ldap}
-	--with-ldap \
-%endif
 	--with-pam \
 %if %{WITH_SELINUX}
 	--with-selinux --with-audit=linux \
@@ -398,7 +381,7 @@ fi
 	--without-libedit
 %endif
 
-make SSH_PROGRAM=%{_bindir}/gsissh \
+%make_build SSH_PROGRAM=%{_bindir}/gsissh \
      ASKPASS_PROGRAM=%{_libexecdir}/openssh/ssh-askpass
 
 %install
@@ -408,8 +391,7 @@ mkdir -p -m755 $RPM_BUILD_ROOT%{_sysconfdir}/gsissh/ssh_config.d
 mkdir -p -m755 $RPM_BUILD_ROOT%{_sysconfdir}/gsissh/sshd_config.d
 mkdir -p -m755 $RPM_BUILD_ROOT%{_libexecdir}/gsissh
 mkdir -p -m755 $RPM_BUILD_ROOT%{_var}/empty/gsisshd
-make install DESTDIR=$RPM_BUILD_ROOT
-rm -f $RPM_BUILD_ROOT%{_sysconfdir}/gsissh/ldap.conf
+%make_install
 
 install -d $RPM_BUILD_ROOT/etc/pam.d/
 install -d $RPM_BUILD_ROOT/etc/sysconfig/
@@ -433,16 +415,12 @@ rm $RPM_BUILD_ROOT%{_bindir}/ssh-keyscan
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ctr-cavstest
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-cavs
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-cavs_driver.pl
-rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-ldap-helper
-rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-ldap-wrapper
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-keycat
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-pkcs11-helper
 rm $RPM_BUILD_ROOT%{_libexecdir}/gsissh/ssh-sk-helper
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-add.1*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-agent.1*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/ssh-keyscan.1*
-rm $RPM_BUILD_ROOT%{_mandir}/man5/ssh-ldap.conf.5*
-rm $RPM_BUILD_ROOT%{_mandir}/man8/ssh-ldap-helper.8*
 rm $RPM_BUILD_ROOT%{_mandir}/man8/ssh-pkcs11-helper.8*
 rm $RPM_BUILD_ROOT%{_mandir}/man8/ssh-sk-helper.8*
 
@@ -517,6 +495,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Tue Oct 06 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-1
+- Based on openssh-8.4p1-2.fc33
+
 * Tue Jul 28 2020 Fedora Release Engineering <releng@fedoraproject.org> - 8.3p1-3.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_33_Mass_Rebuild
 

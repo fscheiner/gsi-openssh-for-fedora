@@ -1158,8 +1158,8 @@ diff -up openssh/monitor.c.audit openssh/monitor.c
      {0, 0, NULL}
  };
 @@ -1445,8 +1462,10 @@ mm_answer_keyverify(struct ssh *ssh, int
- 	size_t signaturelen, datalen, bloblen;
- 	int r, ret, req_presence = 0, valid_data = 0, encoded_ret;
+ 	int r, ret, req_presence = 0, req_verify = 0, valid_data = 0;
+ 	int encoded_ret;
  	struct sshkey_sig_details *sig_details = NULL;
 +	int type = 0;
  

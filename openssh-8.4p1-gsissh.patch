@@ -1,6 +1,6 @@
-diff -Nur openssh-8.2p1.orig/auth2.c openssh-8.2p1/auth2.c
---- openssh-8.2p1.orig/auth2.c	2020-05-04 19:34:53.561875424 +0200
-+++ openssh-8.2p1/auth2.c	2020-05-04 19:35:31.393472137 +0200
+diff -Nur openssh-8.4p1.orig/auth2.c openssh-8.4p1/auth2.c
+--- openssh-8.4p1.orig/auth2.c	2020-10-06 11:23:35.222491390 +0200
++++ openssh-8.4p1/auth2.c	2020-10-06 11:24:20.006596864 +0200
 @@ -279,7 +279,28 @@
  	    (r = sshpkt_get_cstring(ssh, &service, NULL)) != 0 ||
  	    (r = sshpkt_get_cstring(ssh, &method, NULL)) != 0)
@@ -101,9 +101,9 @@ diff -Nur openssh-8.2p1.orig/auth2.c openssh-8.2p1/auth2.c
  		    "not allowed: (%s,%s) -> (%s,%s)",
  		    authctxt->user, authctxt->service, user, service);
  	}
-diff -Nur openssh-8.2p1.orig/auth2-gss.c openssh-8.2p1/auth2-gss.c
---- openssh-8.2p1.orig/auth2-gss.c	2020-05-04 19:34:53.476876332 +0200
-+++ openssh-8.2p1/auth2-gss.c	2020-05-04 19:37:33.020181539 +0200
+diff -Nur openssh-8.4p1.orig/auth2-gss.c openssh-8.4p1/auth2-gss.c
+--- openssh-8.4p1.orig/auth2-gss.c	2020-10-06 11:23:35.124491159 +0200
++++ openssh-8.4p1/auth2-gss.c	2020-10-06 11:24:20.006596864 +0200
 @@ -49,6 +49,7 @@
  
  extern ServerOptions options;
@@ -307,9 +307,9 @@ diff -Nur openssh-8.2p1.orig/auth2-gss.c openssh-8.2p1/auth2-gss.c
  Authmethod method_gsskeyex = {
  	"gssapi-keyex",
  	userauth_gsskeyex,
-diff -Nur openssh-8.2p1.orig/auth.c openssh-8.2p1/auth.c
---- openssh-8.2p1.orig/auth.c	2020-05-04 19:34:53.562875413 +0200
-+++ openssh-8.2p1/auth.c	2020-05-04 19:35:31.394472126 +0200
+diff -Nur openssh-8.4p1.orig/auth.c openssh-8.4p1/auth.c
+--- openssh-8.4p1.orig/auth.c	2020-10-06 11:23:35.223491392 +0200
++++ openssh-8.4p1/auth.c	2020-10-06 11:24:20.007596867 +0200
 @@ -344,7 +344,8 @@
  	    method,
  	    submethod != NULL ? "/" : "", submethod == NULL ? "" : submethod,
@@ -340,9 +340,9 @@ diff -Nur openssh-8.2p1.orig/auth.c openssh-8.2p1/auth.c
  #ifdef CUSTOM_FAILED_LOGIN
  		record_failed_login(ssh, user,
  		    auth_get_canonical_hostname(ssh, options.use_dns), "ssh");
-diff -Nur openssh-8.2p1.orig/auth.h openssh-8.2p1/auth.h
---- openssh-8.2p1.orig/auth.h	2020-05-04 19:34:53.563875402 +0200
-+++ openssh-8.2p1/auth.h	2020-05-04 19:35:31.394472126 +0200
+diff -Nur openssh-8.4p1.orig/auth.h openssh-8.4p1/auth.h
+--- openssh-8.4p1.orig/auth.h	2020-10-06 11:23:35.224491395 +0200
++++ openssh-8.4p1/auth.h	2020-10-06 11:24:20.007596867 +0200
 @@ -83,6 +83,8 @@
  	krb5_principal	 krb5_user;
  	char		*krb5_ticket_file;
@@ -352,9 +352,9 @@ diff -Nur openssh-8.2p1.orig/auth.h openssh-8.2p1/auth.h
  	int		 krb5_set_env;
  #endif
  	struct sshbuf	*loginmsg;
-diff -Nur openssh-8.2p1.orig/auth-pam.c openssh-8.2p1/auth-pam.c
---- openssh-8.2p1.orig/auth-pam.c	2020-05-04 19:34:53.433876791 +0200
-+++ openssh-8.2p1/auth-pam.c	2020-05-04 19:35:31.395472115 +0200
+diff -Nur openssh-8.4p1.orig/auth-pam.c openssh-8.4p1/auth-pam.c
+--- openssh-8.4p1.orig/auth-pam.c	2020-10-06 11:23:35.083491063 +0200
++++ openssh-8.4p1/auth-pam.c	2020-10-06 11:24:20.008596869 +0200
 @@ -253,6 +253,7 @@
  static char *sshpam_rhost = NULL;
  static char *sshpam_laddr = NULL;
@@ -449,7 +449,7 @@ diff -Nur openssh-8.2p1.orig/auth-pam.c openssh-8.2p1/auth-pam.c
  
  	/* Import environment from subprocess */
  	if ((r = sshbuf_get_u32(b, &num_env)) != 0)
-@@ -518,6 +582,13 @@
+@@ -522,6 +586,13 @@
  	if (sshpam_err != PAM_SUCCESS)
  		goto auth_fail;
  
@@ -463,7 +463,7 @@ diff -Nur openssh-8.2p1.orig/auth-pam.c openssh-8.2p1/auth-pam.c
  	if (!do_pam_account()) {
  		sshpam_err = PAM_ACCT_EXPIRED;
  		goto auth_fail;
-@@ -538,6 +609,13 @@
+@@ -542,6 +613,13 @@
  	if ((r = sshbuf_put_u32(buffer, sshpam_account_status)) != 0 ||
  	    (r = sshbuf_put_u32(buffer, sshpam_authctxt->force_pwchange)) != 0)
  		fatal("%s: buffer error: %s", __func__, ssh_err(r));
@@ -477,7 +477,7 @@ diff -Nur openssh-8.2p1.orig/auth-pam.c openssh-8.2p1/auth-pam.c
  
  	/* Export any environment strings set in child */
  	for (i = 0; environ[i] != NULL; i++) {
-@@ -722,6 +800,8 @@
+@@ -726,6 +804,8 @@
  	        xasprintf(&sshpam_conninfo, "SSH_CONNECTION=%.50s %d %.50s %d",
  		    ssh_remote_ipaddr(ssh), ssh_remote_port(ssh),
  		    sshpam_laddr, ssh_local_port(ssh));
@@ -486,7 +486,7 @@ diff -Nur openssh-8.2p1.orig/auth-pam.c openssh-8.2p1/auth-pam.c
  	}
  	if (sshpam_rhost != NULL) {
  		debug("PAM: setting PAM_RHOST to \"%s\"", sshpam_rhost);
-@@ -1064,6 +1144,18 @@
+@@ -1068,6 +1148,18 @@
  	debug3("PAM: %s pam_acct_mgmt = %d (%s)", __func__, sshpam_err,
  	    pam_strerror(sshpam_handle, sshpam_err));
  
@@ -505,7 +505,7 @@ diff -Nur openssh-8.2p1.orig/auth-pam.c openssh-8.2p1/auth-pam.c
  	if (sshpam_err != PAM_SUCCESS && sshpam_err != PAM_NEW_AUTHTOK_REQD) {
  		sshpam_account_status = 0;
  		return (sshpam_account_status);
-@@ -1352,6 +1444,9 @@
+@@ -1356,6 +1448,9 @@
  		    pam_strerror(sshpam_handle, sshpam_err));
  
  	sshpam_err = pam_authenticate(sshpam_handle, flags);
@@ -515,9 +515,9 @@ diff -Nur openssh-8.2p1.orig/auth-pam.c openssh-8.2p1/auth-pam.c
  	sshpam_password = NULL;
  	free(fake);
  	if (sshpam_err == PAM_MAXTRIES)
-diff -Nur openssh-8.2p1.orig/auth-pam.h openssh-8.2p1/auth-pam.h
---- openssh-8.2p1.orig/auth-pam.h	2020-05-04 19:34:53.433876791 +0200
-+++ openssh-8.2p1/auth-pam.h	2020-05-04 19:35:31.395472115 +0200
+diff -Nur openssh-8.4p1.orig/auth-pam.h openssh-8.4p1/auth-pam.h
+--- openssh-8.4p1.orig/auth-pam.h	2020-10-06 11:23:35.083491063 +0200
++++ openssh-8.4p1/auth-pam.h	2020-10-06 11:24:20.008596869 +0200
 @@ -43,5 +43,6 @@
  int sshpam_get_maxtries_reached(void);
  void sshpam_set_maxtries_reached(int);
@@ -525,9 +525,9 @@ diff -Nur openssh-8.2p1.orig/auth-pam.h openssh-8.2p1/auth-pam.h
 +struct passwd *sshpam_getpw(const char *);
  
  #endif /* USE_PAM */
-diff -Nur openssh-8.2p1.orig/canohost.c openssh-8.2p1/canohost.c
---- openssh-8.2p1.orig/canohost.c	2020-05-04 19:34:53.476876332 +0200
-+++ openssh-8.2p1/canohost.c	2020-05-04 19:35:31.395472115 +0200
+diff -Nur openssh-8.4p1.orig/canohost.c openssh-8.4p1/canohost.c
+--- openssh-8.4p1.orig/canohost.c	2020-10-06 11:23:35.125491161 +0200
++++ openssh-8.4p1/canohost.c	2020-10-06 11:24:20.009596871 +0200
 @@ -17,6 +17,7 @@
  #include <sys/types.h>
  #include <sys/socket.h>
@@ -570,9 +570,9 @@ diff -Nur openssh-8.2p1.orig/canohost.c openssh-8.2p1/canohost.c
 +		}
 +	}
 +}
-diff -Nur openssh-8.2p1.orig/canohost.h openssh-8.2p1/canohost.h
---- openssh-8.2p1.orig/canohost.h	2020-05-04 19:34:53.476876332 +0200
-+++ openssh-8.2p1/canohost.h	2020-05-04 19:35:31.396472105 +0200
+diff -Nur openssh-8.4p1.orig/canohost.h openssh-8.4p1/canohost.h
+--- openssh-8.4p1.orig/canohost.h	2020-10-06 11:23:35.125491161 +0200
++++ openssh-8.4p1/canohost.h	2020-10-06 11:24:20.009596871 +0200
 @@ -26,4 +26,6 @@
  
  #endif /* _CANOHOST_H */
@@ -580,10 +580,10 @@ diff -Nur openssh-8.2p1.orig/canohost.h openssh-8.2p1/canohost.h
 +void		 resolve_localhost(char **host);
 +
  void		 ipv64_normalise_mapped(struct sockaddr_storage *, socklen_t *);
-diff -Nur openssh-8.2p1.orig/configure.ac openssh-8.2p1/configure.ac
---- openssh-8.2p1.orig/configure.ac	2020-05-04 19:34:53.554875498 +0200
-+++ openssh-8.2p1/configure.ac	2020-05-04 19:35:31.397472094 +0200
-@@ -4710,6 +4710,14 @@
+diff -Nur openssh-8.4p1.orig/configure.ac openssh-8.4p1/configure.ac
+--- openssh-8.4p1.orig/configure.ac	2020-10-06 11:23:35.212491366 +0200
++++ openssh-8.4p1/configure.ac	2020-10-06 11:24:20.010596874 +0200
+@@ -4730,6 +4730,14 @@
  			AC_CHECK_HEADER([gssapi_krb5.h], ,
  					[ CPPFLAGS="$oldCPP" ])
  
@@ -598,7 +598,7 @@ diff -Nur openssh-8.2p1.orig/configure.ac openssh-8.2p1/configure.ac
  		fi
  		if test -n "${rpath_opt}" ; then
  			LDFLAGS="$LDFLAGS ${rpath_opt}${KRB5ROOT}/lib"
-@@ -4749,6 +4757,40 @@
+@@ -4769,6 +4777,40 @@
  AC_SUBST([GSSLIBS])
  AC_SUBST([K5LIBS])
  
@@ -639,9 +639,9 @@ diff -Nur openssh-8.2p1.orig/configure.ac openssh-8.2p1/configure.ac
  # Check whether user wants systemd support
  SYSTEMD_MSG="no"
  AC_ARG_WITH(systemd,
-diff -Nur openssh-8.2p1.orig/gss-genr.c openssh-8.2p1/gss-genr.c
---- openssh-8.2p1.orig/gss-genr.c	2020-05-04 19:34:53.478876310 +0200
-+++ openssh-8.2p1/gss-genr.c	2020-05-04 19:35:31.397472094 +0200
+diff -Nur openssh-8.4p1.orig/gss-genr.c openssh-8.4p1/gss-genr.c
+--- openssh-8.4p1.orig/gss-genr.c	2020-10-06 11:23:35.127491166 +0200
++++ openssh-8.4p1/gss-genr.c	2020-10-06 11:24:20.010596874 +0200
 @@ -40,6 +40,7 @@
  #include "ssherr.h"
  #include "sshbuf.h"
@@ -678,9 +678,9 @@ diff -Nur openssh-8.2p1.orig/gss-genr.c openssh-8.2p1/gss-genr.c
  	free(gssbuf.value);
  	return (ctx->major);
  }
-diff -Nur openssh-8.2p1.orig/gss-serv.c openssh-8.2p1/gss-serv.c
---- openssh-8.2p1.orig/gss-serv.c	2020-05-04 19:34:53.494876139 +0200
-+++ openssh-8.2p1/gss-serv.c	2020-05-04 19:35:31.397472094 +0200
+diff -Nur openssh-8.4p1.orig/gss-serv.c openssh-8.4p1/gss-serv.c
+--- openssh-8.4p1.orig/gss-serv.c	2020-10-06 11:23:35.145491208 +0200
++++ openssh-8.4p1/gss-serv.c	2020-10-06 11:24:20.011596876 +0200
 @@ -50,10 +50,12 @@
  #include "monitor_wrap.h"
  
@@ -961,9 +961,9 @@ diff -Nur openssh-8.2p1.orig/gss-serv.c openssh-8.2p1/gss-serv.c
  	xasprintf(&envstr, "%s=%s", gssapi_client.store.envvar,
  	    gssapi_client.store.envval);
  
-diff -Nur openssh-8.2p1.orig/gss-serv-gsi.c openssh-8.2p1/gss-serv-gsi.c
---- openssh-8.2p1.orig/gss-serv-gsi.c	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-8.2p1/gss-serv-gsi.c	2020-05-04 19:35:31.398472084 +0200
+diff -Nur openssh-8.4p1.orig/gss-serv-gsi.c openssh-8.4p1/gss-serv-gsi.c
+--- openssh-8.4p1.orig/gss-serv-gsi.c	1970-01-01 01:00:00.000000000 +0100
++++ openssh-8.4p1/gss-serv-gsi.c	2020-10-06 11:24:20.011596876 +0200
 @@ -0,0 +1,328 @@
 +/*
 + * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
@@ -1293,9 +1293,9 @@ diff -Nur openssh-8.2p1.orig/gss-serv-gsi.c openssh-8.2p1/gss-serv-gsi.c
 +
 +#endif /* GSI */
 +#endif /* GSSAPI */
-diff -Nur openssh-8.2p1.orig/gss-serv-krb5.c openssh-8.2p1/gss-serv-krb5.c
---- openssh-8.2p1.orig/gss-serv-krb5.c	2020-05-04 19:34:53.514875926 +0200
-+++ openssh-8.2p1/gss-serv-krb5.c	2020-05-04 19:35:31.398472084 +0200
+diff -Nur openssh-8.4p1.orig/gss-serv-krb5.c openssh-8.4p1/gss-serv-krb5.c
+--- openssh-8.4p1.orig/gss-serv-krb5.c	2020-10-06 11:23:35.166491258 +0200
++++ openssh-8.4p1/gss-serv-krb5.c	2020-10-06 11:24:20.011596876 +0200
 @@ -379,6 +379,34 @@
  	return found_principal;
  }
@@ -1349,9 +1349,9 @@ diff -Nur openssh-8.2p1.orig/gss-serv-krb5.c openssh-8.2p1/gss-serv-krb5.c
  	&ssh_gssapi_krb5_storecreds,
  	&ssh_gssapi_krb5_updatecreds
  };
-diff -Nur openssh-8.2p1.orig/kexgsss.c openssh-8.2p1/kexgsss.c
---- openssh-8.2p1.orig/kexgsss.c	2020-05-04 19:34:53.480876289 +0200
-+++ openssh-8.2p1/kexgsss.c	2020-05-04 19:35:31.398472084 +0200
+diff -Nur openssh-8.4p1.orig/kexgsss.c openssh-8.4p1/kexgsss.c
+--- openssh-8.4p1.orig/kexgsss.c	2020-10-06 11:23:35.129491171 +0200
++++ openssh-8.4p1/kexgsss.c	2020-10-06 11:24:20.012596878 +0200
 @@ -48,6 +48,7 @@
  #include "digest.h"
  #include "ssherr.h"
@@ -1415,10 +1415,10 @@ diff -Nur openssh-8.2p1.orig/kexgsss.c openssh-8.2p1/kexgsss.c
 +	}
 +}
  #endif /* defined(GSSAPI) && defined(WITH_OPENSSL) */
-diff -Nur openssh-8.2p1.orig/Makefile.in openssh-8.2p1/Makefile.in
---- openssh-8.2p1.orig/Makefile.in	2020-05-04 19:34:53.564875392 +0200
-+++ openssh-8.2p1/Makefile.in	2020-05-04 19:35:31.398472084 +0200
-@@ -135,6 +135,7 @@
+diff -Nur openssh-8.4p1.orig/Makefile.in openssh-8.4p1/Makefile.in
+--- openssh-8.4p1.orig/Makefile.in	2020-10-06 11:23:35.228491404 +0200
++++ openssh-8.4p1/Makefile.in	2020-10-06 11:24:20.012596878 +0200
+@@ -129,6 +129,7 @@
  	auth2-none.o auth2-passwd.o auth2-pubkey.o \
  	monitor.o monitor_wrap.o auth-krb5.o \
  	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o \
@@ -1426,10 +1426,10 @@ diff -Nur openssh-8.2p1.orig/Makefile.in openssh-8.2p1/Makefile.in
  	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
  	sftp-server.o sftp-common.o \
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
-diff -Nur openssh-8.2p1.orig/misc.c openssh-8.2p1/misc.c
---- openssh-8.2p1.orig/misc.c	2020-05-04 19:34:53.434876780 +0200
-+++ openssh-8.2p1/misc.c	2020-05-04 19:35:31.399472073 +0200
-@@ -325,11 +325,14 @@
+diff -Nur openssh-8.4p1.orig/misc.c openssh-8.4p1/misc.c
+--- openssh-8.4p1.orig/misc.c	2020-10-06 11:23:35.084491065 +0200
++++ openssh-8.4p1/misc.c	2020-10-06 11:24:20.013596881 +0200
+@@ -324,11 +324,14 @@
  #define WHITESPACE " \t\r\n"
  #define QUOTE	"\""
  
@@ -1445,7 +1445,7 @@ diff -Nur openssh-8.2p1.orig/misc.c openssh-8.2p1/misc.c
  	int wspace = 0;
  
  	if (*s == NULL)
-@@ -337,6 +340,21 @@
+@@ -336,6 +339,21 @@
  
  	old = *s;
  
@@ -1467,7 +1467,7 @@ diff -Nur openssh-8.2p1.orig/misc.c openssh-8.2p1/misc.c
  	*s = strpbrk(*s,
  	    split_equals ? WHITESPACE QUOTE "=" : WHITESPACE QUOTE);
  	if (*s == NULL)
-@@ -412,6 +430,20 @@
+@@ -411,6 +429,20 @@
  	return copy;
  }
  
@@ -1488,10 +1488,10 @@ diff -Nur openssh-8.2p1.orig/misc.c openssh-8.2p1/misc.c
  /*
   * Convert ASCII string to TCP/IP port number.
   * Port must be >=0 and <=65535.
-diff -Nur openssh-8.2p1.orig/misc.h openssh-8.2p1/misc.h
---- openssh-8.2p1.orig/misc.h	2020-02-14 01:40:54.000000000 +0100
-+++ openssh-8.2p1/misc.h	2020-05-04 19:35:31.399472073 +0200
-@@ -90,6 +90,7 @@
+diff -Nur openssh-8.4p1.orig/misc.h openssh-8.4p1/misc.h
+--- openssh-8.4p1.orig/misc.h	2020-09-27 09:25:01.000000000 +0200
++++ openssh-8.4p1/misc.h	2020-10-06 11:24:20.013596881 +0200
+@@ -94,6 +94,7 @@
  void	 sock_set_v6only(int);
  
  struct passwd *pwcopy(struct passwd *);
@@ -1499,9 +1499,9 @@ diff -Nur openssh-8.2p1.orig/misc.h openssh-8.2p1/misc.h
  const char *ssh_gai_strerror(int);
  
  typedef struct arglist arglist;
-diff -Nur openssh-8.2p1.orig/monitor.c openssh-8.2p1/monitor.c
---- openssh-8.2p1.orig/monitor.c	2020-05-04 19:34:53.583875189 +0200
-+++ openssh-8.2p1/monitor.c	2020-05-04 19:35:31.400472062 +0200
+diff -Nur openssh-8.4p1.orig/monitor.c openssh-8.4p1/monitor.c
+--- openssh-8.4p1.orig/monitor.c	2020-10-06 11:23:35.252491460 +0200
++++ openssh-8.4p1/monitor.c	2020-10-06 11:24:20.014596883 +0200
 @@ -155,6 +155,9 @@
  int mm_answer_gss_userok(struct ssh *, int, struct sshbuf *);
  int mm_answer_gss_checkmic(struct ssh *, int, struct sshbuf *);
@@ -1592,7 +1592,7 @@ diff -Nur openssh-8.2p1.orig/monitor.c openssh-8.2p1/monitor.c
  	setproctitle("%s [priv]", pwent ? username : "unknown");
  	free(username);
  
-@@ -2093,6 +2108,79 @@
+@@ -2105,6 +2120,79 @@
  }
  
  int
@@ -1672,9 +1672,9 @@ diff -Nur openssh-8.2p1.orig/monitor.c openssh-8.2p1/monitor.c
  mm_answer_gss_sign(struct ssh *ssh, int socket, struct sshbuf *m)
  {
  	gss_buffer_desc data;
-diff -Nur openssh-8.2p1.orig/monitor.h openssh-8.2p1/monitor.h
---- openssh-8.2p1.orig/monitor.h	2020-05-04 19:34:53.565875381 +0200
-+++ openssh-8.2p1/monitor.h	2020-05-04 19:35:31.400472062 +0200
+diff -Nur openssh-8.4p1.orig/monitor.h openssh-8.4p1/monitor.h
+--- openssh-8.4p1.orig/monitor.h	2020-10-06 11:23:35.230491409 +0200
++++ openssh-8.4p1/monitor.h	2020-10-06 11:24:20.014596883 +0200
 @@ -75,6 +75,10 @@
  
  	MONITOR_REQ_GSSSIGN = 150, MONITOR_ANS_GSSSIGN = 151,
@@ -1686,9 +1686,9 @@ diff -Nur openssh-8.2p1.orig/monitor.h openssh-8.2p1/monitor.h
  };
  
  struct ssh;
-diff -Nur openssh-8.2p1.orig/monitor_wrap.c openssh-8.2p1/monitor_wrap.c
---- openssh-8.2p1.orig/monitor_wrap.c	2020-05-04 19:34:53.583875189 +0200
-+++ openssh-8.2p1/monitor_wrap.c	2020-05-04 19:35:31.400472062 +0200
+diff -Nur openssh-8.4p1.orig/monitor_wrap.c openssh-8.4p1/monitor_wrap.c
+--- openssh-8.4p1.orig/monitor_wrap.c	2020-10-06 11:23:35.252491460 +0200
++++ openssh-8.4p1/monitor_wrap.c	2020-10-06 11:24:20.015596885 +0200
 @@ -1078,6 +1078,94 @@
  	return (authenticated);
  }
@@ -1784,10 +1784,10 @@ diff -Nur openssh-8.2p1.orig/monitor_wrap.c openssh-8.2p1/monitor_wrap.c
  OM_uint32
  mm_ssh_gssapi_sign(Gssctxt *ctx, gss_buffer_desc *data, gss_buffer_desc *hash)
  {
-diff -Nur openssh-8.2p1.orig/monitor_wrap.h openssh-8.2p1/monitor_wrap.h
---- openssh-8.2p1.orig/monitor_wrap.h	2020-05-04 19:34:53.572875306 +0200
-+++ openssh-8.2p1/monitor_wrap.h	2020-05-04 19:35:31.401472052 +0200
-@@ -72,6 +72,10 @@
+diff -Nur openssh-8.4p1.orig/monitor_wrap.h openssh-8.4p1/monitor_wrap.h
+--- openssh-8.4p1.orig/monitor_wrap.h	2020-10-06 11:23:35.239491430 +0200
++++ openssh-8.4p1/monitor_wrap.h	2020-10-06 11:24:20.015596885 +0200
+@@ -73,6 +73,10 @@
  int mm_ssh_gssapi_userok(char *user, struct passwd *, int kex);
  OM_uint32 mm_ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
  OM_uint32 mm_ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
@@ -1798,10 +1798,10 @@ diff -Nur openssh-8.2p1.orig/monitor_wrap.h openssh-8.2p1/monitor_wrap.h
  int mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *);
  #endif
  
-diff -Nur openssh-8.2p1.orig/readconf.c openssh-8.2p1/readconf.c
---- openssh-8.2p1.orig/readconf.c	2020-05-04 19:34:53.576875263 +0200
-+++ openssh-8.2p1/readconf.c	2020-05-04 19:35:31.401472052 +0200
-@@ -2111,11 +2111,11 @@
+diff -Nur openssh-8.4p1.orig/readconf.c openssh-8.4p1/readconf.c
+--- openssh-8.4p1.orig/readconf.c	2020-10-06 11:23:35.244491442 +0200
++++ openssh-8.4p1/readconf.c	2020-10-06 11:24:20.016596888 +0200
+@@ -2177,11 +2177,11 @@
  	if (options->challenge_response_authentication == -1)
  		options->challenge_response_authentication = 1;
  	if (options->gss_authentication == -1)
@@ -1816,9 +1816,9 @@ diff -Nur openssh-8.2p1.orig/readconf.c openssh-8.2p1/readconf.c
  	if (options->gss_trust_dns == -1)
  		options->gss_trust_dns = 0;
  	if (options->gss_renewal_rekey == -1)
-diff -Nur openssh-8.2p1.orig/readconf.h openssh-8.2p1/readconf.h
---- openssh-8.2p1.orig/readconf.h	2020-05-04 19:34:53.482876268 +0200
-+++ openssh-8.2p1/readconf.h	2020-05-04 19:35:31.401472052 +0200
+diff -Nur openssh-8.4p1.orig/readconf.h openssh-8.4p1/readconf.h
+--- openssh-8.4p1.orig/readconf.h	2020-10-06 11:23:35.133491180 +0200
++++ openssh-8.4p1/readconf.h	2020-10-06 11:24:20.017596890 +0200
 @@ -79,6 +79,8 @@
  	char   *host_key_alias;	/* hostname alias for .ssh/known_hosts */
  	char   *proxy_command;	/* Proxy command for connecting the host. */
@@ -1828,10 +1828,10 @@ diff -Nur openssh-8.2p1.orig/readconf.h openssh-8.2p1/readconf.h
  	int     escape_char;	/* Escape character; -2 = none */
  
  	u_int	num_system_hostfiles;	/* Paths for /etc/ssh/ssh_known_hosts */
-diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
---- openssh-8.2p1.orig/servconf.c	2020-05-04 19:34:53.584875178 +0200
-+++ openssh-8.2p1/servconf.c	2020-05-04 19:35:31.402472041 +0200
-@@ -92,6 +92,7 @@
+diff -Nur openssh-8.4p1.orig/servconf.c openssh-8.4p1/servconf.c
+--- openssh-8.4p1.orig/servconf.c	2020-10-06 11:23:35.253491463 +0200
++++ openssh-8.4p1/servconf.c	2020-10-06 11:24:20.017596890 +0200
+@@ -93,6 +93,7 @@
  
  	/* Portable-specific options */
  	options->use_pam = -1;
@@ -1839,7 +1839,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  
  	/* Standard Options */
  	options->num_ports = 0;
-@@ -136,9 +137,11 @@
+@@ -137,9 +138,11 @@
  	options->kerberos_get_afs_token = -1;
  	options->kerberos_unique_ccache = -1;
  	options->gss_authentication=-1;
@@ -1851,7 +1851,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	options->gss_store_rekey = -1;
  	options->gss_kex_algorithms = NULL;
  	options->use_kuserok = -1;
-@@ -312,6 +315,8 @@
+@@ -313,6 +316,8 @@
  	/* Portable-specific options */
  	if (options->use_pam == -1)
  		options->use_pam = 0;
@@ -1860,7 +1860,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  
  	/* Standard Options */
  	if (options->num_host_key_files == 0) {
-@@ -391,13 +396,17 @@
+@@ -392,13 +397,17 @@
  	if (options->kerberos_unique_ccache == -1)
  		options->kerberos_unique_ccache = 0;
  	if (options->gss_authentication == -1)
@@ -1880,7 +1880,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	if (options->gss_store_rekey == -1)
  		options->gss_store_rekey = 0;
  #ifdef GSSAPI
-@@ -538,7 +547,7 @@
+@@ -530,7 +539,7 @@
  typedef enum {
  	sBadOption,		/* == unknown option */
  	/* Portable-specific options */
@@ -1889,7 +1889,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	/* Standard Options */
  	sPort, sHostKeyFile, sLoginGraceTime,
  	sPermitRootLogin, sLogFacility, sLogLevel,
-@@ -560,6 +569,9 @@
+@@ -552,6 +561,9 @@
  	sHostbasedUsesNameFromPacketOnly, sHostbasedAcceptedKeyTypes,
  	sHostKeyAlgorithms,
  	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,
@@ -1899,7 +1899,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	sGssAuthentication, sGssCleanupCreds, sGssEnablek5users, sGssStrictAcceptor,
  	sGssKeyEx, sGssKexAlgorithms, sGssStoreRekey,
  	sAcceptEnv, sSetEnv, sPermitTunnel,
-@@ -591,8 +603,10 @@
+@@ -584,8 +596,10 @@
  	/* Portable-specific options */
  #ifdef USE_PAM
  	{ "usepam", sUsePAM, SSHCFG_GLOBAL },
@@ -1910,7 +1910,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  #endif
  	{ "pamauthenticationviakbdint", sDeprecated, SSHCFG_GLOBAL },
  	/* Standard Options */
-@@ -641,8 +655,15 @@
+@@ -634,8 +648,15 @@
  	{ "afstokenpassing", sUnsupported, SSHCFG_GLOBAL },
  #ifdef GSSAPI
  	{ "gssapiauthentication", sGssAuthentication, SSHCFG_ALL },
@@ -1926,7 +1926,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	{ "gssapistrictacceptorcheck", sGssStrictAcceptor, SSHCFG_GLOBAL },
  	{ "gssapikeyexchange", sGssKeyEx, SSHCFG_GLOBAL },
  	{ "gssapistorecredentialsonrekey", sGssStoreRekey, SSHCFG_GLOBAL },
-@@ -650,8 +671,11 @@
+@@ -643,8 +664,11 @@
  	{ "gssapienablek5users", sGssEnablek5users, SSHCFG_ALL },
  #else
  	{ "gssapiauthentication", sUnsupported, SSHCFG_ALL },
@@ -1938,7 +1938,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	{ "gssapistrictacceptorcheck", sUnsupported, SSHCFG_GLOBAL },
  	{ "gssapikeyexchange", sUnsupported, SSHCFG_GLOBAL },
  	{ "gssapistorecredentialsonrekey", sUnsupported, SSHCFG_GLOBAL },
-@@ -721,6 +745,8 @@
+@@ -714,6 +738,8 @@
  	{ "permitlisten", sPermitListen, SSHCFG_ALL },
  	{ "forcecommand", sForceCommand, SSHCFG_ALL },
  	{ "chrootdirectory", sChrootDirectory, SSHCFG_ALL },
@@ -1947,7 +1947,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	{ "hostcertificate", sHostCertificate, SSHCFG_GLOBAL },
  	{ "revokedkeys", sRevokedKeys, SSHCFG_ALL },
  	{ "trustedusercakeys", sTrustedUserCAKeys, SSHCFG_ALL },
-@@ -1361,6 +1387,10 @@
+@@ -1367,6 +1393,10 @@
  		intptr = &options->use_pam;
  		goto parse_flag;
  
@@ -1958,7 +1958,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	/* Standard Options */
  	case sBadOption:
  		return -1;
-@@ -1600,6 +1630,10 @@
+@@ -1609,6 +1639,10 @@
  		intptr = &options->gss_authentication;
  		goto parse_flag;
  
@@ -1969,7 +1969,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	case sGssKeyEx:
  		intptr = &options->gss_keyex;
  		goto parse_flag;
-@@ -1608,6 +1642,10 @@
+@@ -1617,6 +1651,10 @@
  		intptr = &options->gss_cleanup_creds;
  		goto parse_flag;
  
@@ -1980,7 +1980,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	case sGssStrictAcceptor:
  		intptr = &options->gss_strict_acceptor;
  		goto parse_flag;
-@@ -1628,6 +1666,12 @@
+@@ -1637,6 +1675,12 @@
  			options->gss_kex_algorithms = xstrdup(arg);
  		break;
  
@@ -1993,7 +1993,7 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	case sPasswordAuthentication:
  		intptr = &options->password_authentication;
  		goto parse_flag;
-@@ -2550,6 +2594,7 @@
+@@ -2577,6 +2621,7 @@
  
  	M_CP_INTOPT(password_authentication);
  	M_CP_INTOPT(gss_authentication);
@@ -2001,10 +2001,10 @@ diff -Nur openssh-8.2p1.orig/servconf.c openssh-8.2p1/servconf.c
  	M_CP_INTOPT(pubkey_authentication);
  	M_CP_INTOPT(pubkey_auth_options);
  	M_CP_INTOPT(kerberos_authentication);
-diff -Nur openssh-8.2p1.orig/servconf.h openssh-8.2p1/servconf.h
---- openssh-8.2p1.orig/servconf.h	2020-05-04 19:34:53.525875808 +0200
-+++ openssh-8.2p1/servconf.h	2020-05-04 19:35:31.402472041 +0200
-@@ -137,9 +137,12 @@
+diff -Nur openssh-8.4p1.orig/servconf.h openssh-8.4p1/servconf.h
+--- openssh-8.4p1.orig/servconf.h	2020-10-06 11:23:35.178491286 +0200
++++ openssh-8.4p1/servconf.h	2020-10-06 11:24:20.018596893 +0200
+@@ -143,9 +143,12 @@
  						 * be stored in per-session ccache */
  	int	use_kuserok;
  	int		enable_k5users;
@@ -2017,7 +2017,7 @@ diff -Nur openssh-8.2p1.orig/servconf.h openssh-8.2p1/servconf.h
  	int     gss_strict_acceptor;	/* If true, restrict the GSSAPI acceptor name */
  	int 	gss_store_rekey;
  	char   *gss_kex_algorithms;	/* GSSAPI kex methods to be offered by client. */
-@@ -198,6 +201,7 @@
+@@ -204,6 +207,7 @@
  	char   *adm_forced_command;
  
  	int	use_pam;		/* Enable auth via PAM */
@@ -2025,10 +2025,10 @@ diff -Nur openssh-8.2p1.orig/servconf.h openssh-8.2p1/servconf.h
  
  	int	permit_tun;
  
-diff -Nur openssh-8.2p1.orig/ssh.1 openssh-8.2p1/ssh.1
---- openssh-8.2p1.orig/ssh.1	2020-05-04 19:34:53.484876246 +0200
-+++ openssh-8.2p1/ssh.1	2020-05-04 19:35:31.403472031 +0200
-@@ -1449,6 +1449,18 @@
+diff -Nur openssh-8.4p1.orig/ssh.1 openssh-8.4p1/ssh.1
+--- openssh-8.4p1.orig/ssh.1	2020-10-06 11:23:35.134491183 +0200
++++ openssh-8.4p1/ssh.1	2020-10-06 11:24:20.019596895 +0200
+@@ -1471,6 +1471,18 @@
  on to new connections).
  .It Ev USER
  Set to the name of the user logging in.
@@ -2047,10 +2047,10 @@ diff -Nur openssh-8.2p1.orig/ssh.1 openssh-8.2p1/ssh.1
  .El
  .Pp
  Additionally,
-diff -Nur openssh-8.2p1.orig/ssh.c openssh-8.2p1/ssh.c
---- openssh-8.2p1.orig/ssh.c	2020-05-04 19:34:53.577875253 +0200
-+++ openssh-8.2p1/ssh.c	2020-05-04 19:35:31.403472031 +0200
-@@ -550,6 +550,38 @@
+diff -Nur openssh-8.4p1.orig/ssh.c openssh-8.4p1/ssh.c
+--- openssh-8.4p1.orig/ssh.c	2020-10-06 11:23:35.246491446 +0200
++++ openssh-8.4p1/ssh.c	2020-10-06 11:24:20.019596895 +0200
+@@ -605,6 +605,38 @@
  			fatal("Can't open user config file %.100s: "
  			    "%.100s", config, strerror(errno));
  	} else {
@@ -2089,9 +2089,9 @@ diff -Nur openssh-8.2p1.orig/ssh.c openssh-8.2p1/ssh.c
  		r = snprintf(buf, sizeof buf, "%s/%s", pw->pw_dir,
  		    _PATH_SSH_USER_CONFFILE);
  		if (r > 0 && (size_t)r < sizeof(buf))
-@@ -1320,8 +1352,12 @@
- 		tty_flag = 0;
- 	}
+@@ -1267,8 +1299,12 @@
+ 	/* Fill configuration defaults. */
+ 	fill_default_options(&options);
  
 -	if (options.user == NULL)
 +	if (options.user == NULL) {
@@ -2101,11 +2101,11 @@ diff -Nur openssh-8.2p1.orig/ssh.c openssh-8.2p1/ssh.c
 +		options.implicit = 0;
 +	}
  
- 	/* Set up strings used to percent_expand() arguments */
- 	if (gethostname(thishost, sizeof(thishost)) == -1)
-diff -Nur openssh-8.2p1.orig/ssh_config openssh-8.2p1/ssh_config
---- openssh-8.2p1.orig/ssh_config	2020-05-04 19:34:53.484876246 +0200
-+++ openssh-8.2p1/ssh_config	2020-05-04 19:35:31.404472020 +0200
+ 	/*
+ 	 * If ProxyJump option specified, then construct a ProxyCommand now.
+diff -Nur openssh-8.4p1.orig/ssh_config openssh-8.4p1/ssh_config
+--- openssh-8.4p1.orig/ssh_config	2020-10-06 11:23:35.135491185 +0200
++++ openssh-8.4p1/ssh_config	2020-10-06 11:24:20.020596897 +0200
 @@ -22,9 +22,9 @@
  #   ForwardX11 no
  #   PasswordAuthentication yes
@@ -2119,9 +2119,9 @@ diff -Nur openssh-8.2p1.orig/ssh_config openssh-8.2p1/ssh_config
  #   GSSAPITrustDNS no
  #   BatchMode no
  #   CheckHostIP yes
-diff -Nur openssh-8.2p1.orig/ssh_config.5 openssh-8.2p1/ssh_config.5
---- openssh-8.2p1.orig/ssh_config.5	2020-05-04 19:34:53.548875562 +0200
-+++ openssh-8.2p1/ssh_config.5	2020-05-04 19:35:31.404472020 +0200
+diff -Nur openssh-8.4p1.orig/ssh_config.5 openssh-8.4p1/ssh_config.5
+--- openssh-8.4p1.orig/ssh_config.5	2020-10-06 11:23:35.205491350 +0200
++++ openssh-8.4p1/ssh_config.5	2020-10-06 11:24:20.020596897 +0200
 @@ -52,6 +52,12 @@
  user's configuration file
  .Pq Pa ~/.ssh/config
@@ -2135,7 +2135,7 @@ diff -Nur openssh-8.2p1.orig/ssh_config.5 openssh-8.2p1/ssh_config.5
  system-wide configuration file
  .Pq Pa /etc/ssh/ssh_config
  .El
-@@ -763,7 +769,7 @@
+@@ -776,7 +782,7 @@
  .It Cm GSSAPIAuthentication
  Specifies whether user authentication based on GSSAPI is allowed.
  The default is
@@ -2144,7 +2144,7 @@ diff -Nur openssh-8.2p1.orig/ssh_config.5 openssh-8.2p1/ssh_config.5
  .It Cm GSSAPIClientIdentity
  If set, specifies the GSSAPI client identity that ssh should use when
  connecting to the server. The default is unset, which means that the default
-@@ -771,12 +777,12 @@
+@@ -784,12 +790,12 @@
  .It Cm GSSAPIDelegateCredentials
  Forward (delegate) credentials to the server.
  The default is
@@ -2159,7 +2159,7 @@ diff -Nur openssh-8.2p1.orig/ssh_config.5 openssh-8.2p1/ssh_config.5
  .It Cm GSSAPIRenewalForcesRekey
  If set to
  .Dq yes
-@@ -1306,7 +1312,7 @@
+@@ -1330,7 +1336,7 @@
  .Cm password ) .
  The default is:
  .Bd -literal -offset indent
@@ -2168,10 +2168,10 @@ diff -Nur openssh-8.2p1.orig/ssh_config.5 openssh-8.2p1/ssh_config.5
  keyboard-interactive,password
  .Ed
  .It Cm ProxyCommand
-diff -Nur openssh-8.2p1.orig/sshconnect2.c openssh-8.2p1/sshconnect2.c
---- openssh-8.2p1.orig/sshconnect2.c	2020-05-04 19:34:53.578875242 +0200
-+++ openssh-8.2p1/sshconnect2.c	2020-05-04 19:35:31.405472009 +0200
-@@ -800,6 +800,11 @@
+diff -Nur openssh-8.4p1.orig/sshconnect2.c openssh-8.4p1/sshconnect2.c
+--- openssh-8.4p1.orig/sshconnect2.c	2020-10-06 11:23:35.246491446 +0200
++++ openssh-8.4p1/sshconnect2.c	2020-10-06 11:24:20.021596900 +0200
+@@ -847,6 +847,11 @@
  	gss_OID mech = NULL;
  	char *gss_host = NULL;
  
@@ -2183,7 +2183,7 @@ diff -Nur openssh-8.2p1.orig/sshconnect2.c openssh-8.2p1/sshconnect2.c
  	if (options.gss_server_identity) {
  		gss_host = xstrdup(options.gss_server_identity);
  	} else if (options.gss_trust_dns) {
-@@ -911,7 +916,8 @@
+@@ -958,7 +963,8 @@
  
  	if (status == GSS_S_COMPLETE) {
  		/* send either complete or MIC, depending on mechanism */
@@ -2193,7 +2193,7 @@ diff -Nur openssh-8.2p1.orig/sshconnect2.c openssh-8.2p1/sshconnect2.c
  			if ((r = sshpkt_start(ssh,
  			    SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE)) != 0 ||
  			    (r = sshpkt_send(ssh)) != 0)
-@@ -1081,6 +1087,20 @@
+@@ -1128,6 +1134,20 @@
  	return r;
  }
  
@@ -2214,7 +2214,7 @@ diff -Nur openssh-8.2p1.orig/sshconnect2.c openssh-8.2p1/sshconnect2.c
  int
  userauth_gsskeyex(struct ssh *ssh)
  {
-@@ -1103,6 +1123,11 @@
+@@ -1150,6 +1170,11 @@
  	if ((b = sshbuf_new()) == NULL)
  		fatal("%s: sshbuf_new failed", __func__);
  
@@ -2226,7 +2226,7 @@ diff -Nur openssh-8.2p1.orig/sshconnect2.c openssh-8.2p1/sshconnect2.c
  	ssh_gssapi_buildmic(b, authctxt->server_user, authctxt->service,
  	    "gssapi-keyex");
  
-@@ -1116,7 +1141,9 @@
+@@ -1163,7 +1188,9 @@
  	}
  
  	if ((r = sshpkt_start(ssh, SSH2_MSG_USERAUTH_REQUEST)) != 0 ||
@@ -2237,10 +2237,10 @@ diff -Nur openssh-8.2p1.orig/sshconnect2.c openssh-8.2p1/sshconnect2.c
  	    (r = sshpkt_put_cstring(ssh, authctxt->service)) != 0 ||
  	    (r = sshpkt_put_cstring(ssh, authctxt->method->name)) != 0 ||
  	    (r = sshpkt_put_string(ssh, mic.value, mic.length)) != 0 ||
-diff -Nur openssh-8.2p1.orig/sshd.8 openssh-8.2p1/sshd.8
---- openssh-8.2p1.orig/sshd.8	2020-05-04 19:34:53.499876086 +0200
-+++ openssh-8.2p1/sshd.8	2020-05-04 19:35:31.405472009 +0200
-@@ -808,6 +808,29 @@
+diff -Nur openssh-8.4p1.orig/sshd.8 openssh-8.4p1/sshd.8
+--- openssh-8.4p1.orig/sshd.8	2020-10-06 11:23:35.149491218 +0200
++++ openssh-8.4p1/sshd.8	2020-10-06 11:24:20.022596902 +0200
+@@ -815,6 +815,29 @@
  # A CA key, accepted for any host in *.mydomain.com or *.mydomain.org
  @cert-authority *.mydomain.org,*.mydomain.com ssh-rsa AAAAB5W...
  .Ed
@@ -2270,10 +2270,10 @@ diff -Nur openssh-8.2p1.orig/sshd.8 openssh-8.2p1/sshd.8
  .Sh FILES
  .Bl -tag -width Ds -compact
  .It Pa ~/.hushlogin
-diff -Nur openssh-8.2p1.orig/sshd.c openssh-8.2p1/sshd.c
---- openssh-8.2p1.orig/sshd.c	2020-05-04 19:34:53.586875156 +0200
-+++ openssh-8.2p1/sshd.c	2020-05-04 19:35:31.406471999 +0200
-@@ -2338,7 +2338,7 @@
+diff -Nur openssh-8.4p1.orig/sshd.c openssh-8.4p1/sshd.c
+--- openssh-8.4p1.orig/sshd.c	2020-10-06 11:23:35.255491467 +0200
++++ openssh-8.4p1/sshd.c	2020-10-06 11:24:20.023596904 +0200
+@@ -2384,7 +2384,7 @@
  #endif
  
  #ifdef GSSAPI
@@ -2282,10 +2282,10 @@ diff -Nur openssh-8.2p1.orig/sshd.c openssh-8.2p1/sshd.c
  		temporarily_use_uid(authctxt->pw);
  		authctxt->krb5_set_env = ssh_gssapi_storecreds();
  		restore_uid();
-diff -Nur openssh-8.2p1.orig/sshd_config openssh-8.2p1/sshd_config
---- openssh-8.2p1.orig/sshd_config	2020-05-04 19:34:53.516875904 +0200
-+++ openssh-8.2p1/sshd_config	2020-05-04 19:35:31.406471999 +0200
-@@ -72,10 +72,11 @@
+diff -Nur openssh-8.4p1.orig/sshd_config openssh-8.4p1/sshd_config
+--- openssh-8.4p1.orig/sshd_config	2020-10-06 11:23:35.168491263 +0200
++++ openssh-8.4p1/sshd_config	2020-10-06 11:24:20.023596904 +0200
+@@ -76,10 +76,11 @@
  #KerberosUseKuserok yes
  
  # GSSAPI options
@@ -2299,7 +2299,7 @@ diff -Nur openssh-8.2p1.orig/sshd_config openssh-8.2p1/sshd_config
  #GSSAPIEnablek5users no
  
  # Set this to 'yes' to enable PAM authentication, account processing,
-@@ -91,6 +92,10 @@
+@@ -95,6 +96,10 @@
  # problems.
  #UsePAM no
  
@@ -2310,10 +2310,10 @@ diff -Nur openssh-8.2p1.orig/sshd_config openssh-8.2p1/sshd_config
  #AllowAgentForwarding yes
  #AllowTcpForwarding yes
  #GatewayPorts no
-diff -Nur openssh-8.2p1.orig/sshd_config.5 openssh-8.2p1/sshd_config.5
---- openssh-8.2p1.orig/sshd_config.5	2020-05-04 19:34:53.548875562 +0200
-+++ openssh-8.2p1/sshd_config.5	2020-05-04 19:35:31.406471999 +0200
-@@ -635,15 +635,34 @@
+diff -Nur openssh-8.4p1.orig/sshd_config.5 openssh-8.4p1/sshd_config.5
+--- openssh-8.4p1.orig/sshd_config.5	2020-10-06 11:23:35.206491352 +0200
++++ openssh-8.4p1/sshd_config.5	2020-10-06 11:24:20.024596907 +0200
+@@ -633,15 +633,34 @@
  to allow the client to select the address to which the forwarding is bound.
  The default is
  .Cm no .
@@ -2349,7 +2349,7 @@ diff -Nur openssh-8.2p1.orig/sshd_config.5 openssh-8.2p1/sshd_config.5
  .It Cm GSSAPIEnablek5users
  Specifies whether to look at .k5users file for GSSAPI authentication
  access control. Further details are described in
-@@ -654,7 +673,7 @@
+@@ -652,7 +671,7 @@
  Specifies whether key exchange based on GSSAPI is allowed. GSSAPI key exchange
  doesn't rely on ssh keys to verify host identity.
  The default is
@@ -2358,7 +2358,7 @@ diff -Nur openssh-8.2p1.orig/sshd_config.5 openssh-8.2p1/sshd_config.5
  .It Cm GSSAPIStrictAcceptorCheck
  Determines whether to be strict about the identity of the GSSAPI acceptor
  a client authenticates against.
-@@ -1715,6 +1734,12 @@
+@@ -1738,6 +1757,12 @@
  as a non-root user.
  The default is
  .Cm no .
@@ -2371,10 +2371,10 @@ diff -Nur openssh-8.2p1.orig/sshd_config.5 openssh-8.2p1/sshd_config.5
  .It Cm VersionAddendum
  Optionally specifies additional text to append to the SSH protocol banner
  sent by the server upon connection.
-diff -Nur openssh-8.2p1.orig/sshd_config_redhat openssh-8.2p1/sshd_config_redhat
---- openssh-8.2p1.orig/sshd_config_redhat	2020-05-04 19:34:53.466876438 +0200
-+++ openssh-8.2p1/sshd_config_redhat	2020-05-04 19:35:31.407471988 +0200
-@@ -9,9 +9,6 @@
+diff -Nur openssh-8.4p1.orig/sshd_config_redhat openssh-8.4p1/sshd_config_redhat
+--- openssh-8.4p1.orig/sshd_config_redhat	2020-10-06 11:23:35.114491135 +0200
++++ openssh-8.4p1/sshd_config_redhat	2020-10-06 11:24:20.024596907 +0200
+@@ -10,9 +10,6 @@
  PasswordAuthentication yes
  ChallengeResponseAuthentication no
  
@@ -2384,9 +2384,9 @@ diff -Nur openssh-8.2p1.orig/sshd_config_redhat openssh-8.2p1/sshd_config_redhat
  UsePAM yes
  
  X11Forwarding yes
-diff -Nur openssh-8.2p1.orig/ssh-gss.h openssh-8.2p1/ssh-gss.h
---- openssh-8.2p1.orig/ssh-gss.h	2020-05-04 19:34:53.496876118 +0200
-+++ openssh-8.2p1/ssh-gss.h	2020-05-04 19:35:31.407471988 +0200
+diff -Nur openssh-8.4p1.orig/ssh-gss.h openssh-8.4p1/ssh-gss.h
+--- openssh-8.4p1.orig/ssh-gss.h	2020-10-06 11:23:35.146491211 +0200
++++ openssh-8.4p1/ssh-gss.h	2020-10-06 11:24:20.025596909 +0200
 @@ -97,12 +97,14 @@
  } ssh_gssapi_ccache;
  
@@ -2422,12 +2422,12 @@ diff -Nur openssh-8.2p1.orig/ssh-gss.h openssh-8.2p1/ssh-gss.h
  /* In the server */
  typedef int ssh_gssapi_check_fn(Gssctxt **, gss_OID, const char *,
      const char *);
-diff -Nur openssh-8.2p1.orig/version.h openssh-8.2p1/version.h
---- openssh-8.2p1.orig/version.h	2020-02-14 01:40:54.000000000 +0100
-+++ openssh-8.2p1/version.h	2020-05-04 19:35:31.407471988 +0200
+diff -Nur openssh-8.4p1.orig/version.h openssh-8.4p1/version.h
+--- openssh-8.4p1.orig/version.h	2020-09-27 09:25:01.000000000 +0200
++++ openssh-8.4p1/version.h	2020-10-06 11:24:20.025596909 +0200
 @@ -2,5 +2,19 @@
  
- #define SSH_VERSION	"OpenSSH_8.3"
+ #define SSH_VERSION	"OpenSSH_8.4"
  
 +#ifdef GSI
 +#define GSI_VERSION	" GSI"

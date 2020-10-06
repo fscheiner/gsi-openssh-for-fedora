@@ -2,7 +2,7 @@ diff -up openssh-6.8p1/Makefile.in.kdf-cavs openssh-6.8p1/Makefile.in
 --- openssh-6.8p1/Makefile.in.kdf-cavs	2015-03-18 11:23:46.346049359 +0100
 +++ openssh-6.8p1/Makefile.in	2015-03-18 11:24:20.395968445 +0100
 @@ -29,6 +29,7 @@ SSH_LDAP_HELPER=$(libexecdir)/ssh-ldap-h
- SSH_LDAP_WRAPPER=$(libexecdir)/ssh-ldap-wrapper
+ SSH_KEYSIGN=$(libexecdir)/ssh-keysign
  SSH_KEYCAT=$(libexecdir)/ssh-keycat
  CTR_CAVSTEST=$(libexecdir)/ctr-cavstest
 +SSH_CAVS=$(libexecdir)/ssh-cavs
@@ -13,8 +13,8 @@ diff -up openssh-6.8p1/Makefile.in.kdf-cavs openssh-6.8p1/Makefile.in
  
  .SUFFIXES: .lo
  
--TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-sk-helper$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT) ctr-cavstest$(EXEEXT)
-+TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-sk-helper$(EXEEXT) ssh-ldap-helper$(EXEEXT) ssh-keycat$(EXEEXT) ctr-cavstest$(EXEEXT) ssh-cavs$(EXEEXT)
+-TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-sk-helper$(EXEEXT) ssh-keycat$(EXEEXT) ctr-cavstest$(EXEEXT)
++TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) ssh-sk-helper$(EXEEXT) ssh-keycat$(EXEEXT) ctr-cavstest$(EXEEXT) ssh-cavs$(EXEEXT)
  
  XMSS_OBJS=\
  	ssh-xmss.o \
@@ -29,7 +29,7 @@ diff -up openssh-6.8p1/Makefile.in.kdf-cavs openssh-6.8p1/Makefile.in
  	$(LD) -o $@ $(SSHKEYSCAN_OBJS) $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
  
 @@ -331,6 +335,8 @@ install-files:
- 	fi
+ 	$(INSTALL) -m 0755 $(STRIP_OPT) ssh-sk-helper$(EXEEXT) $(DESTDIR)$(SSH_SK_HELPER)$(EXEEXT)
  	$(INSTALL) -m 0755 $(STRIP_OPT) ssh-keycat$(EXEEXT) $(DESTDIR)$(libexecdir)/ssh-keycat$(EXEEXT)
  	$(INSTALL) -m 0755 $(STRIP_OPT) ctr-cavstest$(EXEEXT) $(DESTDIR)$(libexecdir)/ctr-cavstest$(EXEEXT)
 +	$(INSTALL) -m 0755 $(STRIP_OPT) ssh-cavs$(EXEEXT) $(DESTDIR)$(libexecdir)/ssh-cavs$(EXEEXT)

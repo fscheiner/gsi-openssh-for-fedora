@@ -145,9 +145,9 @@ diff -up openssh-7.4p1/session.c.log-in-chroot openssh-7.4p1/session.c
  	    session_type,
  	    tty == NULL ? "" : " on ",
 @@ -1486,14 +1492,6 @@ child_close_fds(void)
- 	 * descriptors left by system functions.  They will be closed later.
- 	 */
- 	endpwent();
+ 
+ 	/* Stop directing logs to a high-numbered fd before we close it */
+ 	log_redirect_stderr_to(NULL);
 -
 -	/*
 -	 * Close any extra open file descriptors so that we don't have them
