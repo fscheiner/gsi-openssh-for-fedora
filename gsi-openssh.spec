@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.0p1
-%global openssh_rel 4
+%global openssh_rel 5
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -172,6 +172,8 @@ Patch98: openssh-8.0p1-gsissh.patch
 # Based on https://sourceforge.net/projects/hpnssh/files/Patches/HPN-SSH%2014v19%208.0p1/
 # and https://github.com/rapier1/openssh-portable/commit/aae3bbcf7f60688eb0b092482422854be5360cf9
 # and https://github.com/rapier1/openssh-portable/commit/dd8b44b5f0157ec9304ad9caabc4ca5a3bd7351c
+# and https://github.com/rapier1/openssh-portable/commit/5f3485fab722c3689280d0b1cc23b48edab29c6e#diff-05910c5f00b72401cd3d4147fa4e12745dce95f696b9c11fbf6787baf6078c59
+# and additional documentation and configuration
 Patch99: openssh-8.0p1-hpn-14.19-modified.patch
 
 License: BSD
@@ -536,6 +538,10 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Fri Oct 23 2020 Frank Scheiner <scheiner@hlrs.de> - 8.0p1-5
+- Update HPN patch with additional documentation and configuration and a version
+  number fix
+
 * Thu Sep 25 2020 Frank Scheiner <scheiner@hlrs.de> - 8.0p1-4
 - Add HPN patch
 

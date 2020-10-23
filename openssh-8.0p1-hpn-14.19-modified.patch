@@ -1085,8 +1085,8 @@ diff -Nur openssh-8.0p1.orig/compat.h openssh-8.0p1/compat.h
  int	 proto_spec(const char *);
 diff -Nur openssh-8.0p1.orig/HPN-README openssh-8.0p1/HPN-README
 --- openssh-8.0p1.orig/HPN-README	1970-01-01 01:00:00.000000000 +0100
-+++ openssh-8.0p1/HPN-README	2020-09-25 18:15:01.646141101 +0200
-@@ -0,0 +1,130 @@
++++ openssh-8.0p1/HPN-README	2020-10-23 17:44:15.347455063 +0200
+@@ -0,0 +1,136 @@
 +Notes:
 +
 +MULTI-THREADED CIPHER:
@@ -1209,6 +1209,12 @@ diff -Nur openssh-8.0p1.orig/HPN-README openssh-8.0p1/HPN-README
 +problems depending on the length of the network path. The default size of this buffer
 +is 2MB.
 +
++DisableMTAES=[yes/no] client/server
++     Switch the encryption cipher being used from the multithreaded MT-AES-CTR cipher
++back to the stock single-threaded AES-CTR cipher. Useful on modern processors with
++AES-NI instructions which make the stock single-threaded AES-CTR cipher faster than
++the multithreaded MT-AES-CTR cipher. Set to no by default.
++
 +
 +Credits: This patch was conceived, designed, and led by Chris Rapier (rapier@psc.edu)
 +         The majority of the actual coding for versions up to HPN12v1 was performed
@@ -1219,7 +1225,7 @@ diff -Nur openssh-8.0p1.orig/HPN-README openssh-8.0p1/HPN-README
 +         Library of Medicine, and the National Science Foundation.
 diff -Nur openssh-8.0p1.orig/kex.c openssh-8.0p1/kex.c
 --- openssh-8.0p1.orig/kex.c	2020-09-25 18:11:46.584071137 +0200
-+++ openssh-8.0p1/kex.c	2020-09-25 18:15:29.093869520 +0200
++++ openssh-8.0p1/kex.c	2020-10-23 17:50:58.267438896 +0200
 @@ -62,6 +62,7 @@
  
  #include "ssherr.h"
@@ -1276,6 +1282,15 @@ diff -Nur openssh-8.0p1.orig/kex.c openssh-8.0p1/kex.c
  	}
  	need = dh_need = 0;
  	for (mode = 0; mode < MODE_MAX; mode++) {
+@@ -1329,7 +1359,7 @@
+ 	if (version_addendum != NULL && *version_addendum == '\0')
+ 		version_addendum = NULL;
+ 	if ((r = sshbuf_putf(our_version, "SSH-%d.%d-%.100s%s%s\r\n",
+-	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION,
++	   PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_RELEASE,
+ 	    version_addendum == NULL ? "" : " ",
+ 	    version_addendum == NULL ? "" : version_addendum)) != 0) {
+ 		error("%s: sshbuf_putf: %s", __func__, ssh_err(r));
 @@ -1463,6 +1493,14 @@
  		r = SSH_ERR_INVALID_FORMAT;
  		goto out;
@@ -2378,8 +2393,8 @@ diff -Nur openssh-8.0p1.orig/sshd.c openssh-8.0p1/sshd.c
  	myproposal[PROPOSAL_ENC_ALGS_CTOS] = compat_cipher_proposal(
 diff -Nur openssh-8.0p1.orig/sshd_config openssh-8.0p1/sshd_config
 --- openssh-8.0p1.orig/sshd_config	2020-09-25 18:11:46.616070820 +0200
-+++ openssh-8.0p1/sshd_config	2020-09-25 18:12:38.283559598 +0200
-@@ -145,6 +145,19 @@
++++ openssh-8.0p1/sshd_config	2020-10-23 17:47:52.381278267 +0200
+@@ -145,6 +145,25 @@
  # override default of no subsystems
  Subsystem	sftp	/usr/libexec/sftp-server
  
@@ -2395,6 +2410,12 @@ diff -Nur openssh-8.0p1.orig/sshd_config openssh-8.0p1/sshd_config
 +
 +# allow the use of the none cipher
 +#NoneEnabled no
++
++# Disable MT-AES-CTR cipher on server
++# * needed for GSI-OpenSSH 7.4p1 because it's broken on the server side there
++# * useful for modern processors with AES-NI instructions making the stock
++#   AES-CTR cipher faster than the MT-AES-CTR cipher
++DisableMTAES yes
 +
  # Example of overriding settings on a per-user basis
  #Match User anoncvs
