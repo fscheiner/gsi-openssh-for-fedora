@@ -29,9 +29,9 @@
 %global ldap 1
 
 %global openssh_ver 7.4p1
-%global openssh_rel 5
+%global openssh_rel 6
 
-Summary: An implementation of the SSH protocol with GSI authentication
+Summary: An implementation of the SSH protocol with GSI authentication and HPN features
 Name: gsi-openssh
 Version: %{openssh_ver}
 Release: %{openssh_rel}%{?dist}
@@ -197,6 +197,10 @@ Patch962: openssh-7.4p1-uidswap.patch
 # This is the patch that adds GSI support
 # Based on http://grid.ncsa.illinois.edu/ssh/dl/patch/openssh-6.6p1.patch
 Patch98: openssh-7.4p1-gsissh.patch
+
+# This is the HPN patch
+# Based on https://sourceforge.net/projects/hpnssh/files/Patches/HPN-SSH%2014v13%207.4p1/openssh-7_4_P1-hpn-14.13.diff/download
+Patch99: openssh-7.4p1-hpn-14.13-modified.patch
 
 License: BSD
 Group: Applications/Internet
@@ -377,6 +381,7 @@ This version of OpenSSH has been modified to support GSI authentication.
 %patch100 -p1 -b .coverity
 
 %patch98 -p1 -b .gsi
+%patch99 -p1 -b .hpn
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
@@ -542,7 +547,7 @@ getent passwd sshd >/dev/null || \
 %defattr(-,root,root)
 %{!?_licensedir:%global license %%doc}
 %license LICENCE
-%doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
+%doc CREDITS ChangeLog INSTALL OVERVIEW PROTOCOL* README HPN-README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
 %attr(0600,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
@@ -585,6 +590,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_unitdir}/gsisshd-keygen.service
 
 %changelog
+* Fri Oct 23 2020 Frank Scheiner <scheiner@hlrs.de> - 7.4p1-6
+- Add HPN patch
+
 * Wed Aug 07 2019 Mattias Ellert <mattias.ellert@physics.uu.se> - 7.4p1-5
 - Based on openssh-7.4p1-21.el7
 
