@@ -31,7 +31,7 @@
 %global ldap 1
 
 %global openssh_ver 8.3p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -166,6 +166,10 @@ Patch967: openssh-8.3p1-sshd_include.patch
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
 Patch98: openssh-8.3p1-gsissh.patch
+
+# This is the HPN patch
+# Based on https://sourceforge.net/projects/hpnssh/files/Patches/HPN-SSH%2014v22%208.3p1/
+Patch99: openssh-8.3p1-hpn-14.22-modified.patch
 
 License: BSD
 Requires: /sbin/nologin
@@ -318,6 +322,7 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch100 -p1 -b .coverity
 
 %patch98 -p1 -b .gsi
+%patch99 -p1 -b .hpn
 
 sed 's/sshd.pid/gsisshd.pid/' -i pathnames.h
 sed 's!$(piddir)/sshd.pid!$(piddir)/gsisshd.pid!' -i Makefile.in
@@ -474,7 +479,7 @@ getent passwd sshd >/dev/null || \
 
 %files
 %license LICENCE
-%doc CREDITS ChangeLog OVERVIEW PROTOCOL* README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
+%doc CREDITS ChangeLog OVERVIEW PROTOCOL* README HPN-README README.platform README.privsep README.tun README.dns README.sshd-and-gsisshd TODO
 %attr(0755,root,root) %dir %{_sysconfdir}/gsissh
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/gsissh/moduli
 %attr(0755,root,root) %{_bindir}/gsissh-keygen
@@ -517,6 +522,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Thu Oct 29 2020 Frank Scheiner <scheiner@hlrs.de> - 8.3p1-4
+- Add HPN patch
+
 * Thu Jun 11 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.3p1-3
 - Based on openssh-8.3p1-3.fc32
 
