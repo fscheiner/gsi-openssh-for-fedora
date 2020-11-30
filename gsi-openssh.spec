@@ -28,7 +28,7 @@
 %global libedit 1
 
 %global openssh_ver 8.4p1
-%global openssh_rel 1
+%global openssh_rel 2
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -154,6 +154,10 @@ Patch965: openssh-8.2p1-visibility.patch
 # Do not break X11 without IPv6
 Patch966: openssh-8.2p1-x11-without-ipv6.patch
 Patch967: openssh-8.4p1-ssh-copy-id.patch
+# https://bugzilla.mindrot.org/show_bug.cgi?id=3232
+Patch968: openssh-8.4p1-sandbox-seccomp.patch
+# https://bugzilla.mindrot.org/show_bug.cgi?id=3213
+Patch969: openssh-8.4p1-debian-compat.patch
 
 # This is the patch that adds GSI support
 # Based on hpn_isshd-gsi.7.5p1b.patch from Globus upstream
@@ -296,6 +300,8 @@ gpgv2 --quiet --keyring %{SOURCE3} %{SOURCE1} %{SOURCE0}
 %patch965 -p1 -b .visibility
 %patch966 -p1 -b .x11-ipv6
 %patch967 -p1 -b .ssh-copy-id
+%patch968 -p1 -b .seccomp
+%patch969 -p0 -b .debian
 
 %patch200 -p1 -b .audit
 %patch201 -p1 -b .audit-race
@@ -495,6 +501,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Mon Nov 30 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-2
+- Based on openssh-8.4p1-3.fc33
+
 * Tue Oct 06 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-1
 - Based on openssh-8.4p1-2.fc33
 

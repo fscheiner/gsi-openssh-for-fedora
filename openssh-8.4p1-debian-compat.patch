@@ -1,0 +1,57 @@
+--- compat.h.orig	2020-10-05 10:09:02.953505129 -0700
++++ compat.h	2020-10-05 10:10:17.587733113 -0700
+@@ -34,7 +34,7 @@
+ 
+ #define SSH_BUG_UTF8TTYMODE	0x00000001
+ #define SSH_BUG_SIGTYPE		0x00000002
+-/* #define unused		0x00000004 */
++#define SSH_BUG_SIGTYPE74	0x00000004
+ /* #define unused		0x00000008 */
+ #define SSH_OLD_SESSIONID	0x00000010
+ /* #define unused		0x00000020 */
+--- compat.c.orig	2020-10-05 10:25:02.088720562 -0700
++++ compat.c	2020-10-05 10:13:11.637282492 -0700
+@@ -65,11 +65,12 @@
+ 		{ "OpenSSH_6.5*,"
+ 		  "OpenSSH_6.6*",	SSH_NEW_OPENSSH|SSH_BUG_CURVE25519PAD|
+ 					SSH_BUG_SIGTYPE},
++		{ "OpenSSH_7.4*",	SSH_NEW_OPENSSH|SSH_BUG_SIGTYPE|
++		  			SSH_BUG_SIGTYPE74},
+ 		{ "OpenSSH_7.0*,"
+ 		  "OpenSSH_7.1*,"
+ 		  "OpenSSH_7.2*,"
+ 		  "OpenSSH_7.3*,"
+-		  "OpenSSH_7.4*,"
+ 		  "OpenSSH_7.5*,"
+ 		  "OpenSSH_7.6*,"
+ 		  "OpenSSH_7.7*",	SSH_NEW_OPENSSH|SSH_BUG_SIGTYPE},
+--- sshconnect2.c.orig	2020-09-26 07:26:37.618010545 -0700
++++ sshconnect2.c	2020-10-05 10:47:22.116315148 -0700
+@@ -1305,6 +1305,26 @@
+ 			break;
+ 	}
+ 	free(oallowed);
++	/*
++	 * OpenSSH 7.4 supports SHA2 sig types, but fails to indicate its
++	 * support.  For that release, check the local policy against the
++	 * SHA2 signature types.
++	 */
++	if (alg == NULL &&
++	    (key->type == KEY_RSA && (datafellows & SSH_BUG_SIGTYPE74))) {
++		oallowed = allowed = xstrdup(options.pubkey_key_types);
++		while ((cp = strsep(&allowed, ",")) != NULL) {
++			if (sshkey_type_from_name(cp) != key->type)
++				continue;
++			tmp = match_list(sshkey_sigalg_by_name(cp), "rsa-sha2-256,rsa-sha2-512", NULL);
++			if (tmp != NULL)
++				alg = xstrdup(cp);
++			free(tmp);
++			if (alg != NULL)
++				break;
++		}
++		free(oallowed);
++	}
+ 	return alg;
+ }
+ 
+
