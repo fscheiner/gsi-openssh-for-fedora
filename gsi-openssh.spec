@@ -28,7 +28,7 @@
 %global libedit 1
 
 %global openssh_ver 8.4p1
-%global openssh_rel 2
+%global openssh_rel 3
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -96,7 +96,7 @@ Patch713: openssh-6.6p1-ctr-cavstest.patch
 # add SSH KDF CAVS test driver
 Patch714: openssh-6.7p1-kdf-cavs.patch
 
-# GSSAPI Key Exchange (RFC 4462 + draft-ietf-curdle-gss-keyex-sha2-08)
+# GSSAPI Key Exchange (RFC 4462 + RFC 8732)
 # from https://github.com/openssh-gsskex/openssh-gsskex/tree/fedora/master
 Patch800: openssh-8.0p1-gssapi-keyex.patch
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
@@ -501,6 +501,9 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
+* Wed Dec  9 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-3
+- Based on openssh-8.4p1-4.fc33
+
 * Mon Nov 30 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-2
 - Based on openssh-8.4p1-3.fc33
 

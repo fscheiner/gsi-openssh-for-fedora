@@ -86,7 +86,7 @@ diff -up openssh/sshd_config.redhat openssh/sshd_config
 diff -up openssh/sshd_config_redhat.redhat openssh/sshd_config_redhat
 --- openssh/sshd_config_redhat.redhat	2020-02-13 18:14:02.268006439 +0100
 +++ openssh/sshd_config_redhat	2020-02-13 18:19:20.765035947 +0100
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,28 @@
 +# This system is following system-wide crypto policy. The changes to
 +# crypto properties (Ciphers, MACs, ...) will not have any effect in
 +# this or following included files. To override some configuration option,
@@ -96,7 +96,6 @@ diff -up openssh/sshd_config_redhat.redhat openssh/sshd_config_redhat
 +
 +SyslogFacility AUTHPRIV
 +
-+PasswordAuthentication yes
 +ChallengeResponseAuthentication no
 +
 +GSSAPIAuthentication yes

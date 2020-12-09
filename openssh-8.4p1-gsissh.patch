@@ -2375,7 +2375,7 @@ diff -Nur openssh-8.4p1.orig/sshd_config_redhat openssh-8.4p1/sshd_config_redhat
 --- openssh-8.4p1.orig/sshd_config_redhat	2020-10-06 11:23:35.114491135 +0200
 +++ openssh-8.4p1/sshd_config_redhat	2020-10-06 11:24:20.024596907 +0200
 @@ -10,9 +10,6 @@
- PasswordAuthentication yes
+ 
  ChallengeResponseAuthentication no
  
 -GSSAPIAuthentication yes
