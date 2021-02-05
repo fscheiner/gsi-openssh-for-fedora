@@ -2159,12 +2159,13 @@ index a302c79c..879fe917 100644
  	if (rv != CKR_OK) {
  		error("C_GetAttributeValue failed: %lu", rv);
  		return (NULL);
-@@ -717,18 +874,19 @@ pkcs11_fetch_ecdsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
+@@ -717,19 +874,19 @@ pkcs11_fetch_ecdsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
+ 	 * ensure that none of the others are zero length.
  	 * XXX assumes CKA_ID is always first.
  	 */
- 	if (key_attr[1].ulValueLen == 0 ||
+-	if (key_attr[1].ulValueLen == 0 ||
 -	    key_attr[2].ulValueLen == 0) {
-+	    key_attr[2].ulValueLen == 0 ||
++	if (key_attr[2].ulValueLen == 0 ||
 +	    key_attr[3].ulValueLen == 0) {
  		error("invalid attribute length");
  		return (NULL);
@@ -2259,12 +2260,13 @@ index a302c79c..879fe917 100644
  	if (rv != CKR_OK) {
  		error("C_GetAttributeValue failed: %lu", rv);
  		return (NULL);
-@@ -838,18 +998,19 @@ pkcs11_fetch_rsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
+@@ -838,19 +998,19 @@ pkcs11_fetch_rsa_pubkey(struct pkcs11_provider *p, CK_ULONG slotidx,
+ 	 * ensure that none of the others are zero length.
  	 * XXX assumes CKA_ID is always first.
  	 */
- 	if (key_attr[1].ulValueLen == 0 ||
+-	if (key_attr[1].ulValueLen == 0 ||
 -	    key_attr[2].ulValueLen == 0) {
-+	    key_attr[2].ulValueLen == 0 ||
++	if (key_attr[2].ulValueLen == 0 ||
 +	    key_attr[3].ulValueLen == 0) {
  		error("invalid attribute length");
  		return (NULL);

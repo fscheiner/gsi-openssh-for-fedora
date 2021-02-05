@@ -28,7 +28,7 @@
 %global libedit 1
 
 %global openssh_ver 8.4p1
-%global openssh_rel 3
+%global openssh_rel 4
 
 Summary: An implementation of the SSH protocol with GSI authentication
 Name: gsi-openssh
@@ -501,7 +501,10 @@ getent passwd sshd >/dev/null || \
 %attr(0644,root,root) %{_tmpfilesdir}/gsissh.conf
 
 %changelog
-* Wed Dec  9 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-3
+* Fri Feb 05 2021 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-4
+- Based on openssh-8.4p1-5.fc33
+
+* Wed Dec 09 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-3
 - Based on openssh-8.4p1-4.fc33
 
 * Mon Nov 30 2020 Mattias Ellert <mattias.ellert@physics.uu.se> - 8.4p1-2
